@@ -1,0 +1,25 @@
+name: Pull request checks
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  has-issue:
+    name: linked to an open issue with the required labels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: itinera-dev/actions/pr-has-issue@v1
+        with:
+          profile: implementation
+
+  no-cross-repo-closing:
+    name: no cross-repository closing keywords
+    runs-on: ubuntu-latest
+    steps:
+      - uses: itinera-dev/actions/no-cross-repo-closing@v1
