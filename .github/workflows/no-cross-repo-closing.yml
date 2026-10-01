@@ -1,0 +1,43 @@
+name: No cross-repository closing
+
+# A closing keyword that points at another repository ("Closes owner/repo#12")
+# closes that repository's issue when this pull request merges. Fails when the
+# description or any commit message uses one; refer with "Refs owner/repo#12".
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check:
+    name: no cross-repository closing keywords
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the description and commit messages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          # Passed as an env var, never interpolated into the script, so the
+          # untrusted pull request body cannot inject shell.
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          messages=$(gh api "repos/$REPO/pulls/$PR/commits" --paginate --jq '.[].commit.message')
+          printf '%s\n%s\n' "$BODY" "$messages" | python3 -c '
+          import os, re, sys
+          repo = os.environ["REPO"].lower()
+          keyword = r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)"
+          target = r"(?:https://github\.com/([\w.-]+/[\w.-]+)/issues/\d+|([\w.-]+/[\w.-]+)#\d+)"
+          found = [m.group(0) for m in re.finditer(keyword + r":?\s+" + target, sys.stdin.read(), re.I)
+                   if (m.group(1) or m.group(2)).lower() != repo]
+          if found:
+              print("Closing keywords must not point at another repository. Use \"Refs owner/repo#N\" instead:")
+              for f in found:
+                  print("  " + f)
+              sys.exit(1)
+          print("No cross-repository closing keywords.")
+          '
