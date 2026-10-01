@@ -1,0 +1,79 @@
+name: Pull request has an issue
+
+# Every pull request must be linked to at least one open issue in this
+# repository ("Closes #N", or the Development box), and the issue must carry the
+# labels this repository requires:
+#   spec:                 a pull request adding proposals/NNNN-*.md must be linked
+#                         to issue NNNN, labelled "proposal" and "status: ready";
+#                         any other must be linked to an issue labelled
+#                         "process", "spec defect" or "proposal".
+#   language/conformance: a linked "implements-proposal" issue must not still be
+#                         "waiting for spec".
+# Re-runs when the description is edited; after changing an issue's labels,
+# re-run the check from the pull request's Checks tab.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  check:
+    name: linked to an open issue with the required labels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the linked issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          python3 -c '
+          import json, os, re, subprocess, sys
+
+          repo, pr = os.environ["REPO"], int(os.environ["PR"])
+          owner, name = repo.split("/")
+
+          def gh(*args):
+              return subprocess.run(["gh", *args], check=True, capture_output=True, text=True).stdout
+
+          query = """query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){
+            closingIssuesReferences(first:20){nodes{number state repository{nameWithOwner} labels(first:50){nodes{name}}}}}}}"""
+          data = json.loads(gh("api", "graphql", "-f", "query=" + query, "-F", "o=" + owner, "-F", "r=" + name, "-F", "n=" + str(pr)))
+          linked = [i for i in data["data"]["repository"]["pullRequest"]["closingIssuesReferences"]["nodes"]
+                    if i["repository"]["nameWithOwner"].lower() == repo.lower()]
+          issues = {i["number"]: {"open": i["state"] == "OPEN", "labels": {l["name"] for l in i["labels"]["nodes"]}} for i in linked}
+
+          errors = []
+          if not issues:
+              errors.append("Not linked to any issue in this repository. Add \"Closes #N\" to the description.")
+          for n, i in issues.items():
+              if not i["open"]:
+                  errors.append(f"Issue #{n} is closed; link an open issue.")
+
+          if name == "spec":
+              files = gh("api", f"repos/{repo}/pulls/{pr}/files", "--paginate", "--jq", ".[] | select(.status == \"added\") | .filename").split()
+              proposals = sorted({int(m.group(1)) for f in files if (m := re.fullmatch(r"proposals/(\d{4})-[^/]+\.md", f))})
+              for n in proposals:
+                  if n not in issues:
+                      errors.append(f"Adds the file of proposal {n:04d} but is not linked to #{n}. Add \"Closes #{n}\".")
+                  elif not {"proposal", "status: ready"} <= issues[n]["labels"]:
+                      errors.append(f"Issue #{n} must be labelled \"proposal\" and \"status: ready\" before its proposal file is merged.")
+              if issues and not proposals and not any(i["labels"] & {"process", "spec defect", "proposal"} for i in issues.values()):
+                  errors.append("Link an issue labelled \"process\", \"spec defect\" or \"proposal\".")
+          else:
+              for n, i in issues.items():
+                  if "implements-proposal" in i["labels"] and "waiting for spec" in i["labels"]:
+                      errors.append(f"Issue #{n} is still \"waiting for spec\": its proposal is not accepted yet.")
+
+          if errors:
+              print("This pull request cannot be merged yet:")
+              for e in errors:
+                  print("  - " + e)
+              sys.exit(1)
+          print("Linked to: " + ", ".join(f"#{n}" for n in sorted(issues)))
+          '
