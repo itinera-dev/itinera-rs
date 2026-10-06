@@ -350,6 +350,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
   | Crate | Used by | For |
   |---|---|---|
   | `serde`, `erased-serde` | core | the value bound, `Serialize` on events, letting reporters serialize type-erased values |
+  | `derive_more` (`display`, `from`, `as_ref`) | core | `Display`, `From` and `AsRef` on newtypes, which the types use throughout |
   | `serde_plain` | core | `Display` taken from the serialized name, so each name is written once |
   | `uuid` (`v4`) | core | the default journey ID |
   | `syn`, `quote`, `proc-macro2` | macros | the macros |

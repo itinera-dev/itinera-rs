@@ -13,43 +13,29 @@ use crate::value::{AnyValue, Value};
 /// ```
 /// use itinera::JourneyId;
 ///
-/// let id = JourneyId::new("order-42");
-/// assert_eq!(id.as_str(), "order-42");
+/// let id = JourneyId::from("order-42");
+/// let text: &str = id.as_ref();
+/// assert_eq!(text, "order-42");
 /// assert_eq!(id.to_string(), "order-42");
+/// assert_eq!(JourneyId::from(String::from("order-42")), id);
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Serialize,
+    derive_more::Display,
+    derive_more::From,
+    derive_more::AsRef,
+)]
 #[serde(transparent)]
+#[from(forward)]
+#[as_ref(forward)]
 pub struct JourneyId(String);
-
-impl JourneyId {
-    /// Makes a journey ID from its text.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::JourneyId;
-    ///
-    /// assert_eq!(JourneyId::new(String::from("a")), JourneyId::new("a"));
-    /// ```
-    pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    /// The journey ID as text.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::JourneyId;
-    ///
-    /// assert_eq!(JourneyId::new("order-42").as_str(), "order-42");
-    /// ```
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-serde_plain::derive_display_from_serialize!(JourneyId);
 
 /// A step and one of its attempts, counted from 1.
 ///
@@ -956,7 +942,7 @@ pub(crate) mod tests {
         Event {
             sequence: NonZeroU64::new(sequence).unwrap(),
             timestamp: UNIX_EPOCH + Duration::from_millis(1_700_000_000_123),
-            journey_id: JourneyId::new("order-42"),
+            journey_id: JourneyId::from("order-42"),
             workflow: "orders".to_string(),
             body,
         }
