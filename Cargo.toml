@@ -15,6 +15,7 @@ itinera-macros = { path = "crates/itinera-macros", version = "0.0.0" }
 serde = { version = "1", default-features = false, features = ["std", "derive"] }
 erased-serde = { version = "0.4", default-features = false, features = ["std"] }
 serde_json = { version = "1", default-features = false, features = ["std"] }
+serde_plain = "1.0.2"
 
 [workspace.lints.rust]
 missing_docs = "deny"

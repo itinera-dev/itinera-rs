@@ -49,11 +49,7 @@ impl JourneyId {
     }
 }
 
-impl fmt::Display for JourneyId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
+serde_plain::derive_display_from_serialize!(JourneyId);
 
 /// A step and one of its attempts, counted from 1.
 ///
@@ -77,7 +73,7 @@ pub struct StepAttempt {
 
 /// The name of a hook.
 ///
-/// It displays as the specification writes it, for example `on step success`.
+/// It displays as the hook is named, for example `on step success`.
 ///
 /// # Examples
 ///
@@ -109,33 +105,7 @@ pub enum HookName {
     OnWorkflowFailure,
 }
 
-impl HookName {
-    /// The hook's name, as the specification writes it.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::HookName;
-    ///
-    /// assert_eq!(HookName::OnWorkflowFailure.as_str(), "on workflow failure");
-    /// ```
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::OnStepSuccess => "on step success",
-            Self::OnStepFailure => "on step failure",
-            Self::OnStepRetry => "on step retry",
-            Self::OnStepAbnormalTermination => "on step abnormal termination",
-            Self::OnWorkflowSuccess => "on workflow success",
-            Self::OnWorkflowFailure => "on workflow failure",
-        }
-    }
-}
-
-impl fmt::Display for HookName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
+serde_plain::derive_display_from_serialize!(HookName);
 
 /// A hook of a named policy.
 ///
@@ -367,14 +337,7 @@ pub enum RetryCause {
     AbnormalTermination,
 }
 
-impl fmt::Display for RetryCause {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::RetriableFailure => "retriable failure",
-            Self::AbnormalTermination => "abnormal termination",
-        })
-    }
-}
+serde_plain::derive_display_from_serialize!(RetryCause);
 
 /// Why a step will not be attempted again.
 ///
@@ -445,8 +408,8 @@ pub enum Failure {
 
 /// Why a journey was aborted.
 ///
-/// It displays as the specification writes it. The reasons `invalid lifecycle` and `not a value`
-/// cannot happen in Rust, so they are absent.
+/// It displays as the reason is named, for example `reporter failed`. The reasons
+/// `invalid lifecycle` and `not a value` cannot happen in Rust, so they are absent.
 ///
 /// # Examples
 ///
@@ -478,33 +441,7 @@ pub enum AbortReason {
     ReporterFailed,
 }
 
-impl AbortReason {
-    /// The abort reason, as the specification writes it.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::AbortReason;
-    ///
-    /// assert_eq!(AbortReason::WrongType.as_str(), "wrong type");
-    /// ```
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::StepCouldNotBeBuilt => "step could not be built",
-            Self::PolicyCouldNotBeBuilt => "policy could not be built",
-            Self::RequiredDataMissing => "required data missing",
-            Self::WrongType => "wrong type",
-            Self::HookFailed => "hook failed",
-            Self::ReporterFailed => "reporter failed",
-        }
-    }
-}
-
-impl fmt::Display for AbortReason {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
+serde_plain::derive_display_from_serialize!(AbortReason);
 
 /// Who requested data: a step for one of its inputs, a hook, or an input adapter.
 ///
@@ -593,7 +530,7 @@ pub enum Source {
 /// increasing from 1 within the journey, a timestamp, the journey ID and the workflow name;
 /// what else it carries depends on its [`body`](Event::body).
 ///
-/// It serializes as one map: `kind`, `sequence`, `timestamp` in ISO 8601 in UTC, `journey_id`,
+/// It serializes as one map holding `kind`, `sequence`, `timestamp` in ISO 8601 in UTC, `journey_id`,
 /// `workflow`, and the fields of its body.
 ///
 /// # Examples
@@ -1235,7 +1172,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn an_abort_carries_its_reason_as_the_specification_writes_it_and_its_details() {
+    fn an_abort_carries_its_reason_by_name_and_its_details() {
         let json = to_json(&event(
             6,
             EventBody::JourneyAborted {

@@ -30,6 +30,7 @@ A proposal is added to `proposals` in `conformance.json` only by the pull reques
 - Formatting is plain `rustfmt`, without configuration.
 - Names use the specification's vocabulary exactly.
 - Library code never panics: Clippy denies `unwrap`, `expect`, `panic!`, indexing, `todo!` and `unimplemented!` outside tests.
+- Reuse before writing. Look first at the standard library and the APIs already at hand, then at crates the workspace already depends on, then at well-known crates. Write it ourselves only when none fits, or when a crate would replace only a couple of lines or bring in heavy dependencies.
 - Types hold every constraint of the specification and the plan that Rust can express: `NonZeroU32` for a number counted from 1, an enum for a closed set of values, a newtype for an identifier. A documentation comment stating a constraint that the type could enforce means the type is wrong.
 - Everything is `pub(crate)` unless it must be public. Public types that may grow are `#[non_exhaustive]`.
 - Every crate has `#![forbid(unsafe_code)]`.

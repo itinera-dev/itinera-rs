@@ -9,7 +9,7 @@ Status: in progress. Stage 1 adds the events; the engine that emits them arrives
 - **`Event`** carries a sequence number from 1, a `SystemTime` timestamp, the `JourneyId`, the workflow name, and an `EventBody` with one variant per event of the catalogue. `kind()` gives the snake_case name.
 - Only itinera constructs events: `Event` and every `EventBody` variant are `#[non_exhaustive]`, readable but not constructible outside the crate.
 - An event about a step carries a `StepAttempt`; one from or about a hook carries a `HookSource` (policy, hook, and the triggering step and attempt for a step hook).
-- `Event` implements `Serialize` as one flat map: `kind`, `sequence`, `timestamp` in ISO 8601 in UTC, `journey_id`, `workflow`, then the body's fields.
+- `Event` implements `Serialize` as one flat map holding `kind`, `sequence`, `timestamp` in ISO 8601 in UTC, `journey_id`, `workflow` and the body's fields.
 
 ## How the rules are enforced
 
