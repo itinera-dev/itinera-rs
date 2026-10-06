@@ -1,0 +1,22 @@
+[package]
+name = "itinera"
+description = "A workflow framework that keeps business rules separate from flow control."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../README.md"
+
+[features]
+default = ["macros"]
+macros = ["dep:itinera-macros"]
+async = ["itinera-core/async"]
+unstable = ["itinera-core/unstable"]
+
+[dependencies]
+itinera-core.workspace = true
+itinera-macros = { workspace = true, optional = true }
+
+[lints]
+workspace = true
