@@ -13,7 +13,7 @@ Code samples show the intended shape. Names of attributes and methods may still 
 - **Capabilities claimed**: `sync` and `async`.
 - **Rules made impossible to express** (proposal 0054): `invalid-lifecycle`, `role-not-provided`, `mode-not-accepted`, `non-value` and `late-handle`.
 
-One question is still open: how the conformance report shows the scenarios excluded as impossible ([conformance#51](https://github.com/itinera-dev/conformance/issues/51)). It must be settled before the runner writes its first report, in stage 2.
+How excluded scenarios are declared and reported is defined in the conformance repository's FORMAT.md: the manifest lists each one with its proof, and the `run-conformance` action reports them next to the Cucumber JSON (decision 11).
 
 ## Architecture
 
@@ -26,7 +26,7 @@ A Cargo workspace, edition 2024, resolver 3, under `crates/`.
 | `itinera` | yes | What applications depend on: re-exports `itinera-core`, and the macros behind the `macros` feature |
 | `itinera-core` | yes | Values and the data bag, events, reporters and dispatchers, steps, policies, descriptors and their builder, the workflow instance, the engine and both local executors |
 | `itinera-macros` | yes | The procedural macros |
-| `itinera-conformance` | no | The conformance runner and its proofs |
+| `itinera-conformance` | no | The conformance runner |
 
 There is no separate executor crate in tier 1: both executors share one engine, which stays private. Executors of later tiers, such as durable ones, get crates of their own.
 
@@ -247,14 +247,15 @@ pub struct Abort { pub reason: AbortReason, pub details: AbortDetails }
 - **A binary**, `itinera-conformance`, run with `cargo run -p itinera-conformance --release`, using cucumber-rs on Tokio (a dependency of the runner only). It reads the cases from `ITINERA_CONFORMANCE_CASES`, selects scenarios with the tag expression in `ITINERA_CONFORMANCE_TAGS`, writes Cucumber JSON to `ITINERA_CONFORMANCE_REPORT`, and fails if any selected scenario fails or uses an undefined sentence.
 - **Only the public API.** Each scenario's sentences fill a scenario model, which "When the workflow runs" turns into builder calls: scripted steps implementing `StepFactory`, scripted policy factories recording what their hooks received, a scripted workflow type implementing one recording role trait, scripted reporters, and a recording dispatcher factory whose dispatchers share the test's reporter. Every sentence about events, and about step statuses, reads from that reporter. Scripted failures (a hook, role operation, reporter, dispatcher, factory or policy that fails) return an `Error`.
 - **Both executors.** Every scenario whose workflow is `Sync` runs under `LocalExecutor` and again under `AsyncLocalExecutor`, and must pass under both. Scenarios with an asynchronous part run under the asynchronous one.
-- **Proofs.** `conformance.json` lists the five tags under `impossible`. Every scenario carrying one has a fixture in `crates/itinera-conformance/proofs/<tag>/`: a short file with the forbidden code, the compiler error it must produce, and a twin that differs only in the forbidden line and must compile. `proofs.toml` maps each scenario to its fixture, and the runner fails if a tagged scenario has none. The fixtures use shared support types from the conformance crate. The proofs are:
+- **The runner knows nothing of excluded scenarios.** It writes only the Cucumber JSON, holding the scenarios that ran.
+- **Exclusions are declared in `conformance.json`.** `impossible` maps each excluded tag to its scenarios, each with its feature file, its name, and its proof: the test that proves it and the file holding that test. Every scenario carrying the tag at the pinned cases must have an entry, so a tag is added, with all its entries, in the pull request that lands the proofs for all its scenarios. Until then its scenarios do not run anyway, since their proposals are not listed yet.
+- **Proofs are Rust tests, run by `cargo test`.** They live in `crates/itinera/tests/proofs.rs`, with their fixtures beside it in `crates/itinera/tests/proofs/<tag>/`, because they test the public API, not the runner. Each excluded scenario has its own `#[test]`, which runs `trybuild` on one fixture holding the forbidden code, compared with the compiler error it must produce, and on a twin that differs only in the forbidden line and must compile. The fixtures share a few support types. The proofs are:
   - `invalid-lifecycle`: `on step failure` returning `FinishWorkflow`;
   - `role-not-provided`: a policy needing a role the workflow does not provide;
   - `mode-not-accepted`: an asynchronous step run by `LocalExecutor`;
   - `non-value`: a closure as initial data, as a contribution, as an adapter's value, as event data and as a reason's details;
   - `late-handle`: a contributor or step reporter moved into a thread that outlives the attempt.
-- **How excluded scenarios appear in the report** follows [conformance#51](https://github.com/itinera-dev/conformance/issues/51).
-- **The `run-conformance` action** is written in itinera-dev/actions, in Python with tests, before the first proposal is listed in `conformance.json`.
+- **The `run-conformance` action** checks the exclusions and writes the report's second file. It leaves the `impossible` tags out of the tag expression, fails if a tagged scenario has no entry or an entry names no scenario at the pinned cases, and writes the exclusions file next to the Cucumber JSON. Together the two files are the conformance report a release carries. The action is written in itinera-dev/actions, in Python with tests, before the first proposal is listed in `conformance.json`.
 
 ### 12. Rust's own tests
 
@@ -291,9 +292,9 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 
 | Stage | Content | Proposals completed |
 |---|---|---|
-| 0. Bootstrap | the workspace and crates, `rust-toolchain.toml`, lints, CI, `deny.toml`, the README, an agents' manual, `conformance.json` pinning `v0.1.0-rc.2` with the capabilities and the `impossible` tags, and no proposals | none |
+| 0. Bootstrap | the workspace and crates, `rust-toolchain.toml`, lints, CI, `deny.toml`, the README, an agents' manual, `conformance.json` pinning `v0.1.0-rc.2` with the capabilities, no proposals, and `"impossible": {}` | none |
 | 1. Events | `Event`, reporters, dispatchers and their factory, `DefaultDispatcher` | none |
-| 2. Runner skeleton | cucumber-rs, the environment variables, the recording dispatcher factory, the scenario model, the proofs mechanism, the report | none |
+| 2. Runner skeleton | cucumber-rs, the environment variables, the recording dispatcher factory, the scenario model, the Cucumber JSON report | none |
 | 3. Minimal executor | the engine and both executors, `WorkflowDescriptor` with one synchronous step, `WorkflowInstance` and `Instance<W>`, journey IDs, reporters built by `create()`, `JourneyResult` and `Refusal` | none |
 | 4. Declarations and admission | step and policy descriptors, input adapter declarations, the listing, `Violations` | 0062 |
 | 5. Steps | needs and tokens, building per attempt, outcomes, contributions, the data bag, read-only received data, values, handles and `Interrupted` | 0056, 0057, 0064 (their scenarios are all proven impossible) |
@@ -303,7 +304,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
 
 - **The decision logic is pure**: a function of the outcome, the retry budget left, `abnormal termination retriable` and the hooks' answers, which touches nothing. The code around it builds, runs, emits and commits.
-- **Proofs land with their feature.** A proposal is listed in `conformance.json` only when each of its scenarios passes or is proven.
+- **Proofs land with their feature**, together with their tag's entries under `impossible` in `conformance.json`. A proposal is listed in `conformance.json` only when each of its scenarios passes or is proven.
 - **A later cases candidate** is adopted by a pull request that moves `cases` in `conformance.json` and fixes whatever its changed cases need.
 
 ### Pull requests
