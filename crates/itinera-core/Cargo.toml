@@ -1,0 +1,15 @@
+[package]
+name = "itinera-core"
+description = "The core of Itinera, a workflow framework that keeps business rules separate from flow control."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+async = []
+unstable = []
+
+[lints]
+workspace = true
