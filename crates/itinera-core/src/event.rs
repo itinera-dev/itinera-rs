@@ -949,6 +949,10 @@ const NANOS_PER_SECOND: u32 = 1_000_000_000;
 
 fn rfc_3339(timestamp: SystemTime) -> Option<String> {
     let (seconds, nanos) = seconds_since_epoch(timestamp)?;
+    utc(seconds, nanos)
+}
+
+fn utc(seconds: i64, nanos: u32) -> Option<String> {
     let (year, month, day) = civil_date(seconds.div_euclid(SECONDS_PER_DAY));
     if !(0..=9999).contains(&year) {
         return None;
@@ -1249,46 +1253,41 @@ pub(crate) mod tests {
         );
     }
 
-    fn at(seconds: i64, nanos: u32) -> Option<String> {
-        let since = Duration::new(seconds.unsigned_abs(), 0);
-        let whole = if seconds < 0 {
-            UNIX_EPOCH - since
-        } else {
-            UNIX_EPOCH + since
-        };
-        rfc_3339(whole + Duration::from_nanos(u64::from(nanos)))
-    }
-
     #[test]
     fn timestamps_are_rendered_in_utc_as_rfc_3339() {
-        assert_eq!(at(0, 0).unwrap(), "1970-01-01T00:00:00Z");
-        assert_eq!(at(951_868_800, 0).unwrap(), "2000-03-01T00:00:00Z");
-        assert_eq!(at(1_709_208_000, 0).unwrap(), "2024-02-29T12:00:00Z");
+        assert_eq!(utc(0, 0).unwrap(), "1970-01-01T00:00:00Z");
+        assert_eq!(utc(951_868_800, 0).unwrap(), "2000-03-01T00:00:00Z");
+        assert_eq!(utc(1_709_208_000, 0).unwrap(), "2024-02-29T12:00:00Z");
         assert_eq!(
-            at(1_700_000_000, 123_000_000).unwrap(),
+            utc(1_700_000_000, 123_000_000).unwrap(),
             "2023-11-14T22:13:20.123Z"
         );
         assert_eq!(
-            at(1_700_000_000, 5).unwrap(),
+            utc(1_700_000_000, 5).unwrap(),
             "2023-11-14T22:13:20.000000005Z"
         );
-        assert_eq!(at(253_402_300_799, 0).unwrap(), "9999-12-31T23:59:59Z");
-        assert_eq!(at(-62_167_219_200, 0).unwrap(), "0000-01-01T00:00:00Z");
+        assert_eq!(utc(253_402_300_799, 0).unwrap(), "9999-12-31T23:59:59Z");
+        assert_eq!(utc(-62_167_219_200, 0).unwrap(), "0000-01-01T00:00:00Z");
     }
 
     #[test]
     fn a_timestamp_just_before_1970_borrows_from_the_previous_second() {
+        let just_before = UNIX_EPOCH - Duration::from_nanos(100);
+        assert_eq!(seconds_since_epoch(just_before), Some((-1, 999_999_900)));
         assert_eq!(
-            at(-1, 999_999_999).unwrap(),
-            "1969-12-31T23:59:59.999999999Z"
+            rfc_3339(just_before).unwrap(),
+            "1969-12-31T23:59:59.9999999Z"
         );
-        assert_eq!(at(-1, 0).unwrap(), "1969-12-31T23:59:59Z");
+        assert_eq!(
+            rfc_3339(UNIX_EPOCH - Duration::from_secs(1)).unwrap(),
+            "1969-12-31T23:59:59Z"
+        );
     }
 
     #[test]
     fn a_timestamp_outside_the_years_0_to_9999_cannot_be_rendered() {
-        assert_eq!(at(253_402_300_800, 0), None);
-        assert_eq!(at(-62_167_219_201, 0), None);
+        assert_eq!(utc(253_402_300_800, 0), None);
+        assert_eq!(utc(-62_167_219_201, 0), None);
     }
 
     #[test]
