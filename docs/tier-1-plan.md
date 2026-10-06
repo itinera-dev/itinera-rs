@@ -6,27 +6,14 @@ This document holds what crosses proposals. What concerns a single proposal goes
 
 Code samples show the intended shape. Names of attributes and methods may still change while implementing; the tech specs record the final ones.
 
-## Open specification items
+## What this plan implements
 
-Parts of this plan rely on changes still open in [itinera-dev/spec](https://github.com/itinera-dev/spec). Implementation issues are opened, and stage 3 starts, only once a maintainer says they are settled. If one is declined or changed, the decisions that depend on it are revisited before code is written.
+- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064 and 0065.
+- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.2`, and later candidates as they are tagged.
+- **Capabilities claimed**: `sync` and `async`.
+- **Rules made impossible to express** (proposal 0054): `invalid-lifecycle`, `role-not-provided`, `mode-not-accepted`, `non-value` and `late-handle`.
 
-| Issue | What it settles | Decisions that depend on it |
-|---|---|---|
-| [#54](https://github.com/itinera-dev/spec/issues/54) | Rules a language makes impossible to express are excluded from conformance, each with a proof; unrecoverable failures, such as a panic, are outside the model | 2, 4, 5, 8, 11 |
-| [#55](https://github.com/itinera-dev/spec/issues/55) | Events from steps and hooks are delivered before the emit call returns; a reporter that throws while a step runs ends it | 8, 9 |
-| [#56](https://github.com/itinera-dev/spec/issues/56) | Everything in the data bag is a serializable value | 3 |
-| [#57](https://github.com/itinera-dev/spec/issues/57) | Contributors and reporters are valid only during their attempt or hook | 4 |
-| [#58](https://github.com/itinera-dev/spec/issues/58) | Workflow policies are built per journey, step policies per attempt; hooks cannot change their policy | 5 |
-| [#59](https://github.com/itinera-dev/spec/issues/59) | A name for the violation "input adapter for an unknown step or key" | 6 |
-| [#60](https://github.com/itinera-dev/spec/issues/60) | Input adapters are hooks attached to whole steps, and leave unknown inputs to the data bag | 6 |
-| [#61](https://github.com/itinera-dev/spec/issues/61) | The workflow instance provides its journey ID and its reporters | 7, 8 |
-| [#62](https://github.com/itinera-dev/spec/issues/62) | Workflow descriptors, and the workflow instance interface | 6, 7 |
-| [#63](https://github.com/itinera-dev/spec/issues/63) | Dispatchers gain `clear` | 9 |
-| [#64](https://github.com/itinera-dev/spec/issues/64) | Event data and reason details are values carried in memory, serialized only by reporters | 9 |
-| [#65](https://github.com/itinera-dev/spec/issues/65) | The journey result is a business outcome, without step internals | 10 |
-| [#66](https://github.com/itinera-dev/spec/issues/66) | The first publish of a package uses a short-lived token | 18 |
-
-In itinera-dev/conformance, [#37](https://github.com/itinera-dev/conformance/issues/37) settles how JSON values map to the neutral types.
+One question is still open: how the conformance report shows the scenarios excluded as impossible ([conformance#51](https://github.com/itinera-dev/conformance/issues/51)). It must be settled before the runner writes its first report, in stage 2.
 
 ## Architecture
 
@@ -45,18 +32,20 @@ There is no separate executor crate in tier 1: both executors share one engine, 
 
 ### 2. A typed builder, and rules made impossible to express
 
-The builder is the public API, and the macros are only syntax over it. There is no untyped API. What Rust can reject at compile time, it rejects:
+The builder is the public API, and the macros are only syntax over it. There is no untyped API. Five rules are made impossible to express, each proven by a test (decision 11):
 
 - **Lifecycles.** Each hook has its own return type, holding only the lifecycles it may return, so an invalid lifecycle cannot be written.
 - **Roles.** A workflow is generic over its own type `W`, and a policy that needs a role is implemented only for workflows whose `W` implements that role's trait. Attaching it to a workflow without the role does not compile.
 - **Execution modes.** The mode is part of the descriptor's type. Adding an asynchronous part turns a `Sync` descriptor into an `Async` one, and the synchronous executor accepts only `Sync`.
+- **Values.** Only values can enter the data bag, event data or a reason's details (decision 3).
+- **Late handles.** A contributor or reporter cannot outlive its attempt or hook (decision 4).
 
-The conformance scenarios that need these situations are excluded through the tags of spec#54, and each is replaced by a proof (decision 11). The rules types cannot reach are checked when the descriptor is built (decision 6) or while the journey runs.
+The rules types cannot reach are checked when the descriptor is built (decision 6) or while the journey runs.
 
 ### 3. Values and the data bag
 
 - **A value** is any `T: Serialize + DeserializeOwned + Clone + Send + Sync + 'static`. Closures, function pointers and handles cannot be values. Nothing is serialized by the engine: the bounds only make sure that something could serialize them.
-- **The data bag** maps `String` keys to type-erased values, together with what is needed to clone and serialize them.
+- **The data bag** maps `String` keys to type-erased values, together with what is needed to clone and serialize them. Event data and reason details use the same type-erased value.
 - **Reading** names the exact type `T`. Any other type is `wrong type`, including `i32` against `i64`.
 - **Received data is read-only** because every receiver, step or hook, gets its own owned clone, never a reference into the bag. A type whose `Clone` shares mutable state, such as `Arc<Mutex<_>>`, defeats this, and the documentation says so.
 - **Contributions are captured when made**: contributing takes the value by ownership.
@@ -80,12 +69,17 @@ The conformance scenarios that need these situations are excluded through the ta
   }
 
   impl<'a> Step<'a> for Charge<'a> {
-      fn run(self) -> Result<Outcome, Error> { /* ... */ }
+      fn run(self) -> Result<Outcome, Error> {
+          self.reporter.info("charging")?;
+          self.contributor.contribute("receipt", "R-1".to_string());
+          Ok(Outcome::success())
+      }
   }
   ```
 
 - **`run(self)` takes nothing else.** It consumes the step, so nothing survives into another attempt. `Step` and `AsyncStep` are separate traits, so the mode is in the type.
 - **Handles borrow their attempt.** `Contributor<'a>` and `StepReporter<'a>` carry the lifetime of the attempt, chosen by the executor, so they cannot be moved into a thread or task that outlives it. The guarantee comes from the types, with or without the macros.
+- **Emitting can be interrupted.** `StepReporter` methods return `Result<(), Interrupted>`. `Interrupted` is the executor's signal that a reporter failed while the event was being delivered (decision 9); the step propagates it with `?`. `Contributor::contribute` returns nothing: it cannot fail, since only values can be contributed.
 - **The builder takes a `StepFactory`**, which the macro implements:
 
   ```rust
@@ -98,8 +92,8 @@ The conformance scenarios that need these situations are excluded through the ta
 
   `StepNeeds` hands out typed tokens (`needs.input::<i64>("amount")`, `needs.contributor()`), and `got.take(token)` returns the resolved value or handle, already of the right type. A plain closure is accepted only for steps that use no handles.
 - **Outcomes**: `Outcome::success()`, `Outcome::failure(reason)`, `Outcome::retriable_failure(reason)`, `Outcome::skipped()` and `Outcome::skipped_because(reason)`. A `Reason` has a code, an optional message and optional details, which are a value.
-- **One error type, `itinera::Error`**, for the custom code that can fail: a step's `run`, a step's constructor, and a reporter's `init`. It converts from any `std::error::Error + Send + Sync + 'static`, so `?` works on any library's error. Because of that conversion it does not itself implement `std::error::Error`; it offers `Display`, `source()` and `Error::msg`.
-- **`?` in `run` is an abnormal termination**: an error the step did not anticipate. A failure the step chose is returned as `Outcome::failure`.
+- **One error type, `itinera::Error`**, for every custom code that can fail: a step's `run` and constructor, hooks, role operations, policy factories, reporters and their `init`, dispatchers and dispatcher factories. It converts from any `std::error::Error + Send + Sync + 'static`, so `?` works on any library's error, and from `Interrupted`. Because of that conversion it does not itself implement `std::error::Error`; it offers `Display`, `source()` and `Error::msg`.
+- **`?` in `run` is an abnormal termination**: an error the step did not anticipate. A failure the step chose is returned as `Outcome::failure`. The one exception is `Interrupted`: the engine recognises its own signal, the journey is already aborted, and nothing the step returns afterwards counts.
 - **Contributions are kept per attempt**: visible to that attempt's hooks whatever its outcome, committed only on Success, dropped on an abnormal termination.
 
 ### 5. Policies, hooks and roles
@@ -115,11 +109,11 @@ The conformance scenarios that need these situations are excluded through the ta
   | the error | `on step abnormal termination` |
   | data from the workflow, the journey ID, roles, a contributor, a reporter | every hook |
 
-- **Each hook returns its own type**: `Option<OnSuccess>` for `on step success` (`FinishWorkflow` or `FailWorkflow`), `Option<FailWorkflow>` for `on step failure`, `on step retry` and `on step abnormal termination`, and nothing for workflow hooks.
+- **Each hook returns its own type, inside a `Result`**: `Result<Option<OnSuccess>, Error>` for `on step success` (`FinishWorkflow` or `FailWorkflow`), `Result<Option<FailWorkflow>, Error>` for `on step failure`, `on step retry` and `on step abnormal termination`, and `Result<(), Error>` for workflow hooks. `Err` aborts the journey with `hook failed`.
 - **Hooks take `&self`.** Everything they need arrives as parameters, so they have no reason to change their policy.
-- **Policies are built by the executor from factories**, which cannot fail: workflow policies once per journey, before it starts; step policies for every attempt, with the step.
-- **Roles are plain traits**, implemented by the workflow's own type `W`. A hook requests one as `#[role] notifier: &dyn Notifier`. There is no marker trait. Role operations return no `Result`.
-- **Hooks, role operations, reporters and dispatchers cannot fail**: their signatures have no error. A panic is a bug, is never caught, and ends the program as Rust defines.
+- **Policies are built by the executor from factories** that return the policy or an `Error`: workflow policies once per journey, before it starts, where an error is a refusal; step policies for every attempt, with the step, where an error aborts the journey with `policy could not be built`. The builder also accepts factories that cannot fail.
+- **Roles are plain traits**, implemented by the workflow's own type `W`. A hook requests one as `#[role] notifier: &dyn Notifier`. There is no marker trait. A role operation that can fail returns `Result<_, itinera::Error>`, and the hook propagates it, which aborts with `hook failed`.
+- **Panics are never caught.** A panic is a bug: it propagates to whoever called `run`, and the journey stops as if the process had crashed.
 - **Each hook has a synchronous trait and an asynchronous one**, behind the `async` feature. Any asynchronous part makes the workflow `Async`.
 
 ### 6. Workflow descriptors and input adapters
@@ -142,7 +136,7 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Sync>> = LazyLock::new(|| {
 
 - **A workflow descriptor** is the workflow's declaration: its name, its step descriptors, its policy descriptors, its input adapters, its reporters and its ID generator. It is immutable, `Send + Sync`, cheap to clone, shared by every instance, and only `build()` can produce one.
 - **Each step descriptor states everything**: the retry budget (0 unless set), `abnormal termination retriable` (false unless set), and its policies in the order attached.
-- **`build()` checks what types cannot**, and returns every violation at once in `Violations`: duplicate step names, a hook defined twice on one step or on the workflow, an input adapter for an unknown step, and a step adapted twice.
+- **`build()` checks what types cannot**, and returns every violation at once in `Violations`: `duplicate step name`, `hook defined twice`, `input adapter for unknown step` and `step adapted twice`.
 - **`listing()`** gives each step's name, its position from 1, its policy names in order, and its input adapter's name.
 - **Input adapters are hooks of the workflow**, written as its own annotated methods and attached to whole steps, at most one per step:
 
@@ -151,15 +145,15 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Sync>> = LazyLock::new(|| {
   impl Orders {
       #[input_adapter(steps = ["charge", "refund"])]
       fn pricing(&self, #[step_name] step: &str, #[key] key: &str,
-                 #[data_from_workflow("price")] price: i64) -> Option<Value> { /* ... */ }
+                 #[data_from_workflow("price")] price: i64) -> Result<Option<Value>, Error> { /* ... */ }
   }
   ```
 
-  It is called for each input of an adapted step. A value is used; `None` means "not mine", and the input is read from the data bag. Its return is untyped and checked against the step's declared type. It may request the step's name, the key, data from the workflow and the journey ID, never roles, a contributor or a reporter. The macro generates the builder call that registers it.
+  It is called for each input of an adapted step. A value is used; `None` means "not mine", and the input is read from the data bag; `Err` emits `input_adapter_failed` and aborts with `step could not be built`. Its value is untyped and checked against the step's declared type. It may request the step's name, the key, data from the workflow and the journey ID, never roles, a contributor or a reporter. The macro generates the builder call that registers it.
 
 ### 7. The workflow instance
 
-Every workflow instance implements one trait, the only thing an executor relies on. The executor coordinates the flow; it does not own data.
+The specification requires only that any executor can run any instance, however it was produced. In Rust, that contract is one trait, the only thing an executor relies on. The executor coordinates the flow; it does not own data.
 
 ```rust
 pub trait WorkflowInstance: Send + 'static {
@@ -196,28 +190,28 @@ pub trait WorkflowInstance: Send + 'static {
 - **`LocalExecutor`** runs `Sync` workflows. **`AsyncLocalExecutor`**, behind the `async` feature, runs `Sync` and `Async` workflows, running synchronous parts inline.
 - **One engine.** The scan, the decisions, the hooks and the events are written once, as asynchronous code. The synchronous executor drives it with `std::task::Waker::noop()`: a `Sync` workflow has nothing to wait for, so it runs straight through.
 - **No runtime dependency.** The engine never spawns, sleeps, sets timers or cancels. It only awaits the futures of the workflow's own parts, one after another, so it runs on any async runtime.
-- **`run` returns the journey's result directly**, with no `Result`, because every refusal the specification defines is settled before `run`: declaration violations by `build()`, modes by types, the journey ID and reporters by `create()`, and dispatchers that cannot fail.
+- **`run` returns the journey's result, or a refusal before the journey starts**:
 
   ```rust
-  impl<D: Dispatcher> LocalExecutor<D> {
-      pub fn new() -> LocalExecutor<DefaultDispatcher>;
-      pub fn with_dispatcher(dispatcher: D) -> Self;
-      pub fn run<I: WorkflowInstance<Mode = Sync>>(&mut self, instance: I) -> JourneyResult;
+  impl<F: DispatcherFactory> LocalExecutor<F> {
+      pub fn new() -> LocalExecutor<DefaultDispatcherFactory>;
+      pub fn with_dispatcher_factory(factory: F) -> Self;
+      pub fn run<I: WorkflowInstance<Mode = Sync>>(&mut self, instance: I) -> Result<JourneyResult, Refusal>;
   }
   ```
 
-  `&mut self` makes concurrent journeys on one executor impossible to write.
+  A refusal comes from custom code called before the journey starts: a workflow policy that cannot be built, a dispatcher factory that fails, or a dispatcher that fails while the journey's reporters are added. Declaration violations are settled by `build()`, modes by types, and the journey ID and reporters by `create()`. `&mut self` makes concurrent journeys on one executor impossible to write.
 - **Everything asynchronous is awaited**: asynchronous steps, hooks, reporters and dispatchers alike.
 - **A dropped future abandons the journey.** If the caller drops the future returned by `AsyncLocalExecutor::run`, the journey stops where it is. The documentation says so.
 - **Deferred:** cooperative yields between units of the async engine.
 
-### 9. Events and dispatchers
+### 9. Events, reporters and dispatchers
 
 - **One `Event` type**: a sequence number from 1, a `SystemTime` timestamp rendered as ISO 8601 in UTC, the journey ID, the workflow name, and a typed body with one variant per event of the catalogue. `kind()` returns the event's snake_case name. No variant has a field able to hold a value from the data bag. `DecidedBy` is `Default` or a policy and hook. `Event` implements `Serialize`.
 - **Data in step and hook events, and reason details,** are values carried in memory, cloned when emitted, and serialized only by reporters, in their own format.
-- **Reporters**: `Reporter` with `report(&mut self, &Event)`, and `AsyncReporter` behind the `async` feature. An asynchronous reporter makes the workflow `Async`.
-- **The handles given to steps and hooks** are restricted views of the journey's dispatcher. A `StepReporter` emits only `step_info`, `step_warning` and `step_error`, stamped with the step and attempt; a `HookReporter` emits only `journey_info`, `journey_warning` and `journey_error`, stamped with the policy and hook. Delivery happens before the emit call returns. In a workflow with an asynchronous reporter, the handles are asynchronous, and only asynchronous steps and hooks can request them.
-- **Dispatchers**: `Dispatcher` and `AsyncDispatcher`, with `add`, `dispatch` and `clear`. `clear` removes every reporter added through `add` and keeps the dispatcher's own. `DefaultDispatcher` implements both, is created afresh for every journey, and calls reporters in the order they were added. A dispatcher given to an executor is kept between journeys and cleared at the end of each.
+- **Reporters**: `Reporter` with `report(&mut self, &Event) -> Result<(), Error>`, and `AsyncReporter` behind the `async` feature. An `Err` aborts the journey with `reporter failed`; the event is still delivered to the reporters after it, and `journey_aborted` to every reporter except the one that failed. An error while `journey_aborted` itself is delivered is ignored. An asynchronous reporter makes the workflow `Async`.
+- **The handles given to steps and hooks** are restricted views of the journey's dispatcher. A `StepReporter` emits only `step_info`, `step_warning` and `step_error`, stamped with the step and attempt; a `HookReporter` emits only `journey_info`, `journey_warning` and `journey_error`, stamped with the policy and hook. Delivery happens before the emit call returns. If a reporter fails during that delivery, the engine records the abort at once, and the call returns `Interrupted`. From then on nothing the step or hook emits is delivered, and when it returns, its outcome, lifecycle and contributions are ignored, even if it ignored `Interrupted` and carried on. In a workflow with an asynchronous reporter, the handles are asynchronous, and only asynchronous steps and hooks can request them.
+- **Dispatchers**: `Dispatcher` and `AsyncDispatcher`, with `add` and `dispatch`, both returning `Result<(), Error>`. An executor is given a `DispatcherFactory`, or uses `DefaultDispatcherFactory`. It calls the factory once per journey, before the journey starts, adds the instance's reporters, and drops the dispatcher when the journey ends. `DefaultDispatcher` calls reporters in the order they were added.
 - **One emitter** in the engine assigns sequence numbers and timestamps. Its clock can be replaced inside the crate for tests.
 
 ### 10. The result and the errors
@@ -242,34 +236,32 @@ pub struct Abort { pub reason: AbortReason, pub details: AbortDetails }
 ```
 
 - **The result is a business outcome.** It holds no step statuses, attempt counts or step names: those are observable in the event stream.
-- **`AbortReason`** has the reasons Rust can reach, `StepCouldNotBeBuilt`, `RequiredDataMissing` and `WrongType`, and is `#[non_exhaustive]`.
-- **`Violations`** (from `build()`) and **`InstanceError`** (from `create()`) implement `std::error::Error`.
+- **`AbortReason`** has the reasons Rust can reach, `StepCouldNotBeBuilt`, `RequiredDataMissing`, `WrongType`, `PolicyCouldNotBeBuilt`, `HookFailed` and `ReporterFailed`, and is `#[non_exhaustive]`. `invalid lifecycle` and `not a value` cannot happen.
+- **`Refusal`** names what refused the journey (a workflow policy, the dispatcher factory, or the dispatcher) and carries its `Error`.
+- **`Violations`** (from `build()`), **`InstanceError`** (from `create()`) and **`Refusal`** implement `std::error::Error`.
 
 ## Testing
 
 ### 11. The conformance runner
 
 - **A binary**, `itinera-conformance`, run with `cargo run -p itinera-conformance --release`, using cucumber-rs on Tokio (a dependency of the runner only). It reads the cases from `ITINERA_CONFORMANCE_CASES`, selects scenarios with the tag expression in `ITINERA_CONFORMANCE_TAGS`, writes Cucumber JSON to `ITINERA_CONFORMANCE_REPORT`, and fails if any selected scenario fails or uses an undefined sentence.
-- **Only the public API.** Each scenario's sentences fill a scenario model, which "When the workflow runs" turns into builder calls: scripted steps implementing `StepFactory`, scripted policy factories recording what their hooks received, a scripted workflow type implementing one recording role trait, and a recording dispatcher holding the test's reporter. Every sentence about events, and about step statuses, reads from that dispatcher.
+- **Only the public API.** Each scenario's sentences fill a scenario model, which "When the workflow runs" turns into builder calls: scripted steps implementing `StepFactory`, scripted policy factories recording what their hooks received, a scripted workflow type implementing one recording role trait, scripted reporters, and a recording dispatcher factory whose dispatchers share the test's reporter. Every sentence about events, and about step statuses, reads from that reporter. Scripted failures (a hook, role operation, reporter, dispatcher, factory or policy that fails) return an `Error`.
 - **Both executors.** Every scenario whose workflow is `Sync` runs under `LocalExecutor` and again under `AsyncLocalExecutor`, and must pass under both. Scenarios with an asynchronous part run under the asynchronous one.
-- **Proofs.** Every scenario carrying a tag listed under `impossible` in `conformance.json` has a fixture in `crates/itinera-conformance/proofs/<tag>/`: a short file with the forbidden code, the compiler error it must produce, and a twin that differs only in the forbidden line and must compile. `proofs.toml` maps each scenario to its fixture, and the runner fails if a tagged scenario has none. The fixtures use shared support types from the conformance crate. Tier 1 needs proofs for:
-  - an asynchronous step run by `LocalExecutor`;
-  - `on step failure` returning `FinishWorkflow`;
-  - a policy needing a role the workflow does not provide;
-  - a hook or role operation that can fail;
-  - a reporter or dispatcher that can fail;
-  - a non-value in the data bag;
-  - a handle used after its attempt;
-  - a policy factory that can fail;
-  - event data that is not serializable.
+- **Proofs.** `conformance.json` lists the five tags under `impossible`. Every scenario carrying one has a fixture in `crates/itinera-conformance/proofs/<tag>/`: a short file with the forbidden code, the compiler error it must produce, and a twin that differs only in the forbidden line and must compile. `proofs.toml` maps each scenario to its fixture, and the runner fails if a tagged scenario has none. The fixtures use shared support types from the conformance crate. The proofs are:
+  - `invalid-lifecycle`: `on step failure` returning `FinishWorkflow`;
+  - `role-not-provided`: a policy needing a role the workflow does not provide;
+  - `mode-not-accepted`: an asynchronous step run by `LocalExecutor`;
+  - `non-value`: a closure as initial data, as a contribution, as an adapter's value, as event data and as a reason's details;
+  - `late-handle`: a contributor or step reporter moved into a thread that outlives the attempt.
+- **How excluded scenarios appear in the report** follows [conformance#51](https://github.com/itinera-dev/conformance/issues/51).
 - **The `run-conformance` action** is written in itinera-dev/actions, in Python with tests, before the first proposal is listed in `conformance.json`.
 
 ### 12. Rust's own tests
 
-- **Unit tests** in `itinera-core`, next to the code: the decision rules, typed reads from the bag, the order of events, dispatchers' `clear`.
+- **Unit tests** in `itinera-core`, next to the code: the decision rules, typed reads from the bag, the order of events, the handling of `Interrupted`.
 - **Macro equivalence**: each macro form is paired with the same workflow written with the builder. Both must give the same listing, and the same event stream for the same inputs, apart from the journey ID and timestamps.
 - **Compile-fail tests** in `crates/itinera/tests/ui/`, each with a compiling twin: running an instance twice, calling `run` concurrently, misused macro attributes, a hook request its kind may not make, a handle field without its lifetime, an `async fn` step without the `async` feature.
-- **Property-based tests** with `proptest`, over generated workflows with random outcomes, budgets and lifecycles: the first and last events, increasing sequence numbers, one outcome fact per attempt, one decision after each failed attempt, at most the budget plus one attempts, no bag values in engine events, and identical streams from both executors.
+- **Property-based tests** with `proptest`, over generated workflows with random outcomes, budgets, lifecycles and failing hooks or reporters: the first and last events, increasing sequence numbers, one outcome fact per attempt, one decision after each failed attempt, at most the budget plus one attempts, no bag values in engine events, and identical streams from both executors.
 - **Doc tests**: every public item has an example that compiles and runs.
 - **No `unsafe`**: `#![forbid(unsafe_code)]` in every crate.
 - Coverage may be reported for information; it never blocks a merge.
@@ -299,20 +291,20 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 
 | Stage | Content | Proposals completed |
 |---|---|---|
-| 0. Bootstrap | the workspace and crates, `rust-toolchain.toml`, lints, CI, `deny.toml`, the README, an agents' manual, `conformance.json` pinning the latest cases candidate with no proposals | none |
-| 1. Events | `Event`, reporters, dispatchers with `clear`, `DefaultDispatcher` | none |
-| 2. Runner skeleton | cucumber-rs, the environment variables, the recording dispatcher, the scenario model, the proofs mechanism | none |
-| 3. Minimal executor | the engine and both executors, `WorkflowDescriptor` with one synchronous step, `WorkflowInstance` and `Instance<W>`, journey IDs, reporters built by `create()`, `JourneyResult` | none |
-| 4. Declarations and admission | step and policy descriptors, input adapters, the listing, `Violations` | none |
-| 5. Steps | needs and tokens, building per attempt, outcomes, contributions, the data bag, read-only received data | none |
-| 6. The scan and its decisions | statuses, retries, `abnormal termination retriable`, aborts and the result; the decision logic with its hook points in place, tested through internal test hooks | 0012, 0032, 0042 |
-| 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, and the accepted amendments |
+| 0. Bootstrap | the workspace and crates, `rust-toolchain.toml`, lints, CI, `deny.toml`, the README, an agents' manual, `conformance.json` pinning `v0.1.0-rc.2` with the capabilities and the `impossible` tags, and no proposals | none |
+| 1. Events | `Event`, reporters, dispatchers and their factory, `DefaultDispatcher` | none |
+| 2. Runner skeleton | cucumber-rs, the environment variables, the recording dispatcher factory, the scenario model, the proofs mechanism, the report | none |
+| 3. Minimal executor | the engine and both executors, `WorkflowDescriptor` with one synchronous step, `WorkflowInstance` and `Instance<W>`, journey IDs, reporters built by `create()`, `JourneyResult` and `Refusal` | none |
+| 4. Declarations and admission | step and policy descriptors, input adapter declarations, the listing, `Violations` | 0062 |
+| 5. Steps | needs and tokens, building per attempt, outcomes, contributions, the data bag, read-only received data, values, handles and `Interrupted` | 0056, 0057, 0064 (their scenarios are all proven impossible) |
+| 6. The scan and its decisions | statuses, retries, `abnormal termination retriable`, aborts and the result; the decision logic with its hook points in place, tested through internal test hooks | 0012, 0032, 0042, 0061, 0063, 0065 |
+| 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, 0054, 0055, 0058, 0060 |
 | 8. Macros | `#[step]`, `#[step_policy]`, `#[workflow_policy]`, `#[workflow]`, their equivalence and compile-fail tests | none |
 | 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
 
 - **The decision logic is pure**: a function of the outcome, the retry budget left, `abnormal termination retriable` and the hooks' answers, which touches nothing. The code around it builds, runs, emits and commits.
-- **Proofs land with their feature**, for example the invalid-lifecycle proof in stage 7. A proposal is listed in `conformance.json` only when each of its scenarios passes or is proven.
-- **Stages 0 to 2 can start before** the open specification items are settled; stage 3 waits for #54, #61 and #62.
+- **Proofs land with their feature.** A proposal is listed in `conformance.json` only when each of its scenarios passes or is proven.
+- **A later cases candidate** is adopted by a pull request that moves `cases` in `conformance.json` and fixes whatever its changed cases need.
 
 ### Pull requests
 
@@ -325,10 +317,9 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 
 ### 15. Implementation issues
 
-- **One issue per accepted tier 1 proposal**, titled "Implement spec#NNNN (short name)", labelled `implements-proposal` and `tier: 1`. Its body links the proposal and its cases, summarises the decisions of this plan that concern it, lists its excluded scenarios and their proofs, and says it closes only when its cases pass.
-- **The open proposals of the table above** that are later accepted get their issues the same way; they are tier 1 amendments of specification 0.1.
-- **Spec defects get no issue** while nothing is implemented. Once a proposal is listed in `conformance.json`, a later change to its cases gets a `spec update` issue, as PROCESS.md describes.
-- **[#2](https://github.com/itinera-dev/itinera-rs/issues/2)** becomes the implementation issue of 0002. Its body is rewritten in the same form and points here; its comments stay as history.
+- **One issue per tier 1 proposal**, titled "Implement spec#NNNN (short name)", labelled `implements-proposal` and `tier: 1`. Its body links the proposal and its cases, summarises the decisions of this plan that concern it, lists its excluded scenarios and their proofs, and says it closes only when its cases pass.
+- **[#2](https://github.com/itinera-dev/itinera-rs/issues/2)** is the implementation issue of 0002. Its comments are kept as history; the plan supersedes them.
+- **Spec updates.** Once a proposal is listed in `conformance.json`, a later change to its cases gets a `spec update` issue, as PROCESS.md describes.
 - **Tech specs**, `docs/specs/NNNN-short-name.md`, hold what is specific to one proposal: its API, how each of its rules is enforced (by types, by `build()`, or while running), its excluded scenarios and proofs, its own tests, and its definition of done. A tech spec is created in the first pull request that touches its proposal and completed in the one that closes it.
 
 ## Code
@@ -373,13 +364,13 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
   | `unstable` | off | the API of proposals not yet listed in `conformance.json` |
 
   The engine is asynchronous internally whatever the features; without `async`, nothing asynchronous is public.
-- **Documentation**: rustdoc on every public item, published by docs.rs; a crate-level overview in `itinera` with a first complete workflow, linking once to the specification repository; runnable examples in `crates/itinera/examples/` (a synchronous workflow, the same on the asynchronous executor, and one built without macros); a README stating the crates, the tier and capabilities claimed, and how to run the conformance runner.
+- **Documentation**: rustdoc on every public item, published by docs.rs; a crate-level overview in `itinera` with a first complete workflow, linking once to the specification repository; runnable examples in `crates/itinera/examples/` (a synchronous workflow, the same on the asynchronous executor, and one built without macros); a README stating the crates, the tier and capabilities claimed, the rules made impossible, and how to run the conformance runner.
 
 ## Release
 
 ### 18. Releasing the crates
 
-- **Crates**: `itinera-core`, `itinera-macros` and `itinera`, with one workspace version, published together by `cargo publish --workspace`. Nothing is published before the first real release; names are not reserved.
+- **Crates**: `itinera-core`, `itinera-macros` and `itinera`, with one workspace version, published together by `cargo publish --workspace`.
 - **Versions are independent of the specification's.** The first release is `0.1.0-rc.1`. The README and the crate documentation say what each release implements: "specification 0.1.0, tier 1, capabilities `sync` and `async`, cases `v0.1.0-rc.N`".
 - **The path to 0.1.0**:
   1. while the specification is in release candidates, Rust releases `0.1.0-rc.N`, pinning the latest cases candidate;
@@ -390,7 +381,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
   2. **conformance**: `run-conformance`, producing the report;
   3. **publish**: in the `crates-io` environment, which needs a maintainer's approval, authenticated through trusted publishing with `rust-lang/crates-io-auth-action`, then `cargo publish --workspace`;
   4. **release**: `gh release create`, a pre-release for `-rc` tags, with the conformance report attached.
-- **The first publish** uses a short-lived token held by the `crates-io` environment, because crates.io configures trusted publishing only for crates that exist. The token is deleted right after, and every later release uses trusted publishing (spec#66).
+- **The first publish of each crate.** crates.io configures trusted publishing only for crates that already exist, and PROCESS.md leaves such registry exceptions to each language. Ours: the first release of each crate is published by the release workflow, after its gate, with a short-lived token that a maintainer creates for that release only and stores as a secret of the `crates-io` environment. The token is deleted as soon as the release is published and trusted publishing is configured for the crates; every later release uses trusted publishing only. Nothing is published before that first release: crate names are not reserved with placeholder packages.
 - **`CHANGELOG.md`** is updated in the pull request that bumps the version, and the release notes come from it.
 - **`release-gate`** is written in itinera-dev/actions, in Python with tests.
 
@@ -399,7 +390,6 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 ### 19. The rest
 
 - **An agents' manual** in this repository (`AGENTS.md`, imported by `CLAUDE.md`), self-contained: the rule that behaviour comes only from the specification, the stages, the comment rules, how to run the checks and the runner, and stacks.
-- **The label `spec update`** is created in this repository when the implementation issues are opened.
 - **The README** is updated in stage 0 to the crates and status of this plan.
 - **Versioning before 1.0**: a breaking change bumps the minor version and a fix the patch version. The changelog states the specification version and cases each release implements.
 - **Security reporting**: stage 0 checks that the organisation's community files include a security policy covering this repository.
@@ -409,7 +399,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 
 Points that came up while planning Rust, which Java, TypeScript or other implementations will meet in their own tech specs:
 
-- A step's reporter is best given as a small per-attempt object that implements the reporter interface and holds the dispatcher privately: handing over the dispatcher itself would let a step cast it back. The object is closed when its attempt ends.
-- Where reporters can throw, the executor's wrapper records the abort before throwing into the step, so a step that catches everything still cannot keep its journey alive; the exception type is best left unexported.
+- A step's reporter is best given as a small per-attempt object that implements the reporter interface and holds the dispatcher privately: handing over the dispatcher itself would let a step cast it back. The executor closes it when its attempt ends.
+- Where reporters throw, the executor's wrapper records the abort before throwing into the step, so a step that catches everything still cannot keep its journey alive; the exception type is best left unexported.
 - Input adapters can be found by reflection in a base class of the workflow, which dispatches each request to the annotated method.
 - Where the language has no read-only receiver, rebuilding policies for every attempt and every journey is what keeps hooks from carrying state.
