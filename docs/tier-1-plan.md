@@ -255,7 +255,9 @@ pub struct Abort { pub reason: AbortReason, pub details: AbortDetails }
   - `mode-not-accepted`: an asynchronous step run by `LocalExecutor`;
   - `non-value`: a closure as initial data, as a contribution, as an adapter's value, as event data and as a reason's details;
   - `late-handle`: a contributor or step reporter moved into a thread that outlives the attempt.
-- **The `run-conformance` action** checks the exclusions and writes the report's second file. It leaves the `impossible` tags out of the tag expression, fails if a tagged scenario has no entry or an entry names no scenario at the pinned cases, and writes the exclusions file next to the Cucumber JSON. Together the two files are the conformance report a release carries. The action is written in itinera-dev/actions, in Python with tests, before the first proposal is listed in `conformance.json`.
+- **The `run-conformance` action** checks the exclusions and writes the report's second file. It leaves the `impossible` tags out of the tag expression, fails if a tagged scenario has no entry or an entry names no scenario at the pinned cases, and writes the exclusions file next to the Cucumber JSON. Together the two files are the conformance report a release carries, written to `conformance-report/cucumber.json` and `conformance-report/exclusions.json` and uploaded as an artifact. While `conformance.json` lists no proposal, the action still checks the manifest but does not run the runner, so its job is part of CI from stage 0.
+- **What runs.** A scenario runs once every proposal it is tagged with is listed in `conformance.json`. Listing a proposal therefore runs those of its scenarios whose other proposals are already listed; the rest join in, by themselves, when their last proposal is listed.
+- **The tag expression** the action passes in `ITINERA_CONFORMANCE_TAGS` uses `and`, `or`, `not` and parentheses, for example `(@proposal-0002 or @proposal-0008) and not @non-value`. The runner parses it with cucumber-rs's tag expressions, which stage 2 tests.
 
 ### 12. Rust's own tests
 
@@ -280,7 +282,7 @@ Each job runs one command, as the organisation's rules require. All are required
 | minimum Rust version | `cargo +1.85 check --workspace` |
 | documentation | `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings` |
 | dependencies | `cargo deny check`, through `EmbarkStudios/cargo-deny-action` |
-| conformance | `itinera-dev/actions/run-conformance@v1` |
+| conformance, from stage 0 | `itinera-dev/actions/run-conformance@v1`, with `command: cargo run -p itinera-conformance --release`, after checking out and restoring the Rust cache |
 | pull request rules | `pr-has-issue` and `no-cross-repo-closing` |
 | weekly, not blocking | the tests on Rust beta |
 
@@ -304,7 +306,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
 
 - **The decision logic is pure**: a function of the outcome, the retry budget left, `abnormal termination retriable` and the hooks' answers, which touches nothing. The code around it builds, runs, emits and commits.
-- **Proofs land with their feature**, together with their tag's entries under `impossible` in `conformance.json`. A proposal is listed in `conformance.json` only when each of its scenarios passes or is proven.
+- **Proofs land with their feature**, together with their tag's entries under `impossible` in `conformance.json`. A proposal is listed in `conformance.json` only when each of its scenarios that runs once it is listed passes, or is proven.
 - **A later cases candidate** is adopted by a pull request that moves `cases` in `conformance.json` and fixes whatever its changed cases need.
 
 ### Pull requests
