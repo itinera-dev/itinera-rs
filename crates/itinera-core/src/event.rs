@@ -10,7 +10,7 @@ use crate::value::{AnyValue, Value};
 /// # Examples
 ///
 /// ```
-/// use itinera_core::JourneyId;
+/// use itinera::JourneyId;
 ///
 /// let id = JourneyId::new("order-42");
 /// assert_eq!(id.as_str(), "order-42");
@@ -26,7 +26,7 @@ impl JourneyId {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::JourneyId;
+    /// use itinera::JourneyId;
     ///
     /// assert_eq!(JourneyId::new(String::from("a")), JourneyId::new("a"));
     /// ```
@@ -39,7 +39,7 @@ impl JourneyId {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::JourneyId;
+    /// use itinera::JourneyId;
     ///
     /// assert_eq!(JourneyId::new("order-42").as_str(), "order-42");
     /// ```
@@ -59,7 +59,7 @@ impl fmt::Display for JourneyId {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::StepAttempt;
+/// use itinera::StepAttempt;
 ///
 /// fn describe(attempt: &StepAttempt) -> String {
 ///     format!("{}, attempt {}", attempt.step, attempt.attempt)
@@ -81,7 +81,7 @@ pub struct StepAttempt {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::HookName;
+/// use itinera::HookName;
 ///
 /// assert_eq!(HookName::OnStepRetry.to_string(), "on step retry");
 /// ```
@@ -114,7 +114,7 @@ impl HookName {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::HookName;
+    /// use itinera::HookName;
     ///
     /// assert_eq!(HookName::OnWorkflowFailure.as_str(), "on workflow failure");
     /// ```
@@ -141,7 +141,7 @@ impl fmt::Display for HookName {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::HookRef;
+/// use itinera::HookRef;
 ///
 /// fn describe(hook: &HookRef) -> String {
 ///     format!("{}, {}", hook.policy, hook.hook)
@@ -161,7 +161,7 @@ pub struct HookRef {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::HookSource;
+/// use itinera::HookSource;
 ///
 /// fn triggered_by_a_step(source: &HookSource) -> bool {
 ///     source.step.is_some()
@@ -187,7 +187,7 @@ pub struct HookSource {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::Reason;
+/// use itinera::Reason;
 ///
 /// let reason = Reason::new("card-declined")
 ///     .with_message("the card was declined")
@@ -209,7 +209,7 @@ impl Reason {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::Reason;
+    /// use itinera::Reason;
     ///
     /// let reason = Reason::new("out-of-stock");
     /// assert_eq!(reason.code(), "out-of-stock");
@@ -229,7 +229,7 @@ impl Reason {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::Reason;
+    /// use itinera::Reason;
     ///
     /// let reason = Reason::new("out-of-stock").with_message("none left");
     /// assert_eq!(reason.message(), Some("none left"));
@@ -244,7 +244,7 @@ impl Reason {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::Reason;
+    /// use itinera::Reason;
     ///
     /// let reason = Reason::new("out-of-stock").with_details(vec!["SKU-1".to_string()]);
     /// assert!(reason.details().is_some());
@@ -259,7 +259,7 @@ impl Reason {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::Reason;
+    /// use itinera::Reason;
     ///
     /// assert_eq!(Reason::new("late").code(), "late");
     /// ```
@@ -272,7 +272,7 @@ impl Reason {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::Reason;
+    /// use itinera::Reason;
     ///
     /// assert_eq!(Reason::new("late").message(), None);
     /// ```
@@ -285,7 +285,7 @@ impl Reason {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::Reason;
+    /// use itinera::Reason;
     ///
     /// let reason = Reason::new("late").with_details(true);
     /// assert_eq!(reason.details().and_then(|d| d.downcast_ref::<bool>()), Some(&true));
@@ -300,7 +300,7 @@ impl Reason {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::Lifecycle;
+/// use itinera::Lifecycle;
 ///
 /// fn ends_the_journey(lifecycle: &Lifecycle) -> bool {
 ///     matches!(lifecycle, Lifecycle::FinishWorkflow | Lifecycle::FailWorkflow(_))
@@ -322,7 +322,7 @@ pub enum Lifecycle {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::DecidedBy;
+/// use itinera::DecidedBy;
 ///
 /// fn by_default(decided_by: &DecidedBy) -> bool {
 ///     matches!(decided_by, DecidedBy::Default)
@@ -351,7 +351,7 @@ impl Serialize for DecidedBy {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::RetryCause;
+/// use itinera::RetryCause;
 ///
 /// assert_eq!(RetryCause::RetriableFailure.to_string(), "retriable failure");
 /// ```
@@ -380,7 +380,7 @@ impl fmt::Display for RetryCause {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::GiveUpCause;
+/// use itinera::GiveUpCause;
 ///
 /// assert_eq!(GiveUpCause::RetriesExhausted.to_string(), "retries exhausted");
 /// ```
@@ -416,7 +416,7 @@ impl fmt::Display for GiveUpCause {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::Failure;
+/// use itinera::Failure;
 ///
 /// fn message(failure: &Failure) -> String {
 ///     match failure {
@@ -450,7 +450,7 @@ pub enum Failure {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::AbortReason;
+/// use itinera::AbortReason;
 ///
 /// assert_eq!(AbortReason::ReporterFailed.to_string(), "reporter failed");
 /// ```
@@ -483,7 +483,7 @@ impl AbortReason {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::AbortReason;
+    /// use itinera::AbortReason;
     ///
     /// assert_eq!(AbortReason::WrongType.as_str(), "wrong type");
     /// ```
@@ -510,7 +510,7 @@ impl fmt::Display for AbortReason {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::Requester;
+/// use itinera::Requester;
 ///
 /// fn adapter(requester: &Requester) -> Option<&str> {
 ///     match requester {
@@ -536,7 +536,7 @@ pub enum Requester {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::AbortDetails;
+/// use itinera::AbortDetails;
 ///
 /// fn key(details: &AbortDetails) -> Option<&str> {
 ///     match details {
@@ -570,7 +570,7 @@ pub enum AbortDetails {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::Source;
+/// use itinera::Source;
 ///
 /// fn from_a_hook(source: &Source) -> bool {
 ///     matches!(source, Source::Hook(_))
@@ -598,7 +598,7 @@ pub enum Source {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::{Event, EventBody};
+/// use itinera::{Event, EventBody};
 ///
 /// fn summary(event: &Event) -> String {
 ///     match &event.body {
@@ -632,7 +632,7 @@ impl Event {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::Event;
+    /// use itinera::Event;
     ///
     /// fn is_last(event: &Event) -> bool {
     ///     matches!(event.kind(), "journey_succeeded" | "journey_failed" | "journey_aborted")
@@ -648,7 +648,7 @@ impl Event {
 /// # Examples
 ///
 /// ```
-/// use itinera_core::EventBody;
+/// use itinera::EventBody;
 ///
 /// fn is_decision(body: &EventBody) -> bool {
 ///     matches!(
@@ -902,7 +902,7 @@ impl EventBody {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::EventBody;
+    /// use itinera::EventBody;
     ///
     /// fn is_emitted_by_a_step(body: &EventBody) -> bool {
     ///     matches!(body.kind(), "step_info" | "step_warning" | "step_error")
