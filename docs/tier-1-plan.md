@@ -8,8 +8,8 @@ Code samples show the intended shape. Names of attributes and methods may still 
 
 ## What this plan implements
 
-- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064 and 0065.
-- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.2`, and later candidates as they are tagged.
+- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065 and 0081.
+- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.3`, and later candidates as they are tagged.
 - **Capabilities claimed**: `sync` and `async`.
 - **Rules made impossible to express** (proposal 0054): `invalid-lifecycle`, `role-not-provided`, `mode-not-accepted`, `non-value` and `late-handle`.
 
@@ -209,9 +209,9 @@ pub trait WorkflowInstance: Send + 'static {
 
 - **One `Event` type**: a sequence number from 1, a `SystemTime` timestamp rendered as ISO 8601 in UTC, the journey ID, the workflow name, and a typed body with one variant per event of the catalogue. `kind()` returns the event's snake_case name. No variant has a field able to hold a value from the data bag. `DecidedBy` is `Default` or a policy and hook. `Event` implements `Serialize`.
 - **Data in step and hook events, and reason details,** are values carried in memory, cloned when emitted, and serialized only by reporters, in their own format.
-- **Reporters**: `Reporter` with `report(&mut self, &Event) -> Result<(), Error>`, and `AsyncReporter` behind the `async` feature. An `Err` aborts the journey with `reporter failed`; the event is still delivered to the reporters after it, and `journey_aborted` to every reporter except the one that failed. An error while `journey_aborted` itself is delivered is ignored. An asynchronous reporter makes the workflow `Async`.
+- **Reporters**: `Reporter` with `report(&mut self, &Event) -> Result<(), Error>`, and `AsyncReporter` behind the `async` feature. An `Err` aborts the journey with `reporter failed`; the event is not delivered to the reporters after it, and `journey_aborted` goes to every reporter except the one that failed. An error while `journey_aborted` itself is delivered is ignored, and delivery continues. The executor wraps each reporter it adds to the dispatcher, and the wrappers share the journey's state, so this holds whatever the dispatcher: once a reporter has failed, no reporter receives anything except `journey_aborted`, and the one that failed receives nothing more. An asynchronous reporter makes the workflow `Async`.
 - **The handles given to steps and hooks** are restricted views of the journey's dispatcher. A `StepReporter` emits only `step_info`, `step_warning` and `step_error`, stamped with the step and attempt; a `HookReporter` emits only `journey_info`, `journey_warning` and `journey_error`, stamped with the policy and hook. Delivery happens before the emit call returns. If a reporter fails during that delivery, the engine records the abort at once, and the call returns `Interrupted`. From then on nothing the step or hook emits is delivered, and when it returns, its outcome, lifecycle and contributions are ignored, even if it ignored `Interrupted` and carried on. In a workflow with an asynchronous reporter, the handles are asynchronous, and only asynchronous steps and hooks can request them.
-- **Dispatchers**: `Dispatcher` and `AsyncDispatcher`, with `add` and `dispatch`, both returning `Result<(), Error>`. An executor is given a `DispatcherFactory`, or uses `DefaultDispatcherFactory`. It calls the factory once per journey, before the journey starts, adds the instance's reporters, and drops the dispatcher when the journey ends. `DefaultDispatcher` calls reporters in the order they were added.
+- **Dispatchers**: `Dispatcher` and `AsyncDispatcher`, with `add` and `dispatch`, both returning `Result<(), Error>`. An executor is given a `DispatcherFactory`, or uses `DefaultDispatcherFactory`. It calls the factory once per journey, before the journey starts, adds the instance's reporters, and drops the dispatcher when the journey ends. `DefaultDispatcher` calls reporters in the order they were added, and stops at the first that fails, except on `journey_aborted`, which it delivers to every reporter.
 - **One emitter** in the engine assigns sequence numbers and timestamps. Its clock can be replaced inside the crate for tests.
 
 ### 10. The result and the errors
@@ -301,7 +301,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | 4. Declarations and admission | step and policy descriptors, input adapter declarations, the listing, `Violations` | 0062 |
 | 5. Steps | needs and tokens, building per attempt, outcomes, contributions, the data bag, read-only received data, values, handles and `Interrupted` | 0056, 0057, 0064 (their scenarios are all proven impossible) |
 | 6. The scan and its decisions | statuses, retries, `abnormal termination retriable`, aborts and the result; the decision logic with its hook points in place, tested through internal test hooks | 0012, 0032, 0042, 0061, 0063, 0065 |
-| 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, 0054, 0055, 0058, 0060 |
+| 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, 0054, 0055, 0058, 0060, 0081 |
 | 8. Macros | `#[step]`, `#[step_policy]`, `#[workflow_policy]`, `#[workflow]`, their equivalence and compile-fail tests | none |
 | 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
 
