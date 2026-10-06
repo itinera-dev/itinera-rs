@@ -295,7 +295,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | Stage | Content | Proposals completed |
 |---|---|---|
 | 0. Bootstrap | the workspace and crates, `rust-toolchain.toml`, lints, CI, `deny.toml`, the README, an agents' manual, `conformance.json` pinning the latest cases candidate, with the capabilities, no proposals, and `"impossible": {}` | none |
-| 1. Events | `Event`, reporters, dispatchers and their factory, `DefaultDispatcher` | none |
+| 1. Events | `Error`, `Value` and `AnyValue` (the data bag waits for stage 5), `Event` and the types it carries, reporters, dispatchers and their factories, `DefaultDispatcher` | none |
 | 2. Runner skeleton | cucumber-rs, the environment variables, the recording dispatcher factory, the scenario model, the Cucumber JSON report | none |
 | 3. Minimal executor | the engine and both executors, `WorkflowDescriptor` with one synchronous step, `WorkflowInstance` and `Instance<W>`, journey IDs, reporters built by `create()`, `JourneyResult` and `Refusal` | none |
 | 4. Declarations and admission | step and policy descriptors, input adapter declarations, the listing, `Violations` | 0062 |
@@ -314,7 +314,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 - Each stage is one stack (`gh stack`), with one layer per coherent piece. Every layer passes all of `main`'s checks.
 - Every layer says `Refs #N` for the implementation issues it contributes to. The layer that completes a proposal says `Closes #N` and adds the proposal's number to `conformance.json`.
 - Work that belongs to no proposal (stage 0, the macros, the release) refers to #7, or to an issue of its own such as "Macros as syntax over the builder".
-- Public API of a proposal not yet listed in `conformance.json` stays behind the `unstable` feature.
+- Public API of a proposal not yet listed in `conformance.json` stays behind the `unstable` feature. Its modules always compile, since the engine needs them; only their re-exports from the crate root are gated.
 
 ## Issues and tech specs
 

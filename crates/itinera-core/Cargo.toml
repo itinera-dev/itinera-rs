@@ -11,5 +11,12 @@ repository.workspace = true
 async = []
 unstable = []
 
+[dependencies]
+serde.workspace = true
+erased-serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true
