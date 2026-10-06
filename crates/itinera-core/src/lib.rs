@@ -4,3 +4,13 @@
 //! Applications depend on the `itinera` crate, which re-exports this one.
 
 #![forbid(unsafe_code)]
+
+#[cfg_attr(not(feature = "unstable"), allow(dead_code, unreachable_pub))]
+mod error;
+#[cfg_attr(not(feature = "unstable"), allow(dead_code, unreachable_pub))]
+mod value;
+
+#[cfg(feature = "unstable")]
+pub use error::Error;
+#[cfg(feature = "unstable")]
+pub use value::{AnyValue, Value};

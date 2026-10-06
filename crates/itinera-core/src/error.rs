@@ -1,0 +1,140 @@
+use std::fmt;
+
+/// The error every piece of custom code returns when it fails: steps, hooks, role operations,
+/// policy factories, reporters, dispatchers and dispatcher factories.
+///
+/// Any `std::error::Error + Send + Sync + 'static` converts into it, so `?` works on the errors
+/// of any library. Because of that conversion it does not implement `std::error::Error` itself;
+/// it offers [`Display`](fmt::Display), [`source`](Error::source) and [`Error::msg`] instead, and
+/// converts into `Box<dyn std::error::Error + Send + Sync>`.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::Error;
+///
+/// fn parse(text: &str) -> Result<i64, Error> {
+///     Ok(text.parse::<i64>()?)
+/// }
+///
+/// assert_eq!(parse("42").ok(), Some(42));
+/// assert!(parse("forty-two").is_err());
+/// ```
+pub struct Error {
+    inner: Box<dyn std::error::Error + Send + Sync + 'static>,
+}
+
+impl Error {
+    /// Makes an error from a message alone.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::Error;
+    ///
+    /// let error = Error::msg("the ledger is closed");
+    /// assert_eq!(error.to_string(), "the ledger is closed");
+    /// ```
+    pub fn msg<M>(message: M) -> Self
+    where
+        M: fmt::Display + fmt::Debug + Send + Sync + 'static,
+    {
+        Self {
+            inner: Box::new(Message(message)),
+        }
+    }
+
+    /// The error that caused this one, if the original error named one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::fmt;
+    /// use itinera::Error;
+    ///
+    /// #[derive(Debug)]
+    /// struct Outer(std::num::ParseIntError);
+    ///
+    /// impl fmt::Display for Outer {
+    ///     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    ///         f.write_str("the amount could not be read")
+    ///     }
+    /// }
+    ///
+    /// impl std::error::Error for Outer {
+    ///     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+    ///         Some(&self.0)
+    ///     }
+    /// }
+    ///
+    /// let cause = "x".parse::<i64>().unwrap_err();
+    /// let error = Error::from(Outer(cause.clone()));
+    /// assert_eq!(error.source().map(|s| s.to_string()), Some(cause.to_string()));
+    /// assert!(Error::msg("no cause").source().is_none());
+    /// ```
+    pub fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.inner.source()
+    }
+}
+
+impl<E> From<E> for Error
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    fn from(error: E) -> Self {
+        Self {
+            inner: Box::new(error),
+        }
+    }
+}
+
+impl From<Error> for Box<dyn std::error::Error + Send + Sync + 'static> {
+    fn from(error: Error) -> Self {
+        error.inner
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.inner, f)
+    }
+}
+
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.inner, f)
+    }
+}
+
+struct Message<M>(M);
+
+impl<M: fmt::Display> fmt::Display for Message<M> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl<M: fmt::Debug> fmt::Debug for Message<M> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.0, f)
+    }
+}
+
+impl<M: fmt::Display + fmt::Debug> std::error::Error for Message<M> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_error_shows_the_message_of_the_error_it_was_made_from() {
+        let error = Error::from("x".parse::<i64>().unwrap_err());
+        assert_eq!(error.to_string(), "invalid digit found in string");
+    }
+
+    #[test]
+    fn an_error_converts_back_into_a_boxed_standard_error() {
+        let boxed: Box<dyn std::error::Error + Send + Sync> = Error::msg("closed").into();
+        assert_eq!(boxed.to_string(), "closed");
+    }
+}
