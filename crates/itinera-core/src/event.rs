@@ -1,5 +1,5 @@
 use std::fmt;
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroU64};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Serialize, Serializer};
@@ -614,7 +614,7 @@ pub enum Source {
 #[non_exhaustive]
 pub struct Event {
     /// The event's position in the journey's event stream, from 1.
-    pub sequence: u64,
+    pub sequence: NonZeroU64,
     /// When the event was emitted.
     #[serde(serialize_with = "iso_8601")]
     pub timestamp: SystemTime,
@@ -1017,7 +1017,7 @@ pub(crate) mod tests {
 
     pub(crate) fn event(sequence: u64, body: EventBody) -> Event {
         Event {
-            sequence,
+            sequence: NonZeroU64::new(sequence).unwrap(),
             timestamp: UNIX_EPOCH + Duration::from_millis(1_700_000_000_123),
             journey_id: JourneyId::new("order-42"),
             workflow: "orders".to_string(),
