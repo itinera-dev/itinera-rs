@@ -1,4 +1,5 @@
 use std::fmt;
+use std::num::NonZeroU32;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Serialize, Serializer};
@@ -71,7 +72,7 @@ pub struct StepAttempt {
     /// The step's name.
     pub step: String,
     /// The attempt number, from 1.
-    pub attempt: u32,
+    pub attempt: NonZeroU32,
 }
 
 /// The name of a hook.
@@ -1027,7 +1028,7 @@ pub(crate) mod tests {
     fn charge(attempt: u32) -> StepAttempt {
         StepAttempt {
             step: "charge".to_string(),
-            attempt,
+            attempt: NonZeroU32::new(attempt).unwrap(),
         }
     }
 
