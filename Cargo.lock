@@ -30,6 +30,7 @@ name = "itinera-core"
 version = "0.0.0"
 dependencies = [
  "erased-serde",
+ "itinera",
  "serde",
  "serde_json",
 ]

@@ -11,7 +11,7 @@ use std::fmt;
 /// # Examples
 ///
 /// ```
-/// use itinera_core::Error;
+/// use itinera::Error;
 ///
 /// fn parse(text: &str) -> Result<i64, Error> {
 ///     Ok(text.parse::<i64>()?)
@@ -30,7 +30,7 @@ impl Error {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::Error;
+    /// use itinera::Error;
     ///
     /// let error = Error::msg("the ledger is closed");
     /// assert_eq!(error.to_string(), "the ledger is closed");
@@ -50,7 +50,7 @@ impl Error {
     ///
     /// ```
     /// use std::fmt;
-    /// use itinera_core::Error;
+    /// use itinera::Error;
     ///
     /// #[derive(Debug)]
     /// struct Outer(std::num::ParseIntError);
