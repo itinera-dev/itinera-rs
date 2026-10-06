@@ -4,28 +4,43 @@ The Rust implementation of [Itinera](https://github.com/itinera-dev/spec), a wor
 
 ## Status
 
-Not started. Itinera is being specified first; this repository will implement tier 1 once the core model proposal ([spec#2](https://github.com/itinera-dev/spec/issues/2)) is accepted.
+Not released yet. The first release, `0.1.0-rc.1`, will implement tier 1 of specification 0.1.0, with the capabilities `sync` and `async`.
 
-## What it will contain
+## Using it
 
-A Cargo workspace:
+Applications depend on one crate, `itinera`. Its features are:
 
-- `itinera`: the crate applications depend on, re-exporting everything below;
-- `itinera-core`: outcomes, lifecycles, step statuses, the executor's scan, the data bag and the event model;
-- `itinera-macros`: the step, workflow and policy macros;
-- `itinera-executor-local`: in-memory executors, synchronous and asynchronous;
-- later, a durable executor and store implementations.
+| Feature | Default | Adds |
+|---|---|---|
+| `macros` | on | The macros for declaring steps, policies and workflows, which are syntax over the builder |
+| `async` | off | The asynchronous executor, and asynchronous steps, hooks, reporters and dispatchers |
+| `unstable` | off | API that is not yet stable |
 
-## How work arrives here
+`itinera` brings in `itinera-core`, which holds the implementation, and, with `macros`, `itinera-macros`. Neither needs to be added directly. The minimum supported Rust version is 1.85.
 
-What Itinera does is defined in [itinera-dev/spec](https://github.com/itinera-dev/spec): the proposals (the PRDs) and the behaviour specification. How Rust does it is defined here, in **tech specs**.
+## Rules made impossible to express
 
-1. Each accepted proposal gets an **implementation issue** here, labelled `implements-proposal`. An issue opened before its proposal is accepted also carries `waiting for spec`, and no pull request is opened for it until that label is removed.
-2. The Rust **tech spec** is agreed in that issue: API shape, crates and modules touched, types, macros, error handling, tests and the definition of done.
-3. The implementing pull request adds the tech spec as `docs/specs/NNNN-short-name.md`, where `NNNN` is the proposal's number, together with the code.
-4. The issue closes when the proposal's [conformance](https://github.com/itinera-dev/conformance) cases pass.
+The specification lets an implementation make some rules impossible to express rather than check them while a workflow runs. In Rust, these mistakes are compile errors:
 
-Bugs and Rust API questions can be opened here directly; changes to behaviour are proposals in the spec repository. The full rules are in [PROCESS.md](https://github.com/itinera-dev/spec/blob/main/PROCESS.md).
+- a hook returning a lifecycle it may not return;
+- a policy needing a role the workflow does not provide;
+- an asynchronous part run by the synchronous executor;
+- something that is not a value entering the data bag, event data or a reason's details;
+- a contributor or reporter used after its attempt or hook has ended.
+
+## Conformance
+
+Each release states the specification version, tier, capabilities and conformance cases it implements, and carries the report of those cases as a release asset.
+
+To run the cases yourself, check out [itinera-dev/conformance](https://github.com/itinera-dev/conformance) at the tag pinned in [conformance.json](https://github.com/itinera-dev/itinera-rs/blob/main/conformance.json), then run `cargo run -p itinera-conformance --release` from this repository with:
+
+- `ITINERA_CONFORMANCE_CASES` set to that checkout's `cases` directory;
+- `ITINERA_CONFORMANCE_TAGS` set to a Cucumber tag expression selecting the scenarios to run;
+- `ITINERA_CONFORMANCE_REPORT` set to the file the Cucumber JSON report is written to.
+
+## Contributing
+
+See the [contributor guide](https://github.com/itinera-dev/itinera-rs/blob/main/docs/contributing.md) for how work arrives here, how to build and test, and the plan being implemented, and the [organisation's contributing guide](https://github.com/itinera-dev/.github/blob/main/CONTRIBUTING.md) for the rules every itinera-dev repository follows.
 
 Built with AI under the terms of [A manifesto for software engineering with AI](https://marlon-sousa.com/blog/manifesto/); see [how Itinera is built](https://github.com/itinera-dev/.github/blob/main/CONTRIBUTING.md#how-itinera-is-built).
 
@@ -33,8 +48,8 @@ Built with AI under the terms of [A manifesto for software engineering with AI](
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <https://www.apache.org/licenses/LICENSE-2.0>)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
+- Apache License, Version 2.0 ([LICENSE-APACHE](https://github.com/itinera-dev/itinera-rs/blob/main/LICENSE-APACHE) or <https://www.apache.org/licenses/LICENSE-2.0>)
+- MIT license ([LICENSE-MIT](https://github.com/itinera-dev/itinera-rs/blob/main/LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
 
 at your option.
 
