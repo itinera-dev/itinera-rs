@@ -33,6 +33,7 @@ A proposal is added to `proposals` in `conformance.json` only by the pull reques
 - Everything is `pub(crate)` unless it must be public. Public types that may grow are `#[non_exhaustive]`.
 - Every crate has `#![forbid(unsafe_code)]`.
 - Every public item has documentation in British spelling, describing its behaviour in its own words, with an example that compiles and runs.
+- Documentation is written where an item is defined; rustdoc carries it to every re-export. Examples use the paths applications write, through `itinera` (for example `use itinera::Value;`), never `itinera_core` or `itinera_macros`. For that, `itinera-core` has `itinera` as a dev-dependency. Cargo accepts the cycle because a dev-dependency only builds tests and examples, and `cargo package` drops it; `serde_core` does the same with `serde`. Unit tests inside `itinera-core` keep `crate::` paths, because a test build has its own copy of the crate's types, distinct from those `itinera` re-exports.
 - Test names state the rule as a sentence, for example `a_failed_attempts_contributions_are_never_committed`.
 
 ## Comments

@@ -17,7 +17,7 @@ use serde::de::DeserializeOwned;
 /// # Examples
 ///
 /// ```
-/// use itinera_core::Value;
+/// use itinera::Value;
 ///
 /// fn accepts<T: Value>(_: T) {}
 ///
@@ -37,7 +37,7 @@ impl<T> Value for T where T: Serialize + DeserializeOwned + Clone + Send + Sync 
 /// # Examples
 ///
 /// ```
-/// use itinera_core::AnyValue;
+/// use itinera::AnyValue;
 ///
 /// let value = AnyValue::new(42_i64);
 /// assert_eq!(value.downcast_ref::<i64>(), Some(&42));
@@ -51,7 +51,7 @@ impl AnyValue {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::AnyValue;
+    /// use itinera::AnyValue;
     ///
     /// let value = AnyValue::new("R-1".to_string());
     /// assert_eq!(value.downcast_ref::<String>().map(String::as_str), Some("R-1"));
@@ -65,7 +65,7 @@ impl AnyValue {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::AnyValue;
+    /// use itinera::AnyValue;
     ///
     /// let value = AnyValue::new(true);
     /// assert_eq!(value.downcast_ref::<bool>(), Some(&true));
@@ -80,7 +80,7 @@ impl AnyValue {
     /// # Examples
     ///
     /// ```
-    /// use itinera_core::AnyValue;
+    /// use itinera::AnyValue;
     ///
     /// assert!(AnyValue::new(42_i64).type_name().contains("i64"));
     /// ```
