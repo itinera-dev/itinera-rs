@@ -23,15 +23,17 @@ impl FromStr for Names {
 
     fn from_str(text: &str) -> Result<Self, ModelError> {
         text.split(", ")
-            .map(|name| {
-                name.strip_prefix('"')
-                    .and_then(|name| name.strip_suffix('"'))
-                    .map(str::to_owned)
-                    .ok_or_else(|| ModelError::Cell("name", name.to_owned()))
-            })
+            .map(unquoted)
             .collect::<Result<_, _>>()
             .map(Self)
     }
+}
+
+fn unquoted(name: &str) -> Result<String, ModelError> {
+    name.strip_prefix('"')
+        .and_then(|name| name.strip_suffix('"'))
+        .map(str::to_owned)
+        .ok_or_else(|| ModelError::Cell("name", name.to_owned()))
 }
 
 #[cfg(test)]

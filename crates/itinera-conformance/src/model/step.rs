@@ -96,45 +96,48 @@ pub(crate) struct Reason {
 
 /// Reads the rows of "step attempts:", numbered from 1 without gaps.
 pub(crate) fn attempts(rows: Vec<Row>) -> Result<Vec<Attempt>, ModelError> {
-    rows.into_iter()
+    rows.iter()
         .zip(1..)
-        .map(|(row, expected)| {
-            let number: NonZeroU32 = row.parse("attempt")?;
-            if number.get() != expected {
-                return Err(ModelError::AttemptOutOfOrder(number));
-            }
-            let reason = || -> Result<Reason, ModelError> {
-                Ok(Reason {
-                    code: row.required("code")?.to_owned(),
-                    message: row.optional("message").map(str::to_owned),
-                    details: row.optional("details").map(json).transpose()?,
-                })
-            };
-            let outcome = match row.required("outcome")? {
-                "success" => AttemptOutcome::Success,
-                "failure" => AttemptOutcome::Failure {
-                    reason: reason()?,
-                    retriable: false,
-                },
-                "retriable failure" => AttemptOutcome::Failure {
-                    reason: reason()?,
-                    retriable: true,
-                },
-                "skipped" => AttemptOutcome::Skipped(match row.optional("code") {
-                    Some(_) => Some(reason()?),
-                    None => None,
-                }),
-                "error" => AttemptOutcome::Error(row.optional("message").map(str::to_owned)),
-                other => return Err(ModelError::Cell("outcome", other.to_owned())),
-            };
-            Ok(Attempt {
-                outcome,
-                contributes: row
-                    .optional("contributes")
-                    .map(entries)
-                    .transpose()?
-                    .unwrap_or_default(),
-            })
-        })
+        .map(|(row, expected)| attempt(row, expected))
         .collect()
+}
+
+fn attempt(row: &Row, expected: u32) -> Result<Attempt, ModelError> {
+    let number: NonZeroU32 = row.parse("attempt")?;
+    if number.get() != expected {
+        return Err(ModelError::AttemptOutOfOrder(number));
+    }
+    let outcome = match row.required("outcome")? {
+        "success" => AttemptOutcome::Success,
+        "failure" => AttemptOutcome::Failure {
+            reason: reason(row)?,
+            retriable: false,
+        },
+        "retriable failure" => AttemptOutcome::Failure {
+            reason: reason(row)?,
+            retriable: true,
+        },
+        "skipped" => AttemptOutcome::Skipped(match row.optional("code") {
+            Some(_) => Some(reason(row)?),
+            None => None,
+        }),
+        "error" => AttemptOutcome::Error(row.optional("message").map(str::to_owned)),
+        other => return Err(ModelError::Cell("outcome", other.to_owned())),
+    };
+    Ok(Attempt {
+        outcome,
+        contributes: row
+            .optional("contributes")
+            .map(entries)
+            .transpose()?
+            .unwrap_or_default(),
+    })
+}
+
+fn reason(row: &Row) -> Result<Reason, ModelError> {
+    Ok(Reason {
+        code: row.required("code")?.to_owned(),
+        message: row.optional("message").map(str::to_owned),
+        details: row.optional("details").map(json).transpose()?,
+    })
 }
