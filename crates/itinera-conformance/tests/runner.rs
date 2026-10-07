@@ -41,7 +41,7 @@ impl Run {
             .as_array()
             .unwrap()
             .iter()
-            .flat_map(|feature| feature["elements"].as_array().unwrap().clone())
+            .flat_map(elements_of)
             .collect()
     }
 
@@ -56,13 +56,25 @@ fn name_and_tags(element: &Value) -> (String, Vec<String>) {
         .as_array()
         .unwrap()
         .iter()
-        .map(|tag| tag["name"].as_str().unwrap().to_owned())
+        .map(name_of)
         .collect();
-    (element["name"].as_str().unwrap().to_owned(), tags)
+    (name_of(element), tags)
+}
+
+fn elements_of(feature: &Value) -> Vec<Value> {
+    feature["elements"].as_array().unwrap().clone()
+}
+
+fn name_of(item: &Value) -> String {
+    item["name"].as_str().unwrap().to_owned()
+}
+
+fn line_of(element: &Value) -> u64 {
+    element["line"].as_u64().unwrap()
 }
 
 fn scenario(name: &str, tags: &[&str]) -> (String, Vec<String>) {
-    let tags = tags.iter().map(|tag| (*tag).to_owned()).collect();
+    let tags = tags.iter().copied().map(str::to_owned).collect();
     (name.to_owned(), tags)
 }
 
@@ -109,11 +121,7 @@ fn every_scenario_runs_once_under_each_executor_under_its_own_name() {
 #[test]
 fn the_rows_of_a_scenario_outline_stay_apart_under_both_executors() {
     let run = run("outline", "outline", "@fixture");
-    let mut lines: Vec<_> = run
-        .elements()
-        .iter()
-        .map(|element| element["line"].as_u64().unwrap())
-        .collect();
+    let mut lines: Vec<_> = run.elements().iter().map(line_of).collect();
     assert_eq!(lines.len(), 8);
     lines.sort_unstable();
     lines.dedup();

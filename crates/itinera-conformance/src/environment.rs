@@ -27,22 +27,32 @@ impl Environment {
     }
 
     fn read(var: impl Fn(&str) -> Option<OsString>) -> Result<Self, EnvironmentError> {
-        let required = |name: &'static str| {
-            var(name)
-                .filter(|value| !value.is_empty())
-                .ok_or(EnvironmentError::Missing(name))
-        };
-        let tags = required(TAGS)?
+        let tags = required(&var, TAGS)?
             .into_string()
             .map_err(|_| EnvironmentError::TagsNotUnicode)?;
         Ok(Self {
-            cases: required(CASES)?.into(),
+            cases: required(&var, CASES)?.into(),
             tags: tags
                 .parse()
                 .map_err(|_| EnvironmentError::InvalidTags(tags))?,
-            report: required(REPORT)?.into(),
+            report: required(&var, REPORT)?.into(),
         })
     }
+}
+
+/// The value of a variable that must be set.
+fn required(
+    var: impl Fn(&str) -> Option<OsString>,
+    name: &'static str,
+) -> Result<OsString, EnvironmentError> {
+    var(name)
+        .filter(is_set)
+        .ok_or(EnvironmentError::Missing(name))
+}
+
+/// Whether a variable holds a value: an empty one counts as missing.
+fn is_set(value: &OsString) -> bool {
+    !value.is_empty()
 }
 
 /// Why the environment does not say what to run.
@@ -75,7 +85,11 @@ mod tests {
 
     fn read(vars: &[(&str, &str)]) -> Result<Environment, EnvironmentError> {
         let vars: HashMap<_, _> = vars.iter().copied().collect();
-        Environment::read(|name| vars.get(name).map(OsString::from))
+        Environment::read(|name| lookup(&vars, name))
+    }
+
+    fn lookup(vars: &HashMap<&str, &str>, name: &str) -> Option<OsString> {
+        vars.get(name).map(OsString::from)
     }
 
     fn tags(expression: &str) -> TagOperation {

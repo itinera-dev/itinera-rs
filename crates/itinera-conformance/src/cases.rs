@@ -62,7 +62,7 @@ fn copies(scenarios: Vec<Scenario>, inherited: &[String]) -> Vec<Scenario> {
 fn span(scenarios: &[Scenario], name: &str) -> usize {
     let lines = scenarios
         .iter()
-        .filter(|scenario| scenario.name == name)
+        .filter(|scenario| is_named(scenario, name))
         .map(|scenario| scenario.position.line);
     let first = lines.clone().min().unwrap_or_default();
     let last = lines.max().unwrap_or_default();
@@ -74,13 +74,18 @@ fn copied(scenario: &Scenario, span: usize, inherited: &[String]) -> Vec<Scenari
     Executor::running(inherited.iter().chain(&scenario.tags))
         .iter()
         .zip(0..)
-        .map(|(executor, row)| copy(scenario, *executor, row * span))
+        .map(|(executor, row)| copy(scenario, *executor, row, span))
         .collect()
 }
 
-fn copy(scenario: &Scenario, executor: Executor, offset: usize) -> Scenario {
+/// The scenario tagged for this executor, as the row of the added Examples table it is.
+fn copy(scenario: &Scenario, executor: Executor, row: usize, span: usize) -> Scenario {
     let mut copy = scenario.clone();
     copy.tags.push(executor.tag().to_owned());
-    copy.position.line += offset;
+    copy.position.line += row * span;
     copy
+}
+
+fn is_named(scenario: &Scenario, name: &str) -> bool {
+    scenario.name == name
 }
