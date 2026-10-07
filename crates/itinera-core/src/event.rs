@@ -863,6 +863,18 @@ const NANOS_PER_SECOND: u32 = 1_000_000_000;
 impl fmt::Display for Timestamp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (seconds, nanos) = seconds_since_epoch(self.0);
+        Utc { seconds, nanos }.fmt(f)
+    }
+}
+
+struct Utc {
+    seconds: i128,
+    nanos: u32,
+}
+
+impl fmt::Display for Utc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { seconds, nanos } = *self;
         let (year, month, day) = civil_date(seconds.div_euclid(SECONDS_PER_DAY));
         if (0..=9999).contains(&year) {
             write!(f, "{year:04}")?;
@@ -1554,14 +1566,8 @@ pub(crate) mod tests {
         assert_eq!(abort.error(), Some("no configuration"));
     }
 
-    fn at(seconds: i64, nanos: u32) -> String {
-        let since_epoch = Duration::new(seconds.unsigned_abs(), 0);
-        let instant = if seconds < 0 {
-            UNIX_EPOCH - since_epoch
-        } else {
-            UNIX_EPOCH + since_epoch
-        };
-        Timestamp::from(instant + Duration::from_nanos(u64::from(nanos))).to_string()
+    fn at(seconds: i128, nanos: u32) -> String {
+        Utc { seconds, nanos }.to_string()
     }
 
     #[test]
