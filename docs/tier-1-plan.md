@@ -210,7 +210,7 @@ pub trait WorkflowInstance: Send + 'static {
 ### 9. Events, reporters and dispatchers
 
 - **One `Event` type**: a sequence number from 1, a `SystemTime` timestamp rendered as ISO 8601 in UTC, the journey ID, the workflow name, and a typed body with one variant per event of the catalogue. `kind()` returns the event's snake_case name. No variant has a field able to hold a value from the data bag. Hook names are `StepHook` or `WorkflowHook`, and an event from or about a hook carries the step and attempt only for a step hook. Who decided follows from each decision, and names only a hook that may have decided it: `journey_failed` by `FailWorkflow` holds a `DecidingHook` (a policy and any step hook), `step_given_up` by `FailWorkflow` one whose hook is a `GiveUpHook` (`on step retry` or `on step abnormal termination`), and `journey_succeeded` by `FinishWorkflow` the policy whose `on step success` returned it. Every other decision, and every retry, is decided by default. `Event` implements `Serialize`. Only itinera constructs events: `Event` and its variants are `#[non_exhaustive]`, so code outside the crate can read them but not make them. The types events carry, such as `JourneyId`, `Reason`, `AbortReason` and the causes, live in the `event` module, and later modules use them from there.
-- **`journey_failed` and `journey_aborted` are events about the journey.** They name the step but carry no attempt number. `journey_failed` carries the cause, the reason when there is one and the error's message when there is one; `journey_aborted` carries the error's message when failing custom code caused the abort. Events never carry an `itinera::Error`, only its `Display` text.
+- **`journey_failed` and `journey_aborted` are events about the journey.** They name the step but carry no attempt number. `journey_failed` carries the cause, the reason when there is one and the error's message when there is one; `journey_aborted` has one variant per abort reason, holding the step when there is one, the details, and the error's message when failing custom code caused the abort. Events never carry an `itinera::Error`, only its `Display` text.
 - **Data in step and hook events, and reason details,** are values carried in memory, cloned when emitted, and serialized only by reporters, in their own format.
 - **Reporters**: `Reporter` with `report(&mut self, &Event) -> Result<(), Error>`, and `AsyncReporter` behind the `async` feature. A reporter is expected to handle its own trouble (log it, drop the event, retry later) and return `Ok`, and the documentation says so. An `Err` aborts the journey with `reporter failed`, and delivery of that event stops at that reporter: the reporters after it never receive it. `journey_aborted` then goes to every reporter except the one that failed, so the order of reporters matters, and the documentation says that too. The executor wraps each reporter it adds for the journey, so this holds whatever the dispatcher: once a reporter has failed, the wrappers let only `journey_aborted` through, and never to the one that failed. An error while `journey_aborted` itself is delivered is ignored. An asynchronous reporter makes the workflow `Async`.
 - **The handles given to steps and hooks** are restricted views of the journey's dispatcher. A `StepReporter` emits only `step_info`, `step_warning` and `step_error`, stamped with the step and attempt; a `HookReporter` emits only `journey_info`, `journey_warning` and `journey_error`, stamped with the policy and hook. Delivery happens before the emit call returns. If a reporter fails during that delivery, the engine records the abort at once, and the call returns `Interrupted`. From then on nothing the step or hook emits is delivered, and when it returns, its outcome, lifecycle and contributions are ignored, even if it ignored `Interrupted` and carried on. In a workflow with an asynchronous reporter, the handles are asynchronous, and only asynchronous steps and hooks can request them.
@@ -220,32 +220,33 @@ pub trait WorkflowInstance: Send + 'static {
 ### 10. The result and the errors
 
 ```rust
-pub struct JourneyResult {
-    pub journey_id: JourneyId,
-    pub status: JourneyStatus,
-    pub data: DataBag,
+pub enum JourneyResult {
+    Succeeded { journey_id: JourneyId, data: DataBag },
+    Failed { journey_id: JourneyId, data: DataBag, failure: Failure },
+    Aborted { journey_id: JourneyId, data: DataBag, abort: Abort },
 }
 
-pub enum JourneyStatus { Succeeded, Failed(Failure), Aborted(Abort) }
-
-pub struct Failure {
-    pub cause: FailureCause,
-    pub reason: Option<Reason>,
-    pub error: Option<Error>,
+pub enum Failure {
+    Failure(Reason),
+    RetriesExhausted(LastFailure<Error>),
+    AbnormalTermination(Error),
+    FailWorkflow(Reason),
 }
 
-pub enum FailureCause { Failure, RetriesExhausted, AbnormalTermination, FailWorkflow }
-
-pub struct Abort {
-    pub reason: AbortReason,
-    pub details: AbortDetails,
-    pub error: Option<Error>,
+pub enum Abort {
+    StepCouldNotBeBuilt(Error),
+    PolicyCouldNotBeBuilt { policy: String, error: Error },
+    RequiredDataMissing { key: String, requester: DataRequester },
+    WrongType { key: String, requester: DataRequester },
+    HookFailed(Error),
+    ReporterFailed(Error),
 }
 ```
 
 - **The result is a business outcome.** It holds no step statuses, attempt counts or step names: those are observable in the event stream.
-- **A failure carries its cause, a reason when a step or hook wrote one, and an error when an error ended the last attempt**: `Failure` has the step's reason; `RetriesExhausted` the last attempt's reason or its error; `AbnormalTermination` the error; `FailWorkflow` the hook's reason. An abort carries the error when failing custom code caused it, and `None` for `RequiredDataMissing` or `WrongType`.
-- **The status is one enum carrying its payload**, so a failed journey without a failure, or a succeeded one with an abort, cannot be written. `JourneyStatus::kind()` returns a plain `StatusKind` (`Succeeded`, `Failed`, `Aborted`) for code that only needs the status.
+- **The result is one enum, tagged by status, each variant holding exactly what that status carries**, so a failed journey without a failure, or a succeeded one with an abort, cannot be written. `journey_id()` gives the journey ID whatever the status; `data()` and `into_data()` give the data bag. `status()` returns a plain `Status` (`Succeeded`, `Failed`, `Aborted`) for code that only needs the status.
+- **A failure has one variant per cause, and an abort one per abort reason**, each holding exactly what proposal 0083 says it carries: a reason, an error, or both, and the abort's details. `Failure::cause()` and `Abort::reason()` give the plain `FailureCause` and `AbortReason`. `DataRequester` names who requested the data (the step, an adapter, or a policy and hook) without naming the step. They mirror the events' `JourneyFailure`, `LastFailure` and `JourneyAbort`, which hold the error's message and name the step.
+- **Proposal spec#85**, if accepted, takes the data bag out of `Aborted`; `data()` and `into_data()` then return an `Option`.
 - **The result holds the error itself**, an `itinera::Error`, so the caller can inspect it; events carry only its message. As an error cannot be cloned in general, `JourneyResult` is not `Clone`.
 - **`AbortReason`** has the reasons Rust can reach, `StepCouldNotBeBuilt`, `RequiredDataMissing`, `WrongType`, `PolicyCouldNotBeBuilt`, `HookFailed` and `ReporterFailed`, and is `#[non_exhaustive]`. `invalid lifecycle` and `not a value` cannot happen.
 - **`Refusal`** names what refused the journey (a workflow policy, the dispatcher factory, or the dispatcher) and carries its `Error`.

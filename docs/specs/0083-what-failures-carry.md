@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0083](https://github.com/itinera-dev/spec/blob/main/proposals/0083-what-failures-carry.md), implemented in [#46](https://github.com/itinera-dev/itinera-rs/issues/46). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: in progress. Stage 1 shapes the events; the result and refusals arrive in stage 3, and what hooks may request in stage 7.
+Status: in progress. Stage 1 shapes the events; the result, shaped like them as the plan's section 10 says, and refusals arrive in stage 3, and what hooks may request in stage 7.
 
 ## API
 
@@ -12,7 +12,11 @@ Status: in progress. Stage 1 shapes the events; the result and refusals arrive i
   - `AbnormalTermination` holds the error's message;
   - `FailWorkflow` holds the `DecidingHook` and the `Reason` it gave.
 - `JourneyFailure::cause()` gives the plain `FailureCause`. A `JourneyFailure` serializes as `cause`, `reason`, `error` and `decided_by`, with `null` for what the cause does not carry.
-- **`journey_aborted`** is `EventBody::JourneyAborted`, with the step's name if any, the `AbortReason`, its `AbortDetails`, and the error's message when failing custom code caused the abort.
+- **`journey_aborted`** is `EventBody::JourneyAborted`, holding a `JourneyAbort` with one variant per abort reason, each holding exactly what that reason carries:
+  - `StepCouldNotBeBuilt`, `HookFailed` and `ReporterFailed` hold the error's message, and the step's name where there is one;
+  - `PolicyCouldNotBeBuilt` holds the step's name, the policy and the error's message;
+  - `RequiredDataMissing` and `WrongType` hold the key and the `Requester`, which names the step except for a workflow hook, and no error.
+- `JourneyAbort::reason()`, `step()` and `error()` give the plain `AbortReason`, the step's name and the error's message. A `JourneyAbort` serializes as `step`, `reason`, `details` and `error`.
 - Neither carries a `StepAttempt`, only the step's name.
 - Events carry an error only as its `Display` text, never an `itinera::Error`.
 
@@ -23,11 +27,11 @@ Status: in progress. Stage 1 shapes the events; the result and refusals arrive i
 | A failure carries a reason, an error, or both, exactly as its cause says | types: the variants of `JourneyFailure` and `LastFailure` |
 | Events carry an error only as its message | types: the error fields of events are `String` |
 | `journey_failed` and `journey_aborted` carry no attempt number | types: they hold a step name, not a `StepAttempt` |
-| An abort carries an error only when custom code caused it by failing | the executor, from stage 3 |
+| An abort carries an error exactly when custom code caused it by failing | types: the variants of `JourneyAbort`; in Rust a constructor, input adapter or policy can only fail by returning an error |
 
 ## Tests
 
-- Unit tests in `itinera-core/src/event.rs`: a journey failed after retries carries the last attempt's error message; a journey failed by `FailWorkflow` carries the reason and the hook.
+- Unit tests in `itinera-core/src/event.rs`: a journey failed after retries carries the last attempt's error message; a journey failed by `FailWorkflow` carries the reason and the hook; an abort while data was resolved carries the key and requester but no error; an abort by a workflow hook's request names no step; an abort caused by failing code carries the error's message.
 
 ## Done when
 

@@ -111,50 +111,6 @@ pub enum WorkflowHook {
 
 serde_plain::derive_display_from_serialize!(WorkflowHook);
 
-/// The name of any hook: a step hook or a workflow hook.
-///
-/// It displays and serializes as the hook is named.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::{HookName, StepHook};
-///
-/// let hook = HookName::from(StepHook::OnStepFailure);
-/// assert_eq!(hook.to_string(), "on step failure");
-/// ```
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, derive_more::Display, derive_more::From,
-)]
-#[serde(untagged)]
-#[non_exhaustive]
-pub enum HookName {
-    /// A step hook.
-    Step(StepHook),
-    /// A workflow hook.
-    Workflow(WorkflowHook),
-}
-
-/// A hook of a named policy.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::HookRef;
-///
-/// fn describe(hook: &HookRef) -> String {
-///     format!("{}, {}", hook.policy, hook.hook)
-/// }
-/// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
-#[non_exhaustive]
-pub struct HookRef {
-    /// The policy's name.
-    pub policy: String,
-    /// The hook.
-    pub hook: HookName,
-}
-
 /// A hook that was called: a step hook, with the step and attempt that triggered it, or a
 /// workflow hook.
 ///
@@ -527,7 +483,9 @@ pub enum FailureCause {
 serde_plain::derive_display_from_serialize!(FailureCause);
 
 /// What ended a step's last attempt when its retry budget was spent: the reason of a failure,
-/// or the message of the error that ended it abnormally.
+/// or the error that ended it abnormally.
+///
+/// Events hold the error as its message, the default `E`; the result holds the error itself.
 ///
 /// # Examples
 ///
@@ -542,11 +500,11 @@ serde_plain::derive_display_from_serialize!(FailureCause);
 /// }
 /// ```
 #[derive(Clone, Debug)]
-pub enum LastFailure {
+pub enum LastFailure<E = String> {
     /// The attempt reported a retriable failure, with this reason.
     Reason(Reason),
-    /// The attempt ended in an abnormal termination, with this error message.
-    Error(String),
+    /// The attempt ended in an abnormal termination, with this error.
+    Error(E),
 }
 
 /// Why a journey failed, with what the cause carries and who decided it.
@@ -660,7 +618,11 @@ pub enum AbortReason {
 
 serde_plain::derive_display_from_serialize!(AbortReason);
 
-/// Who requested data: a step for one of its inputs, a hook, or an input adapter.
+/// Who made a request whose data could not be resolved, and the step it was made for: a step for
+/// one of its inputs, an input adapter resolving a step's input, a step hook, or a workflow hook,
+/// which has no step.
+///
+/// It serializes as the step, and the policy and hook or the adapter when the request is theirs.
 ///
 /// # Examples
 ///
@@ -669,21 +631,58 @@ serde_plain::derive_display_from_serialize!(AbortReason);
 ///
 /// fn adapter(requester: &Requester) -> Option<&str> {
 ///     match requester {
-///         Requester::Adapter(name) => Some(name),
+///         Requester::Adapter { adapter, .. } => Some(adapter),
 ///         _ => None,
 ///     }
 /// }
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(untagged)]
 #[non_exhaustive]
 pub enum Requester {
-    /// The step, for one of its inputs.
-    Step,
-    /// A hook.
-    Hook(HookRef),
-    /// The input adapter with this name.
-    Adapter(String),
+    /// A step, for one of its inputs.
+    #[non_exhaustive]
+    Step {
+        /// The step's name.
+        step: String,
+    },
+    /// An input adapter, for an input of a step.
+    #[non_exhaustive]
+    Adapter {
+        /// The adapter's name.
+        adapter: String,
+        /// The name of the step whose input it was resolving.
+        step: String,
+    },
+    /// A step hook.
+    #[non_exhaustive]
+    StepHook {
+        /// The policy's name.
+        policy: String,
+        /// The hook.
+        hook: StepHook,
+        /// The name of the step it acts on.
+        step: String,
+    },
+    /// A workflow hook.
+    #[non_exhaustive]
+    WorkflowHook {
+        /// The policy's name.
+        policy: String,
+        /// The hook.
+        hook: WorkflowHook,
+    },
+}
+
+impl Requester {
+    fn step(&self) -> Option<&str> {
+        match self {
+            Self::Step { step } | Self::Adapter { step, .. } | Self::StepHook { step, .. } => {
+                Some(step)
+            }
+            Self::WorkflowHook { .. } => None,
+        }
+    }
 }
 
 /// Who made an optional request that had no value: a step for one of its inputs, a hook, or an
@@ -724,38 +723,203 @@ pub enum RequestSource {
     },
 }
 
-/// What an abort concerns, beyond its reason and step.
+/// Why a journey was aborted, with exactly what that reason carries: the step during which it
+/// happened, when there was one, its details, and the message of the error when failing custom
+/// code caused it.
+///
+/// It serializes as the `step`, the `reason`, the `details` and the `error`, each `null` when the
+/// reason carries none.
 ///
 /// # Examples
 ///
 /// ```
-/// use itinera::AbortDetails;
+/// use itinera::{AbortReason, JourneyAbort};
 ///
-/// fn key(details: &AbortDetails) -> Option<&str> {
-///     match details {
-///         AbortDetails::Data { key, .. } => Some(key),
-///         _ => None,
+/// fn describe(abort: &JourneyAbort) -> String {
+///     match abort.error() {
+///         Some(error) => format!("{}: {error}", abort.reason()),
+///         None => abort.reason().to_string(),
 ///     }
 /// }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
-pub enum AbortDetails {
-    /// The journey was aborted while data was resolved.
+pub enum JourneyAbort {
+    /// A step's constructor, or the input adapter resolving one of its inputs, failed.
     #[non_exhaustive]
-    Data {
-        /// The key that was requested.
-        key: String,
-        /// Who requested it.
-        requester: Requester,
+    StepCouldNotBeBuilt {
+        /// The step's name.
+        step: String,
+        /// The error's message.
+        error: String,
     },
-    /// A step policy could not be built.
+    /// A step policy failed while being built for an attempt.
     #[non_exhaustive]
-    Policy {
+    PolicyCouldNotBeBuilt {
+        /// The step's name.
+        step: String,
         /// The policy's name.
         policy: String,
+        /// The error's message.
+        error: String,
     },
+    /// A required request has no value.
+    #[non_exhaustive]
+    RequiredDataMissing {
+        /// The key that was requested.
+        key: String,
+        /// Who requested it, and for which step.
+        requester: Requester,
+    },
+    /// A requested value has the wrong type.
+    #[non_exhaustive]
+    WrongType {
+        /// The key that was requested.
+        key: String,
+        /// Who requested it, and for which step.
+        requester: Requester,
+    },
+    /// A hook, or a role operation it called, failed.
+    #[non_exhaustive]
+    HookFailed {
+        /// The name of the step a step hook acts on; `None` for a workflow hook.
+        step: Option<String>,
+        /// The error's message.
+        error: String,
+    },
+    /// A reporter, or a dispatcher while dispatching, failed.
+    #[non_exhaustive]
+    ReporterFailed {
+        /// The name of the step during which it happened, if any.
+        step: Option<String>,
+        /// The error's message.
+        error: String,
+    },
+}
+
+impl JourneyAbort {
+    /// The abort's reason.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::{AbortReason, JourneyAbort};
+    ///
+    /// fn caused_by_a_reporter(abort: &JourneyAbort) -> bool {
+    ///     abort.reason() == AbortReason::ReporterFailed
+    /// }
+    /// ```
+    pub fn reason(&self) -> AbortReason {
+        match self {
+            Self::StepCouldNotBeBuilt { .. } => AbortReason::StepCouldNotBeBuilt,
+            Self::PolicyCouldNotBeBuilt { .. } => AbortReason::PolicyCouldNotBeBuilt,
+            Self::RequiredDataMissing { .. } => AbortReason::RequiredDataMissing,
+            Self::WrongType { .. } => AbortReason::WrongType,
+            Self::HookFailed { .. } => AbortReason::HookFailed,
+            Self::ReporterFailed { .. } => AbortReason::ReporterFailed,
+        }
+    }
+
+    /// The name of the step during which the journey was aborted, if any.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::JourneyAbort;
+    ///
+    /// fn during_a_step(abort: &JourneyAbort) -> bool {
+    ///     abort.step().is_some()
+    /// }
+    /// ```
+    pub fn step(&self) -> Option<&str> {
+        match self {
+            Self::StepCouldNotBeBuilt { step, .. } | Self::PolicyCouldNotBeBuilt { step, .. } => {
+                Some(step)
+            }
+            Self::RequiredDataMissing { requester, .. } | Self::WrongType { requester, .. } => {
+                requester.step()
+            }
+            Self::HookFailed { step, .. } | Self::ReporterFailed { step, .. } => step.as_deref(),
+        }
+    }
+
+    /// The message of the error that caused the abort, when failing custom code did.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::JourneyAbort;
+    ///
+    /// fn caused_by_failing_code(abort: &JourneyAbort) -> bool {
+    ///     abort.error().is_some()
+    /// }
+    /// ```
+    pub fn error(&self) -> Option<&str> {
+        match self {
+            Self::StepCouldNotBeBuilt { error, .. }
+            | Self::PolicyCouldNotBeBuilt { error, .. }
+            | Self::HookFailed { error, .. }
+            | Self::ReporterFailed { error, .. } => Some(error),
+            Self::RequiredDataMissing { .. } | Self::WrongType { .. } => None,
+        }
+    }
+}
+
+impl Serialize for JourneyAbort {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let details = match self {
+            Self::RequiredDataMissing { key, requester } | Self::WrongType { key, requester } => {
+                Some(AbortDetails::Data { key, requester })
+            }
+            Self::PolicyCouldNotBeBuilt { policy, .. } => Some(AbortDetails::Policy { policy }),
+            Self::StepCouldNotBeBuilt { .. }
+            | Self::HookFailed { .. }
+            | Self::ReporterFailed { .. } => None,
+        };
+        let mut map = serializer.serialize_map(Some(4))?;
+        map.serialize_entry("step", &self.step())?;
+        map.serialize_entry("reason", &self.reason())?;
+        map.serialize_entry("details", &details)?;
+        map.serialize_entry("error", &self.error())?;
+        map.end()
+    }
+}
+
+enum AbortDetails<'a> {
+    Data {
+        key: &'a str,
+        requester: &'a Requester,
+    },
+    Policy {
+        policy: &'a str,
+    },
+}
+
+impl Serialize for AbortDetails<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(None)?;
+        match self {
+            Self::Data { key, requester } => {
+                map.serialize_entry("key", key)?;
+                match requester {
+                    Requester::Step { .. } => {}
+                    Requester::Adapter { adapter, .. } => {
+                        map.serialize_entry("adapter", adapter)?;
+                    }
+                    Requester::StepHook { policy, hook, .. } => {
+                        map.serialize_entry("policy", policy)?;
+                        map.serialize_entry("hook", hook)?;
+                    }
+                    Requester::WorkflowHook { policy, hook } => {
+                        map.serialize_entry("policy", policy)?;
+                        map.serialize_entry("hook", hook)?;
+                    }
+                }
+            }
+            Self::Policy { policy } => map.serialize_entry("policy", policy)?,
+        }
+        map.end()
+    }
 }
 
 /// Who made a contribution: a step, or a hook.
@@ -972,14 +1136,9 @@ pub enum EventBody {
     /// The journey was aborted. This is always its last event.
     #[non_exhaustive]
     JourneyAborted {
-        /// The name of the step during which it happened, if any.
-        step: Option<String>,
-        /// Why it was aborted.
-        reason: AbortReason,
-        /// What it concerns, where the reason needs more.
-        details: Option<AbortDetails>,
-        /// The message of the error that caused it, when failing custom code did.
-        error: Option<String>,
+        /// Why it was aborted, and what that reason carries.
+        #[serde(flatten)]
+        abort: JourneyAbort,
     },
     /// The executor decided to attempt a step again.
     #[non_exhaustive]
@@ -1292,10 +1451,10 @@ pub(crate) mod tests {
                 source: Source::Step(charge(1)),
             },
             EventBody::JourneyAborted {
-                step: None,
-                reason: AbortReason::ReporterFailed,
-                details: None,
-                error: Some("disk full".to_string()),
+                abort: JourneyAbort::ReporterFailed {
+                    step: None,
+                    error: "disk full".to_string(),
+                },
             },
             EventBody::StepRetrying {
                 step: charge(1),
@@ -1558,40 +1717,63 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn any_hook_displays_as_it_is_named() {
+    fn an_abort_while_data_was_resolved_carries_the_key_and_requester_but_no_error() {
+        let json = to_json(&event(
+            6,
+            EventBody::JourneyAborted {
+                abort: JourneyAbort::RequiredDataMissing {
+                    key: "price".to_string(),
+                    requester: Requester::Adapter {
+                        adapter: "pricing".to_string(),
+                        step: "charge".to_string(),
+                    },
+                },
+            },
+        ));
+        assert_eq!(json["step"], json!("charge"));
+        assert!(json.get("attempt").is_none());
+        assert_eq!(json["reason"], json!("required data missing"));
         assert_eq!(
-            HookName::from(StepHook::OnStepAbnormalTermination).to_string(),
-            "on step abnormal termination"
+            json["details"],
+            json!({"key": "price", "adapter": "pricing"})
         );
+        assert_eq!(json["error"], json!(null));
+    }
+
+    #[test]
+    fn an_abort_by_a_workflow_hooks_request_names_no_step() {
+        let abort = JourneyAbort::WrongType {
+            key: "amount".to_string(),
+            requester: Requester::WorkflowHook {
+                policy: "close".to_string(),
+                hook: WorkflowHook::OnWorkflowSuccess,
+            },
+        };
+        assert_eq!(abort.step(), None);
+        let json = to_json(&event(6, EventBody::JourneyAborted { abort }));
+        assert_eq!(json["step"], json!(null));
         assert_eq!(
-            HookName::from(WorkflowHook::OnWorkflowSuccess).to_string(),
-            "on workflow success"
-        );
-        assert_eq!(
-            serde_json::to_value(HookName::from(WorkflowHook::OnWorkflowSuccess)).unwrap(),
-            json!("on workflow success")
+            json["details"],
+            json!({"key": "amount", "policy": "close", "hook": "on workflow success"})
         );
     }
 
     #[test]
-    fn an_abort_carries_its_reason_by_name_and_its_details() {
+    fn an_abort_caused_by_failing_code_carries_the_errors_message() {
         let json = to_json(&event(
             6,
             EventBody::JourneyAborted {
-                step: Some("charge".to_string()),
-                reason: AbortReason::RequiredDataMissing,
-                details: Some(AbortDetails::Data {
-                    key: "price".to_string(),
-                    requester: Requester::Adapter("pricing".to_string()),
-                }),
-                error: None,
+                abort: JourneyAbort::PolicyCouldNotBeBuilt {
+                    step: "ship".to_string(),
+                    policy: "broken".to_string(),
+                    error: "no configuration".to_string(),
+                },
             },
         ));
-        assert_eq!(json["reason"], json!("required data missing"));
-        assert_eq!(
-            json["details"],
-            json!({"data": {"key": "price", "requester": {"adapter": "pricing"}}})
-        );
+        assert_eq!(json["step"], json!("ship"));
+        assert_eq!(json["reason"], json!("policy could not be built"));
+        assert_eq!(json["details"], json!({"policy": "broken"}));
+        assert_eq!(json["error"], json!("no configuration"));
     }
 
     #[test]
