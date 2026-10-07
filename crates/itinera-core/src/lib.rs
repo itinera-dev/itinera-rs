@@ -5,12 +5,38 @@
 
 #![forbid(unsafe_code)]
 
-#[cfg_attr(not(feature = "unstable"), allow(dead_code, unreachable_pub))]
+#[cfg(feature = "unstable")]
+pub mod error;
+#[cfg(not(feature = "unstable"))]
+#[allow(dead_code, unreachable_pub, unused_imports)]
 mod error;
-#[cfg_attr(not(feature = "unstable"), allow(dead_code, unreachable_pub))]
+
+#[cfg(feature = "unstable")]
+pub mod value;
+#[cfg(not(feature = "unstable"))]
+#[allow(dead_code, unreachable_pub, unused_imports)]
 mod value;
 
 #[cfg(feature = "unstable")]
-pub use error::Error;
+pub mod journey;
+#[cfg(not(feature = "unstable"))]
+#[allow(dead_code, unreachable_pub, unused_imports)]
+mod journey;
+
 #[cfg(feature = "unstable")]
-pub use value::{AnyValue, Value};
+pub mod step;
+#[cfg(not(feature = "unstable"))]
+#[allow(dead_code, unreachable_pub, unused_imports)]
+mod step;
+
+#[cfg(feature = "unstable")]
+pub mod policy;
+#[cfg(not(feature = "unstable"))]
+#[allow(dead_code, unreachable_pub, unused_imports)]
+mod policy;
+
+#[cfg(feature = "unstable")]
+pub mod event;
+#[cfg(not(feature = "unstable"))]
+#[allow(dead_code, unreachable_pub, unused_imports)]
+mod event;

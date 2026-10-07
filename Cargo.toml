@@ -12,7 +12,8 @@ repository = "https://github.com/itinera-dev/itinera-rs"
 [workspace.dependencies]
 itinera-core = { path = "crates/itinera-core", version = "0.0.0" }
 itinera-macros = { path = "crates/itinera-macros", version = "0.0.0" }
-serde = { version = "1", default-features = false, features = ["std", "derive"] }
+serde = { version = "1", default-features = false, features = ["std"] }
+derive_more = { version = "2.1.1", default-features = false, features = ["std", "display", "from", "into", "as_ref"] }
 erased-serde = { version = "0.4", default-features = false, features = ["std"] }
 serde_json = { version = "1", default-features = false, features = ["std"] }
 

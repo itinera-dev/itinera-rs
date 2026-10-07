@@ -6,8 +6,8 @@ Status: in progress. Stage 1 adds values and the type-erased value; the data bag
 
 ## API
 
-- **`itinera::Value`** is implemented for every `T: Serialize + DeserializeOwned + Clone + Send + Sync + 'static`. Closures, function pointers and handles are not values.
-- **`itinera::AnyValue`** holds a value whose type has been erased. It can be cloned and serialized, and read back with `downcast_ref::<T>()`, which reads nothing unless `T` is the exact type.
+- **`itinera::value::Value`** is implemented for every `T: Serialize + DeserializeOwned + Clone + Send + Sync + 'static`. Closures, function pointers and handles are not values.
+- **`itinera::value::AnyValue`** holds a value whose type has been erased. It can be cloned and serialized, and read back with `downcast_ref::<T>()`, which reads nothing unless `T` is the exact type.
 
 ## How the rules are enforced
 
