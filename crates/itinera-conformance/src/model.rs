@@ -88,6 +88,11 @@ impl Level {
             _ => Err(ModelError::UnknownEmit(kind.to_owned())),
         }
     }
+
+    /// Whether an event of this kind is one a step or hook emits, rather than an engine event.
+    pub(crate) fn is_emitted(kind: &str) -> bool {
+        Self::of("step", kind).is_ok() || Self::of("journey", kind).is_ok()
+    }
 }
 
 impl Model {
@@ -142,6 +147,66 @@ impl Model {
                 Ok(())
             }
         }
+    }
+
+    /// Every value the scenario gives this key: in the initial data, contributed or written by a
+    /// step or a hook, or supplied by an input adapter.
+    pub(crate) fn values_of(&self, key: &str) -> Vec<&Value> {
+        let initial = self
+            .initial_data
+            .iter()
+            .filter(|(name, _)| name == key)
+            .map(|(_, value)| value);
+        let steps = self
+            .workflow
+            .iter()
+            .flat_map(|workflow| workflow.scripts.values());
+        let actions =
+            steps
+                .clone()
+                .flat_map(|step| &step.actions)
+                .flat_map(|action| match action {
+                    StepAction::Contribute { key: name, value }
+                    | StepAction::ChangeInput { key: name, value } => {
+                        (name == key).then_some(vec![value])
+                    }
+                    StepAction::ContributeThenChange {
+                        key: name,
+                        value,
+                        changed,
+                    } => (name == key).then_some(vec![value, changed]),
+                    StepAction::Emit { .. } => None,
+                });
+        let attempts = steps
+            .flat_map(|step| step.attempts.iter().flatten())
+            .flat_map(|attempt| &attempt.contributes)
+            .filter(|(name, _)| name == key)
+            .map(|(_, value)| value);
+        let hooks = self
+            .policies
+            .values()
+            .flat_map(Policy::scripts)
+            .flat_map(|script| &script.actions)
+            .filter_map(|action| match action {
+                HookAction::ChangeStepData { key: name, value }
+                | HookAction::Contribute { key: name, value } => (name == key).then_some(value),
+                _ => None,
+            });
+        let adapters = self
+            .workflow
+            .iter()
+            .flat_map(|workflow| &workflow.adapters)
+            .flat_map(|adapter| &adapter.answers)
+            .filter_map(|(name, answer)| match answer {
+                Answer::Value(value) if name == key => Some(value),
+                _ => None,
+            });
+        initial
+            .chain(actions.flatten())
+            .chain(attempts)
+            .chain(hooks)
+            .chain(adapters)
+            .collect()
     }
 
     pub(crate) fn policy_mut(&mut self, policy: &str) -> Result<&mut Policy, ModelError> {
@@ -238,6 +303,8 @@ pub(crate) enum ModelError {
     MissingTable,
     #[error("a row has no {0}")]
     MissingCell(&'static str),
+    #[error("\"{0}\" is not a column of this table")]
+    UnknownColumn(String),
     #[error("\"{1}\" is not a valid {0}")]
     Cell(&'static str, String),
     #[error("attempt {0} is out of order; rows count attempts from 1")]
@@ -248,7 +315,58 @@ pub(crate) enum ModelError {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
+
+    #[test]
+    fn a_keys_values_are_every_value_the_scenario_gives_it() {
+        let mut model = Model::default();
+        model
+            .declare("orders".to_owned(), vec!["charge".to_owned()])
+            .unwrap();
+        model.initial_data.push(("card".to_owned(), json!("4111")));
+        let charge = model.step_mut("charge").unwrap();
+        charge.actions.push(StepAction::ContributeThenChange {
+            key: "token".to_owned(),
+            value: json!("first"),
+            changed: json!("second"),
+        });
+        charge.attempts = Some(vec![Attempt {
+            outcome: step::AttemptOutcome::Success,
+            contributes: vec![("token".to_owned(), json!("third"))],
+        }]);
+        model
+            .define("record".to_owned(), "on step success", true)
+            .unwrap();
+        model
+            .hook_mut("record", "on step success")
+            .unwrap()
+            .actions
+            .push(HookAction::Contribute {
+                key: "token".to_owned(),
+                value: json!("fourth"),
+            });
+        assert_eq!(model.values_of("card"), [&json!("4111")]);
+        assert_eq!(
+            model.values_of("token"),
+            [
+                &json!("first"),
+                &json!("second"),
+                &json!("third"),
+                &json!("fourth")
+            ]
+        );
+        assert!(model.values_of("note").is_empty());
+    }
+
+    #[test]
+    fn only_step_and_journey_levels_are_emitted_events() {
+        assert!(Level::is_emitted("step_warning"));
+        assert!(Level::is_emitted("journey_info"));
+        assert!(!Level::is_emitted("step_failed"));
+        assert!(!Level::is_emitted("journey_aborted"));
+    }
 
     #[test]
     fn an_emitted_kind_names_its_level_after_the_prefix_of_whoever_emits_it() {

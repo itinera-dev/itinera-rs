@@ -7,7 +7,13 @@ mod environment;
 mod executor;
 #[expect(dead_code, reason = "the sentences that act on the model read it")]
 mod model;
+#[expect(
+    dead_code,
+    reason = "the sentence that runs the workflow makes the recorders"
+)]
+mod record;
 mod sentences;
+mod trace;
 mod world;
 
 use std::error::Error;

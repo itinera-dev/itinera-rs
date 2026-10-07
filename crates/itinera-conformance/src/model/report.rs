@@ -61,7 +61,7 @@ fn is_named(kind: &&str, name: &str) -> bool {
 }
 
 /// When a scripted reporter fails.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ReporterFailure {
     /// On the first event it receives.
     First,
@@ -88,7 +88,7 @@ pub(crate) enum Dispatching {
 }
 
 /// What a dispatcher the scenario gives does besides delivering to its reporter.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(crate) enum Holding {
     /// Adds the workflow's reporters and delivers to them as well.
     #[default]

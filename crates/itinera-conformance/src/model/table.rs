@@ -27,6 +27,10 @@ impl Row {
             .and_then(|(_, cell)| filled(cell))
     }
 
+    pub(crate) fn columns(&self) -> impl Iterator<Item = &str> {
+        self.cells.iter().map(|(name, _)| name.as_str())
+    }
+
     pub(crate) fn required(&self, column: &'static str) -> Result<&str, ModelError> {
         self.optional(column).ok_or(ModelError::MissingCell(column))
     }
@@ -35,6 +39,14 @@ impl Row {
         let cell = self.required(column)?;
         cell.parse()
             .map_err(|_| ModelError::Cell(column, cell.to_owned()))
+    }
+}
+
+impl FromIterator<(String, String)> for Row {
+    fn from_iter<I: IntoIterator<Item = (String, String)>>(cells: I) -> Self {
+        Self {
+            cells: cells.into_iter().collect(),
+        }
     }
 }
 

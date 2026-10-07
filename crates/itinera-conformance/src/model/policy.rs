@@ -78,6 +78,14 @@ impl Policy {
         Ok(())
     }
 
+    /// The scripts of its hooks, in the order defined.
+    pub(crate) fn scripts(&self) -> Vec<&HookScript> {
+        match &self.hooks {
+            Hooks::Step(hooks) => hooks.iter().map(|(_, script)| script).collect(),
+            Hooks::Workflow(hooks) => hooks.iter().map(|(_, script)| script).collect(),
+        }
+    }
+
     pub(crate) fn is_step_policy(&self) -> bool {
         matches!(self.hooks, Hooks::Step(_))
     }
