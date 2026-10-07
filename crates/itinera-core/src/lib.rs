@@ -40,3 +40,9 @@ pub mod event;
 #[cfg(not(feature = "unstable"))]
 #[allow(dead_code, unreachable_pub, unused_imports)]
 mod event;
+
+#[cfg(feature = "unstable")]
+pub mod report;
+#[cfg(not(feature = "unstable"))]
+#[allow(dead_code, unreachable_pub, unused_imports)]
+mod report;
