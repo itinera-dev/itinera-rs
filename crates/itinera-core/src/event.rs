@@ -1,107 +1,13 @@
+//! Events: the record of what happens in a journey, and what only events carry.
+
 use std::fmt;
-use std::num::{NonZeroU32, NonZeroU64};
+use std::num::NonZeroU64;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::value::{AnyValue, Value};
-
-/// The identifier of one journey, unique to it.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::JourneyId;
-///
-/// let id = JourneyId::from("order-42");
-/// let text: &str = id.as_ref();
-/// assert_eq!(text, "order-42");
-/// assert_eq!(id.to_string(), "order-42");
-/// assert_eq!(JourneyId::from(String::from("order-42")), id);
-/// ```
-#[derive(
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    derive_more::Display,
-    derive_more::From,
-    derive_more::AsRef,
-)]
-#[from(forward)]
-#[as_ref(forward)]
-pub struct JourneyId(String);
-
-/// A step and one of its attempts, counted from 1.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::StepAttempt;
-///
-/// fn describe(attempt: &StepAttempt) -> String {
-///     format!("{}, attempt {}", attempt.step, attempt.attempt)
-/// }
-/// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub struct StepAttempt {
-    /// The step's name.
-    pub step: String,
-    /// The attempt number, from 1.
-    pub attempt: NonZeroU32,
-}
-
-/// The name of a step hook, which acts on one attempt of a step.
-///
-/// It displays as the hook is named, for example `on step success`.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::StepHook;
-///
-/// assert_eq!(StepHook::OnStepRetry.to_string(), "on step retry");
-/// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
-#[non_exhaustive]
-pub enum StepHook {
-    /// Called after an attempt that succeeded.
-    #[display("on step success")]
-    OnStepSuccess,
-    /// Called after a step was given up.
-    #[display("on step failure")]
-    OnStepFailure,
-    /// Called before a step is attempted again.
-    #[display("on step retry")]
-    OnStepRetry,
-    /// Called after an attempt ended in an abnormal termination.
-    #[display("on step abnormal termination")]
-    OnStepAbnormalTermination,
-}
-
-/// The name of a workflow hook, called once at the end of a journey.
-///
-/// It displays as the hook is named, for example `on workflow success`.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::WorkflowHook;
-///
-/// assert_eq!(WorkflowHook::OnWorkflowFailure.to_string(), "on workflow failure");
-/// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
-#[non_exhaustive]
-pub enum WorkflowHook {
-    /// Called once the journey has succeeded.
-    #[display("on workflow success")]
-    OnWorkflowSuccess,
-    /// Called once the journey has failed.
-    #[display("on workflow failure")]
-    OnWorkflowFailure,
-}
+use crate::journey::{AbortReason, FailureCause, JourneyId, LastFailure};
+use crate::policy::{Lifecycle, StepHook, WorkflowHook};
+use crate::step::{Reason, StepAttempt};
+use crate::value::AnyValue;
 
 /// A hook that was called: a step hook, with the step and attempt that triggered it, or a
 /// workflow hook.
@@ -109,7 +15,7 @@ pub enum WorkflowHook {
 /// # Examples
 ///
 /// ```
-/// use itinera::HookSource;
+/// use itinera::event::HookSource;
 ///
 /// fn triggered_by(source: &HookSource) -> Option<&str> {
 ///     match source {
@@ -141,147 +47,6 @@ pub enum HookSource {
     },
 }
 
-/// Why a step failed or was skipped, or why a hook failed the journey: a code, an optional
-/// message and optional details.
-///
-/// The details are a [`Value`], captured when the reason is made.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::Reason;
-///
-/// let reason = Reason::new("card-declined")
-///     .with_message("the card was declined")
-///     .with_details(3_i64);
-/// assert_eq!(reason.code(), "card-declined");
-/// assert_eq!(reason.message(), Some("the card was declined"));
-/// assert_eq!(reason.details().and_then(|d| d.downcast_ref::<i64>()), Some(&3));
-/// ```
-#[derive(Clone, Debug)]
-pub struct Reason {
-    code: String,
-    message: Option<String>,
-    details: Option<AnyValue>,
-}
-
-impl Reason {
-    /// Makes a reason with a code, and no message or details.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::Reason;
-    ///
-    /// let reason = Reason::new("out-of-stock");
-    /// assert_eq!(reason.code(), "out-of-stock");
-    /// assert!(reason.message().is_none());
-    /// assert!(reason.details().is_none());
-    /// ```
-    pub fn new(code: impl Into<String>) -> Self {
-        Self {
-            code: code.into(),
-            message: None,
-            details: None,
-        }
-    }
-
-    /// Gives the reason a message.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::Reason;
-    ///
-    /// let reason = Reason::new("out-of-stock").with_message("none left");
-    /// assert_eq!(reason.message(), Some("none left"));
-    /// ```
-    pub fn with_message(mut self, message: impl Into<String>) -> Self {
-        self.message = Some(message.into());
-        self
-    }
-
-    /// Gives the reason details, which must be a [`Value`].
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::Reason;
-    ///
-    /// let reason = Reason::new("out-of-stock").with_details(vec!["SKU-1".to_string()]);
-    /// assert!(reason.details().is_some());
-    /// ```
-    pub fn with_details<T: Value>(mut self, details: T) -> Self {
-        self.details = Some(AnyValue::new(details));
-        self
-    }
-
-    /// The reason's code.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::Reason;
-    ///
-    /// assert_eq!(Reason::new("late").code(), "late");
-    /// ```
-    pub fn code(&self) -> &str {
-        &self.code
-    }
-
-    /// The reason's message, if it has one.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::Reason;
-    ///
-    /// assert_eq!(Reason::new("late").message(), None);
-    /// ```
-    pub fn message(&self) -> Option<&str> {
-        self.message.as_deref()
-    }
-
-    /// The reason's details, if it has any.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::Reason;
-    ///
-    /// let reason = Reason::new("late").with_details(true);
-    /// assert_eq!(reason.details().and_then(|d| d.downcast_ref::<bool>()), Some(&true));
-    /// ```
-    pub fn details(&self) -> Option<&AnyValue> {
-        self.details.as_ref()
-    }
-}
-
-/// A lifecycle a hook returned, which decides what happens next.
-///
-/// It displays as the lifecycle is named, for example `FailWorkflow`.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::Lifecycle;
-///
-/// fn ends_the_journey(lifecycle: &Lifecycle) -> bool {
-///     matches!(lifecycle, Lifecycle::FinishWorkflow | Lifecycle::FailWorkflow(_))
-/// }
-///
-/// assert_eq!(Lifecycle::FinishWorkflow.to_string(), "FinishWorkflow");
-/// ```
-#[derive(Clone, Debug, derive_more::Display)]
-#[non_exhaustive]
-pub enum Lifecycle {
-    /// The journey succeeds at once.
-    FinishWorkflow,
-    /// The journey fails at once, with this reason.
-    #[display("FailWorkflow")]
-    FailWorkflow(Reason),
-}
-
 /// The policy and step hook whose returned lifecycle decided something.
 ///
 /// Only step hooks return lifecycles, so only they decide. `H` is the set of hooks that can take
@@ -290,7 +55,7 @@ pub enum Lifecycle {
 /// # Examples
 ///
 /// ```
-/// use itinera::DecidingHook;
+/// use itinera::event::DecidingHook;
 ///
 /// fn describe(hook: &DecidingHook) -> String {
 ///     format!("{}, {}", hook.policy, hook.hook)
@@ -312,7 +77,7 @@ pub struct DecidingHook<H = StepHook> {
 /// # Examples
 ///
 /// ```
-/// use itinera::GiveUpHook;
+/// use itinera::event::GiveUpHook;
 ///
 /// assert_eq!(GiveUpHook::OnStepRetry.to_string(), "on step retry");
 /// ```
@@ -334,7 +99,7 @@ pub enum GiveUpHook {
 /// # Examples
 ///
 /// ```
-/// use itinera::RetryCause;
+/// use itinera::event::RetryCause;
 ///
 /// assert_eq!(RetryCause::RetriableFailure.to_string(), "retriable failure");
 /// ```
@@ -357,7 +122,7 @@ pub enum RetryCause {
 /// # Examples
 ///
 /// ```
-/// use itinera::GiveUpCause;
+/// use itinera::event::GiveUpCause;
 ///
 /// assert_eq!(GiveUpCause::RetriesExhausted.to_string(), "retries exhausted");
 /// ```
@@ -384,65 +149,13 @@ pub enum GiveUpCause {
     },
 }
 
-/// Why a journey failed.
-///
-/// It displays as the cause is named, for example `retries exhausted`.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::FailureCause;
-///
-/// assert_eq!(FailureCause::AbnormalTermination.to_string(), "abnormal termination");
-/// assert_eq!(FailureCause::FailWorkflow.to_string(), "FailWorkflow");
-/// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
-#[non_exhaustive]
-pub enum FailureCause {
-    /// A step reported a failure that is not retriable.
-    #[display("failure")]
-    Failure,
-    /// A step's retry budget was spent.
-    #[display("retries exhausted")]
-    RetriesExhausted,
-    /// A step ended in an abnormal termination that is not retried.
-    #[display("abnormal termination")]
-    AbnormalTermination,
-    /// A hook returned `FailWorkflow`.
-    FailWorkflow,
-}
-
-/// What ended a step's last attempt when its retry budget was spent: the reason of a failure,
-/// or the error that ended it abnormally.
-///
-/// Events hold the error as its message, the default `E`; the result holds the error itself.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::LastFailure;
-///
-/// fn describe(last: &LastFailure) -> &str {
-///     match last {
-///         LastFailure::Reason(reason) => reason.code(),
-///         LastFailure::Error(message) => message,
-///     }
-/// }
-/// ```
-#[derive(Clone, Debug)]
-pub enum LastFailure<E = String> {
-    /// The attempt reported a retriable failure, with this reason.
-    Reason(Reason),
-    /// The attempt ended in an abnormal termination, with this error.
-    Error(E),
-}
-
 /// Why a journey failed, with what the cause carries and who decided it.
 ///
 /// # Examples
 ///
 /// ```
-/// use itinera::{FailureCause, JourneyFailure};
+/// use itinera::event::JourneyFailure;
+/// use itinera::journey::FailureCause;
 ///
 /// fn by_a_hook(failure: &JourneyFailure) -> bool {
 ///     failure.cause() == FailureCause::FailWorkflow
@@ -466,14 +179,14 @@ pub enum JourneyFailure {
         reason: Reason,
     },
 }
-
 impl JourneyFailure {
     /// The failure's cause.
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::{FailureCause, JourneyFailure};
+    /// use itinera::event::JourneyFailure;
+    /// use itinera::journey::FailureCause;
     ///
     /// fn retried(failure: &JourneyFailure) -> bool {
     ///     failure.cause() == FailureCause::RetriesExhausted
@@ -489,41 +202,6 @@ impl JourneyFailure {
     }
 }
 
-/// Why a journey was aborted.
-///
-/// It displays as the reason is named, for example `reporter failed`. The reasons
-/// `invalid lifecycle` and `not a value` cannot happen in Rust, so they are absent.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::AbortReason;
-///
-/// assert_eq!(AbortReason::ReporterFailed.to_string(), "reporter failed");
-/// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
-#[non_exhaustive]
-pub enum AbortReason {
-    /// A step's constructor, or the input adapter resolving one of its inputs, failed.
-    #[display("step could not be built")]
-    StepCouldNotBeBuilt,
-    /// A step policy failed while being built for an attempt.
-    #[display("policy could not be built")]
-    PolicyCouldNotBeBuilt,
-    /// A required request has no value.
-    #[display("required data missing")]
-    RequiredDataMissing,
-    /// A requested value has the wrong type.
-    #[display("wrong type")]
-    WrongType,
-    /// A hook, or a role operation it called, failed.
-    #[display("hook failed")]
-    HookFailed,
-    /// A reporter, or a dispatcher while dispatching, failed.
-    #[display("reporter failed")]
-    ReporterFailed,
-}
-
 /// Who made a request whose data could not be resolved, and the step it was made for: a step for
 /// one of its inputs, an input adapter resolving a step's input, a step hook, or a workflow hook,
 /// which has no step.
@@ -531,7 +209,7 @@ pub enum AbortReason {
 /// # Examples
 ///
 /// ```
-/// use itinera::Requester;
+/// use itinera::event::Requester;
 ///
 /// fn adapter(requester: &Requester) -> Option<&str> {
 ///     match requester {
@@ -576,7 +254,6 @@ pub enum Requester {
         hook: WorkflowHook,
     },
 }
-
 impl Requester {
     fn step(&self) -> Option<&str> {
         match self {
@@ -595,7 +272,7 @@ impl Requester {
 /// # Examples
 ///
 /// ```
-/// use itinera::RequestSource;
+/// use itinera::event::RequestSource;
 ///
 /// fn adapter(source: &RequestSource) -> Option<&str> {
 ///     match source {
@@ -628,7 +305,7 @@ pub enum RequestSource {
 /// # Examples
 ///
 /// ```
-/// use itinera::JourneyAbort;
+/// use itinera::event::JourneyAbort;
 ///
 /// fn describe(abort: &JourneyAbort) -> String {
 ///     match abort.error() {
@@ -689,14 +366,14 @@ pub enum JourneyAbort {
         error: String,
     },
 }
-
 impl JourneyAbort {
     /// The abort's reason.
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::{AbortReason, JourneyAbort};
+    /// use itinera::event::JourneyAbort;
+    /// use itinera::journey::AbortReason;
     ///
     /// fn caused_by_a_reporter(abort: &JourneyAbort) -> bool {
     ///     abort.reason() == AbortReason::ReporterFailed
@@ -718,7 +395,7 @@ impl JourneyAbort {
     /// # Examples
     ///
     /// ```
-    /// use itinera::JourneyAbort;
+    /// use itinera::event::JourneyAbort;
     ///
     /// fn during_a_step(abort: &JourneyAbort) -> bool {
     ///     abort.step().is_some()
@@ -740,7 +417,7 @@ impl JourneyAbort {
     /// # Examples
     ///
     /// ```
-    /// use itinera::JourneyAbort;
+    /// use itinera::event::JourneyAbort;
     ///
     /// fn caused_by_failing_code(abort: &JourneyAbort) -> bool {
     ///     abort.error().is_some()
@@ -763,7 +440,7 @@ impl JourneyAbort {
 /// # Examples
 ///
 /// ```
-/// use itinera::MissingData;
+/// use itinera::event::MissingData;
 ///
 /// fn key(missing: &MissingData) -> Option<&str> {
 ///     match missing {
@@ -804,7 +481,6 @@ pub enum MissingData {
         step: String,
     },
 }
-
 impl MissingData {
     fn step(&self) -> Option<&str> {
         match self {
@@ -819,7 +495,7 @@ impl MissingData {
 /// # Examples
 ///
 /// ```
-/// use itinera::Source;
+/// use itinera::event::Source;
 ///
 /// fn from_a_hook(source: &Source) -> bool {
 ///     matches!(source, Source::Hook(_))
@@ -845,7 +521,7 @@ pub enum Source {
 /// ```
 /// use std::time::{Duration, SystemTime, UNIX_EPOCH};
 ///
-/// use itinera::Timestamp;
+/// use itinera::event::Timestamp;
 ///
 /// let timestamp = Timestamp::from(UNIX_EPOCH + Duration::from_millis(1_700_000_000_123));
 /// assert_eq!(timestamp.to_string(), "2023-11-14T22:13:20.123Z");
@@ -856,22 +532,18 @@ pub enum Source {
     Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, derive_more::From, derive_more::Into,
 )]
 pub struct Timestamp(SystemTime);
-
 const SECONDS_PER_DAY: i128 = 86_400;
 const NANOS_PER_SECOND: u32 = 1_000_000_000;
-
 impl fmt::Display for Timestamp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (seconds, nanos) = seconds_since_epoch(self.0);
         Utc { seconds, nanos }.fmt(f)
     }
 }
-
 struct Utc {
     seconds: i128,
     nanos: u32,
 }
-
 impl fmt::Display for Utc {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { seconds, nanos } = *self;
@@ -900,7 +572,6 @@ impl fmt::Display for Utc {
         f.write_str("Z")
     }
 }
-
 fn seconds_since_epoch(timestamp: SystemTime) -> (i128, u32) {
     match timestamp.duration_since(UNIX_EPOCH) {
         Ok(after) => (i128::from(after.as_secs()), after.subsec_nanos()),
@@ -914,7 +585,6 @@ fn seconds_since_epoch(timestamp: SystemTime) -> (i128, u32) {
         }
     }
 }
-
 // Howard Hinnant's days-to-civil algorithm, for the proleptic Gregorian calendar.
 fn civil_date(days_since_epoch: i128) -> (i128, i128, i128) {
     let days = days_since_epoch + 719_468;
@@ -945,7 +615,7 @@ fn civil_date(days_since_epoch: i128) -> (i128, i128, i128) {
 /// # Examples
 ///
 /// ```
-/// use itinera::{Event, EventBody};
+/// use itinera::event::{Event, EventBody};
 ///
 /// fn summary(event: &Event) -> String {
 ///     match &event.body {
@@ -970,14 +640,13 @@ pub struct Event {
     /// What the event says.
     pub body: EventBody,
 }
-
 impl Event {
     /// The event's kind, in snake_case, for example `step_failed`.
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::Event;
+    /// use itinera::event::Event;
     ///
     /// fn is_last(event: &Event) -> bool {
     ///     matches!(event.kind(), "journey_succeeded" | "journey_failed" | "journey_aborted")
@@ -993,7 +662,7 @@ impl Event {
 /// # Examples
 ///
 /// ```
-/// use itinera::EventBody;
+/// use itinera::event::EventBody;
 ///
 /// fn is_decision(body: &EventBody) -> bool {
 ///     matches!(
@@ -1208,14 +877,13 @@ pub enum EventBody {
         data: Option<AnyValue>,
     },
 }
-
 impl EventBody {
     /// The kind of event, in snake_case, for example `step_failed`.
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::EventBody;
+    /// use itinera::event::EventBody;
     ///
     /// fn is_emitted_by_a_step(body: &EventBody) -> bool {
     ///     matches!(body.kind(), "step_info" | "step_warning" | "step_error")
@@ -1253,6 +921,7 @@ impl EventBody {
 
 #[cfg(test)]
 pub(crate) mod tests {
+    use std::num::NonZeroU32;
     use std::time::Duration;
 
     use super::*;
@@ -1407,21 +1076,6 @@ pub(crate) mod tests {
 
     #[test]
     fn names_display_as_the_specification_writes_them() {
-        assert_eq!(StepHook::OnStepSuccess.to_string(), "on step success");
-        assert_eq!(StepHook::OnStepFailure.to_string(), "on step failure");
-        assert_eq!(StepHook::OnStepRetry.to_string(), "on step retry");
-        assert_eq!(
-            StepHook::OnStepAbnormalTermination.to_string(),
-            "on step abnormal termination"
-        );
-        assert_eq!(
-            WorkflowHook::OnWorkflowSuccess.to_string(),
-            "on workflow success"
-        );
-        assert_eq!(
-            WorkflowHook::OnWorkflowFailure.to_string(),
-            "on workflow failure"
-        );
         assert_eq!(GiveUpHook::OnStepRetry.to_string(), "on step retry");
         assert_eq!(
             GiveUpHook::OnStepAbnormalTermination.to_string(),
@@ -1444,32 +1098,6 @@ pub(crate) mod tests {
             GiveUpCause::RetriesExhausted.to_string(),
             "retries exhausted"
         );
-        assert_eq!(FailureCause::Failure.to_string(), "failure");
-        assert_eq!(
-            FailureCause::RetriesExhausted.to_string(),
-            "retries exhausted"
-        );
-        assert_eq!(
-            FailureCause::AbnormalTermination.to_string(),
-            "abnormal termination"
-        );
-        assert_eq!(FailureCause::FailWorkflow.to_string(), "FailWorkflow");
-        assert_eq!(Lifecycle::FinishWorkflow.to_string(), "FinishWorkflow");
-        assert_eq!(
-            AbortReason::StepCouldNotBeBuilt.to_string(),
-            "step could not be built"
-        );
-        assert_eq!(
-            AbortReason::PolicyCouldNotBeBuilt.to_string(),
-            "policy could not be built"
-        );
-        assert_eq!(
-            AbortReason::RequiredDataMissing.to_string(),
-            "required data missing"
-        );
-        assert_eq!(AbortReason::WrongType.to_string(), "wrong type");
-        assert_eq!(AbortReason::HookFailed.to_string(), "hook failed");
-        assert_eq!(AbortReason::ReporterFailed.to_string(), "reporter failed");
     }
 
     #[test]

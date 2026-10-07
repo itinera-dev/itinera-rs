@@ -20,7 +20,7 @@ Status: in progress. Stage 1 shapes the events; the result, shaped like them as 
   - a `Requester` names the step except for a workflow hook, and neither reason carries an error.
 - `JourneyAbort::reason()`, `step()` and `error()` give the plain `AbortReason`, the step's name and the error's message.
 - Neither carries a `StepAttempt`, only the step's name.
-- Events carry an error only as its `Display` text, never an `itinera::Error`.
+- Events carry an error only as its `Display` text, never an `itinera::error::Error`.
 
 ## How the rules are enforced
 

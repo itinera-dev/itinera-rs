@@ -24,6 +24,7 @@ Status: in progress. Stage 1 adds the events; the engine that emits them arrives
 
 ## Tests
 
+- Unit tests in `itinera-core/src/policy.rs` and `journey.rs`: hooks and lifecycles, and causes and abort reasons, display as the specification writes them.
 - Unit tests in `itinera-core/src/event.rs`: every kind of event has its own kind; names display as the specification writes them; a timestamp displays in UTC in ISO 8601; a timestamp just before 1970 borrows from the previous second; a year outside 0 to 9999 is written as an expanded year.
 
 ## Done when

@@ -1,3 +1,5 @@
+//! The error of custom code.
+
 use std::fmt;
 
 /// The error every piece of custom code returns when it fails: steps, hooks, role operations,
@@ -11,7 +13,7 @@ use std::fmt;
 /// # Examples
 ///
 /// ```
-/// use itinera::Error;
+/// use itinera::error::Error;
 ///
 /// fn parse(text: &str) -> Result<i64, Error> {
 ///     Ok(text.parse::<i64>()?)
@@ -30,7 +32,7 @@ impl Error {
     /// # Examples
     ///
     /// ```
-    /// use itinera::Error;
+    /// use itinera::error::Error;
     ///
     /// let error = Error::msg("the ledger is closed");
     /// assert_eq!(error.to_string(), "the ledger is closed");
@@ -50,7 +52,7 @@ impl Error {
     ///
     /// ```
     /// use std::fmt;
-    /// use itinera::Error;
+    /// use itinera::error::Error;
     ///
     /// #[derive(Debug)]
     /// struct Outer(std::num::ParseIntError);

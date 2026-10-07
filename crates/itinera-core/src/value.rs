@@ -1,3 +1,5 @@
+//! Values: data that can be serialized, the only data a data bag, an event or a reason holds.
+
 use std::any::{self, Any};
 use std::fmt;
 
@@ -17,7 +19,7 @@ use serde::de::DeserializeOwned;
 /// # Examples
 ///
 /// ```
-/// use itinera::Value;
+/// use itinera::value::Value;
 ///
 /// fn accepts<T: Value>(_: T) {}
 ///
@@ -37,7 +39,7 @@ impl<T> Value for T where T: Serialize + DeserializeOwned + Clone + Send + Sync 
 /// # Examples
 ///
 /// ```
-/// use itinera::AnyValue;
+/// use itinera::value::AnyValue;
 ///
 /// let value = AnyValue::new(42_i64);
 /// assert_eq!(value.downcast_ref::<i64>(), Some(&42));
@@ -51,7 +53,7 @@ impl AnyValue {
     /// # Examples
     ///
     /// ```
-    /// use itinera::AnyValue;
+    /// use itinera::value::AnyValue;
     ///
     /// let value = AnyValue::new("R-1".to_string());
     /// assert_eq!(value.downcast_ref::<String>().map(String::as_str), Some("R-1"));
@@ -65,7 +67,7 @@ impl AnyValue {
     /// # Examples
     ///
     /// ```
-    /// use itinera::AnyValue;
+    /// use itinera::value::AnyValue;
     ///
     /// let value = AnyValue::new(true);
     /// assert_eq!(value.downcast_ref::<bool>(), Some(&true));
@@ -80,7 +82,7 @@ impl AnyValue {
     /// # Examples
     ///
     /// ```
-    /// use itinera::AnyValue;
+    /// use itinera::value::AnyValue;
     ///
     /// assert!(AnyValue::new(42_i64).type_name().contains("i64"));
     /// ```

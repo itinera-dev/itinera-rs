@@ -6,7 +6,7 @@ Status: in progress. Stage 1 adds the error type; the rest arrives with the exec
 
 ## API
 
-- **`itinera::Error`** is the error every piece of custom code returns: steps, hooks, role operations, policy factories, reporters, dispatchers and dispatcher factories.
+- **`itinera::error::Error`** is the error every piece of custom code returns: steps, hooks, role operations, policy factories, reporters, dispatchers and dispatcher factories.
   - It converts from any `std::error::Error + Send + Sync + 'static`, so `?` works on the errors of any library.
   - Because of that conversion it does not implement `std::error::Error`. It offers `Display`, `Debug`, `source()` and `Error::msg`, and converts into `Box<dyn std::error::Error + Send + Sync>`.
 
