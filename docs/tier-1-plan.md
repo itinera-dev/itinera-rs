@@ -8,8 +8,8 @@ Code samples show the intended shape. Names of attributes and methods may still 
 
 ## What this plan implements
 
-- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065, 0081 and 0083.
-- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.4`, and later candidates as they are tagged.
+- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065, 0081, 0083 and 0085.
+- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.5`, and later candidates as they are tagged.
 - **Capabilities claimed**: `sync` and `async`.
 - **Rules made impossible to express** (proposal 0054): `invalid-lifecycle`, `role-not-provided`, `mode-not-accepted`, `non-value` and `late-handle`.
 
@@ -223,10 +223,13 @@ pub trait WorkflowInstance: Send + 'static {
 pub struct JourneyResult {
     pub journey_id: JourneyId,
     pub status: JourneyStatus,
-    pub data: DataBag,
 }
 
-pub enum JourneyStatus { Succeeded, Failed(Failure), Aborted(Abort) }
+pub enum JourneyStatus {
+    Succeeded { data: DataBag },
+    Failed { failure: Failure, data: DataBag },
+    Aborted(Abort),
+}
 
 pub struct Failure {
     pub cause: FailureCause,
@@ -245,7 +248,8 @@ pub struct Abort {
 
 - **The result is a business outcome.** It holds no step statuses, attempt counts or step names: those are observable in the event stream.
 - **A failure carries its cause, a reason when a step or hook wrote one, and an error when an error ended the last attempt**: `Failure` has the step's reason; `RetriesExhausted` the last attempt's reason or its error; `AbnormalTermination` the error; `FailWorkflow` the hook's reason. An abort carries the error when failing custom code caused it, and `None` for `RequiredDataMissing` or `WrongType`.
-- **The status is one enum carrying its payload**, so a failed journey without a failure, or a succeeded one with an abort, cannot be written. `JourneyStatus::kind()` returns a plain `StatusKind` (`Succeeded`, `Failed`, `Aborted`) for code that only needs the status.
+- **An aborted journey has no data bag.** An abort means something illegal happened: it has no business outcome, and an aborted journey is never resumed. The data bag lives only in `Succeeded` and `Failed`, so reading the data of an aborted journey cannot be written. `JourneyStatus::data()` returns `Option<&DataBag>` for code that handles every status alike.
+- **The status is one enum carrying its payload**, so a failed journey without a failure, a succeeded one with an abort, or an aborted one with data, cannot be written. `JourneyStatus::kind()` returns a plain `StatusKind` (`Succeeded`, `Failed`, `Aborted`) for code that only needs the status.
 - **The result holds the error itself**, an `itinera::Error`, so the caller can inspect it; events carry only its message. As an error cannot be cloned in general, `JourneyResult` is not `Clone`.
 - **`AbortReason`** has the reasons Rust can reach, `StepCouldNotBeBuilt`, `RequiredDataMissing`, `WrongType`, `PolicyCouldNotBeBuilt`, `HookFailed` and `ReporterFailed`, and is `#[non_exhaustive]`. `invalid lifecycle` and `not a value` cannot happen.
 - **`Refusal`** names what refused the journey (a workflow policy, the dispatcher factory, or the dispatcher) and carries its `Error`.
@@ -312,7 +316,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | 4. Declarations and admission | step and policy descriptors, input adapter declarations, the listing, `Violations` | 0062 |
 | 5. Steps | needs and tokens, building per attempt, outcomes, contributions, the data bag, read-only received data, values, handles and `Interrupted` | 0056, 0057, 0064 (their scenarios are all proven impossible) |
 | 6. The scan and its decisions | statuses, retries, `abnormal termination retriable`, aborts and the result; the decision logic with its hook points in place, tested through internal test hooks | 0012, 0032, 0042, 0061, 0063, 0065 |
-| 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, 0054, 0055, 0058, 0060, 0081, 0083 |
+| 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, 0054, 0055, 0058, 0060, 0081, 0083, 0085 |
 | 8. Macros | `#[step]`, `#[step_policy]`, `#[workflow_policy]`, `#[workflow]`, their equivalence and compile-fail tests | none |
 | 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
 
