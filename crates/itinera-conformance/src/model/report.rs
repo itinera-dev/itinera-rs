@@ -1,5 +1,7 @@
 //! Scripted reporters and dispatchers.
 
+use itinera::event::Event;
+
 use super::ModelError;
 
 /// The kinds of event of the catalogue, by the names the cases use.
@@ -48,6 +50,11 @@ impl EventKind {
     /// The kind of this name, which `named` has found in the catalogue.
     fn of(name: &'static str) -> Self {
         Self { name }
+    }
+
+    /// Whether the event is of this kind.
+    pub(crate) fn is_of(self, event: &Event) -> bool {
+        event.kind() == self.name
     }
 
     pub(crate) fn name(self) -> &'static str {

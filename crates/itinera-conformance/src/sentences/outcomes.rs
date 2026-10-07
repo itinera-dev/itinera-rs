@@ -11,7 +11,7 @@ fn the_last_event_is(world: &mut World, event: String) -> Result<(), Unmet> {
     let kind = EventKind::named(&event)?;
     let (events, _) = stream(world)?;
     expect(
-        events.last().is_some_and(|last| last.kind() == kind.name()),
+        events.last().is_some_and(|last| kind.is_of(last)),
         format_args!("the last event to be {event}"),
         &events,
     )

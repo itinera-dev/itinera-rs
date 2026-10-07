@@ -38,6 +38,11 @@ impl Recorder {
         }
     }
 
+    /// A recorder that fails as the scenario scripts the reporter of this name.
+    fn scripted(model: &Model, name: &str) -> Self {
+        Self::failing(model.reporter_failures.get(name).cloned())
+    }
+
     fn received(&self) -> MutexGuard<'_, Received> {
         self.shared.lock().unwrap_or_else(PoisonError::into_inner)
     }
@@ -47,9 +52,9 @@ impl Recorder {
         self.received().events.clone()
     }
 
-    /// Whether it has failed on any event, so that it may have missed later ones.
-    pub(crate) fn failed(&self) -> bool {
-        self.received().failed
+    /// Whether it never failed, so that it received every event dispatched to it.
+    pub(crate) fn never_failed(&self) -> bool {
+        !self.received().failed
     }
 }
 
@@ -60,9 +65,7 @@ impl Reporter for Recorder {
         let fails = match &received.failure {
             None => None,
             Some(ReporterFailure::First) => (received.events.len() == 1).then_some(None),
-            Some(ReporterFailure::On(kind, message)) => {
-                (kind.name() == event.kind()).then(|| message.clone())
-            }
+            Some(ReporterFailure::On(kind, message)) => kind.is_of(event).then(|| message.clone()),
         };
         match fails {
             None => Ok(()),
@@ -101,7 +104,7 @@ impl Recorders {
     pub(crate) fn named(&mut self, name: &str, model: &Model) -> Recorder {
         self.named
             .entry(name.to_owned())
-            .or_insert_with(|| Recorder::failing(model.reporter_failures.get(name).cloned()))
+            .or_insert_with(|| Recorder::scripted(model, name))
             .clone()
     }
 
@@ -135,7 +138,7 @@ impl Recorders {
                     return Err(NoStream::NoReporterListed);
                 }
                 listed
-                    .find(|recorder| !recorder.failed())
+                    .find(|recorder| recorder.never_failed())
                     .ok_or(NoStream::EveryReporterFailed)
             }
         }
@@ -285,7 +288,7 @@ mod tests {
         model.dispatching = Dispatching::Default;
         model.declare("orders".to_owned(), Vec::new()).unwrap();
         model.workflow_mut().unwrap().reporters =
-            reporters.iter().map(|name| (*name).to_owned()).collect();
+            reporters.iter().copied().map(str::to_owned).collect();
         model
     }
 

@@ -13,7 +13,7 @@ use std::num::NonZeroU32;
 
 use serde_json::Value;
 
-pub(crate) use adapter::{Adapter, Answer};
+pub(crate) use adapter::{Adapter, Answer, answer_for};
 pub(crate) use policy::{Hook, HookAction, HookRequest, HookReturn, HookScript, Policy, Role};
 pub(crate) use report::{Dispatching, EventKind, Holding, ReporterFailure};
 pub(crate) use step::{Attempt, Input, Step, StepAction, attempts};
@@ -51,11 +51,6 @@ pub(crate) struct Workflow {
     pub(crate) reporters: Vec<String>,
     pub(crate) id_generator: IdGenerator,
     pub(crate) roles: BTreeMap<String, Role>,
-}
-
-/// A step that does nothing yet, under its name.
-fn unscripted(step: String) -> (String, Step) {
-    (step, Step::default())
 }
 
 /// How the workflow instance gets its journey ID.
@@ -155,8 +150,7 @@ impl Model {
         let initial = self
             .initial_data
             .iter()
-            .filter(|(name, _)| name == key)
-            .map(|(_, value)| value);
+            .filter_map(|entry| value_under(entry, key));
         let steps = self
             .workflow
             .iter()
@@ -166,10 +160,10 @@ impl Model {
             .flat_map(|step| &step.actions)
             .flat_map(|action| action.values_for(key));
         let attempts = steps
-            .flat_map(|step| step.attempts.iter().flatten())
+            .filter_map(|step| step.attempts.as_ref())
+            .flatten()
             .flat_map(|attempt| &attempt.contributes)
-            .filter(|(name, _)| name == key)
-            .map(|(_, value)| value);
+            .filter_map(|entry| value_under(entry, key));
         let hooks = self
             .policies
             .values()
@@ -181,8 +175,7 @@ impl Model {
             .iter()
             .flat_map(|workflow| &workflow.adapters)
             .flat_map(|adapter| &adapter.answers)
-            .filter(|(name, _)| name == key)
-            .filter_map(|(_, answer)| answer.value());
+            .filter_map(|answer| answer_for(answer, key));
         initial
             .chain(actions)
             .chain(attempts)
@@ -293,6 +286,16 @@ pub(crate) enum ModelError {
     AttemptOutOfOrder(NonZeroU32),
     #[error("{0} is already stated")]
     StatedTwice(&'static str),
+}
+
+/// A step that does nothing yet, under its name.
+fn unscripted(step: String) -> (String, Step) {
+    (step, Step::default())
+}
+
+/// The value of an entry, when it is under this key.
+fn value_under<'a>((name, value): &'a (String, Value), key: &str) -> Option<&'a Value> {
+    (name == key).then_some(value)
 }
 
 #[cfg(test)]

@@ -73,11 +73,18 @@ impl Line {
             && self
                 .cells
                 .iter()
-                .all(|(column, cell)| event.cells.get(column) == Some(cell))
-            && self
-                .data
-                .as_ref()
-                .is_none_or(|data| event.data.as_ref() == Some(data))
+                .all(|(column, cell)| event.has_cell(column, cell))
+            && self.data.as_ref().is_none_or(|data| event.has_data(data))
+    }
+
+    /// Whether the event has this text in this column.
+    fn has_cell(&self, column: &str, cell: &str) -> bool {
+        self.cells.get(column).map(String::as_str) == Some(cell)
+    }
+
+    /// Whether the event's data is this JSON.
+    fn has_data(&self, data: &Value) -> bool {
+        self.data.as_ref() == Some(data)
     }
 
     fn set(&mut self, column: &'static str, cell: impl ToString) {
@@ -162,11 +169,13 @@ impl Line {
     pub(crate) fn carries_message(&self, message: &str) -> bool {
         ["message", "error"]
             .iter()
-            .any(|column| self.cells.get(column).is_some_and(|cell| cell == message))
-            || self
-                .carried
-                .iter()
-                .any(|value| value.as_str() == Some(message))
+            .any(|column| self.has_cell(column, message))
+            || self.carried.iter().any(|value| is_text(value, message))
+    }
+
+    /// Whether the event carries any of these values.
+    pub(crate) fn carries_any(&self, values: &[&Value]) -> bool {
+        values.iter().any(|value| self.carries_value(value))
     }
 
     /// Whether the event carries this value: within the values it carries, or written within
@@ -188,7 +197,7 @@ impl Line {
 
     fn emitted(&mut self, message: &str, data: Option<&itinera::value::AnyValue>) {
         self.set("message", message);
-        self.data = data.and_then(|data| serde_json::to_value(data).ok());
+        self.data = data.and_then(as_json);
     }
 }
 
@@ -403,13 +412,24 @@ fn holds(carried: &Value, value: &Value) -> bool {
         }
 }
 
+/// Whether the value is this text.
+fn is_text(value: &Value, text: &str) -> bool {
+    value.as_str() == Some(text)
+}
+
+/// Event data as JSON, to compare with what a table writes.
+fn as_json(data: &itinera::value::AnyValue) -> Option<Value> {
+    serde_json::to_value(data).ok()
+}
+
 fn holds_text(carried: &Value, text: &str) -> bool {
     match carried {
         Value::String(carried) => carried.contains(text),
         Value::Array(items) => items.iter().any(|item| holds_text(item, text)),
-        Value::Object(entries) => entries
-            .iter()
-            .any(|(key, item)| key.contains(text) || holds_text(item, text)),
+        Value::Object(entries) => {
+            entries.keys().any(|key| key.contains(text))
+                || entries.values().any(|item| holds_text(item, text))
+        }
         _ => false,
     }
 }
@@ -417,9 +437,12 @@ fn holds_text(carried: &Value, text: &str) -> bool {
 /// Whether the events include these lines in this order, possibly with others in between.
 pub(crate) fn includes_in_order(events: &[Line], expected: &[Line]) -> bool {
     let mut events = events.iter();
-    expected
-        .iter()
-        .all(|line| events.any(|event| line.matches(event)))
+    expected.iter().all(|line| follows(&mut events, line))
+}
+
+/// Whether a later event matches the line, consuming the events up to it.
+fn follows<'a>(events: &mut impl Iterator<Item = &'a Line>, line: &Line) -> bool {
+    events.any(|event| line.matches(event))
 }
 
 /// Whether the events are exactly these lines.
@@ -440,13 +463,14 @@ mod tests {
     fn line(event: &str, cells: &[(&'static str, &str)]) -> Line {
         Line {
             event: event.to_owned(),
-            cells: cells
-                .iter()
-                .map(|(column, cell)| (*column, (*cell).to_owned()))
-                .collect(),
+            cells: cells.iter().map(owned).collect(),
             data: None,
             carried: Vec::new(),
         }
+    }
+
+    fn owned(&(column, cell): &(&'static str, &str)) -> (&'static str, String) {
+        (column, cell.to_owned())
     }
 
     fn stream() -> Vec<Line> {
