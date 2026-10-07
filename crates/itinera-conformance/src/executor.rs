@@ -19,11 +19,17 @@ impl Executor {
     /// The executors that run a scenario with these tags: only the one of the execution mode it
     /// needs, if it needs one, and both otherwise.
     pub(crate) fn running<S: AsRef<str>>(tags: impl IntoIterator<Item = S>) -> &'static [Self] {
-        let mut needed = tags.into_iter().filter_map(|tag| match tag.as_ref() {
-            "capability-sync" => Some(&[Self::Local][..]),
-            "capability-async" => Some(&[Self::AsyncLocal][..]),
+        tags.into_iter()
+            .find_map(|tag| Self::required_by(tag.as_ref()))
+            .unwrap_or(&[Self::Local, Self::AsyncLocal])
+    }
+
+    /// The executor a capability tag requires, if the tag names an execution mode.
+    fn required_by(tag: &str) -> Option<&'static [Self]> {
+        match tag {
+            "capability-sync" => Some(&[Self::Local]),
+            "capability-async" => Some(&[Self::AsyncLocal]),
             _ => None,
-        });
-        needed.next().unwrap_or(&[Self::Local, Self::AsyncLocal])
+        }
     }
 }

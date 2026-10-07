@@ -47,19 +47,23 @@ impl Run {
 
     /// The scenarios in the report, each with its tags.
     fn scenarios(&self) -> Vec<(String, Vec<String>)> {
-        self.elements()
-            .iter()
-            .map(|element| {
-                let tags = element["tags"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|tag| tag["name"].as_str().unwrap().to_owned())
-                    .collect();
-                (element["name"].as_str().unwrap().to_owned(), tags)
-            })
-            .collect()
+        self.elements().iter().map(name_and_tags).collect()
     }
+}
+
+fn name_and_tags(element: &Value) -> (String, Vec<String>) {
+    let tags = element["tags"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|tag| tag["name"].as_str().unwrap().to_owned())
+        .collect();
+    (element["name"].as_str().unwrap().to_owned(), tags)
+}
+
+fn scenario(name: &str, tags: &[&str]) -> (String, Vec<String>) {
+    let tags = tags.iter().map(|tag| (*tag).to_owned()).collect();
+    (name.to_owned(), tags)
 }
 
 #[test]
@@ -88,21 +92,17 @@ fn every_scenario_runs_once_under_each_executor_under_its_own_name() {
     assert_eq!(
         run.scenarios(),
         [
-            ("A selected scenario", vec!["selected", "executor-local"]),
-            ("A selected scenario", vec!["selected", "executor-async"]),
-            (
+            scenario("A selected scenario", &["selected", "executor-local"]),
+            scenario("A selected scenario", &["selected", "executor-async"]),
+            scenario(
                 "A selected scenario that needs the async capability",
-                vec!["selected", "capability-async", "executor-async"]
+                &["selected", "capability-async", "executor-async"]
             ),
-            (
+            scenario(
                 "A selected scenario that needs the sync capability",
-                vec!["selected", "capability-sync", "executor-local"]
+                &["selected", "capability-sync", "executor-local"]
             ),
         ]
-        .map(|(name, tags)| (
-            name.to_owned(),
-            tags.into_iter().map(str::to_owned).collect()
-        ))
     );
 }
 

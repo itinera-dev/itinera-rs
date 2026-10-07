@@ -47,31 +47,40 @@ fn per_executor(mut feature: Feature) -> Feature {
 }
 
 fn copies(scenarios: Vec<Scenario>, inherited: &[String]) -> Vec<Scenario> {
-    let spacing: Vec<usize> = scenarios
+    let spans: Vec<usize> = scenarios
         .iter()
-        .map(|scenario| {
-            let lines = scenarios
-                .iter()
-                .filter(|other| other.name == scenario.name)
-                .map(|other| other.position.line);
-            let first = lines.clone().min().unwrap_or(scenario.position.line);
-            let last = lines.max().unwrap_or(scenario.position.line);
-            last - first + 1
-        })
+        .map(|scenario| span(&scenarios, &scenario.name))
         .collect();
     scenarios
         .into_iter()
-        .zip(spacing)
-        .flat_map(|(scenario, spacing)| {
-            Executor::running(inherited.iter().chain(&scenario.tags))
-                .iter()
-                .zip(0..)
-                .map(move |(executor, row)| {
-                    let mut copy = scenario.clone();
-                    copy.tags.push(executor.tag().to_owned());
-                    copy.position.line += row * spacing;
-                    copy
-                })
-        })
+        .zip(spans)
+        .flat_map(|(scenario, span)| copied(&scenario, span, inherited))
         .collect()
+}
+
+/// The number of lines the scenarios with this name cover, from the first to the last.
+fn span(scenarios: &[Scenario], name: &str) -> usize {
+    let lines = scenarios
+        .iter()
+        .filter(|scenario| scenario.name == name)
+        .map(|scenario| scenario.position.line);
+    let first = lines.clone().min().unwrap_or_default();
+    let last = lines.max().unwrap_or_default();
+    last - first + 1
+}
+
+/// A copy of the scenario for each executor that runs it, each moved by `span` lines more.
+fn copied(scenario: &Scenario, span: usize, inherited: &[String]) -> Vec<Scenario> {
+    Executor::running(inherited.iter().chain(&scenario.tags))
+        .iter()
+        .zip(0..)
+        .map(|(executor, row)| copy(scenario, *executor, row * span))
+        .collect()
+}
+
+fn copy(scenario: &Scenario, executor: Executor, offset: usize) -> Scenario {
+    let mut copy = scenario.clone();
+    copy.tags.push(executor.tag().to_owned());
+    copy.position.line += offset;
+    copy
 }
