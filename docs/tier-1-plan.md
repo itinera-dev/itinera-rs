@@ -137,6 +137,7 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Sync>> = LazyLock::new(|| {
 ```
 
 - **A workflow descriptor** is the workflow's declaration: its name, its step descriptors, its policy descriptors, its input adapters, its reporters and its ID generator. It is immutable, `Send + Sync`, cheap to clone, shared by every instance, and only `build()` can produce one.
+- **Names are newtypes**, added in stage 4 with the declarations that bring them in: `WorkflowName`, `StepName`, `PolicyName` and `AdapterName`. Each hides its representation, a cheap-to-clone `Arc<str>`, and `JourneyId` moves to the same, so every event can carry them without copying text. Events, aborts and the result then hold these types instead of `String`.
 - **Each step descriptor states everything**: the retry budget (0 unless set), `abnormal termination retriable` (false unless set), and its policies in the order attached.
 - **`build()` checks what types cannot**, and returns every violation at once in `Violations`: `duplicate step name`, `hook defined twice`, `input adapter for unknown step` and `step adapted twice`.
 - **`listing()`** gives each step's name, its position from 1, its policy names in order, and its input adapter's name.
