@@ -8,8 +8,8 @@ Code samples show the intended shape. Names of attributes and methods may still 
 
 ## What this plan implements
 
-- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065 and 0081.
-- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.3`, and later candidates as they are tagged.
+- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065, 0081 and 0083.
+- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.4`, and later candidates as they are tagged.
 - **Capabilities claimed**: `sync` and `async`.
 - **Rules made impossible to express** (proposal 0054): `invalid-lifecycle`, `role-not-provided`, `mode-not-accepted`, `non-value` and `late-handle`.
 
@@ -104,10 +104,12 @@ The rules types cannot reach are checked when the descriptor is built (decision 
   | Request | Available to |
   |---|---|
   | data from the step, the step's name, the attempt number | step hooks |
-  | what failed: a reported `Reason`, or the `Error` of an abnormal termination | `on step failure`, `on step retry` |
+  | the failure reason, as required (`Reason`) or optional (`Option<Reason>`) | `on step failure`, `on step retry` |
   | the cause, as its own enum per hook | `on step failure`, `on step retry` |
-  | the error | `on step abnormal termination` |
+  | the error, as required (`&Error`) or optional (`Option<&Error>`) | `on step failure`, `on step retry`, `on step abnormal termination` |
   | data from the workflow, the journey ID, roles, a contributor, a reporter | every hook |
+
+  A reason exists when the attempt reported a failure, and an error when it ended in an abnormal termination, whatever the hook and the cause. A required request for one that does not exist aborts with `required data missing`; an optional one gets `None`.
 
 - **Each hook returns its own type, inside a `Result`**: `Result<Option<OnSuccess>, Error>` for `on step success` (`FinishWorkflow` or `FailWorkflow`), `Result<Option<FailWorkflow>, Error>` for `on step failure`, `on step retry` and `on step abnormal termination`, and `Result<(), Error>` for workflow hooks. `Err` aborts the journey with `hook failed`.
 - **Hooks take `&self`.** Everything they need arrives as parameters, so they have no reason to change their policy.
@@ -208,6 +210,7 @@ pub trait WorkflowInstance: Send + 'static {
 ### 9. Events, reporters and dispatchers
 
 - **One `Event` type**: a sequence number from 1, a `SystemTime` timestamp rendered as ISO 8601 in UTC, the journey ID, the workflow name, and a typed body with one variant per event of the catalogue. `kind()` returns the event's snake_case name. No variant has a field able to hold a value from the data bag. `DecidedBy` is `Default` or a policy and hook. `Event` implements `Serialize`. Only itinera constructs events: `Event` and its variants are `#[non_exhaustive]`, so code outside the crate can read them but not make them. The types events carry, such as `JourneyId`, `Reason`, `AbortReason` and the causes, live in the `event` module, and later modules use them from there.
+- **`journey_failed` and `journey_aborted` are events about the journey.** They name the step but carry no attempt number. `journey_failed` carries the cause, the reason when there is one and the error's message when there is one; `journey_aborted` carries the error's message when failing custom code caused the abort. Events never carry an `itinera::Error`, only its `Display` text.
 - **Data in step and hook events, and reason details,** are values carried in memory, cloned when emitted, and serialized only by reporters, in their own format.
 - **Reporters**: `Reporter` with `report(&mut self, &Event) -> Result<(), Error>`, and `AsyncReporter` behind the `async` feature. A reporter is expected to handle its own trouble (log it, drop the event, retry later) and return `Ok`, and the documentation says so. An `Err` aborts the journey with `reporter failed`, and delivery of that event stops at that reporter: the reporters after it never receive it. `journey_aborted` then goes to every reporter except the one that failed, so the order of reporters matters, and the documentation says that too. The executor wraps each reporter it adds for the journey, so this holds whatever the dispatcher: once a reporter has failed, the wrappers let only `journey_aborted` through, and never to the one that failed. An error while `journey_aborted` itself is delivered is ignored. An asynchronous reporter makes the workflow `Async`.
 - **The handles given to steps and hooks** are restricted views of the journey's dispatcher. A `StepReporter` emits only `step_info`, `step_warning` and `step_error`, stamped with the step and attempt; a `HookReporter` emits only `journey_info`, `journey_warning` and `journey_error`, stamped with the policy and hook. Delivery happens before the emit call returns. If a reporter fails during that delivery, the engine records the abort at once, and the call returns `Interrupted`. From then on nothing the step or hook emits is delivered, and when it returns, its outcome, lifecycle and contributions are ignored, even if it ignored `Interrupted` and carried on. In a workflow with an asynchronous reporter, the handles are asynchronous, and only asynchronous steps and hooks can request them.
@@ -225,17 +228,25 @@ pub struct JourneyResult {
 
 pub enum JourneyStatus { Succeeded, Failed(Failure), Aborted(Abort) }
 
-pub enum Failure {
-    Failed(Reason),
-    RetriesExhausted(Reason),
-    AbnormalTermination(String),
-    FailedByPolicy(Reason),
+pub struct Failure {
+    pub cause: FailureCause,
+    pub reason: Option<Reason>,
+    pub error: Option<Error>,
 }
 
-pub struct Abort { pub reason: AbortReason, pub details: AbortDetails }
+pub enum FailureCause { Failure, RetriesExhausted, AbnormalTermination, FailWorkflow }
+
+pub struct Abort {
+    pub reason: AbortReason,
+    pub details: AbortDetails,
+    pub error: Option<Error>,
+}
 ```
 
 - **The result is a business outcome.** It holds no step statuses, attempt counts or step names: those are observable in the event stream.
+- **A failure carries its cause, a reason when a step or hook wrote one, and an error when an error ended the last attempt**: `Failure` has the step's reason; `RetriesExhausted` the last attempt's reason or its error; `AbnormalTermination` the error; `FailWorkflow` the hook's reason. An abort carries the error when failing custom code caused it, and `None` for `RequiredDataMissing` or `WrongType`.
+- **The status is one enum carrying its payload**, so a failed journey without a failure, or a succeeded one with an abort, cannot be written. `JourneyStatus::kind()` returns a plain `StatusKind` (`Succeeded`, `Failed`, `Aborted`) for code that only needs the status.
+- **The result holds the error itself**, an `itinera::Error`, so the caller can inspect it; events carry only its message. As an error cannot be cloned in general, `JourneyResult` is not `Clone`.
 - **`AbortReason`** has the reasons Rust can reach, `StepCouldNotBeBuilt`, `RequiredDataMissing`, `WrongType`, `PolicyCouldNotBeBuilt`, `HookFailed` and `ReporterFailed`, and is `#[non_exhaustive]`. `invalid lifecycle` and `not a value` cannot happen.
 - **`Refusal`** names what refused the journey (a workflow policy, the dispatcher factory, or the dispatcher) and carries its `Error`.
 - **`Violations`** (from `build()`), **`InstanceError`** (from `create()`) and **`Refusal`** implement `std::error::Error`.
@@ -301,7 +312,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | 4. Declarations and admission | step and policy descriptors, input adapter declarations, the listing, `Violations` | 0062 |
 | 5. Steps | needs and tokens, building per attempt, outcomes, contributions, the data bag, read-only received data, values, handles and `Interrupted` | 0056, 0057, 0064 (their scenarios are all proven impossible) |
 | 6. The scan and its decisions | statuses, retries, `abnormal termination retriable`, aborts and the result; the decision logic with its hook points in place, tested through internal test hooks | 0012, 0032, 0042, 0061, 0063, 0065 |
-| 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, 0054, 0055, 0058, 0060, 0081 |
+| 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, 0054, 0055, 0058, 0060, 0081, 0083 |
 | 8. Macros | `#[step]`, `#[step_policy]`, `#[workflow_policy]`, `#[workflow]`, their equivalence and compile-fail tests | none |
 | 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
 
