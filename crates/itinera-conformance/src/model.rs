@@ -161,22 +161,10 @@ impl Model {
             .workflow
             .iter()
             .flat_map(|workflow| workflow.scripts.values());
-        let actions =
-            steps
-                .clone()
-                .flat_map(|step| &step.actions)
-                .flat_map(|action| match action {
-                    StepAction::Contribute { key: name, value }
-                    | StepAction::ChangeInput { key: name, value } => {
-                        (name == key).then_some(vec![value])
-                    }
-                    StepAction::ContributeThenChange {
-                        key: name,
-                        value,
-                        changed,
-                    } => (name == key).then_some(vec![value, changed]),
-                    StepAction::Emit { .. } => None,
-                });
+        let actions = steps
+            .clone()
+            .flat_map(|step| &step.actions)
+            .flat_map(|action| action.values_for(key));
         let attempts = steps
             .flat_map(|step| step.attempts.iter().flatten())
             .flat_map(|attempt| &attempt.contributes)
@@ -187,22 +175,16 @@ impl Model {
             .values()
             .flat_map(Policy::scripts)
             .flat_map(|script| &script.actions)
-            .filter_map(|action| match action {
-                HookAction::ChangeStepData { key: name, value }
-                | HookAction::Contribute { key: name, value } => (name == key).then_some(value),
-                _ => None,
-            });
+            .filter_map(|action| action.value_for(key));
         let adapters = self
             .workflow
             .iter()
             .flat_map(|workflow| &workflow.adapters)
             .flat_map(|adapter| &adapter.answers)
-            .filter_map(|(name, answer)| match answer {
-                Answer::Value(value) if name == key => Some(value),
-                _ => None,
-            });
+            .filter(|(name, _)| name == key)
+            .filter_map(|(_, answer)| answer.value());
         initial
-            .chain(actions.flatten())
+            .chain(actions)
             .chain(attempts)
             .chain(hooks)
             .chain(adapters)

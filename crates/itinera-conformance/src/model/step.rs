@@ -58,6 +58,25 @@ pub(crate) enum StepAction {
     },
 }
 
+impl StepAction {
+    /// The values this action gives the key: what it contributes or writes under it.
+    pub(crate) fn values_for(&self, key: &str) -> Vec<&Value> {
+        match self {
+            Self::Contribute { key: name, value } | Self::ChangeInput { key: name, value }
+                if name == key =>
+            {
+                vec![value]
+            }
+            Self::ContributeThenChange {
+                key: name,
+                value,
+                changed,
+            } if name == key => vec![value, changed],
+            _ => Vec::new(),
+        }
+    }
+}
+
 /// How one attempt ends, and what it contributes just before.
 #[derive(Debug, PartialEq)]
 pub(crate) struct Attempt {

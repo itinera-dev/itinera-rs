@@ -68,12 +68,15 @@ impl Reporter for Recorder {
             None => Ok(()),
             Some(message) => {
                 received.failed = true;
-                Err(Error::msg(message.unwrap_or_else(|| {
-                    format!("the scripted reporter fails on {}", event.kind())
-                })))
+                Err(Error::msg(message.unwrap_or_else(|| failure(event))))
             }
         }
     }
+}
+
+/// What a scripted reporter fails with when its script gives no message.
+fn failure(event: &Event) -> String {
+    format!("the scripted reporter fails on {}", event.kind())
 }
 
 /// Every recorder of a scenario: the runner's own, and the scripted reporters by name.

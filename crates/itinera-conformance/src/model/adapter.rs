@@ -28,3 +28,13 @@ pub(crate) enum Answer {
     Nothing,
     Fails(String),
 }
+
+impl Answer {
+    /// The value the adapter supplies, if it supplies one.
+    pub(crate) fn value(&self) -> Option<&Value> {
+        match self {
+            Self::Value(value) => Some(value),
+            Self::Nothing | Self::Fails(_) => None,
+        }
+    }
+}

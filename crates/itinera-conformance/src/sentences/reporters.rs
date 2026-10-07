@@ -1,6 +1,9 @@
 //! Events and reporters.
 
+use std::num::NonZeroU64;
+
 use cucumber::{given, then};
+use itinera::event::Event;
 
 use super::{Names, Unmet, expect, stream};
 use crate::model::{
@@ -156,14 +159,7 @@ fn the_reporters_received_the_same_events(
     world: &mut World,
     reporters: Names,
 ) -> Result<(), Unmet> {
-    let mut received = reporters.as_ref().iter().map(|name| {
-        let events = world.recorders.get(name)?.events();
-        let lines: Vec<_> = events
-            .iter()
-            .map(|event| (event.sequence, Line::from(event)))
-            .collect();
-        Ok::<_, Unmet>((name, events, lines))
-    });
+    let mut received = reporters.as_ref().iter().map(|name| received_by(world, name));
     let Some(first) = received.next().transpose()? else {
         return Ok(());
     };
@@ -177,6 +173,18 @@ fn the_reporters_received_the_same_events(
     }
     Ok(())
 }
+
+/// What the named reporter received: its events, and each one's sequence number and line.
+fn received_by<'a>(world: &World, name: &'a str) -> Result<Received<'a>, Unmet> {
+    let events = world.recorders.get(name)?.events();
+    let lines = events
+        .iter()
+        .map(|event| (event.sequence, Line::from(event)))
+        .collect();
+    Ok((name, events, lines))
+}
+
+type Received<'a> = (&'a str, Vec<Event>, Vec<(NonZeroU64, Line)>);
 
 #[then(expr = "the reporter {string} received the event {string}")]
 fn the_reporter_received_the_event(

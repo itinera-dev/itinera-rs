@@ -171,6 +171,20 @@ pub(crate) enum HookAction {
     },
 }
 
+impl HookAction {
+    /// The value this action gives the key: what it contributes or writes under it.
+    pub(crate) fn value_for(&self, key: &str) -> Option<&Value> {
+        match self {
+            Self::ChangeStepData { key: name, value } | Self::Contribute { key: name, value }
+                if name == key =>
+            {
+                Some(value)
+            }
+            _ => None,
+        }
+    }
+}
+
 /// How a hook ends.
 #[derive(Debug, Default, PartialEq)]
 pub(crate) enum HookReturn {
