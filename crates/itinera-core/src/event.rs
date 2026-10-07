@@ -335,7 +335,8 @@ pub enum Lifecycle {
 
 /// The policy and step hook whose returned lifecycle decided something.
 ///
-/// Only step hooks return lifecycles, so only they decide.
+/// Only step hooks return lifecycles, so only they decide. `H` is the set of hooks that can take
+/// the decision: any step hook by default, or a narrower set such as [`GiveUpHook`].
 ///
 /// # Examples
 ///
@@ -348,16 +349,40 @@ pub enum Lifecycle {
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
 #[non_exhaustive]
-pub struct DecidingHook {
+pub struct DecidingHook<H = StepHook> {
     /// The policy's name.
     pub policy: String,
     /// The hook.
-    pub hook: StepHook,
+    pub hook: H,
 }
 
-struct DecidedBy<'a>(Option<&'a DecidingHook>);
+/// A step hook that gives a step up when it returns `FailWorkflow`.
+///
+/// It displays as the hook is named, for example `on step retry`.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::GiveUpHook;
+///
+/// assert_eq!(GiveUpHook::OnStepRetry.to_string(), "on step retry");
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[non_exhaustive]
+pub enum GiveUpHook {
+    /// Called before a step is attempted again.
+    #[serde(rename = "on step retry")]
+    OnStepRetry,
+    /// Called after an attempt ended in an abnormal termination.
+    #[serde(rename = "on step abnormal termination")]
+    OnStepAbnormalTermination,
+}
 
-impl Serialize for DecidedBy<'_> {
+serde_plain::derive_display_from_serialize!(GiveUpHook);
+
+struct DecidedBy<'a, H>(Option<&'a DecidingHook<H>>);
+
+impl<H: Serialize> Serialize for DecidedBy<'_, H> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self.0 {
             None => serializer.serialize_str("default"),
@@ -366,11 +391,18 @@ impl Serialize for DecidedBy<'_> {
     }
 }
 
-fn by_hook_or_default<S: Serializer>(
-    hook: &Option<DecidingHook>,
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
-    DecidedBy(hook.as_ref()).serialize(serializer)
+const BY_DEFAULT: DecidedBy<'static, StepHook> = DecidedBy(None);
+
+fn finished_by<S: Serializer>(policy: &Option<String>, serializer: S) -> Result<S::Ok, S::Error> {
+    match policy {
+        None => BY_DEFAULT.serialize(serializer),
+        Some(policy) => {
+            let mut map = serializer.serialize_map(Some(2))?;
+            map.serialize_entry("policy", policy)?;
+            map.serialize_entry("hook", &StepHook::OnStepSuccess)?;
+            map.end()
+        }
+    }
 }
 
 /// Why a step will be attempted again.
@@ -398,13 +430,14 @@ serde_plain::derive_display_from_serialize!(RetryCause);
 fn retry_decision<S: Serializer>(cause: &RetryCause, serializer: S) -> Result<S::Ok, S::Error> {
     let mut map = serializer.serialize_map(Some(2))?;
     map.serialize_entry("cause", cause)?;
-    map.serialize_entry("decided_by", &DecidedBy(None))?;
+    map.serialize_entry("decided_by", &BY_DEFAULT)?;
     map.end()
 }
 
 /// Why a step will not be attempted again.
 ///
-/// It displays as the cause is named, for example `retries exhausted`.
+/// It displays as the cause is named, for example `retries exhausted`. It serializes as the
+/// `cause` and `decided_by`: `"default"`, or the hook that returned `FailWorkflow`.
 ///
 /// # Examples
 ///
@@ -430,25 +463,27 @@ pub enum GiveUpCause {
     #[non_exhaustive]
     FailWorkflow {
         /// The hook that returned it.
-        decided_by: DecidingHook,
+        decided_by: DecidingHook<GiveUpHook>,
         /// The reason it carried.
         reason: Reason,
     },
 }
 
-fn give_up_decision<S: Serializer>(cause: &GiveUpCause, serializer: S) -> Result<S::Ok, S::Error> {
-    let mut map = serializer.serialize_map(Some(2))?;
-    match cause {
-        GiveUpCause::FailWorkflow { decided_by, reason } => {
-            map.serialize_entry("cause", &FailWorkflowCause(reason))?;
-            map.serialize_entry("decided_by", &DecidedBy(Some(decided_by)))?;
+impl Serialize for GiveUpCause {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(2))?;
+        match self {
+            Self::FailWorkflow { decided_by, reason } => {
+                map.serialize_entry("cause", &FailWorkflowCause(reason))?;
+                map.serialize_entry("decided_by", &DecidedBy(Some(decided_by)))?;
+            }
+            Self::Failure | Self::AbnormalTermination | Self::RetriesExhausted => {
+                map.serialize_entry("cause", &self.to_string())?;
+                map.serialize_entry("decided_by", &BY_DEFAULT)?;
+            }
         }
-        GiveUpCause::Failure | GiveUpCause::AbnormalTermination | GiveUpCause::RetriesExhausted => {
-            map.serialize_entry("cause", &cause.to_string())?;
-            map.serialize_entry("decided_by", &DecidedBy(None))?;
-        }
+        map.end()
     }
-    map.end()
 }
 
 struct FailWorkflowCause<'a>(&'a Reason);
@@ -517,7 +552,7 @@ pub enum LastFailure {
 /// Why a journey failed, with what the cause carries and who decided it.
 ///
 /// It serializes as the `cause`, the `reason` and the `error` message, each `null` when the cause
-/// has none, and `decided_by`: `"default"`, or the hook that returned `FailWorkflow`.
+/// carries none, and `decided_by`: `"default"`, or the hook that returned `FailWorkflow`.
 ///
 /// # Examples
 ///
@@ -963,15 +998,16 @@ pub enum EventBody {
         #[serde(flatten)]
         step: StepAttempt,
         /// Why it will not be attempted again, and who decided it.
-        #[serde(flatten, serialize_with = "give_up_decision")]
+        #[serde(flatten)]
         cause: GiveUpCause,
     },
     /// The executor decided that the journey succeeds.
     #[non_exhaustive]
     JourneySucceeded {
-        /// The hook that returned `FinishWorkflow`, or `None` when no step was left.
-        #[serde(serialize_with = "by_hook_or_default")]
-        decided_by: Option<DecidingHook>,
+        /// The policy whose `on step success` returned `FinishWorkflow`, or `None` when no
+        /// step was left. It serializes as `"default"`, or as the policy and hook.
+        #[serde(serialize_with = "finished_by")]
+        decided_by: Option<String>,
     },
     /// The executor decided that the journey fails.
     #[non_exhaustive]
@@ -1395,7 +1431,7 @@ pub(crate) mod tests {
         let by_hook = to_json(&event(
             9,
             EventBody::JourneySucceeded {
-                decided_by: Some(close(StepHook::OnStepSuccess)),
+                decided_by: Some("close".to_string()),
             },
         ));
         assert_eq!(
@@ -1424,7 +1460,10 @@ pub(crate) mod tests {
             EventBody::StepGivenUp {
                 step: charge(2),
                 cause: GiveUpCause::FailWorkflow {
-                    decided_by: close(StepHook::OnStepRetry),
+                    decided_by: DecidingHook {
+                        policy: "close".to_string(),
+                        hook: GiveUpHook::OnStepRetry,
+                    },
                     reason: Reason::new("fraud"),
                 },
             },

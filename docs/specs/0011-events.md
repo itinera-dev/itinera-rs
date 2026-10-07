@@ -23,7 +23,7 @@ Status: in progress. Stage 1 adds the events; the engine that emits them arrives
 
 ## Tests
 
-- Unit tests in `itinera-core/src/event.rs`: every kind of event serializes with its own kind, an event serializes its fixed fields with a UTC ISO 8601 timestamp, a workflow hook event carries no step, and an optional request names its requester and the step it was for.
+- Unit tests in `itinera-core/src/event.rs`: every kind of event serializes with its own kind, an event serializes its fixed fields with a UTC ISO 8601 timestamp, a workflow hook event carries no step, any hook displays as it is named, and an optional request names its requester and the step it was for.
 
 ## Done when
 

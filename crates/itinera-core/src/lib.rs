@@ -16,9 +16,9 @@ mod value;
 pub use error::Error;
 #[cfg(feature = "unstable")]
 pub use event::{
-    AbortDetails, AbortReason, DecidingHook, Event, EventBody, FailureCause, GiveUpCause, HookName,
-    HookRef, HookSource, JourneyFailure, JourneyId, LastFailure, Lifecycle, Reason, RequestSource,
-    Requester, RetryCause, Source, StepAttempt, StepHook, WorkflowHook,
+    AbortDetails, AbortReason, DecidingHook, Event, EventBody, FailureCause, GiveUpCause,
+    GiveUpHook, HookName, HookRef, HookSource, JourneyFailure, JourneyId, LastFailure, Lifecycle,
+    Reason, RequestSource, Requester, RetryCause, Source, StepAttempt, StepHook, WorkflowHook,
 };
 #[cfg(feature = "unstable")]
 pub use value::{AnyValue, Value};
