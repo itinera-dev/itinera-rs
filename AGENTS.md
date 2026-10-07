@@ -55,7 +55,7 @@ Each of these is a required CI check, and every one must pass before pushing:
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 - `cargo test --workspace --all-features`
 - `cargo check --workspace --no-default-features`
-- `cargo +1.85 check --workspace`
+- `cargo +1.85 check --workspace --exclude itinera-conformance`
 - `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`
 - `cargo deny check`
 

@@ -264,7 +264,7 @@ pub enum Abort {
 
 - **A binary**, `itinera-conformance`, run with `cargo run -p itinera-conformance --release`, using cucumber-rs on Tokio (a dependency of the runner only). It reads the cases from `ITINERA_CONFORMANCE_CASES`, selects scenarios with the tag expression in `ITINERA_CONFORMANCE_TAGS`, writes Cucumber JSON to `ITINERA_CONFORMANCE_REPORT`, and fails if any selected scenario fails or uses an undefined sentence.
 - **Only the public API.** Each scenario's sentences fill a scenario model, which "When the workflow runs" turns into builder calls: scripted steps implementing `StepFactory`, scripted policy factories recording what their hooks received, a scripted workflow type implementing one recording role trait, scripted reporters, and a recording dispatcher factory whose dispatchers share the test's reporter. Every sentence about events, and about step statuses, reads from that reporter. When a scenario uses the default dispatcher, the runner gives no factory: a sentence about one reporter reads that reporter, and a sentence about the whole event stream reads the first listed reporter that never failed, a failure on `journey_aborted` included; if every listed reporter failed, the runner reports the scenario as an error in the case. Scripted failures (a hook, role operation, reporter, dispatcher, factory or policy that fails) return an `Error`.
-- **Both executors.** Every scenario whose workflow is `Sync` runs under `LocalExecutor` and again under `AsyncLocalExecutor`, and must pass under both. Scenarios with an asynchronous part run under the asynchronous one.
+- **Both executors, as the rows of an Examples table.** As it reads the cases, the runner copies every scenario once for each executor that runs it, as if the scenario had an Examples table with one row per executor: one for `LocalExecutor`, tagged `@executor-local`, and one for `AsyncLocalExecutor`, tagged `@executor-async`. A scenario tagged `@capability-sync` gets only the first, and one tagged `@capability-async` only the second. Each copy is a scenario of its own, which must pass, and keeps the scenario's name. Like a row of a real Examples table, each has a line of its own, since the Cucumber JSON report tells scenarios apart by name and line: the first copy has the scenario's line, and the next is moved past every scenario sharing its name, such as the other rows of a Scenario Outline.
 - **The runner knows nothing of excluded scenarios.** It writes only the Cucumber JSON, holding the scenarios that ran.
 - **Exclusions are declared in `conformance.json`.** `impossible` maps each excluded tag to its scenarios, each with its feature file, its name, and its proof: the test that proves it and the file holding that test. Every scenario carrying the tag at the pinned cases must have an entry, so a tag is added, with all its entries, in the pull request that lands the proofs for all its scenarios. Until then its scenarios do not run anyway, since their proposals are not listed yet.
 - **Proofs are Rust tests, run by `cargo test`.** They live in `crates/itinera/tests/proofs.rs`, with their fixtures beside it in `crates/itinera/tests/proofs/<tag>/`, because they test the public API, not the runner. Each excluded scenario has its own `#[test]`, which runs `trybuild` on one fixture holding the forbidden code, compared with the compiler error it must produce, and on a twin that differs only in the forbidden line and must compile. The fixtures share a few support types. The proofs are:
@@ -297,7 +297,7 @@ Each job runs one command, as the organisation's rules require. All are required
 | lints | `cargo clippy --workspace --all-targets --all-features -- -D warnings` |
 | tests, on Linux, Windows and macOS | `cargo test --workspace --all-features` |
 | sync-only build | `cargo check --workspace --no-default-features` |
-| minimum Rust version | `cargo +1.85 check --workspace` |
+| minimum Rust version | `cargo +1.85 check --workspace --exclude itinera-conformance` |
 | documentation | `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings` |
 | dependencies | `cargo deny check`, through `EmbarkStudios/cargo-deny-action` |
 | conformance, from stage 0 | `itinera-dev/actions/run-conformance@v1`, with `command: cargo run -p itinera-conformance --release`, after checking out and restoring the Rust cache |
@@ -362,7 +362,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 ### 17. Toolchain, dependencies, features and documentation
 
 - **`rust-toolchain.toml`** pins Rust 1.98.1 with `rustfmt` and `clippy`. Moving to a newer version is a pull request of its own, which also refreshes the stored compiler messages.
-- **The minimum supported Rust version is 1.85**, declared as `rust-version`. Before 1.0, raising it is allowed in a minor release, and the changelog says so.
+- **The minimum supported Rust version is 1.85**, declared as `rust-version`. Before 1.0, raising it is allowed in a minor release, and the changelog says so. It is a promise to users of the published crates, so the conformance runner, which is not published, follows cucumber-rs instead: it declares 1.88, and the minimum-version check leaves it out.
 - **Dependencies**, each with default features off:
 
   | Crate | Used by | For |
@@ -371,11 +371,11 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
   | `derive_more` (`display`, `from`, `into`, `as_ref`) | core | `Display`, `From`, `Into` and `AsRef` on newtypes and names, which the types use throughout |
   | `uuid` (`v4`) | core | the default journey ID |
   | `syn`, `quote`, `proc-macro2` | macros | the macros |
-  | `cucumber` (`output-json`), `tokio`, `serde_json` | conformance runner | running the cases |
+  | `cucumber` (`macros`, `output-json`), `tokio` (`rt`), `futures`, `serde_json` | conformance runner | running the cases |
   | `trybuild`, `proptest`, `serde_json` | tests | compile-fail, property-based and equivalence tests |
 
   No async runtime and no `futures` crate in the core. A new dependency of the core needs a stated reason in its pull request.
-- **`deny.toml`** allows the licences MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Unicode-3.0 and Zlib, denies security advisories, accepts crates only from crates.io, and warns on duplicate versions.
+- **`deny.toml`** allows the licences MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Unicode-3.0 and Zlib, and BlueOak-1.0.0 for the three `synthez` crates only, which cucumber's macros use in the runner. It denies security advisories, accepts crates only from crates.io, and warns on duplicate versions.
 - **Features of `itinera`** (forwarded to `itinera-core`), all additive:
 
   | Feature | Default | Adds |

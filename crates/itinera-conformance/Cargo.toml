@@ -3,10 +3,18 @@ name = "itinera-conformance"
 description = "Runs the Itinera conformance cases against itinera."
 version.workspace = true
 edition.workspace = true
-rust-version.workspace = true
+rust-version = "1.88"
 license.workspace = true
 repository.workspace = true
 publish = false
+
+[dependencies]
+cucumber.workspace = true
+futures.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true
