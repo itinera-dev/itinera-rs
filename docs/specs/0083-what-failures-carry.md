@@ -15,7 +15,9 @@ Status: in progress. Stage 1 shapes the events; the result, shaped like them as 
 - **`journey_aborted`** is `EventBody::JourneyAborted`, holding a `JourneyAbort` with one variant per abort reason, each holding exactly what that reason carries:
   - `StepCouldNotBeBuilt`, `HookFailed` and `ReporterFailed` hold the error's message, and the step's name where there is one;
   - `PolicyCouldNotBeBuilt` holds the step's name, the policy and the error's message;
-  - `RequiredDataMissing` and `WrongType` hold the key and the `Requester`, which names the step except for a workflow hook, and no error.
+  - `RequiredDataMissing` holds a `MissingData`: a key and its `Requester`, or a step hook's request for the failure's reason or the error, which have no key;
+  - `WrongType` holds the key and the `Requester`;
+  - a `Requester` names the step except for a workflow hook, and neither reason carries an error.
 - `JourneyAbort::reason()`, `step()` and `error()` give the plain `AbortReason`, the step's name and the error's message. A `JourneyAbort` serializes as `step`, `reason`, `details` and `error`.
 - Neither carries a `StepAttempt`, only the step's name.
 - Events carry an error only as its `Display` text, never an `itinera::Error`.
@@ -31,7 +33,7 @@ Status: in progress. Stage 1 shapes the events; the result, shaped like them as 
 
 ## Tests
 
-- Unit tests in `itinera-core/src/event.rs`: a journey failed after retries carries the last attempt's error message; a journey failed by `FailWorkflow` carries the reason and the hook; an abort while data was resolved carries the key and requester but no error; an abort by a workflow hook's request names no step; an abort caused by failing code carries the error's message.
+- Unit tests in `itinera-core/src/event.rs`: a journey failed after retries carries the last attempt's error message; a journey failed by `FailWorkflow` carries the reason and the hook; an abort while data was resolved carries the key and requester but no error; a required request for a missing reason carries no key; an abort by a workflow hook's request names no step; an abort caused by failing code carries the error's message.
 
 ## Done when
 

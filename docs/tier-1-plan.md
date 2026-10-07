@@ -236,8 +236,8 @@ pub enum Failure {
 pub enum Abort {
     StepCouldNotBeBuilt(Error),
     PolicyCouldNotBeBuilt { policy: String, error: Error },
-    RequiredDataMissing { key: String, requester: DataRequester },
-    WrongType { key: String, requester: DataRequester },
+    RequiredDataMissing(MissingData),
+    WrongType { key: String, requester: Requester },
     HookFailed(Error),
     ReporterFailed(Error),
 }
@@ -245,7 +245,7 @@ pub enum Abort {
 
 - **The result is a business outcome.** It holds no step statuses, attempt counts or step names: those are observable in the event stream.
 - **The result is one enum, tagged by status, each variant holding exactly what that status carries**, so a failed journey without a failure, or a succeeded one with an abort, cannot be written. `journey_id()` gives the journey ID whatever the status; `data()` and `into_data()` give the data bag. `status()` returns a plain `Status` (`Succeeded`, `Failed`, `Aborted`) for code that only needs the status.
-- **A failure has one variant per cause, and an abort one per abort reason**, each holding exactly what proposal 0083 says it carries: a reason, an error, or both, and the abort's details. `Failure::cause()` and `Abort::reason()` give the plain `FailureCause` and `AbortReason`. `DataRequester` names who requested the data (the step, an adapter, or a policy and hook) without naming the step. They mirror the events' `JourneyFailure`, `LastFailure` and `JourneyAbort`, which hold the error's message and name the step.
+- **A failure has one variant per cause, and an abort one per abort reason**, each holding exactly what proposal 0083 says it carries: a reason, an error, or both, and the abort's details. `Failure::cause()` and `Abort::reason()` give the plain `FailureCause` and `AbortReason`. They mirror the events' `JourneyFailure`, `LastFailure`, `JourneyAbort`, `MissingData` and `Requester`, which hold the error's message and name the step; the result's `MissingData` and `Requester` are the same shapes without the step's name, in the module of the result. `MissingData` is a key and who requested it, or a step hook's request for the failure's reason or the error, which have no key.
 - **Proposal spec#85**, if accepted, takes the data bag out of `Aborted`; `data()` and `into_data()` then return an `Option`.
 - **The result holds the error itself**, an `itinera::Error`, so the caller can inspect it; events carry only its message. As an error cannot be cloned in general, `JourneyResult` is not `Clone`.
 - **`AbortReason`** has the reasons Rust can reach, `StepCouldNotBeBuilt`, `RequiredDataMissing`, `WrongType`, `PolicyCouldNotBeBuilt`, `HookFailed` and `ReporterFailed`, and is `#[non_exhaustive]`. `invalid lifecycle` and `not a value` cannot happen.

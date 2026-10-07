@@ -733,7 +733,7 @@ pub enum RequestSource {
 /// # Examples
 ///
 /// ```
-/// use itinera::{AbortReason, JourneyAbort};
+/// use itinera::JourneyAbort;
 ///
 /// fn describe(abort: &JourneyAbort) -> String {
 ///     match abort.error() {
@@ -766,10 +766,8 @@ pub enum JourneyAbort {
     /// A required request has no value.
     #[non_exhaustive]
     RequiredDataMissing {
-        /// The key that was requested.
-        key: String,
-        /// Who requested it, and for which step.
-        requester: Requester,
+        /// What was requested, and by whom.
+        missing: MissingData,
     },
     /// A requested value has the wrong type.
     #[non_exhaustive]
@@ -836,9 +834,8 @@ impl JourneyAbort {
             Self::StepCouldNotBeBuilt { step, .. } | Self::PolicyCouldNotBeBuilt { step, .. } => {
                 Some(step)
             }
-            Self::RequiredDataMissing { requester, .. } | Self::WrongType { requester, .. } => {
-                requester.step()
-            }
+            Self::RequiredDataMissing { missing } => missing.step(),
+            Self::WrongType { requester, .. } => requester.step(),
             Self::HookFailed { step, .. } | Self::ReporterFailed { step, .. } => step.as_deref(),
         }
     }
@@ -868,10 +865,21 @@ impl JourneyAbort {
 impl Serialize for JourneyAbort {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let details = match self {
-            Self::RequiredDataMissing { key, requester } | Self::WrongType { key, requester } => {
-                Some(AbortDetails::Data { key, requester })
+            Self::RequiredDataMissing {
+                missing: MissingData::Key { key, requester },
             }
-            Self::PolicyCouldNotBeBuilt { policy, .. } => Some(AbortDetails::Policy { policy }),
+            | Self::WrongType { key, requester } => Some(AbortDetails::Data {
+                key: Some(key),
+                requester: requester.into(),
+            }),
+            Self::RequiredDataMissing {
+                missing:
+                    MissingData::Reason { policy, hook, .. } | MissingData::Error { policy, hook, .. },
+            } => Some(AbortDetails::Data {
+                key: None,
+                requester: RequesterDetails::Hook(policy, hook.to_string()),
+            }),
+            Self::PolicyCouldNotBeBuilt { policy, .. } => Some(AbortDetails::Policy(policy)),
             Self::StepCouldNotBeBuilt { .. }
             | Self::HookFailed { .. }
             | Self::ReporterFailed { .. } => None,
@@ -885,14 +893,86 @@ impl Serialize for JourneyAbort {
     }
 }
 
+/// What a required request found missing: data under a key, or the failure's reason or the error
+/// that a step hook requested from the step it acts on.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::MissingData;
+///
+/// fn key(missing: &MissingData) -> Option<&str> {
+///     match missing {
+///         MissingData::Key { key, .. } => Some(key),
+///         _ => None,
+///     }
+/// }
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum MissingData {
+    /// Data under a key.
+    #[non_exhaustive]
+    Key {
+        /// The key that was requested.
+        key: String,
+        /// Who requested it, and for which step.
+        requester: Requester,
+    },
+    /// The failure's reason, which the attempt did not report.
+    #[non_exhaustive]
+    Reason {
+        /// The policy's name.
+        policy: String,
+        /// The hook that requested it.
+        hook: StepHook,
+        /// The name of the step it acts on.
+        step: String,
+    },
+    /// The error, which did not end the attempt.
+    #[non_exhaustive]
+    Error {
+        /// The policy's name.
+        policy: String,
+        /// The hook that requested it.
+        hook: StepHook,
+        /// The name of the step it acts on.
+        step: String,
+    },
+}
+
+impl MissingData {
+    fn step(&self) -> Option<&str> {
+        match self {
+            Self::Key { requester, .. } => requester.step(),
+            Self::Reason { step, .. } | Self::Error { step, .. } => Some(step),
+        }
+    }
+}
+
 enum AbortDetails<'a> {
     Data {
-        key: &'a str,
-        requester: &'a Requester,
+        key: Option<&'a str>,
+        requester: RequesterDetails<'a>,
     },
-    Policy {
-        policy: &'a str,
-    },
+    Policy(&'a str),
+}
+
+enum RequesterDetails<'a> {
+    Step,
+    Adapter(&'a str),
+    Hook(&'a str, String),
+}
+
+impl<'a> From<&'a Requester> for RequesterDetails<'a> {
+    fn from(requester: &'a Requester) -> Self {
+        match requester {
+            Requester::Step { .. } => Self::Step,
+            Requester::Adapter { adapter, .. } => Self::Adapter(adapter),
+            Requester::StepHook { policy, hook, .. } => Self::Hook(policy, hook.to_string()),
+            Requester::WorkflowHook { policy, hook } => Self::Hook(policy, hook.to_string()),
+        }
+    }
 }
 
 impl Serialize for AbortDetails<'_> {
@@ -900,23 +980,21 @@ impl Serialize for AbortDetails<'_> {
         let mut map = serializer.serialize_map(None)?;
         match self {
             Self::Data { key, requester } => {
-                map.serialize_entry("key", key)?;
+                if let Some(key) = key {
+                    map.serialize_entry("key", key)?;
+                }
                 match requester {
-                    Requester::Step { .. } => {}
-                    Requester::Adapter { adapter, .. } => {
+                    RequesterDetails::Step => {}
+                    RequesterDetails::Adapter(adapter) => {
                         map.serialize_entry("adapter", adapter)?;
                     }
-                    Requester::StepHook { policy, hook, .. } => {
-                        map.serialize_entry("policy", policy)?;
-                        map.serialize_entry("hook", hook)?;
-                    }
-                    Requester::WorkflowHook { policy, hook } => {
+                    RequesterDetails::Hook(policy, hook) => {
                         map.serialize_entry("policy", policy)?;
                         map.serialize_entry("hook", hook)?;
                     }
                 }
             }
-            Self::Policy { policy } => map.serialize_entry("policy", policy)?,
+            Self::Policy(policy) => map.serialize_entry("policy", policy)?,
         }
         map.end()
     }
@@ -1722,10 +1800,12 @@ pub(crate) mod tests {
             6,
             EventBody::JourneyAborted {
                 abort: JourneyAbort::RequiredDataMissing {
-                    key: "price".to_string(),
-                    requester: Requester::Adapter {
-                        adapter: "pricing".to_string(),
-                        step: "charge".to_string(),
+                    missing: MissingData::Key {
+                        key: "price".to_string(),
+                        requester: Requester::Adapter {
+                            adapter: "pricing".to_string(),
+                            step: "charge".to_string(),
+                        },
                     },
                 },
             },
@@ -1736,6 +1816,29 @@ pub(crate) mod tests {
         assert_eq!(
             json["details"],
             json!({"key": "price", "adapter": "pricing"})
+        );
+        assert_eq!(json["error"], json!(null));
+    }
+
+    #[test]
+    fn a_required_request_for_a_missing_reason_carries_no_key() {
+        let json = to_json(&event(
+            6,
+            EventBody::JourneyAborted {
+                abort: JourneyAbort::RequiredDataMissing {
+                    missing: MissingData::Reason {
+                        policy: "alarm".to_string(),
+                        hook: StepHook::OnStepFailure,
+                        step: "charge".to_string(),
+                    },
+                },
+            },
+        ));
+        assert_eq!(json["step"], json!("charge"));
+        assert_eq!(json["reason"], json!("required data missing"));
+        assert_eq!(
+            json["details"],
+            json!({"policy": "alarm", "hook": "on step failure"})
         );
         assert_eq!(json["error"], json!(null));
     }
