@@ -1,8 +1,6 @@
+use std::fmt;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::time::{SystemTime, UNIX_EPOCH};
-
-use serde::ser::SerializeMap;
-use serde::{Serialize, Serializer};
 
 use crate::value::{AnyValue, Value};
 
@@ -27,12 +25,10 @@ use crate::value::{AnyValue, Value};
     Hash,
     PartialOrd,
     Ord,
-    Serialize,
     derive_more::Display,
     derive_more::From,
     derive_more::AsRef,
 )]
-#[serde(transparent)]
 #[from(forward)]
 #[as_ref(forward)]
 pub struct JourneyId(String);
@@ -48,7 +44,7 @@ pub struct JourneyId(String);
 ///     format!("{}, attempt {}", attempt.step, attempt.attempt)
 /// }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub struct StepAttempt {
     /// The step's name.
@@ -68,24 +64,22 @@ pub struct StepAttempt {
 ///
 /// assert_eq!(StepHook::OnStepRetry.to_string(), "on step retry");
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
 #[non_exhaustive]
 pub enum StepHook {
     /// Called after an attempt that succeeded.
-    #[serde(rename = "on step success")]
+    #[display("on step success")]
     OnStepSuccess,
     /// Called after a step was given up.
-    #[serde(rename = "on step failure")]
+    #[display("on step failure")]
     OnStepFailure,
     /// Called before a step is attempted again.
-    #[serde(rename = "on step retry")]
+    #[display("on step retry")]
     OnStepRetry,
     /// Called after an attempt ended in an abnormal termination.
-    #[serde(rename = "on step abnormal termination")]
+    #[display("on step abnormal termination")]
     OnStepAbnormalTermination,
 }
-
-serde_plain::derive_display_from_serialize!(StepHook);
 
 /// The name of a workflow hook, called once at the end of a journey.
 ///
@@ -98,23 +92,19 @@ serde_plain::derive_display_from_serialize!(StepHook);
 ///
 /// assert_eq!(WorkflowHook::OnWorkflowFailure.to_string(), "on workflow failure");
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
 #[non_exhaustive]
 pub enum WorkflowHook {
     /// Called once the journey has succeeded.
-    #[serde(rename = "on workflow success")]
+    #[display("on workflow success")]
     OnWorkflowSuccess,
     /// Called once the journey has failed.
-    #[serde(rename = "on workflow failure")]
+    #[display("on workflow failure")]
     OnWorkflowFailure,
 }
 
-serde_plain::derive_display_from_serialize!(WorkflowHook);
-
 /// A hook that was called: a step hook, with the step and attempt that triggered it, or a
 /// workflow hook.
-///
-/// It serializes as the policy, the hook, and for a step hook the step and attempt.
 ///
 /// # Examples
 ///
@@ -128,8 +118,7 @@ serde_plain::derive_display_from_serialize!(WorkflowHook);
 ///     }
 /// }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum HookSource {
     /// A step hook.
@@ -140,7 +129,6 @@ pub enum HookSource {
         /// The hook.
         hook: StepHook,
         /// The step and attempt that triggered it.
-        #[serde(flatten)]
         step: StepAttempt,
     },
     /// A workflow hook.
@@ -170,7 +158,7 @@ pub enum HookSource {
 /// assert_eq!(reason.message(), Some("the card was declined"));
 /// assert_eq!(reason.details().and_then(|d| d.downcast_ref::<i64>()), Some(&3));
 /// ```
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug)]
 pub struct Reason {
     code: String,
     message: Option<String>,
@@ -271,6 +259,8 @@ impl Reason {
 
 /// A lifecycle a hook returned, which decides what happens next.
 ///
+/// It displays as the lifecycle is named, for example `FailWorkflow`.
+///
 /// # Examples
 ///
 /// ```
@@ -279,13 +269,16 @@ impl Reason {
 /// fn ends_the_journey(lifecycle: &Lifecycle) -> bool {
 ///     matches!(lifecycle, Lifecycle::FinishWorkflow | Lifecycle::FailWorkflow(_))
 /// }
+///
+/// assert_eq!(Lifecycle::FinishWorkflow.to_string(), "FinishWorkflow");
 /// ```
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, derive_more::Display)]
 #[non_exhaustive]
 pub enum Lifecycle {
     /// The journey succeeds at once.
     FinishWorkflow,
     /// The journey fails at once, with this reason.
+    #[display("FailWorkflow")]
     FailWorkflow(Reason),
 }
 
@@ -303,7 +296,7 @@ pub enum Lifecycle {
 ///     format!("{}, {}", hook.policy, hook.hook)
 /// }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub struct DecidingHook<H = StepHook> {
     /// The policy's name.
@@ -323,45 +316,20 @@ pub struct DecidingHook<H = StepHook> {
 ///
 /// assert_eq!(GiveUpHook::OnStepRetry.to_string(), "on step retry");
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
 #[non_exhaustive]
 pub enum GiveUpHook {
     /// Called before a step is attempted again.
-    #[serde(rename = "on step retry")]
+    #[display("on step retry")]
     OnStepRetry,
     /// Called after an attempt ended in an abnormal termination.
-    #[serde(rename = "on step abnormal termination")]
+    #[display("on step abnormal termination")]
     OnStepAbnormalTermination,
 }
 
-serde_plain::derive_display_from_serialize!(GiveUpHook);
-
-struct DecidedBy<'a, H>(Option<&'a DecidingHook<H>>);
-
-impl<H: Serialize> Serialize for DecidedBy<'_, H> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self.0 {
-            None => serializer.serialize_str("default"),
-            Some(hook) => hook.serialize(serializer),
-        }
-    }
-}
-
-const BY_DEFAULT: DecidedBy<'static, StepHook> = DecidedBy(None);
-
-fn finished_by<S: Serializer>(policy: &Option<String>, serializer: S) -> Result<S::Ok, S::Error> {
-    match policy {
-        None => BY_DEFAULT.serialize(serializer),
-        Some(policy) => {
-            let mut map = serializer.serialize_map(Some(2))?;
-            map.serialize_entry("policy", policy)?;
-            map.serialize_entry("hook", &StepHook::OnStepSuccess)?;
-            map.end()
-        }
-    }
-}
-
 /// Why a step will be attempted again.
+///
+/// It displays as the cause is named, for example `retriable failure`.
 ///
 /// # Examples
 ///
@@ -370,30 +338,21 @@ fn finished_by<S: Serializer>(policy: &Option<String>, serializer: S) -> Result<
 ///
 /// assert_eq!(RetryCause::RetriableFailure.to_string(), "retriable failure");
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
 #[non_exhaustive]
 pub enum RetryCause {
     /// The attempt reported a retriable failure.
-    #[serde(rename = "retriable failure")]
+    #[display("retriable failure")]
     RetriableFailure,
     /// The attempt ended in an abnormal termination, and the step allows retrying it.
-    #[serde(rename = "abnormal termination")]
+    #[display("abnormal termination")]
     AbnormalTermination,
-}
-
-serde_plain::derive_display_from_serialize!(RetryCause);
-
-fn retry_decision<S: Serializer>(cause: &RetryCause, serializer: S) -> Result<S::Ok, S::Error> {
-    let mut map = serializer.serialize_map(Some(2))?;
-    map.serialize_entry("cause", cause)?;
-    map.serialize_entry("decided_by", &BY_DEFAULT)?;
-    map.end()
 }
 
 /// Why a step will not be attempted again.
 ///
-/// It displays as the cause is named, for example `retries exhausted`. It serializes as the
-/// `cause` and `decided_by`: `"default"`, or the hook that returned `FailWorkflow`.
+/// It displays as the cause is named, for example `retries exhausted`. Every cause but
+/// `FailWorkflow` is decided by default.
 ///
 /// # Examples
 ///
@@ -425,33 +384,6 @@ pub enum GiveUpCause {
     },
 }
 
-impl Serialize for GiveUpCause {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut map = serializer.serialize_map(Some(2))?;
-        match self {
-            Self::FailWorkflow { decided_by, reason } => {
-                map.serialize_entry("cause", &FailWorkflowCause(reason))?;
-                map.serialize_entry("decided_by", &DecidedBy(Some(decided_by)))?;
-            }
-            Self::Failure | Self::AbnormalTermination | Self::RetriesExhausted => {
-                map.serialize_entry("cause", &self.to_string())?;
-                map.serialize_entry("decided_by", &BY_DEFAULT)?;
-            }
-        }
-        map.end()
-    }
-}
-
-struct FailWorkflowCause<'a>(&'a Reason);
-
-impl Serialize for FailWorkflowCause<'_> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut map = serializer.serialize_map(Some(1))?;
-        map.serialize_entry("FailWorkflow", self.0)?;
-        map.end()
-    }
-}
-
 /// Why a journey failed.
 ///
 /// It displays as the cause is named, for example `retries exhausted`.
@@ -464,23 +396,21 @@ impl Serialize for FailWorkflowCause<'_> {
 /// assert_eq!(FailureCause::AbnormalTermination.to_string(), "abnormal termination");
 /// assert_eq!(FailureCause::FailWorkflow.to_string(), "FailWorkflow");
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
 #[non_exhaustive]
 pub enum FailureCause {
     /// A step reported a failure that is not retriable.
-    #[serde(rename = "failure")]
+    #[display("failure")]
     Failure,
     /// A step's retry budget was spent.
-    #[serde(rename = "retries exhausted")]
+    #[display("retries exhausted")]
     RetriesExhausted,
     /// A step ended in an abnormal termination that is not retried.
-    #[serde(rename = "abnormal termination")]
+    #[display("abnormal termination")]
     AbnormalTermination,
     /// A hook returned `FailWorkflow`.
     FailWorkflow,
 }
-
-serde_plain::derive_display_from_serialize!(FailureCause);
 
 /// What ended a step's last attempt when its retry budget was spent: the reason of a failure,
 /// or the error that ended it abnormally.
@@ -508,9 +438,6 @@ pub enum LastFailure<E = String> {
 }
 
 /// Why a journey failed, with what the cause carries and who decided it.
-///
-/// It serializes as the `cause`, the `reason` and the `error` message, each `null` when the cause
-/// carries none, and `decided_by`: `"default"`, or the hook that returned `FailWorkflow`.
 ///
 /// # Examples
 ///
@@ -562,25 +489,6 @@ impl JourneyFailure {
     }
 }
 
-impl Serialize for JourneyFailure {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let (reason, error, hook) = match self {
-            Self::Failure(reason) | Self::RetriesExhausted(LastFailure::Reason(reason)) => {
-                (Some(reason), None, None)
-            }
-            Self::RetriesExhausted(LastFailure::Error(error))
-            | Self::AbnormalTermination(error) => (None, Some(error), None),
-            Self::FailWorkflow { decided_by, reason } => (Some(reason), None, Some(decided_by)),
-        };
-        let mut map = serializer.serialize_map(Some(4))?;
-        map.serialize_entry("cause", &self.cause())?;
-        map.serialize_entry("reason", &reason)?;
-        map.serialize_entry("error", &error)?;
-        map.serialize_entry("decided_by", &DecidedBy(hook))?;
-        map.end()
-    }
-}
-
 /// Why a journey was aborted.
 ///
 /// It displays as the reason is named, for example `reporter failed`. The reasons
@@ -593,36 +501,32 @@ impl Serialize for JourneyFailure {
 ///
 /// assert_eq!(AbortReason::ReporterFailed.to_string(), "reporter failed");
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
 #[non_exhaustive]
 pub enum AbortReason {
     /// A step's constructor, or the input adapter resolving one of its inputs, failed.
-    #[serde(rename = "step could not be built")]
+    #[display("step could not be built")]
     StepCouldNotBeBuilt,
     /// A step policy failed while being built for an attempt.
-    #[serde(rename = "policy could not be built")]
+    #[display("policy could not be built")]
     PolicyCouldNotBeBuilt,
     /// A required request has no value.
-    #[serde(rename = "required data missing")]
+    #[display("required data missing")]
     RequiredDataMissing,
     /// A requested value has the wrong type.
-    #[serde(rename = "wrong type")]
+    #[display("wrong type")]
     WrongType,
     /// A hook, or a role operation it called, failed.
-    #[serde(rename = "hook failed")]
+    #[display("hook failed")]
     HookFailed,
     /// A reporter, or a dispatcher while dispatching, failed.
-    #[serde(rename = "reporter failed")]
+    #[display("reporter failed")]
     ReporterFailed,
 }
-
-serde_plain::derive_display_from_serialize!(AbortReason);
 
 /// Who made a request whose data could not be resolved, and the step it was made for: a step for
 /// one of its inputs, an input adapter resolving a step's input, a step hook, or a workflow hook,
 /// which has no step.
-///
-/// It serializes as the step, and the policy and hook or the adapter when the request is theirs.
 ///
 /// # Examples
 ///
@@ -636,8 +540,7 @@ serde_plain::derive_display_from_serialize!(AbortReason);
 ///     }
 /// }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Requester {
     /// A step, for one of its inputs.
@@ -689,9 +592,6 @@ impl Requester {
 /// input adapter resolving a step's input; with the step and attempt it was made for, except for
 /// a workflow hook.
 ///
-/// It serializes as the step and attempt, and the policy and hook or the adapter when the request
-/// is theirs.
-///
 /// # Examples
 ///
 /// ```
@@ -704,8 +604,7 @@ impl Requester {
 ///     }
 /// }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum RequestSource {
     /// A step, for one of its inputs, during this attempt.
@@ -718,7 +617,6 @@ pub enum RequestSource {
         /// The adapter's name.
         adapter: String,
         /// The step and attempt whose input it was resolving.
-        #[serde(flatten)]
         step: StepAttempt,
     },
 }
@@ -726,9 +624,6 @@ pub enum RequestSource {
 /// Why a journey was aborted, with exactly what that reason carries: the step during which it
 /// happened, when there was one, its details, and the message of the error when failing custom
 /// code caused it.
-///
-/// It serializes as the `step`, the `reason`, the `details` and the `error`, each `null` when the
-/// reason carries none.
 ///
 /// # Examples
 ///
@@ -862,37 +757,6 @@ impl JourneyAbort {
     }
 }
 
-impl Serialize for JourneyAbort {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let details = match self {
-            Self::RequiredDataMissing {
-                missing: MissingData::Key { key, requester },
-            }
-            | Self::WrongType { key, requester } => Some(AbortDetails::Data {
-                key: Some(key),
-                requester: requester.into(),
-            }),
-            Self::RequiredDataMissing {
-                missing:
-                    MissingData::Reason { policy, hook, .. } | MissingData::Error { policy, hook, .. },
-            } => Some(AbortDetails::Data {
-                key: None,
-                requester: RequesterDetails::Hook(policy, hook.to_string()),
-            }),
-            Self::PolicyCouldNotBeBuilt { policy, .. } => Some(AbortDetails::Policy(policy)),
-            Self::StepCouldNotBeBuilt { .. }
-            | Self::HookFailed { .. }
-            | Self::ReporterFailed { .. } => None,
-        };
-        let mut map = serializer.serialize_map(Some(4))?;
-        map.serialize_entry("step", &self.step())?;
-        map.serialize_entry("reason", &self.reason())?;
-        map.serialize_entry("details", &details)?;
-        map.serialize_entry("error", &self.error())?;
-        map.end()
-    }
-}
-
 /// What a required request found missing: data under a key, or the failure's reason or the error
 /// that a step hook requested from the step it acts on.
 ///
@@ -950,56 +814,6 @@ impl MissingData {
     }
 }
 
-enum AbortDetails<'a> {
-    Data {
-        key: Option<&'a str>,
-        requester: RequesterDetails<'a>,
-    },
-    Policy(&'a str),
-}
-
-enum RequesterDetails<'a> {
-    Step,
-    Adapter(&'a str),
-    Hook(&'a str, String),
-}
-
-impl<'a> From<&'a Requester> for RequesterDetails<'a> {
-    fn from(requester: &'a Requester) -> Self {
-        match requester {
-            Requester::Step { .. } => Self::Step,
-            Requester::Adapter { adapter, .. } => Self::Adapter(adapter),
-            Requester::StepHook { policy, hook, .. } => Self::Hook(policy, hook.to_string()),
-            Requester::WorkflowHook { policy, hook } => Self::Hook(policy, hook.to_string()),
-        }
-    }
-}
-
-impl Serialize for AbortDetails<'_> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut map = serializer.serialize_map(None)?;
-        match self {
-            Self::Data { key, requester } => {
-                if let Some(key) = key {
-                    map.serialize_entry("key", key)?;
-                }
-                match requester {
-                    RequesterDetails::Step => {}
-                    RequesterDetails::Adapter(adapter) => {
-                        map.serialize_entry("adapter", adapter)?;
-                    }
-                    RequesterDetails::Hook(policy, hook) => {
-                        map.serialize_entry("policy", policy)?;
-                        map.serialize_entry("hook", hook)?;
-                    }
-                }
-            }
-            Self::Policy(policy) => map.serialize_entry("policy", policy)?,
-        }
-        map.end()
-    }
-}
-
 /// Who made a contribution: a step, or a hook.
 ///
 /// # Examples
@@ -1011,8 +825,7 @@ impl Serialize for AbortDetails<'_> {
 ///     matches!(source, Source::Hook(_))
 /// }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Source {
     /// A step, during this attempt.
@@ -1021,14 +834,101 @@ pub enum Source {
     Hook(HookSource),
 }
 
+/// When an event was emitted: an instant, displayed in UTC in ISO 8601.
+///
+/// It displays to the nanosecond, without trailing zeros, for example
+/// `2023-11-14T22:13:20.123Z`. A year outside 0 to 9999 is written as an ISO 8601 expanded year,
+/// with its sign and at least five digits, for example `+10000-01-01T00:00:00Z`.
+///
+/// # Examples
+///
+/// ```
+/// use std::time::{Duration, SystemTime, UNIX_EPOCH};
+///
+/// use itinera::Timestamp;
+///
+/// let timestamp = Timestamp::from(UNIX_EPOCH + Duration::from_millis(1_700_000_000_123));
+/// assert_eq!(timestamp.to_string(), "2023-11-14T22:13:20.123Z");
+/// let instant: SystemTime = timestamp.into();
+/// assert_eq!(instant, UNIX_EPOCH + Duration::from_millis(1_700_000_000_123));
+/// ```
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, derive_more::From, derive_more::Into,
+)]
+pub struct Timestamp(SystemTime);
+
+const SECONDS_PER_DAY: i128 = 86_400;
+const NANOS_PER_SECOND: u32 = 1_000_000_000;
+
+impl fmt::Display for Timestamp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (seconds, nanos) = seconds_since_epoch(self.0);
+        let (year, month, day) = civil_date(seconds.div_euclid(SECONDS_PER_DAY));
+        if (0..=9999).contains(&year) {
+            write!(f, "{year:04}")?;
+        } else {
+            write!(f, "{year:+06}")?;
+        }
+        let of_day = seconds.rem_euclid(SECONDS_PER_DAY);
+        write!(
+            f,
+            "-{month:02}-{day:02}T{:02}:{:02}:{:02}",
+            of_day / 3600,
+            of_day % 3600 / 60,
+            of_day % 60
+        )?;
+        if nanos > 0 {
+            let (mut fraction, mut digits) = (nanos, 9);
+            while fraction % 10 == 0 {
+                fraction /= 10;
+                digits -= 1;
+            }
+            write!(f, ".{fraction:0digits$}")?;
+        }
+        f.write_str("Z")
+    }
+}
+
+fn seconds_since_epoch(timestamp: SystemTime) -> (i128, u32) {
+    match timestamp.duration_since(UNIX_EPOCH) {
+        Ok(after) => (i128::from(after.as_secs()), after.subsec_nanos()),
+        Err(before) => {
+            let before = before.duration();
+            let seconds = -i128::from(before.as_secs());
+            match before.subsec_nanos() {
+                0 => (seconds, 0),
+                nanos => (seconds - 1, NANOS_PER_SECOND - nanos),
+            }
+        }
+    }
+}
+
+// Howard Hinnant's days-to-civil algorithm, for the proleptic Gregorian calendar.
+fn civil_date(days_since_epoch: i128) -> (i128, i128, i128) {
+    let days = days_since_epoch + 719_468;
+    let era = days.div_euclid(146_097);
+    let day_of_era = days.rem_euclid(146_097);
+    let year_of_era =
+        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let shifted_month = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * shifted_month + 2) / 5 + 1;
+    let month = if shifted_month < 10 {
+        shifted_month + 3
+    } else {
+        shifted_month - 9
+    };
+    let year = year_of_era + era * 400 + i128::from(month <= 2);
+    (year, month, day)
+}
+
 /// One event of a journey's event stream.
 ///
 /// Events are made only by itinera's executors. Every event carries a sequence number,
 /// increasing from 1 within the journey, a timestamp, the journey ID and the workflow name;
 /// what else it carries depends on its [`body`](Event::body).
 ///
-/// It serializes as one map holding `kind`, `sequence`, `timestamp` in ISO 8601 in UTC, `journey_id`,
-/// `workflow`, and the fields of its body.
+/// Events carry no format of their own: each reporter writes them as it chooses.
 ///
 /// # Examples
 ///
@@ -1044,20 +944,18 @@ pub enum Source {
 ///     }
 /// }
 /// ```
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct Event {
     /// The event's position in the journey's event stream, from 1.
     pub sequence: NonZeroU64,
     /// When the event was emitted.
-    #[serde(serialize_with = "iso_8601")]
-    pub timestamp: SystemTime,
+    pub timestamp: Timestamp,
     /// The journey's ID.
     pub journey_id: JourneyId,
     /// The workflow's name.
     pub workflow: String,
     /// What the event says.
-    #[serde(flatten)]
     pub body: EventBody,
 }
 
@@ -1095,8 +993,7 @@ impl Event {
 ///     )
 /// }
 /// ```
-#[derive(Clone, Debug, Serialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum EventBody {
     /// The journey started.
@@ -1109,14 +1006,12 @@ pub enum EventBody {
     #[non_exhaustive]
     AttemptStarted {
         /// The step and attempt.
-        #[serde(flatten)]
         step: StepAttempt,
     },
     /// An input adapter supplied a value for a step's input.
     #[non_exhaustive]
     InputAdapterSupplied {
         /// The step and attempt.
-        #[serde(flatten)]
         step: StepAttempt,
         /// The input's key.
         key: String,
@@ -1127,7 +1022,6 @@ pub enum EventBody {
     #[non_exhaustive]
     InputAdapterFailed {
         /// The step and attempt.
-        #[serde(flatten)]
         step: StepAttempt,
         /// The input's key.
         key: String,
@@ -1140,21 +1034,18 @@ pub enum EventBody {
         /// The key that was requested.
         key: String,
         /// Who requested it.
-        #[serde(flatten)]
         requester: RequestSource,
     },
     /// An attempt reported Success.
     #[non_exhaustive]
     StepSucceeded {
         /// The step and attempt.
-        #[serde(flatten)]
         step: StepAttempt,
     },
     /// An attempt reported Failure.
     #[non_exhaustive]
     StepFailed {
         /// The step and attempt.
-        #[serde(flatten)]
         step: StepAttempt,
         /// Whether the failure is retriable.
         retriable: bool,
@@ -1165,7 +1056,6 @@ pub enum EventBody {
     #[non_exhaustive]
     StepSkipped {
         /// The step and attempt.
-        #[serde(flatten)]
         step: StepAttempt,
         /// Why the step was skipped, if it said.
         reason: Option<Reason>,
@@ -1174,7 +1064,6 @@ pub enum EventBody {
     #[non_exhaustive]
     StepAbnormalTermination {
         /// The step and attempt.
-        #[serde(flatten)]
         step: StepAttempt,
         /// The error's message.
         message: String,
@@ -1183,7 +1072,6 @@ pub enum EventBody {
     #[non_exhaustive]
     HookCalled {
         /// The hook, and the step and attempt that triggered a step hook.
-        #[serde(flatten)]
         hook: HookSource,
         /// The lifecycle it returned, if any.
         lifecycle: Option<Lifecycle>,
@@ -1200,7 +1088,6 @@ pub enum EventBody {
     #[non_exhaustive]
     ContributionsDiscarded {
         /// The step and attempt.
-        #[serde(flatten)]
         step: StepAttempt,
     },
     /// A committed key replaced an earlier value.
@@ -1215,35 +1102,29 @@ pub enum EventBody {
     #[non_exhaustive]
     JourneyAborted {
         /// Why it was aborted, and what that reason carries.
-        #[serde(flatten)]
         abort: JourneyAbort,
     },
     /// The executor decided to attempt a step again.
     #[non_exhaustive]
     StepRetrying {
         /// The step and the attempt that failed.
-        #[serde(flatten)]
         step: StepAttempt,
         /// Why it will be attempted again. The executor's own rule always decides it.
-        #[serde(flatten, serialize_with = "retry_decision")]
         cause: RetryCause,
     },
     /// The executor decided not to attempt a step again: it ends as failed.
     #[non_exhaustive]
     StepGivenUp {
         /// The step and its last attempt.
-        #[serde(flatten)]
         step: StepAttempt,
         /// Why it will not be attempted again, and who decided it.
-        #[serde(flatten)]
         cause: GiveUpCause,
     },
     /// The executor decided that the journey succeeds.
     #[non_exhaustive]
     JourneySucceeded {
         /// The policy whose `on step success` returned `FinishWorkflow`, or `None` when no
-        /// step was left. It serializes as `"default"`, or as the policy and hook.
-        #[serde(serialize_with = "finished_by")]
+        /// step was left and the journey succeeded by default.
         decided_by: Option<String>,
     },
     /// The executor decided that the journey fails.
@@ -1252,14 +1133,12 @@ pub enum EventBody {
         /// The name of the step that failed, or whose hook returned `FailWorkflow`.
         step: String,
         /// Why the journey failed, and who decided it.
-        #[serde(flatten)]
         failure: JourneyFailure,
     },
     /// A step reported information.
     #[non_exhaustive]
     StepInfo {
         /// The step and attempt.
-        #[serde(flatten)]
         step: StepAttempt,
         /// The step's message.
         message: String,
@@ -1270,7 +1149,6 @@ pub enum EventBody {
     #[non_exhaustive]
     StepWarning {
         /// The step and attempt.
-        #[serde(flatten)]
         step: StepAttempt,
         /// The step's message.
         message: String,
@@ -1281,7 +1159,6 @@ pub enum EventBody {
     #[non_exhaustive]
     StepError {
         /// The step and attempt.
-        #[serde(flatten)]
         step: StepAttempt,
         /// The step's message.
         message: String,
@@ -1292,7 +1169,6 @@ pub enum EventBody {
     #[non_exhaustive]
     JourneyInfo {
         /// The hook, and the step and attempt that triggered a step hook.
-        #[serde(flatten)]
         hook: HookSource,
         /// The hook's message.
         message: String,
@@ -1303,7 +1179,6 @@ pub enum EventBody {
     #[non_exhaustive]
     JourneyWarning {
         /// The hook, and the step and attempt that triggered a step hook.
-        #[serde(flatten)]
         hook: HookSource,
         /// The hook's message.
         message: String,
@@ -1314,7 +1189,6 @@ pub enum EventBody {
     #[non_exhaustive]
     JourneyError {
         /// The hook, and the step and attempt that triggered a step hook.
-        #[serde(flatten)]
         hook: HookSource,
         /// The hook's message.
         message: String,
@@ -1365,86 +1239,16 @@ impl EventBody {
     }
 }
 
-fn iso_8601<S: Serializer>(timestamp: &SystemTime, serializer: S) -> Result<S::Ok, S::Error> {
-    let formatted = rfc_3339(*timestamp)
-        .ok_or_else(|| serde::ser::Error::custom("the timestamp is outside the years 0 to 9999"))?;
-    serializer.serialize_str(&formatted)
-}
-
-const SECONDS_PER_DAY: i64 = 86_400;
-const NANOS_PER_SECOND: u32 = 1_000_000_000;
-
-fn rfc_3339(timestamp: SystemTime) -> Option<String> {
-    let (seconds, nanos) = seconds_since_epoch(timestamp)?;
-    utc(seconds, nanos)
-}
-
-fn utc(seconds: i64, nanos: u32) -> Option<String> {
-    let (year, month, day) = civil_date(seconds.div_euclid(SECONDS_PER_DAY));
-    if !(0..=9999).contains(&year) {
-        return None;
-    }
-    let of_day = seconds.rem_euclid(SECONDS_PER_DAY);
-    let mut formatted = format!(
-        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}",
-        of_day / 3600,
-        of_day % 3600 / 60,
-        of_day % 60
-    );
-    if nanos > 0 {
-        let fraction = format!("{nanos:09}");
-        formatted.push('.');
-        formatted.push_str(fraction.trim_end_matches('0'));
-    }
-    formatted.push('Z');
-    Some(formatted)
-}
-
-fn seconds_since_epoch(timestamp: SystemTime) -> Option<(i64, u32)> {
-    match timestamp.duration_since(UNIX_EPOCH) {
-        Ok(after) => Some((i64::try_from(after.as_secs()).ok()?, after.subsec_nanos())),
-        Err(before) => {
-            let before = before.duration();
-            let seconds = -i64::try_from(before.as_secs()).ok()?;
-            match before.subsec_nanos() {
-                0 => Some((seconds, 0)),
-                nanos => Some((seconds.checked_sub(1)?, NANOS_PER_SECOND - nanos)),
-            }
-        }
-    }
-}
-
-// Howard Hinnant's days-to-civil algorithm, for the proleptic Gregorian calendar.
-fn civil_date(days_since_epoch: i64) -> (i64, i64, i64) {
-    let days = days_since_epoch + 719_468;
-    let era = days.div_euclid(146_097);
-    let day_of_era = days.rem_euclid(146_097);
-    let year_of_era =
-        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let shifted_month = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * shifted_month + 2) / 5 + 1;
-    let month = if shifted_month < 10 {
-        shifted_month + 3
-    } else {
-        shifted_month - 9
-    };
-    let year = year_of_era + era * 400 + i64::from(month <= 2);
-    (year, month, day)
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
     use std::time::Duration;
-
-    use serde_json::{Value as Json, json};
 
     use super::*;
 
     pub(crate) fn event(sequence: u64, body: EventBody) -> Event {
         Event {
             sequence: NonZeroU64::new(sequence).unwrap(),
-            timestamp: UNIX_EPOCH + Duration::from_millis(1_700_000_000_123),
+            timestamp: Timestamp::from(UNIX_EPOCH + Duration::from_millis(1_700_000_000_123)),
             journey_id: JourneyId::from("order-42"),
             workflow: "orders".to_string(),
             body,
@@ -1580,267 +1384,149 @@ pub(crate) mod tests {
         ]
     }
 
-    fn to_json(event: &Event) -> Json {
-        serde_json::to_value(event).unwrap()
+    #[test]
+    fn every_kind_of_event_has_its_own_kind() {
+        let kinds: std::collections::HashSet<_> =
+            every_kind().iter().map(EventBody::kind).collect();
+        assert_eq!(kinds.len(), 24);
+        let event = event(1, EventBody::AttemptStarted { step: charge(1) });
+        assert_eq!(event.kind(), "attempt_started");
     }
 
     #[test]
-    fn every_kind_of_event_serializes_with_its_own_kind() {
-        let bodies = every_kind();
-        assert_eq!(bodies.len(), 24);
-        for body in bodies {
-            let event = event(1, body);
-            assert_eq!(to_json(&event)["kind"], json!(event.kind()));
+    fn names_display_as_the_specification_writes_them() {
+        assert_eq!(StepHook::OnStepSuccess.to_string(), "on step success");
+        assert_eq!(StepHook::OnStepFailure.to_string(), "on step failure");
+        assert_eq!(StepHook::OnStepRetry.to_string(), "on step retry");
+        assert_eq!(
+            StepHook::OnStepAbnormalTermination.to_string(),
+            "on step abnormal termination"
+        );
+        assert_eq!(
+            WorkflowHook::OnWorkflowSuccess.to_string(),
+            "on workflow success"
+        );
+        assert_eq!(
+            WorkflowHook::OnWorkflowFailure.to_string(),
+            "on workflow failure"
+        );
+        assert_eq!(GiveUpHook::OnStepRetry.to_string(), "on step retry");
+        assert_eq!(
+            GiveUpHook::OnStepAbnormalTermination.to_string(),
+            "on step abnormal termination"
+        );
+        assert_eq!(
+            RetryCause::RetriableFailure.to_string(),
+            "retriable failure"
+        );
+        assert_eq!(
+            RetryCause::AbnormalTermination.to_string(),
+            "abnormal termination"
+        );
+        assert_eq!(GiveUpCause::Failure.to_string(), "failure");
+        assert_eq!(
+            GiveUpCause::AbnormalTermination.to_string(),
+            "abnormal termination"
+        );
+        assert_eq!(
+            GiveUpCause::RetriesExhausted.to_string(),
+            "retries exhausted"
+        );
+        assert_eq!(FailureCause::Failure.to_string(), "failure");
+        assert_eq!(
+            FailureCause::RetriesExhausted.to_string(),
+            "retries exhausted"
+        );
+        assert_eq!(
+            FailureCause::AbnormalTermination.to_string(),
+            "abnormal termination"
+        );
+        assert_eq!(FailureCause::FailWorkflow.to_string(), "FailWorkflow");
+        assert_eq!(Lifecycle::FinishWorkflow.to_string(), "FinishWorkflow");
+        assert_eq!(
+            AbortReason::StepCouldNotBeBuilt.to_string(),
+            "step could not be built"
+        );
+        assert_eq!(
+            AbortReason::PolicyCouldNotBeBuilt.to_string(),
+            "policy could not be built"
+        );
+        assert_eq!(
+            AbortReason::RequiredDataMissing.to_string(),
+            "required data missing"
+        );
+        assert_eq!(AbortReason::WrongType.to_string(), "wrong type");
+        assert_eq!(AbortReason::HookFailed.to_string(), "hook failed");
+        assert_eq!(AbortReason::ReporterFailed.to_string(), "reporter failed");
+    }
+
+    #[test]
+    fn a_step_given_up_by_fail_workflow_names_fail_workflow_as_its_cause() {
+        let cause = GiveUpCause::FailWorkflow {
+            decided_by: DecidingHook {
+                policy: "close".to_string(),
+                hook: GiveUpHook::OnStepRetry,
+            },
+            reason: Reason::new("fraud"),
+        };
+        assert_eq!(cause.to_string(), "FailWorkflow");
+    }
+
+    #[test]
+    fn a_journey_failure_names_its_cause() {
+        let failures = [
+            (
+                JourneyFailure::Failure(Reason::new("declined")),
+                FailureCause::Failure,
+            ),
+            (
+                JourneyFailure::RetriesExhausted(LastFailure::Error("timeout".to_string())),
+                FailureCause::RetriesExhausted,
+            ),
+            (
+                JourneyFailure::AbnormalTermination("boom".to_string()),
+                FailureCause::AbnormalTermination,
+            ),
+            (
+                JourneyFailure::FailWorkflow {
+                    decided_by: close(StepHook::OnStepSuccess),
+                    reason: Reason::new("fraud"),
+                },
+                FailureCause::FailWorkflow,
+            ),
+        ];
+        for (failure, cause) in failures {
+            assert_eq!(failure.cause(), cause);
         }
     }
 
     #[test]
-    fn an_event_serializes_its_fixed_fields_with_a_utc_iso_8601_timestamp() {
-        let json = to_json(&event(3, EventBody::AttemptStarted { step: charge(2) }));
-        assert_eq!(
-            json,
-            json!({
-                "kind": "attempt_started",
-                "sequence": 3,
-                "timestamp": "2023-11-14T22:13:20.123Z",
-                "journey_id": "order-42",
-                "workflow": "orders",
-                "step": "charge",
-                "attempt": 2,
-            })
-        );
-    }
-
-    #[test]
-    fn a_step_hook_event_carries_the_policy_the_hook_and_the_triggering_attempt() {
-        let json = to_json(&event(
-            5,
-            EventBody::HookCalled {
-                hook: audit_step(StepHook::OnStepRetry, charge(1)),
-                lifecycle: Some(Lifecycle::FailWorkflow(Reason::new("fraud"))),
-            },
-        ));
-        assert_eq!(json["policy"], json!("audit"));
-        assert_eq!(json["hook"], json!("on step retry"));
-        assert_eq!(json["step"], json!("charge"));
-        assert_eq!(json["attempt"], json!(1));
-        assert_eq!(
-            json["lifecycle"],
-            json!({"FailWorkflow": {"code": "fraud", "message": null, "details": null}})
-        );
-    }
-
-    #[test]
-    fn data_emitted_by_a_step_is_serialized_as_the_value_itself() {
-        let json = to_json(&event(
-            4,
-            EventBody::StepInfo {
-                step: charge(1),
-                message: "charging".to_string(),
-                data: Some(AnyValue::new(vec![1_i64, 2])),
-            },
-        ));
-        assert_eq!(json["message"], json!("charging"));
-        assert_eq!(json["data"], json!([1, 2]));
-    }
-
-    #[test]
-    fn a_workflow_hook_event_carries_no_step() {
-        let json = to_json(&event(
-            12,
-            EventBody::JourneyInfo {
-                hook: audit_workflow(WorkflowHook::OnWorkflowSuccess),
-                message: "done".to_string(),
-                data: None,
-            },
-        ));
-        assert_eq!(json["policy"], json!("audit"));
-        assert_eq!(json["hook"], json!("on workflow success"));
-        assert!(json.get("step").is_none());
-        assert!(json.get("attempt").is_none());
-    }
-
-    #[test]
-    fn a_decision_names_who_decided_it() {
-        let by_default = to_json(&event(9, EventBody::JourneySucceeded { decided_by: None }));
-        assert_eq!(by_default["decided_by"], json!("default"));
-
-        let by_hook = to_json(&event(
-            9,
-            EventBody::JourneySucceeded {
-                decided_by: Some("close".to_string()),
-            },
-        ));
-        assert_eq!(
-            by_hook["decided_by"],
-            json!({"policy": "close", "hook": "on step success"})
-        );
-    }
-
-    #[test]
-    fn a_retry_is_always_decided_by_default() {
-        let json = to_json(&event(
-            7,
-            EventBody::StepRetrying {
-                step: charge(1),
-                cause: RetryCause::AbnormalTermination,
-            },
-        ));
-        assert_eq!(json["cause"], json!("abnormal termination"));
-        assert_eq!(json["decided_by"], json!("default"));
-    }
-
-    #[test]
-    fn a_step_given_up_by_fail_workflow_is_decided_by_the_hook_that_returned_it() {
-        let json = to_json(&event(
-            8,
-            EventBody::StepGivenUp {
-                step: charge(2),
-                cause: GiveUpCause::FailWorkflow {
-                    decided_by: DecidingHook {
-                        policy: "close".to_string(),
-                        hook: GiveUpHook::OnStepRetry,
-                    },
-                    reason: Reason::new("fraud"),
-                },
-            },
-        ));
-        assert_eq!(
-            json["cause"],
-            json!({"FailWorkflow": {"code": "fraud", "message": null, "details": null}})
-        );
-        assert_eq!(
-            json["decided_by"],
-            json!({"policy": "close", "hook": "on step retry"})
-        );
-
-        let by_default = to_json(&event(
-            8,
-            EventBody::StepGivenUp {
-                step: charge(2),
-                cause: GiveUpCause::Failure,
-            },
-        ));
-        assert_eq!(by_default["cause"], json!("failure"));
-        assert_eq!(by_default["decided_by"], json!("default"));
-    }
-
-    #[test]
-    fn a_journey_failed_after_retries_carries_the_last_attempts_error_message() {
-        let json = to_json(&event(
-            10,
-            EventBody::JourneyFailed {
-                step: "charge".to_string(),
-                failure: JourneyFailure::RetriesExhausted(LastFailure::Error(
-                    "timeout".to_string(),
-                )),
-            },
-        ));
-        assert_eq!(json["step"], json!("charge"));
-        assert!(json.get("attempt").is_none());
-        assert_eq!(json["cause"], json!("retries exhausted"));
-        assert_eq!(json["reason"], json!(null));
-        assert_eq!(json["error"], json!("timeout"));
-        assert_eq!(json["decided_by"], json!("default"));
-    }
-
-    #[test]
-    fn a_journey_failed_by_fail_workflow_carries_the_reason_and_the_hook() {
-        let json = to_json(&event(
-            10,
-            EventBody::JourneyFailed {
-                step: "charge".to_string(),
-                failure: JourneyFailure::FailWorkflow {
-                    decided_by: close(StepHook::OnStepSuccess),
-                    reason: Reason::new("fraud"),
-                },
-            },
-        ));
-        assert_eq!(json["cause"], json!("FailWorkflow"));
-        assert_eq!(json["reason"]["code"], json!("fraud"));
-        assert_eq!(json["error"], json!(null));
-        assert_eq!(
-            json["decided_by"],
-            json!({"policy": "close", "hook": "on step success"})
-        );
-    }
-
-    #[test]
-    fn an_optional_request_names_its_requester_and_the_step_it_was_for() {
-        let by_adapter = to_json(&event(
-            2,
-            EventBody::OptionalInputAbsent {
-                key: "discount".to_string(),
-                requester: RequestSource::Adapter {
+    fn an_abort_while_data_was_resolved_names_the_step_it_was_for_but_no_error() {
+        let abort = JourneyAbort::RequiredDataMissing {
+            missing: MissingData::Key {
+                key: "price".to_string(),
+                requester: Requester::Adapter {
                     adapter: "pricing".to_string(),
-                    step: charge(1),
+                    step: "charge".to_string(),
                 },
             },
-        ));
-        assert_eq!(by_adapter["key"], json!("discount"));
-        assert_eq!(by_adapter["adapter"], json!("pricing"));
-        assert_eq!(by_adapter["step"], json!("charge"));
-        assert_eq!(by_adapter["attempt"], json!(1));
-
-        let by_workflow_hook = to_json(&event(
-            11,
-            EventBody::OptionalInputAbsent {
-                key: "discount".to_string(),
-                requester: RequestSource::Hook(audit_workflow(WorkflowHook::OnWorkflowFailure)),
-            },
-        ));
-        assert_eq!(by_workflow_hook["policy"], json!("audit"));
-        assert_eq!(by_workflow_hook["hook"], json!("on workflow failure"));
-        assert!(by_workflow_hook.get("step").is_none());
+        };
+        assert_eq!(abort.reason(), AbortReason::RequiredDataMissing);
+        assert_eq!(abort.step(), Some("charge"));
+        assert_eq!(abort.error(), None);
     }
 
     #[test]
-    fn an_abort_while_data_was_resolved_carries_the_key_and_requester_but_no_error() {
-        let json = to_json(&event(
-            6,
-            EventBody::JourneyAborted {
-                abort: JourneyAbort::RequiredDataMissing {
-                    missing: MissingData::Key {
-                        key: "price".to_string(),
-                        requester: Requester::Adapter {
-                            adapter: "pricing".to_string(),
-                            step: "charge".to_string(),
-                        },
-                    },
-                },
+    fn a_required_request_for_a_missing_reason_names_the_step_the_hook_acts_on() {
+        let abort = JourneyAbort::RequiredDataMissing {
+            missing: MissingData::Reason {
+                policy: "alarm".to_string(),
+                hook: StepHook::OnStepFailure,
+                step: "charge".to_string(),
             },
-        ));
-        assert_eq!(json["step"], json!("charge"));
-        assert!(json.get("attempt").is_none());
-        assert_eq!(json["reason"], json!("required data missing"));
-        assert_eq!(
-            json["details"],
-            json!({"key": "price", "adapter": "pricing"})
-        );
-        assert_eq!(json["error"], json!(null));
-    }
-
-    #[test]
-    fn a_required_request_for_a_missing_reason_carries_no_key() {
-        let json = to_json(&event(
-            6,
-            EventBody::JourneyAborted {
-                abort: JourneyAbort::RequiredDataMissing {
-                    missing: MissingData::Reason {
-                        policy: "alarm".to_string(),
-                        hook: StepHook::OnStepFailure,
-                        step: "charge".to_string(),
-                    },
-                },
-            },
-        ));
-        assert_eq!(json["step"], json!("charge"));
-        assert_eq!(json["reason"], json!("required data missing"));
-        assert_eq!(
-            json["details"],
-            json!({"policy": "alarm", "hook": "on step failure"})
-        );
-        assert_eq!(json["error"], json!(null));
+        };
+        assert_eq!(abort.step(), Some("charge"));
+        assert_eq!(abort.error(), None);
     }
 
     #[test]
@@ -1852,74 +1538,61 @@ pub(crate) mod tests {
                 hook: WorkflowHook::OnWorkflowSuccess,
             },
         };
+        assert_eq!(abort.reason(), AbortReason::WrongType);
         assert_eq!(abort.step(), None);
-        let json = to_json(&event(6, EventBody::JourneyAborted { abort }));
-        assert_eq!(json["step"], json!(null));
-        assert_eq!(
-            json["details"],
-            json!({"key": "amount", "policy": "close", "hook": "on workflow success"})
-        );
     }
 
     #[test]
     fn an_abort_caused_by_failing_code_carries_the_errors_message() {
-        let json = to_json(&event(
-            6,
-            EventBody::JourneyAborted {
-                abort: JourneyAbort::PolicyCouldNotBeBuilt {
-                    step: "ship".to_string(),
-                    policy: "broken".to_string(),
-                    error: "no configuration".to_string(),
-                },
-            },
-        ));
-        assert_eq!(json["step"], json!("ship"));
-        assert_eq!(json["reason"], json!("policy could not be built"));
-        assert_eq!(json["details"], json!({"policy": "broken"}));
-        assert_eq!(json["error"], json!("no configuration"));
+        let abort = JourneyAbort::PolicyCouldNotBeBuilt {
+            step: "ship".to_string(),
+            policy: "broken".to_string(),
+            error: "no configuration".to_string(),
+        };
+        assert_eq!(abort.reason(), AbortReason::PolicyCouldNotBeBuilt);
+        assert_eq!(abort.step(), Some("ship"));
+        assert_eq!(abort.error(), Some("no configuration"));
+    }
+
+    fn at(seconds: i64, nanos: u32) -> String {
+        let since_epoch = Duration::new(seconds.unsigned_abs(), 0);
+        let instant = if seconds < 0 {
+            UNIX_EPOCH - since_epoch
+        } else {
+            UNIX_EPOCH + since_epoch
+        };
+        Timestamp::from(instant + Duration::from_nanos(u64::from(nanos))).to_string()
     }
 
     #[test]
-    fn timestamps_are_rendered_in_utc_as_rfc_3339() {
-        assert_eq!(utc(0, 0).unwrap(), "1970-01-01T00:00:00Z");
-        assert_eq!(utc(951_868_800, 0).unwrap(), "2000-03-01T00:00:00Z");
-        assert_eq!(utc(1_709_208_000, 0).unwrap(), "2024-02-29T12:00:00Z");
-        assert_eq!(
-            utc(1_700_000_000, 123_000_000).unwrap(),
-            "2023-11-14T22:13:20.123Z"
-        );
-        assert_eq!(
-            utc(1_700_000_000, 5).unwrap(),
-            "2023-11-14T22:13:20.000000005Z"
-        );
-        assert_eq!(utc(253_402_300_799, 0).unwrap(), "9999-12-31T23:59:59Z");
-        assert_eq!(utc(-62_167_219_200, 0).unwrap(), "0000-01-01T00:00:00Z");
+    fn a_timestamp_displays_in_utc_in_iso_8601() {
+        assert_eq!(at(0, 0), "1970-01-01T00:00:00Z");
+        assert_eq!(at(951_868_800, 0), "2000-03-01T00:00:00Z");
+        assert_eq!(at(1_709_208_000, 0), "2024-02-29T12:00:00Z");
+        assert_eq!(at(1_700_000_000, 123_000_000), "2023-11-14T22:13:20.123Z");
+        assert_eq!(at(1_700_000_000, 5), "2023-11-14T22:13:20.000000005Z");
+        assert_eq!(at(253_402_300_799, 0), "9999-12-31T23:59:59Z");
+        assert_eq!(at(-62_167_219_200, 0), "0000-01-01T00:00:00Z");
+        assert_eq!(at(-86_400, 0), "1969-12-31T00:00:00Z");
     }
 
     #[test]
     fn a_timestamp_just_before_1970_borrows_from_the_previous_second() {
         let just_before = UNIX_EPOCH - Duration::from_nanos(100);
-        assert_eq!(seconds_since_epoch(just_before), Some((-1, 999_999_900)));
+        assert_eq!(seconds_since_epoch(just_before), (-1, 999_999_900));
         assert_eq!(
-            rfc_3339(just_before).unwrap(),
+            Timestamp::from(just_before).to_string(),
             "1969-12-31T23:59:59.9999999Z"
         );
         assert_eq!(
-            rfc_3339(UNIX_EPOCH - Duration::from_secs(1)).unwrap(),
+            Timestamp::from(UNIX_EPOCH - Duration::from_secs(1)).to_string(),
             "1969-12-31T23:59:59Z"
         );
     }
 
     #[test]
-    fn a_timestamp_outside_the_years_0_to_9999_cannot_be_rendered() {
-        assert_eq!(utc(253_402_300_800, 0), None);
-        assert_eq!(utc(-62_167_219_201, 0), None);
-    }
-
-    #[test]
-    fn a_timestamp_before_1970_is_still_rendered() {
-        let mut early = event(1, EventBody::JourneySucceeded { decided_by: None });
-        early.timestamp = UNIX_EPOCH - Duration::from_secs(86_400);
-        assert_eq!(to_json(&early)["timestamp"], json!("1969-12-31T00:00:00Z"));
+    fn a_year_outside_0_to_9999_is_written_as_an_expanded_year() {
+        assert_eq!(at(253_402_300_800, 0), "+10000-01-01T00:00:00Z");
+        assert_eq!(at(-62_167_219_201, 0), "-00001-12-31T23:59:59Z");
     }
 }

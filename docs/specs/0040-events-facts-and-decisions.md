@@ -6,7 +6,7 @@ Status: in progress. Stage 1 adds the events; the engine that emits them in the 
 
 ## API
 
-- The decisions are the `EventBody` variants `StepRetrying`, `StepGivenUp`, `JourneySucceeded` and `JourneyFailed`. Each serializes `decided_by`: `"default"`, or the policy and hook whose lifecycle decided it.
+- The decisions are the `EventBody` variants `StepRetrying`, `StepGivenUp`, `JourneySucceeded` and `JourneyFailed`.
 - Who decided is part of what was decided, never a separate field that could disagree with it:
   - `StepRetrying` carries a `RetryCause` (`retriable failure`, `abnormal termination`) and is always decided by default, since no lifecycle asks for a retry.
   - `StepGivenUp` carries a `GiveUpCause` (`failure`, `abnormal termination`, `retries exhausted`, or `FailWorkflow` with its reason and a `DecidingHook<GiveUpHook>`, since only `on step retry` and `on step abnormal termination` give a step up).
@@ -20,12 +20,12 @@ Status: in progress. Stage 1 adds the events; the engine that emits them in the 
 | Rule | Enforced by |
 |---|---|
 | Engine events carry keys, never data values | types: no engine event has a field of type `AnyValue`, apart from the details of a reason |
-| A decision says who decided it | types: the deciding hook is held by the `FailWorkflow` causes and by `JourneySucceeded`; the serialization writes `decided_by` for every decision |
+| A decision says who decided it | types: the deciding hook is held by the `FailWorkflow` causes and by `JourneySucceeded`; every other decision is by default |
 | Only a hook that may return the deciding lifecycle is named | types: `DecidingHook` holds a `StepHook` or a `GiveUpHook`, and `JourneySucceeded` names only the policy of `on step success` |
 
 ## Tests
 
-- Unit tests in `itinera-core/src/event.rs`: a decision names who decided it; a retry is always decided by default; a step given up by `FailWorkflow` is decided by the hook that returned it.
+- Unit tests in `itinera-core/src/event.rs`: a step given up by `FailWorkflow` names `FailWorkflow` as its cause. Who decided needs no further test: the types hold it.
 
 ## Done when
 

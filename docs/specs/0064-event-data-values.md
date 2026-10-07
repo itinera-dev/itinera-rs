@@ -8,7 +8,7 @@ Status: in progress. Stage 1 adds the event data and reason details; the handles
 
 - The data of `step_info`, `step_warning`, `step_error`, `journey_info`, `journey_warning` and `journey_error` is an `Option<AnyValue>`.
 - `Reason::with_details` takes any `T: Value`, captured when the reason is made.
-- Itinera never serializes either. `Event` implements `Serialize` so that a reporter can, in whatever format it chooses; the data serializes as the value itself.
+- Itinera never serializes either. Events carry no format; a reporter that writes them serializes the data with `AnyValue`'s `Serialize`, which writes the value itself, in whatever format it chooses.
 
 ## How the rules are enforced
 
@@ -23,7 +23,7 @@ The scenario of this proposal is tagged `@non-value`, and is proven impossible t
 
 ## Tests
 
-- Unit tests in `itinera-core/src/event.rs`: data emitted by a step is serialized as the value itself.
+- Unit tests in `itinera-core/src/value.rs`: an erased value serializes as the value itself.
 
 ## Done when
 

@@ -15,7 +15,6 @@ unstable = []
 serde.workspace = true
 erased-serde.workspace = true
 derive_more.workspace = true
-serde_plain.workspace = true
 
 [dev-dependencies]
 itinera = { path = "../itinera", default-features = false, features = ["unstable", "async"] }

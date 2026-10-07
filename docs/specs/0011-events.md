@@ -6,24 +6,25 @@ Status: in progress. Stage 1 adds the events; the engine that emits them arrives
 
 ## API
 
-- **`Event`** carries a sequence number from 1, a `SystemTime` timestamp, the `JourneyId`, the workflow name, and an `EventBody` with one variant per event of the catalogue. `kind()` gives the snake_case name.
+- **`Event`** carries a sequence number from 1, a `Timestamp`, which displays in ISO 8601 in UTC, the `JourneyId`, the workflow name, and an `EventBody` with one variant per event of the catalogue. `kind()` gives the snake_case name.
 - Only itinera constructs events: `Event` and every `EventBody` variant are `#[non_exhaustive]`, readable but not constructible outside the crate.
 - An event about a step carries a `StepAttempt`; one from or about a hook carries a `HookSource`, either a step hook with its policy and the triggering `StepAttempt`, or a workflow hook with its policy and no step.
 - `optional_input_absent` carries a `RequestSource`: the step for its input, the hook, or the input adapter with the step it was resolving for.
-- `Event` implements `Serialize` as one flat map holding `kind`, `sequence`, `timestamp` in ISO 8601 in UTC, `journey_id`, `workflow` and the body's fields.
+- Events carry no format: no event type implements `Serialize`, and each reporter writes events as it chooses. Hooks, causes, lifecycles and abort reasons display as the specification writes them.
 
 ## How the rules are enforced
 
 | Rule | Enforced by |
 |---|---|
 | Every event carries the fixed fields | types: the fields of `Event` |
+| The timestamp is in UTC, in ISO 8601 | types: `Timestamp` displays only in that form |
 | An event about a step carries the step and attempt; one about a hook, the policy and hook, and the step and attempt only for a step hook | types: the fields of each `EventBody` variant, and the variants of `HookSource` and `RequestSource` |
 | Only the engine emits events | types: events cannot be constructed outside the crate |
 | Exactly the engine catalogue, and the six events of steps and hooks | types: one `EventBody` variant per event |
 
 ## Tests
 
-- Unit tests in `itinera-core/src/event.rs`: every kind of event serializes with its own kind, an event serializes its fixed fields with a UTC ISO 8601 timestamp, a workflow hook event carries no step, any hook displays as it is named, and an optional request names its requester and the step it was for.
+- Unit tests in `itinera-core/src/event.rs`: every kind of event has its own kind; names display as the specification writes them; a timestamp displays in UTC in ISO 8601; a timestamp just before 1970 borrows from the previous second; a year outside 0 to 9999 is written as an expanded year.
 
 ## Done when
 

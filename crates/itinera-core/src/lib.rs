@@ -18,7 +18,7 @@ pub use error::Error;
 pub use event::{
     AbortReason, DecidingHook, Event, EventBody, FailureCause, GiveUpCause, GiveUpHook, HookSource,
     JourneyAbort, JourneyFailure, JourneyId, LastFailure, Lifecycle, MissingData, Reason,
-    RequestSource, Requester, RetryCause, Source, StepAttempt, StepHook, WorkflowHook,
+    RequestSource, Requester, RetryCause, Source, StepAttempt, StepHook, Timestamp, WorkflowHook,
 };
 #[cfg(feature = "unstable")]
 pub use value::{AnyValue, Value};
