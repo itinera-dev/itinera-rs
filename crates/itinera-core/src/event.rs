@@ -1,7 +1,7 @@
-use std::fmt;
 use std::num::{NonZeroU32, NonZeroU64};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use serde::ser::SerializeMap;
 use serde::{Serialize, Serializer};
 
 use crate::value::{AnyValue, Value};
@@ -57,20 +57,20 @@ pub struct StepAttempt {
     pub attempt: NonZeroU32,
 }
 
-/// The name of a hook.
+/// The name of a step hook, which acts on one attempt of a step.
 ///
 /// It displays as the hook is named, for example `on step success`.
 ///
 /// # Examples
 ///
 /// ```
-/// use itinera::HookName;
+/// use itinera::StepHook;
 ///
-/// assert_eq!(HookName::OnStepRetry.to_string(), "on step retry");
+/// assert_eq!(StepHook::OnStepRetry.to_string(), "on step retry");
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
 #[non_exhaustive]
-pub enum HookName {
+pub enum StepHook {
     /// Called after an attempt that succeeded.
     #[serde(rename = "on step success")]
     OnStepSuccess,
@@ -83,6 +83,24 @@ pub enum HookName {
     /// Called after an attempt ended in an abnormal termination.
     #[serde(rename = "on step abnormal termination")]
     OnStepAbnormalTermination,
+}
+
+serde_plain::derive_display_from_serialize!(StepHook);
+
+/// The name of a workflow hook, called once at the end of a journey.
+///
+/// It displays as the hook is named, for example `on workflow success`.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::WorkflowHook;
+///
+/// assert_eq!(WorkflowHook::OnWorkflowFailure.to_string(), "on workflow failure");
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[non_exhaustive]
+pub enum WorkflowHook {
     /// Called once the journey has succeeded.
     #[serde(rename = "on workflow success")]
     OnWorkflowSuccess,
@@ -91,7 +109,31 @@ pub enum HookName {
     OnWorkflowFailure,
 }
 
-serde_plain::derive_display_from_serialize!(HookName);
+serde_plain::derive_display_from_serialize!(WorkflowHook);
+
+/// The name of any hook: a step hook or a workflow hook.
+///
+/// It displays and serializes as the hook is named.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::{HookName, StepHook};
+///
+/// let hook = HookName::from(StepHook::OnStepFailure);
+/// assert_eq!(hook.to_string(), "on step failure");
+/// ```
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, derive_more::Display, derive_more::From,
+)]
+#[serde(untagged)]
+#[non_exhaustive]
+pub enum HookName {
+    /// A step hook.
+    Step(StepHook),
+    /// A workflow hook.
+    Workflow(WorkflowHook),
+}
 
 /// A hook of a named policy.
 ///
@@ -113,27 +155,46 @@ pub struct HookRef {
     pub hook: HookName,
 }
 
-/// A hook that was called, and, for a step hook, the step and attempt that triggered it.
+/// A hook that was called: a step hook, with the step and attempt that triggered it, or a
+/// workflow hook.
+///
+/// It serializes as the policy, the hook, and for a step hook the step and attempt.
 ///
 /// # Examples
 ///
 /// ```
 /// use itinera::HookSource;
 ///
-/// fn triggered_by_a_step(source: &HookSource) -> bool {
-///     source.step.is_some()
+/// fn triggered_by(source: &HookSource) -> Option<&str> {
+///     match source {
+///         HookSource::Step { step, .. } => Some(&step.step),
+///         _ => None,
+///     }
 /// }
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[serde(untagged)]
 #[non_exhaustive]
-pub struct HookSource {
-    /// The policy's name.
-    pub policy: String,
-    /// The hook.
-    pub hook: HookName,
-    /// The step and attempt that triggered a step hook; `None` for a workflow hook.
-    #[serde(flatten)]
-    pub step: Option<StepAttempt>,
+pub enum HookSource {
+    /// A step hook.
+    #[non_exhaustive]
+    Step {
+        /// The policy's name.
+        policy: String,
+        /// The hook.
+        hook: StepHook,
+        /// The step and attempt that triggered it.
+        #[serde(flatten)]
+        step: StepAttempt,
+    },
+    /// A workflow hook.
+    #[non_exhaustive]
+    Workflow {
+        /// The policy's name.
+        policy: String,
+        /// The hook.
+        hook: WorkflowHook,
+    },
 }
 
 /// Why a step failed or was skipped, or why a hook failed the journey: a code, an optional
@@ -272,35 +333,44 @@ pub enum Lifecycle {
     FailWorkflow(Reason),
 }
 
-/// Who took a decision: the executor's own rule, or the hook whose returned lifecycle decided it.
+/// The policy and step hook whose returned lifecycle decided something.
 ///
-/// It serializes as `"default"`, or as the policy and hook.
+/// Only step hooks return lifecycles, so only they decide.
 ///
 /// # Examples
 ///
 /// ```
-/// use itinera::DecidedBy;
+/// use itinera::DecidingHook;
 ///
-/// fn by_default(decided_by: &DecidedBy) -> bool {
-///     matches!(decided_by, DecidedBy::Default)
+/// fn describe(hook: &DecidingHook) -> String {
+///     format!("{}, {}", hook.policy, hook.hook)
 /// }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
 #[non_exhaustive]
-pub enum DecidedBy {
-    /// The executor's own rule.
-    Default,
-    /// The hook whose returned lifecycle decided it.
-    Hook(HookRef),
+pub struct DecidingHook {
+    /// The policy's name.
+    pub policy: String,
+    /// The hook.
+    pub hook: StepHook,
 }
 
-impl Serialize for DecidedBy {
+struct DecidedBy<'a>(Option<&'a DecidingHook>);
+
+impl Serialize for DecidedBy<'_> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self {
-            Self::Default => serializer.serialize_str("default"),
-            Self::Hook(hook) => hook.serialize(serializer),
+        match self.0 {
+            None => serializer.serialize_str("default"),
+            Some(hook) => hook.serialize(serializer),
         }
     }
+}
+
+fn by_hook_or_default<S: Serializer>(
+    hook: &Option<DecidingHook>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    DecidedBy(hook.as_ref()).serialize(serializer)
 }
 
 /// Why a step will be attempted again.
@@ -325,7 +395,16 @@ pub enum RetryCause {
 
 serde_plain::derive_display_from_serialize!(RetryCause);
 
+fn retry_decision<S: Serializer>(cause: &RetryCause, serializer: S) -> Result<S::Ok, S::Error> {
+    let mut map = serializer.serialize_map(Some(2))?;
+    map.serialize_entry("cause", cause)?;
+    map.serialize_entry("decided_by", &DecidedBy(None))?;
+    map.end()
+}
+
 /// Why a step will not be attempted again.
+///
+/// It displays as the cause is named, for example `retries exhausted`.
 ///
 /// # Examples
 ///
@@ -334,62 +413,179 @@ serde_plain::derive_display_from_serialize!(RetryCause);
 ///
 /// assert_eq!(GiveUpCause::RetriesExhausted.to_string(), "retries exhausted");
 /// ```
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, derive_more::Display)]
 #[non_exhaustive]
 pub enum GiveUpCause {
     /// The attempt reported a failure that is not retriable.
-    #[serde(rename = "failure")]
+    #[display("failure")]
     Failure,
     /// The attempt ended in an abnormal termination, and the step does not allow retrying it.
-    #[serde(rename = "abnormal termination")]
+    #[display("abnormal termination")]
     AbnormalTermination,
-    /// The attempt reported a retriable failure, and the retry budget is spent.
-    #[serde(rename = "retries exhausted")]
+    /// The retry budget is spent.
+    #[display("retries exhausted")]
     RetriesExhausted,
-    /// A hook returned `FailWorkflow`, with this reason.
-    FailWorkflow(Reason),
+    /// A hook returned `FailWorkflow`.
+    #[display("FailWorkflow")]
+    #[non_exhaustive]
+    FailWorkflow {
+        /// The hook that returned it.
+        decided_by: DecidingHook,
+        /// The reason it carried.
+        reason: Reason,
+    },
 }
 
-impl fmt::Display for GiveUpCause {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::Failure => "failure",
-            Self::AbnormalTermination => "abnormal termination",
-            Self::RetriesExhausted => "retries exhausted",
-            Self::FailWorkflow(_) => "FailWorkflow",
-        })
+fn give_up_decision<S: Serializer>(cause: &GiveUpCause, serializer: S) -> Result<S::Ok, S::Error> {
+    let mut map = serializer.serialize_map(Some(2))?;
+    match cause {
+        GiveUpCause::FailWorkflow { decided_by, reason } => {
+            map.serialize_entry("cause", &FailWorkflowCause(reason))?;
+            map.serialize_entry("decided_by", &DecidedBy(Some(decided_by)))?;
+        }
+        GiveUpCause::Failure | GiveUpCause::AbnormalTermination | GiveUpCause::RetriesExhausted => {
+            map.serialize_entry("cause", &cause.to_string())?;
+            map.serialize_entry("decided_by", &DecidedBy(None))?;
+        }
+    }
+    map.end()
+}
+
+struct FailWorkflowCause<'a>(&'a Reason);
+
+impl Serialize for FailWorkflowCause<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(1))?;
+        map.serialize_entry("FailWorkflow", self.0)?;
+        map.end()
     }
 }
 
 /// Why a journey failed.
 ///
+/// It displays as the cause is named, for example `retries exhausted`.
+///
 /// # Examples
 ///
 /// ```
-/// use itinera::Failure;
+/// use itinera::FailureCause;
 ///
-/// fn message(failure: &Failure) -> String {
-///     match failure {
-///         Failure::Failed(reason)
-///         | Failure::RetriesExhausted(reason)
-///         | Failure::FailedByPolicy(reason) => reason.code().to_string(),
-///         Failure::AbnormalTermination(message) => message.clone(),
-///         _ => String::new(),
+/// assert_eq!(FailureCause::AbnormalTermination.to_string(), "abnormal termination");
+/// assert_eq!(FailureCause::FailWorkflow.to_string(), "FailWorkflow");
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
+#[non_exhaustive]
+pub enum FailureCause {
+    /// A step reported a failure that is not retriable.
+    #[serde(rename = "failure")]
+    Failure,
+    /// A step's retry budget was spent.
+    #[serde(rename = "retries exhausted")]
+    RetriesExhausted,
+    /// A step ended in an abnormal termination that is not retried.
+    #[serde(rename = "abnormal termination")]
+    AbnormalTermination,
+    /// A hook returned `FailWorkflow`.
+    FailWorkflow,
+}
+
+serde_plain::derive_display_from_serialize!(FailureCause);
+
+/// What ended a step's last attempt when its retry budget was spent: the reason of a failure,
+/// or the message of the error that ended it abnormally.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::LastFailure;
+///
+/// fn describe(last: &LastFailure) -> &str {
+///     match last {
+///         LastFailure::Reason(reason) => reason.code(),
+///         LastFailure::Error(message) => message,
 ///     }
 /// }
 /// ```
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Debug)]
+pub enum LastFailure {
+    /// The attempt reported a retriable failure, with this reason.
+    Reason(Reason),
+    /// The attempt ended in an abnormal termination, with this error message.
+    Error(String),
+}
+
+/// Why a journey failed, with what the cause carries and who decided it.
+///
+/// It serializes as the `cause`, the `reason` and the `error` message, each `null` when the cause
+/// has none, and `decided_by`: `"default"`, or the hook that returned `FailWorkflow`.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::{FailureCause, JourneyFailure};
+///
+/// fn by_a_hook(failure: &JourneyFailure) -> bool {
+///     failure.cause() == FailureCause::FailWorkflow
+/// }
+/// ```
+#[derive(Clone, Debug)]
 #[non_exhaustive]
-pub enum Failure {
-    /// A step reported a failure that is not retriable, with this reason.
-    Failed(Reason),
-    /// A step's retry budget was spent; this is the reason of its last failure.
-    RetriesExhausted(Reason),
-    /// A step ended in an abnormal termination, with this error message.
+pub enum JourneyFailure {
+    /// The step reported a failure that is not retriable, with this reason.
+    Failure(Reason),
+    /// The step's retry budget was spent.
+    RetriesExhausted(LastFailure),
+    /// The step ended in an abnormal termination that is not retried, with this error message.
     AbnormalTermination(String),
-    /// A hook returned `FailWorkflow`, with this reason.
-    FailedByPolicy(Reason),
+    /// A hook of the step returned `FailWorkflow`.
+    #[non_exhaustive]
+    FailWorkflow {
+        /// The hook that returned it.
+        decided_by: DecidingHook,
+        /// The reason it carried.
+        reason: Reason,
+    },
+}
+
+impl JourneyFailure {
+    /// The failure's cause.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::{FailureCause, JourneyFailure};
+    ///
+    /// fn retried(failure: &JourneyFailure) -> bool {
+    ///     failure.cause() == FailureCause::RetriesExhausted
+    /// }
+    /// ```
+    pub fn cause(&self) -> FailureCause {
+        match self {
+            Self::Failure(_) => FailureCause::Failure,
+            Self::RetriesExhausted(_) => FailureCause::RetriesExhausted,
+            Self::AbnormalTermination(_) => FailureCause::AbnormalTermination,
+            Self::FailWorkflow { .. } => FailureCause::FailWorkflow,
+        }
+    }
+}
+
+impl Serialize for JourneyFailure {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let (reason, error, hook) = match self {
+            Self::Failure(reason) | Self::RetriesExhausted(LastFailure::Reason(reason)) => {
+                (Some(reason), None, None)
+            }
+            Self::RetriesExhausted(LastFailure::Error(error))
+            | Self::AbnormalTermination(error) => (None, Some(error), None),
+            Self::FailWorkflow { decided_by, reason } => (Some(reason), None, Some(decided_by)),
+        };
+        let mut map = serializer.serialize_map(Some(4))?;
+        map.serialize_entry("cause", &self.cause())?;
+        map.serialize_entry("reason", &reason)?;
+        map.serialize_entry("error", &error)?;
+        map.serialize_entry("decided_by", &DecidedBy(hook))?;
+        map.end()
+    }
 }
 
 /// Why a journey was aborted.
@@ -453,6 +649,44 @@ pub enum Requester {
     Hook(HookRef),
     /// The input adapter with this name.
     Adapter(String),
+}
+
+/// Who made an optional request that had no value: a step for one of its inputs, a hook, or an
+/// input adapter resolving a step's input; with the step and attempt it was made for, except for
+/// a workflow hook.
+///
+/// It serializes as the step and attempt, and the policy and hook or the adapter when the request
+/// is theirs.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::RequestSource;
+///
+/// fn adapter(source: &RequestSource) -> Option<&str> {
+///     match source {
+///         RequestSource::Adapter { adapter, .. } => Some(adapter),
+///         _ => None,
+///     }
+/// }
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[serde(untagged)]
+#[non_exhaustive]
+pub enum RequestSource {
+    /// A step, for one of its inputs, during this attempt.
+    Step(StepAttempt),
+    /// A hook.
+    Hook(HookSource),
+    /// An input adapter, for an input of this step and attempt.
+    #[non_exhaustive]
+    Adapter {
+        /// The adapter's name.
+        adapter: String,
+        /// The step and attempt whose input it was resolving.
+        #[serde(flatten)]
+        step: StepAttempt,
+    },
 }
 
 /// What an abort concerns, beyond its reason and step.
@@ -626,13 +860,11 @@ pub enum EventBody {
     /// An optional request had no value.
     #[non_exhaustive]
     OptionalInputAbsent {
-        /// The step and attempt, unless a workflow hook made the request.
-        #[serde(flatten)]
-        step: Option<StepAttempt>,
         /// The key that was requested.
         key: String,
         /// Who requested it.
-        requester: Requester,
+        #[serde(flatten)]
+        requester: RequestSource,
     },
     /// An attempt reported Success.
     #[non_exhaustive]
@@ -673,7 +905,7 @@ pub enum EventBody {
     /// A hook returned without failing.
     #[non_exhaustive]
     HookCalled {
-        /// The hook, and the step and attempt that triggered it.
+        /// The hook, and the step and attempt that triggered a step hook.
         #[serde(flatten)]
         hook: HookSource,
         /// The lifecycle it returned, if any.
@@ -705,13 +937,14 @@ pub enum EventBody {
     /// The journey was aborted. This is always its last event.
     #[non_exhaustive]
     JourneyAborted {
-        /// The step during which it happened, if any.
-        #[serde(flatten)]
-        step: Option<StepAttempt>,
+        /// The name of the step during which it happened, if any.
+        step: Option<String>,
         /// Why it was aborted.
         reason: AbortReason,
         /// What it concerns, where the reason needs more.
         details: Option<AbortDetails>,
+        /// The message of the error that caused it, when failing custom code did.
+        error: Option<String>,
     },
     /// The executor decided to attempt a step again.
     #[non_exhaustive]
@@ -719,10 +952,9 @@ pub enum EventBody {
         /// The step and the attempt that failed.
         #[serde(flatten)]
         step: StepAttempt,
-        /// Why it will be attempted again.
+        /// Why it will be attempted again. The executor's own rule always decides it.
+        #[serde(flatten, serialize_with = "retry_decision")]
         cause: RetryCause,
-        /// Who decided it.
-        decided_by: DecidedBy,
     },
     /// The executor decided not to attempt a step again: it ends as failed.
     #[non_exhaustive]
@@ -730,27 +962,25 @@ pub enum EventBody {
         /// The step and its last attempt.
         #[serde(flatten)]
         step: StepAttempt,
-        /// Why it will not be attempted again.
+        /// Why it will not be attempted again, and who decided it.
+        #[serde(flatten, serialize_with = "give_up_decision")]
         cause: GiveUpCause,
-        /// Who decided it.
-        decided_by: DecidedBy,
     },
     /// The executor decided that the journey succeeds.
     #[non_exhaustive]
     JourneySucceeded {
-        /// Who decided it.
-        decided_by: DecidedBy,
+        /// The hook that returned `FinishWorkflow`, or `None` when no step was left.
+        #[serde(serialize_with = "by_hook_or_default")]
+        decided_by: Option<DecidingHook>,
     },
     /// The executor decided that the journey fails.
     #[non_exhaustive]
     JourneyFailed {
-        /// The step that failed, or whose hook returned `FailWorkflow`, and its last attempt.
+        /// The name of the step that failed, or whose hook returned `FailWorkflow`.
+        step: String,
+        /// Why the journey failed, and who decided it.
         #[serde(flatten)]
-        step: StepAttempt,
-        /// Why the journey failed.
-        failure: Failure,
-        /// Who decided it.
-        decided_by: DecidedBy,
+        failure: JourneyFailure,
     },
     /// A step reported information.
     #[non_exhaustive]
@@ -788,7 +1018,7 @@ pub enum EventBody {
     /// A hook reported information.
     #[non_exhaustive]
     JourneyInfo {
-        /// The hook, and the step and attempt that triggered it.
+        /// The hook, and the step and attempt that triggered a step hook.
         #[serde(flatten)]
         hook: HookSource,
         /// The hook's message.
@@ -799,7 +1029,7 @@ pub enum EventBody {
     /// A hook reported a warning.
     #[non_exhaustive]
     JourneyWarning {
-        /// The hook, and the step and attempt that triggered it.
+        /// The hook, and the step and attempt that triggered a step hook.
         #[serde(flatten)]
         hook: HookSource,
         /// The hook's message.
@@ -810,7 +1040,7 @@ pub enum EventBody {
     /// A hook reported an error, which does not change what it returns.
     #[non_exhaustive]
     JourneyError {
-        /// The hook, and the step and attempt that triggered it.
+        /// The hook, and the step and attempt that triggered a step hook.
         #[serde(flatten)]
         hook: HookSource,
         /// The hook's message.
@@ -955,11 +1185,25 @@ pub(crate) mod tests {
         }
     }
 
-    fn audit(hook: HookName, step: Option<StepAttempt>) -> HookSource {
-        HookSource {
+    fn audit_step(hook: StepHook, step: StepAttempt) -> HookSource {
+        HookSource::Step {
             policy: "audit".to_string(),
             hook,
             step,
+        }
+    }
+
+    fn audit_workflow(hook: WorkflowHook) -> HookSource {
+        HookSource::Workflow {
+            policy: "audit".to_string(),
+            hook,
+        }
+    }
+
+    fn close(hook: StepHook) -> DecidingHook {
+        DecidingHook {
+            policy: "close".to_string(),
+            hook,
         }
     }
 
@@ -981,9 +1225,8 @@ pub(crate) mod tests {
                 adapter: "pricing".to_string(),
             },
             EventBody::OptionalInputAbsent {
-                step: Some(charge(1)),
                 key: "discount".to_string(),
-                requester: Requester::Step,
+                requester: RequestSource::Step(charge(1)),
             },
             EventBody::StepSucceeded { step: charge(1) },
             EventBody::StepFailed {
@@ -1000,7 +1243,7 @@ pub(crate) mod tests {
                 message: "boom".to_string(),
             },
             EventBody::HookCalled {
-                hook: audit(HookName::OnStepSuccess, Some(charge(1))),
+                hook: audit_step(StepHook::OnStepSuccess, charge(1)),
                 lifecycle: None,
             },
             EventBody::ContributionCommitted {
@@ -1016,24 +1259,20 @@ pub(crate) mod tests {
                 step: None,
                 reason: AbortReason::ReporterFailed,
                 details: None,
+                error: Some("disk full".to_string()),
             },
             EventBody::StepRetrying {
                 step: charge(1),
                 cause: RetryCause::RetriableFailure,
-                decided_by: DecidedBy::Default,
             },
             EventBody::StepGivenUp {
                 step: charge(2),
                 cause: GiveUpCause::RetriesExhausted,
-                decided_by: DecidedBy::Default,
             },
-            EventBody::JourneySucceeded {
-                decided_by: DecidedBy::Default,
-            },
+            EventBody::JourneySucceeded { decided_by: None },
             EventBody::JourneyFailed {
-                step: charge(2),
-                failure: Failure::RetriesExhausted(reason()),
-                decided_by: DecidedBy::Default,
+                step: "charge".to_string(),
+                failure: JourneyFailure::RetriesExhausted(LastFailure::Reason(reason())),
             },
             EventBody::StepInfo {
                 step: charge(1),
@@ -1051,17 +1290,17 @@ pub(crate) mod tests {
                 data: None,
             },
             EventBody::JourneyInfo {
-                hook: audit(HookName::OnWorkflowSuccess, None),
+                hook: audit_workflow(WorkflowHook::OnWorkflowSuccess),
                 message: "done".to_string(),
                 data: None,
             },
             EventBody::JourneyWarning {
-                hook: audit(HookName::OnWorkflowSuccess, None),
+                hook: audit_workflow(WorkflowHook::OnWorkflowSuccess),
                 message: "late".to_string(),
                 data: None,
             },
             EventBody::JourneyError {
-                hook: audit(HookName::OnWorkflowFailure, None),
+                hook: audit_workflow(WorkflowHook::OnWorkflowFailure),
                 message: "lost".to_string(),
                 data: None,
             },
@@ -1104,7 +1343,7 @@ pub(crate) mod tests {
         let json = to_json(&event(
             5,
             EventBody::HookCalled {
-                hook: audit(HookName::OnStepRetry, Some(charge(1))),
+                hook: audit_step(StepHook::OnStepRetry, charge(1)),
                 lifecycle: Some(Lifecycle::FailWorkflow(Reason::new("fraud"))),
             },
         ));
@@ -1133,22 +1372,30 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_decision_names_who_decided_it() {
-        let by_default = to_json(&event(
-            9,
-            EventBody::JourneySucceeded {
-                decided_by: DecidedBy::Default,
+    fn a_workflow_hook_event_carries_no_step() {
+        let json = to_json(&event(
+            12,
+            EventBody::JourneyInfo {
+                hook: audit_workflow(WorkflowHook::OnWorkflowSuccess),
+                message: "done".to_string(),
+                data: None,
             },
         ));
+        assert_eq!(json["policy"], json!("audit"));
+        assert_eq!(json["hook"], json!("on workflow success"));
+        assert!(json.get("step").is_none());
+        assert!(json.get("attempt").is_none());
+    }
+
+    #[test]
+    fn a_decision_names_who_decided_it() {
+        let by_default = to_json(&event(9, EventBody::JourneySucceeded { decided_by: None }));
         assert_eq!(by_default["decided_by"], json!("default"));
 
         let by_hook = to_json(&event(
             9,
             EventBody::JourneySucceeded {
-                decided_by: DecidedBy::Hook(HookRef {
-                    policy: "close".to_string(),
-                    hook: HookName::OnStepSuccess,
-                }),
+                decided_by: Some(close(StepHook::OnStepSuccess)),
             },
         ));
         assert_eq!(
@@ -1158,16 +1405,147 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_retry_is_always_decided_by_default() {
+        let json = to_json(&event(
+            7,
+            EventBody::StepRetrying {
+                step: charge(1),
+                cause: RetryCause::AbnormalTermination,
+            },
+        ));
+        assert_eq!(json["cause"], json!("abnormal termination"));
+        assert_eq!(json["decided_by"], json!("default"));
+    }
+
+    #[test]
+    fn a_step_given_up_by_fail_workflow_is_decided_by_the_hook_that_returned_it() {
+        let json = to_json(&event(
+            8,
+            EventBody::StepGivenUp {
+                step: charge(2),
+                cause: GiveUpCause::FailWorkflow {
+                    decided_by: close(StepHook::OnStepRetry),
+                    reason: Reason::new("fraud"),
+                },
+            },
+        ));
+        assert_eq!(
+            json["cause"],
+            json!({"FailWorkflow": {"code": "fraud", "message": null, "details": null}})
+        );
+        assert_eq!(
+            json["decided_by"],
+            json!({"policy": "close", "hook": "on step retry"})
+        );
+
+        let by_default = to_json(&event(
+            8,
+            EventBody::StepGivenUp {
+                step: charge(2),
+                cause: GiveUpCause::Failure,
+            },
+        ));
+        assert_eq!(by_default["cause"], json!("failure"));
+        assert_eq!(by_default["decided_by"], json!("default"));
+    }
+
+    #[test]
+    fn a_journey_failed_after_retries_carries_the_last_attempts_error_message() {
+        let json = to_json(&event(
+            10,
+            EventBody::JourneyFailed {
+                step: "charge".to_string(),
+                failure: JourneyFailure::RetriesExhausted(LastFailure::Error(
+                    "timeout".to_string(),
+                )),
+            },
+        ));
+        assert_eq!(json["step"], json!("charge"));
+        assert!(json.get("attempt").is_none());
+        assert_eq!(json["cause"], json!("retries exhausted"));
+        assert_eq!(json["reason"], json!(null));
+        assert_eq!(json["error"], json!("timeout"));
+        assert_eq!(json["decided_by"], json!("default"));
+    }
+
+    #[test]
+    fn a_journey_failed_by_fail_workflow_carries_the_reason_and_the_hook() {
+        let json = to_json(&event(
+            10,
+            EventBody::JourneyFailed {
+                step: "charge".to_string(),
+                failure: JourneyFailure::FailWorkflow {
+                    decided_by: close(StepHook::OnStepSuccess),
+                    reason: Reason::new("fraud"),
+                },
+            },
+        ));
+        assert_eq!(json["cause"], json!("FailWorkflow"));
+        assert_eq!(json["reason"]["code"], json!("fraud"));
+        assert_eq!(json["error"], json!(null));
+        assert_eq!(
+            json["decided_by"],
+            json!({"policy": "close", "hook": "on step success"})
+        );
+    }
+
+    #[test]
+    fn an_optional_request_names_its_requester_and_the_step_it_was_for() {
+        let by_adapter = to_json(&event(
+            2,
+            EventBody::OptionalInputAbsent {
+                key: "discount".to_string(),
+                requester: RequestSource::Adapter {
+                    adapter: "pricing".to_string(),
+                    step: charge(1),
+                },
+            },
+        ));
+        assert_eq!(by_adapter["key"], json!("discount"));
+        assert_eq!(by_adapter["adapter"], json!("pricing"));
+        assert_eq!(by_adapter["step"], json!("charge"));
+        assert_eq!(by_adapter["attempt"], json!(1));
+
+        let by_workflow_hook = to_json(&event(
+            11,
+            EventBody::OptionalInputAbsent {
+                key: "discount".to_string(),
+                requester: RequestSource::Hook(audit_workflow(WorkflowHook::OnWorkflowFailure)),
+            },
+        ));
+        assert_eq!(by_workflow_hook["policy"], json!("audit"));
+        assert_eq!(by_workflow_hook["hook"], json!("on workflow failure"));
+        assert!(by_workflow_hook.get("step").is_none());
+    }
+
+    #[test]
+    fn any_hook_displays_as_it_is_named() {
+        assert_eq!(
+            HookName::from(StepHook::OnStepAbnormalTermination).to_string(),
+            "on step abnormal termination"
+        );
+        assert_eq!(
+            HookName::from(WorkflowHook::OnWorkflowSuccess).to_string(),
+            "on workflow success"
+        );
+        assert_eq!(
+            serde_json::to_value(HookName::from(WorkflowHook::OnWorkflowSuccess)).unwrap(),
+            json!("on workflow success")
+        );
+    }
+
+    #[test]
     fn an_abort_carries_its_reason_by_name_and_its_details() {
         let json = to_json(&event(
             6,
             EventBody::JourneyAborted {
-                step: Some(charge(1)),
+                step: Some("charge".to_string()),
                 reason: AbortReason::RequiredDataMissing,
                 details: Some(AbortDetails::Data {
                     key: "price".to_string(),
                     requester: Requester::Adapter("pricing".to_string()),
                 }),
+                error: None,
             },
         ));
         assert_eq!(json["reason"], json!("required data missing"));
@@ -1216,12 +1594,7 @@ pub(crate) mod tests {
 
     #[test]
     fn a_timestamp_before_1970_is_still_rendered() {
-        let mut early = event(
-            1,
-            EventBody::JourneySucceeded {
-                decided_by: DecidedBy::Default,
-            },
-        );
+        let mut early = event(1, EventBody::JourneySucceeded { decided_by: None });
         early.timestamp = UNIX_EPOCH - Duration::from_secs(86_400);
         assert_eq!(to_json(&early)["timestamp"], json!("1969-12-31T00:00:00Z"));
     }
