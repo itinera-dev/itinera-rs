@@ -3,7 +3,7 @@
 use cucumber::gherkin::Step as Sentence;
 use cucumber::given;
 
-use crate::model::{Attempt, Input, ModelError, StepAction, ValueType, attempts, json, rows};
+use crate::model::{Attempt, Input, ModelError, Row, StepAction, ValueType, attempts, json, rows};
 use crate::world::World;
 
 #[given(expr = "a workflow {string} with the steps:")]
@@ -14,9 +14,13 @@ fn a_workflow_with_the_steps(
 ) -> Result<(), ModelError> {
     let steps = rows(sentence)?
         .iter()
-        .map(|row| row.required("step").map(str::to_owned))
+        .map(step_name)
         .collect::<Result<_, _>>()?;
     world.model.declare(workflow, steps)
+}
+
+fn step_name(row: &Row) -> Result<String, ModelError> {
+    row.required("step").map(str::to_owned)
 }
 
 #[given(expr = "step {string} requests input {string} of type {type}")]

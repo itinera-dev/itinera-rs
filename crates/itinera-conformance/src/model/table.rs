@@ -12,11 +12,12 @@ pub(crate) struct Row(Vec<(String, String)>);
 
 impl Row {
     pub(crate) fn optional(&self, column: &'static str) -> Option<&str> {
-        self.0
-            .iter()
-            .find(|(name, _)| name == column)
-            .map(|(_, cell)| cell.as_str())
-            .filter(|cell| !cell.is_empty())
+        for (name, cell) in &self.0 {
+            if name == column {
+                return (!cell.is_empty()).then_some(cell.as_str());
+            }
+        }
+        None
     }
 
     pub(crate) fn required(&self, column: &'static str) -> Result<&str, ModelError> {
@@ -45,10 +46,11 @@ mod tests {
     use super::*;
 
     fn row(cells: &[(&str, &str)]) -> Row {
-        Row(cells
-            .iter()
-            .map(|(name, cell)| ((*name).to_owned(), (*cell).to_owned()))
-            .collect())
+        Row(cells.iter().map(owned).collect())
+    }
+
+    fn owned(&(name, cell): &(&str, &str)) -> (String, String) {
+        (name.to_owned(), cell.to_owned())
     }
 
     #[test]

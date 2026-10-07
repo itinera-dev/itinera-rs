@@ -53,10 +53,14 @@ mod tests {
 
     use super::*;
 
+    fn parsed(name: &str) -> ValueType {
+        name.parse().unwrap()
+    }
+
     #[test]
     fn every_type_of_the_neutral_vocabulary_is_read() {
         let names = ["string", "integer", "number", "boolean", "list", "object"];
-        let types = names.map(|name| name.parse::<ValueType>().unwrap());
+        let types = names.map(parsed);
         assert_eq!(
             types,
             [

@@ -41,10 +41,14 @@ impl Hook {
         Self::Workflow(WorkflowHook::OnWorkflowFailure),
     ];
 
+    fn is_named(self, name: &str) -> bool {
+        self.to_string() == name
+    }
+
     pub(crate) fn named(name: &str) -> Result<Self, ModelError> {
         Self::ALL
             .into_iter()
-            .find(|hook| hook.to_string() == name)
+            .find(|hook| hook.is_named(name))
             .ok_or_else(|| ModelError::UnknownHook(name.to_owned()))
     }
 }
@@ -90,17 +94,21 @@ impl Policy {
 
     pub(crate) fn hook_mut(&mut self, hook: Hook) -> Option<&mut HookScript> {
         match (&mut self.hooks, hook) {
-            (Hooks::Step(hooks), Hook::Step(hook)) => hooks
-                .iter_mut()
-                .find(|(defined, _)| *defined == hook)
-                .map(|(_, script)| script),
-            (Hooks::Workflow(hooks), Hook::Workflow(hook)) => hooks
-                .iter_mut()
-                .find(|(defined, _)| *defined == hook)
-                .map(|(_, script)| script),
+            (Hooks::Step(hooks), Hook::Step(hook)) => script_of(hooks, hook),
+            (Hooks::Workflow(hooks), Hook::Workflow(hook)) => script_of(hooks, hook),
             _ => None,
         }
     }
+}
+
+/// The script of this hook, among hooks of one kind.
+fn script_of<H: PartialEq>(hooks: &mut [(H, HookScript)], hook: H) -> Option<&mut HookScript> {
+    for (defined, script) in hooks {
+        if *defined == hook {
+            return Some(script);
+        }
+    }
+    None
 }
 
 /// What a hook requests, what it does, and what it returns.

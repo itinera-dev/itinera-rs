@@ -36,11 +36,12 @@ pub(crate) struct EventKind(&'static str);
 
 impl EventKind {
     pub(crate) fn named(name: &str) -> Result<Self, ModelError> {
-        EVENT_KINDS
-            .into_iter()
-            .find(|kind| *kind == name)
-            .map(Self)
-            .ok_or_else(|| ModelError::UnknownEvent(name.to_owned()))
+        for kind in EVENT_KINDS {
+            if kind == name {
+                return Ok(Self(kind));
+            }
+        }
+        Err(ModelError::UnknownEvent(name.to_owned()))
     }
 
     pub(crate) fn name(self) -> &'static str {

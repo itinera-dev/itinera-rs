@@ -15,6 +15,12 @@ pub(crate) struct Adapter {
     pub(crate) requests: Vec<(String, ValueType)>,
 }
 
+impl Adapter {
+    pub(crate) fn is_named(&self, name: &str) -> bool {
+        self.name == name
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub(crate) enum Answer {
     Value(Value),

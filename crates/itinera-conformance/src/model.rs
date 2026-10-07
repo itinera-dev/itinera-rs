@@ -18,7 +18,7 @@ pub(crate) use adapter::{Adapter, Answer};
 pub(crate) use policy::{Hook, HookAction, HookRequest, HookReturn, HookScript, Policy, Role};
 pub(crate) use report::{Dispatching, EventKind, Holding, ReporterFailure};
 pub(crate) use step::{Attempt, Input, Step, StepAction, attempts};
-pub(crate) use table::rows;
+pub(crate) use table::{Row, rows};
 pub(crate) use value::{ValueType, json};
 
 /// Everything a scenario declares before it acts.
@@ -52,6 +52,11 @@ pub(crate) struct Workflow {
     pub(crate) reporters: Vec<String>,
     pub(crate) id_generator: IdGenerator,
     pub(crate) roles: BTreeMap<String, Role>,
+}
+
+/// A step that does nothing yet, under its name.
+fn unscripted(step: String) -> (String, Step) {
+    (step, Step::default())
 }
 
 /// How the workflow instance gets its journey ID.
@@ -93,10 +98,7 @@ impl Model {
         }
         self.workflow = Some(Workflow {
             name,
-            scripts: steps
-                .iter()
-                .map(|step| (step.clone(), Step::default()))
-                .collect(),
+            scripts: steps.iter().cloned().map(unscripted).collect(),
             steps,
             step_policies: BTreeMap::new(),
             policies: Vec::new(),
@@ -164,7 +166,7 @@ impl Model {
         self.workflow_mut()?
             .adapters
             .iter_mut()
-            .find(|declared| declared.name == adapter)
+            .find(|declared| declared.is_named(adapter))
             .ok_or_else(|| ModelError::UnknownAdapter(adapter.to_owned()))
     }
 

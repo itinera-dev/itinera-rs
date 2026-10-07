@@ -102,6 +102,7 @@ pub(crate) fn attempts(rows: Vec<Row>) -> Result<Vec<Attempt>, ModelError> {
         .collect()
 }
 
+/// Reads one attempt's row, which must have the number expected.
 fn attempt(row: &Row, expected: u32) -> Result<Attempt, ModelError> {
     let number: NonZeroU32 = row.parse("attempt")?;
     if number.get() != expected {
@@ -134,6 +135,7 @@ fn attempt(row: &Row, expected: u32) -> Result<Attempt, ModelError> {
     })
 }
 
+/// Reads the reason of a failure or a skip from the row's code, message and details.
 fn reason(row: &Row) -> Result<Reason, ModelError> {
     Ok(Reason {
         code: row.required("code")?.to_owned(),
