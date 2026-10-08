@@ -50,10 +50,8 @@ impl Line {
             event: EventKind::named(row.required("event")?)?.name().to_owned(),
             ..Self::default()
         };
-        for column in row.columns() {
-            if column != "event" && !COLUMNS.contains(&column) {
-                return Err(ModelError::UnknownColumn(column.to_owned()));
-            }
+        if let Some(column) = row.columns().find(is_unknown_column) {
+            return Err(ModelError::UnknownColumn(column.to_owned()));
         }
         for column in COLUMNS {
             match (column, row.optional(column)) {
@@ -401,6 +399,11 @@ impl Line {
             _ => {}
         }
     }
+}
+
+/// Whether an event table may not have this column.
+fn is_unknown_column(column: &&str) -> bool {
+    *column != "event" && !COLUMNS.contains(column)
 }
 
 fn holds(carried: &Value, value: &Value) -> bool {

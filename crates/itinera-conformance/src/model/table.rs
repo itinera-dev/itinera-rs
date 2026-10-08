@@ -15,9 +15,7 @@ pub(crate) struct Row {
 impl Row {
     /// The row of these cells, each under the column in the same position of the header.
     fn under(header: &[String], cells: &[String]) -> Self {
-        Self {
-            cells: header.iter().cloned().zip(cells.iter().cloned()).collect(),
-        }
+        header.iter().cloned().zip(cells.iter().cloned()).collect()
     }
 
     pub(crate) fn optional(&self, column: &'static str) -> Option<&str> {
@@ -73,9 +71,7 @@ mod tests {
     use super::*;
 
     fn row(cells: &[(&str, &str)]) -> Row {
-        Row {
-            cells: cells.iter().map(owned).collect(),
-        }
+        cells.iter().map(owned).collect()
     }
 
     fn owned(&(name, cell): &(&str, &str)) -> (String, String) {

@@ -166,15 +166,20 @@ fn the_reporters_received_the_same_events(
     let Some(first) = received.next().transpose()? else {
         return Ok(());
     };
-    for other in received {
-        let (name, events, lines) = other?;
-        expect(
-            lines == first.2,
-            format_args!("\"{name}\" to receive the events \"{}\" received", first.0),
-            &events,
-        )?;
-    }
-    Ok(())
+    received.try_for_each(|other| received_the_same(other, &first))
+}
+
+/// Holds when the other reporter's events could be read and are the same as the first's.
+fn received_the_same(
+    other: Result<Received<'_>, Unmet>,
+    first: &Received<'_>,
+) -> Result<(), Unmet> {
+    let (name, events, lines) = other?;
+    expect(
+        lines == first.2,
+        format_args!("\"{name}\" to receive the events \"{}\" received", first.0),
+        &events,
+    )
 }
 
 /// What the named reporter received: its events, and each one's sequence number and line.
