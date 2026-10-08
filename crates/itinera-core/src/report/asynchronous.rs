@@ -68,7 +68,9 @@ pub trait AsyncReporter: Send + 'static {
 /// let reporter = BoxedReporter::from_reporter(Silent);
 /// # drop(reporter);
 /// ```
-pub struct BoxedReporter(Kind);
+pub struct BoxedReporter {
+    kind: Kind,
+}
 
 enum Kind {
     Sync(Box<dyn Reporter>),
@@ -77,7 +79,7 @@ enum Kind {
 
 impl fmt::Debug for BoxedReporter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let kind = match self.0 {
+        let kind = match self.kind {
             Kind::Sync(_) => "sync",
             Kind::Async(_) => "async",
         };
@@ -107,7 +109,9 @@ impl BoxedReporter {
     /// # drop(reporter);
     /// ```
     pub fn from_reporter(reporter: impl Reporter) -> Self {
-        Self(Kind::Sync(Box::new(reporter)))
+        Self {
+            kind: Kind::Sync(Box::new(reporter)),
+        }
     }
 
     /// Boxes an asynchronous reporter.
@@ -131,7 +135,9 @@ impl BoxedReporter {
     /// # drop(reporter);
     /// ```
     pub fn from_async_reporter(reporter: impl AsyncReporter) -> Self {
-        Self(Kind::Async(Box::new(reporter)))
+        Self {
+            kind: Kind::Async(Box::new(reporter)),
+        }
     }
 
     /// Gives one event to the reporter: called at once if it is synchronous, awaited if it
@@ -149,7 +155,7 @@ impl BoxedReporter {
     /// }
     /// ```
     pub async fn report(&mut self, event: &Event) -> Result<(), Error> {
-        match &mut self.0 {
+        match &mut self.kind {
             Kind::Sync(reporter) => reporter.report(event),
             Kind::Async(reporter) => reporter.report_boxed(event).await,
         }
@@ -158,7 +164,9 @@ impl BoxedReporter {
 
 impl From<Box<dyn Reporter>> for BoxedReporter {
     fn from(reporter: Box<dyn Reporter>) -> Self {
-        Self(Kind::Sync(reporter))
+        Self {
+            kind: Kind::Sync(reporter),
+        }
     }
 }
 
@@ -186,7 +194,9 @@ impl<R: AsyncReporter> DynAsyncReporter for R {
 /// use itinera::event::Event;
 /// use itinera::report::{AsyncDispatcher, BoxedReporter};
 ///
-/// struct OnlyMine(BoxedReporter);
+/// struct OnlyMine {
+///     reporter: BoxedReporter,
+/// }
 ///
 /// impl AsyncDispatcher for OnlyMine {
 ///     async fn add(&mut self, _reporter: BoxedReporter) -> Result<(), Error> {
@@ -194,7 +204,7 @@ impl<R: AsyncReporter> DynAsyncReporter for R {
 ///     }
 ///
 ///     async fn dispatch(&mut self, event: &Event) -> Result<(), Error> {
-///         self.0.report(event).await
+///         self.reporter.report(event).await
 ///     }
 /// }
 /// ```

@@ -5,6 +5,9 @@
 mod cases;
 mod environment;
 mod executor;
+#[expect(dead_code, reason = "the sentences that act on the model read it")]
+mod model;
+mod sentences;
 mod world;
 
 use std::error::Error;

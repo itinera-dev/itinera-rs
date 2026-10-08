@@ -129,6 +129,22 @@ fn the_rows_of_a_scenario_outline_stay_apart_under_both_executors() {
 }
 
 #[test]
+fn every_given_sentence_fills_the_scenario_model() {
+    let run = run("given", "given", "@fixture");
+    assert!(
+        run.succeeded(),
+        "{}",
+        String::from_utf8_lossy(&run.output.stdout)
+    );
+}
+
+#[test]
+fn a_sentence_that_does_not_fit_the_scenario_declared_so_far_fails_it() {
+    let run = run("misfit", "given", "@misfit");
+    assert!(!run.succeeded());
+}
+
+#[test]
 fn a_feature_that_does_not_parse_fails_the_run() {
     let run = run("malformed", "malformed", "@fixture");
     assert!(!run.succeeded());

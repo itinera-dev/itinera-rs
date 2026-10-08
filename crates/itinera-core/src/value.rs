@@ -45,7 +45,9 @@ impl<T> Value for T where T: Serialize + DeserializeOwned + Clone + Send + Sync 
 /// assert_eq!(value.downcast_ref::<i64>(), Some(&42));
 /// assert_eq!(value.downcast_ref::<i32>(), None);
 /// ```
-pub struct AnyValue(Box<dyn Erased>);
+pub struct AnyValue {
+    value: Box<dyn Erased>,
+}
 
 impl AnyValue {
     /// Erases the type of a value.
@@ -59,7 +61,9 @@ impl AnyValue {
     /// assert_eq!(value.downcast_ref::<String>().map(String::as_str), Some("R-1"));
     /// ```
     pub fn new<T: Value>(value: T) -> Self {
-        Self(Box::new(value))
+        Self {
+            value: Box::new(value),
+        }
     }
 
     /// The value, if it is of type `T` exactly.
@@ -74,7 +78,7 @@ impl AnyValue {
     /// assert_eq!(value.downcast_ref::<String>(), None);
     /// ```
     pub fn downcast_ref<T: Value>(&self) -> Option<&T> {
-        self.0.as_any().downcast_ref()
+        self.value.as_any().downcast_ref()
     }
 
     /// The name of the value's type, for diagnostics only: it is not guaranteed to be stable.
@@ -87,13 +91,15 @@ impl AnyValue {
     /// assert!(AnyValue::new(42_i64).type_name().contains("i64"));
     /// ```
     pub fn type_name(&self) -> &'static str {
-        self.0.type_name()
+        self.value.type_name()
     }
 }
 
 impl Clone for AnyValue {
     fn clone(&self) -> Self {
-        Self(self.0.clone_box())
+        Self {
+            value: self.value.clone_box(),
+        }
     }
 }
 
@@ -105,7 +111,7 @@ impl fmt::Debug for AnyValue {
 
 impl Serialize for AnyValue {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        erased_serde::serialize(self.0.as_ref(), serializer)
+        erased_serde::serialize(self.value.as_ref(), serializer)
     }
 }
 

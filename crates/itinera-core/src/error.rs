@@ -43,7 +43,7 @@ impl Error {
         M: fmt::Display + fmt::Debug + Send + Sync + 'static,
     {
         Self {
-            inner: Box::new(Message(message)),
+            inner: Box::new(Message { message }),
         }
     }
 
@@ -56,7 +56,9 @@ impl Error {
     /// use itinera::error::Error;
     ///
     /// #[derive(Debug)]
-    /// struct Outer(std::num::ParseIntError);
+    /// struct Outer {
+    ///     cause: std::num::ParseIntError,
+    /// }
     ///
     /// impl fmt::Display for Outer {
     ///     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -66,12 +68,14 @@ impl Error {
     ///
     /// impl std::error::Error for Outer {
     ///     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-    ///         Some(&self.0)
+    ///         Some(&self.cause)
     ///     }
     /// }
     ///
     /// let cause = "x".parse::<i64>().unwrap_err();
-    /// let error = Error::from(Outer(cause.clone()));
+    /// let error = Error::from(Outer {
+    ///     cause: cause.clone(),
+    /// });
     /// assert_eq!(error.source().map(|s| s.to_string()), Some(cause.to_string()));
     /// assert!(Error::msg("no cause").source().is_none());
     /// ```
@@ -104,11 +108,13 @@ impl fmt::Debug for Error {
 }
 
 #[derive(derive_more::Display)]
-struct Message<M>(M);
+struct Message<M> {
+    message: M,
+}
 
 impl<M: fmt::Debug> fmt::Debug for Message<M> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.0, f)
+        fmt::Debug::fmt(&self.message, f)
     }
 }
 

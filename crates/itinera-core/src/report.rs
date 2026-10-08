@@ -32,11 +32,13 @@ pub use asynchronous::{AsyncDispatcher, AsyncDispatcherFactory, AsyncReporter, B
 /// use itinera::report::Reporter;
 ///
 /// #[derive(Default)]
-/// struct Kinds(Vec<&'static str>);
+/// struct Kinds {
+///     kinds: Vec<&'static str>,
+/// }
 ///
 /// impl Reporter for Kinds {
 ///     fn report(&mut self, event: &Event) -> Result<(), Error> {
-///         self.0.push(event.kind());
+///         self.kinds.push(event.kind());
 ///         Ok(())
 ///     }
 /// }
@@ -85,7 +87,9 @@ pub trait Reporter: Send + 'static {
 /// use itinera::event::Event;
 /// use itinera::report::{Dispatcher, Reporter};
 ///
-/// struct OnlyMine(Box<dyn Reporter>);
+/// struct OnlyMine {
+///     reporter: Box<dyn Reporter>,
+/// }
 ///
 /// impl Dispatcher for OnlyMine {
 ///     fn add(&mut self, _reporter: Box<dyn Reporter>) -> Result<(), Error> {
@@ -93,7 +97,7 @@ pub trait Reporter: Send + 'static {
 ///     }
 ///
 ///     fn dispatch(&mut self, event: &Event) -> Result<(), Error> {
-///         self.0.report(event)
+///         self.reporter.report(event)
 ///     }
 /// }
 /// ```
@@ -146,20 +150,22 @@ pub trait Dispatcher: Send + 'static {
 /// use itinera::error::Error;
 /// use itinera::report::{DefaultDispatcher, DispatcherFactory};
 ///
-/// struct Counting(u32);
+/// struct Counting {
+///     created: u32,
+/// }
 ///
 /// impl DispatcherFactory for Counting {
 ///     type Dispatcher = DefaultDispatcher;
 ///
 ///     fn create(&mut self) -> Result<DefaultDispatcher, Error> {
-///         self.0 += 1;
+///         self.created += 1;
 ///         Ok(DefaultDispatcher::new())
 ///     }
 /// }
 ///
-/// let mut factory = Counting(0);
+/// let mut factory = Counting { created: 0 };
 /// assert!(factory.create().is_ok());
-/// assert_eq!(factory.0, 1);
+/// assert_eq!(factory.created, 1);
 /// ```
 pub trait DispatcherFactory: Send + 'static {
     /// The dispatchers it creates.
@@ -493,11 +499,14 @@ mod tests {
             }
         }
 
-        struct AsyncRecording(Recording);
+        #[derive(derive_more::From)]
+        struct AsyncRecording {
+            recording: Recording,
+        }
 
         impl AsyncReporter for AsyncRecording {
             async fn report(&mut self, event: &Event) -> Result<(), Error> {
-                self.0.record(event)
+                self.recording.record(event)
             }
         }
 
@@ -516,7 +525,9 @@ mod tests {
         fn the_async_default_dispatcher_calls_both_kinds_of_reporter_in_order() {
             let log = Log::default();
             let mut dispatcher = dispatcher_of(vec![
-                BoxedReporter::from_async_reporter(AsyncRecording(Recording::new("audit", &log))),
+                BoxedReporter::from_async_reporter(AsyncRecording::from(Recording::new(
+                    "audit", &log,
+                ))),
                 BoxedReporter::from_reporter(Recording::new("metrics", &log)),
             ]);
 
@@ -531,15 +542,14 @@ mod tests {
         #[test]
         fn async_delivery_of_an_event_stops_at_the_reporter_that_failed() {
             let log = Log::default();
-            let mut dispatcher = dispatcher_of(vec![
-                BoxedReporter::from_reporter(Recording::new("audit", &log)),
-                BoxedReporter::from_async_reporter(AsyncRecording(Recording::failing_on(
-                    "fragile",
-                    "journey_started",
-                    &log,
-                ))),
-                BoxedReporter::from_reporter(Recording::new("metrics", &log)),
-            ]);
+            let mut dispatcher =
+                dispatcher_of(vec![
+                    BoxedReporter::from_reporter(Recording::new("audit", &log)),
+                    BoxedReporter::from_async_reporter(AsyncRecording::from(
+                        Recording::failing_on("fragile", "journey_started", &log),
+                    )),
+                    BoxedReporter::from_reporter(Recording::new("metrics", &log)),
+                ]);
 
             let error = ready(dispatcher.dispatch(&started())).unwrap_err();
 
@@ -551,14 +561,13 @@ mod tests {
         fn a_failure_while_journey_aborted_is_delivered_asynchronously_does_not_stop_its_delivery()
         {
             let log = Log::default();
-            let mut dispatcher = dispatcher_of(vec![
-                BoxedReporter::from_async_reporter(AsyncRecording(Recording::failing_on(
-                    "fragile",
-                    "journey_aborted",
-                    &log,
-                ))),
-                BoxedReporter::from_reporter(Recording::new("audit", &log)),
-            ]);
+            let mut dispatcher =
+                dispatcher_of(vec![
+                    BoxedReporter::from_async_reporter(AsyncRecording::from(
+                        Recording::failing_on("fragile", "journey_aborted", &log),
+                    )),
+                    BoxedReporter::from_reporter(Recording::new("audit", &log)),
+                ]);
 
             assert!(ready(dispatcher.dispatch(&aborted())).is_err());
             assert_eq!(entries(&log), ["audit journey_aborted"]);
