@@ -17,6 +17,7 @@ erased-serde.workspace = true
 derive_more.workspace = true
 
 [dev-dependencies]
+futures = { workspace = true, features = ["executor"] }
 itinera = { path = "../itinera", default-features = false, features = ["unstable", "async"] }
 serde_json.workspace = true
 

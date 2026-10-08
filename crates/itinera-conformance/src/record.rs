@@ -265,17 +265,9 @@ impl AsyncDispatcher for RecordingDispatcher<DefaultDispatcher<BoxedReporter>> {
 
 #[cfg(test)]
 mod tests {
-    use std::pin::pin;
-    use std::task::{Context, Poll, Waker};
+    use futures::executor::block_on;
 
     use super::*;
-
-    fn now<T>(future: impl Future<Output = T>) -> T {
-        match pin!(future).poll(&mut Context::from_waker(Waker::noop())) {
-            Poll::Ready(output) => output,
-            Poll::Pending => panic!("nothing here waits"),
-        }
-    }
 
     struct Silent;
 
@@ -364,7 +356,7 @@ mod tests {
     fn a_factory_scripted_to_fail_makes_no_dispatcher() {
         let mut factory = RecordingFactory::new(Recorder::default(), Behaviour::FailsToCreate);
         assert!(DispatcherFactory::create(&mut factory).is_err());
-        assert!(now(AsyncDispatcherFactory::create(&mut factory)).is_err());
+        assert!(block_on(AsyncDispatcherFactory::create(&mut factory)).is_err());
     }
 
     #[test]
@@ -375,8 +367,8 @@ mod tests {
         );
         let mut dispatcher = DispatcherFactory::create(&mut factory).unwrap();
         assert!(Dispatcher::add(&mut dispatcher, Box::new(Silent)).is_err());
-        let mut dispatcher = now(AsyncDispatcherFactory::create(&mut factory)).unwrap();
+        let mut dispatcher = block_on(AsyncDispatcherFactory::create(&mut factory)).unwrap();
         let reporter = BoxedReporter::from_reporter(Silent);
-        assert!(now(AsyncDispatcher::add(&mut dispatcher, reporter)).is_err());
+        assert!(block_on(AsyncDispatcher::add(&mut dispatcher, reporter)).is_err());
     }
 }
