@@ -78,6 +78,14 @@ impl Policy {
         Ok(())
     }
 
+    /// The scripts of its hooks, in the order defined.
+    pub(crate) fn scripts(&self) -> Vec<&HookScript> {
+        match &self.hooks {
+            Hooks::Step(hooks) => hooks.iter().map(|(_, script)| script).collect(),
+            Hooks::Workflow(hooks) => hooks.iter().map(|(_, script)| script).collect(),
+        }
+    }
+
     pub(crate) fn is_step_policy(&self) -> bool {
         matches!(self.hooks, Hooks::Step(_))
     }
@@ -161,6 +169,20 @@ pub(crate) enum HookAction {
         role: String,
         operation: String,
     },
+}
+
+impl HookAction {
+    /// The value this action gives the key: what it contributes or writes under it.
+    pub(crate) fn value_for(&self, key: &str) -> Option<&Value> {
+        match self {
+            Self::ChangeStepData { key: name, value } | Self::Contribute { key: name, value }
+                if name == key =>
+            {
+                Some(value)
+            }
+            _ => None,
+        }
+    }
 }
 
 /// How a hook ends.

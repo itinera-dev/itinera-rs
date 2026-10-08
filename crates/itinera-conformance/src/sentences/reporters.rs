@@ -1,12 +1,16 @@
 //! Events and reporters.
 
-use cucumber::given;
+use std::num::NonZeroU64;
 
-use super::Names;
+use cucumber::{given, then};
+use itinera::event::Event;
+
+use super::{Names, Unmet, expect, stream};
 use crate::model::{
     Dispatching, EventKind, Holding, HookAction, Level, ModelError, ReporterFailure, StepAction,
     json,
 };
+use crate::trace::Line;
 use crate::world::World;
 
 #[given(expr = "the workflow lists the reporters {names}")]
@@ -148,4 +152,184 @@ fn the_hook_emits(
     };
     world.model.hook_mut(&policy, &hook)?.actions.push(action);
     Ok(())
+}
+
+#[then(expr = "the reporters {names} received the same events")]
+fn the_reporters_received_the_same_events(
+    world: &mut World,
+    reporters: Names,
+) -> Result<(), Unmet> {
+    let mut received = reporters
+        .as_ref()
+        .iter()
+        .map(|name| received_by(world, name));
+    let Some(first) = received.next().transpose()? else {
+        return Ok(());
+    };
+    received.try_for_each(|other| received_the_same(other, &first))
+}
+
+/// Holds when the other reporter's events could be read and are the same as the first's.
+fn received_the_same(
+    other: Result<Received<'_>, Unmet>,
+    first: &Received<'_>,
+) -> Result<(), Unmet> {
+    let (name, events, lines) = other?;
+    expect(
+        lines == first.2,
+        format_args!("\"{name}\" to receive the events \"{}\" received", first.0),
+        &events,
+    )
+}
+
+/// What the named reporter received: its events, and each one's sequence number and line.
+fn received_by<'a>(world: &World, name: &'a str) -> Result<Received<'a>, Unmet> {
+    let events = world.recorders.get(name)?.events();
+    let lines = events.iter().map(numbered).collect();
+    Ok((name, events, lines))
+}
+
+type Received<'a> = (&'a str, Vec<Event>, Vec<(NonZeroU64, Line)>);
+
+/// The event's sequence number and its line, so that two reporters' streams compare whole.
+fn numbered(event: &Event) -> (NonZeroU64, Line) {
+    (event.sequence, Line::from(event))
+}
+
+#[then(expr = "the reporter {string} received the event {string}")]
+fn the_reporter_received_the_event(
+    world: &mut World,
+    reporter: String,
+    event: String,
+) -> Result<(), Unmet> {
+    received(world, &reporter, &event, Times::AtLeastOnce)
+}
+
+#[then(expr = "the reporter {string} received the event {string} {int} times")]
+fn the_reporter_received_the_event_times(
+    world: &mut World,
+    reporter: String,
+    event: String,
+    times: usize,
+) -> Result<(), Unmet> {
+    received(world, &reporter, &event, Times::Exactly(times))
+}
+
+#[then(expr = "the reporter {string} did not receive the event {string}")]
+fn the_reporter_did_not_receive_the_event(
+    world: &mut World,
+    reporter: String,
+    event: String,
+) -> Result<(), Unmet> {
+    received(world, &reporter, &event, Times::Never)
+}
+
+fn received(world: &World, reporter: &str, event: &str, times: Times) -> Result<(), Unmet> {
+    let kind = EventKind::named(event)?;
+    let events = world.recorders.get(reporter)?.events();
+    let count = events
+        .iter()
+        .filter(|received| kind.is_of(received))
+        .count();
+    expect(
+        times.is_met_by(count),
+        format_args!("\"{reporter}\" to receive {event} {times}"),
+        &events,
+    )
+}
+
+/// How often a reporter is expected to receive an event.
+#[derive(Clone, Copy, Debug, derive_more::Display)]
+enum Times {
+    #[display("at least once")]
+    AtLeastOnce,
+    #[display("{_0} times")]
+    Exactly(usize),
+    #[display("never")]
+    Never,
+}
+
+impl Times {
+    fn is_met_by(self, count: usize) -> bool {
+        match self {
+            Self::AtLeastOnce => count > 0,
+            Self::Exactly(times) => count == times,
+            Self::Never => count == 0,
+        }
+    }
+}
+
+#[then(expr = "the reporter {string} received no event")]
+fn the_reporter_received_no_event(world: &mut World, reporter: String) -> Result<(), Unmet> {
+    let events = world.recorders.get(&reporter)?.events();
+    expect(
+        events.is_empty(),
+        format_args!("\"{reporter}\" to receive no event"),
+        &events,
+    )
+}
+
+#[then(
+    expr = "every event carries the journey ID {string} and the workflow name {string}, with increasing sequence numbers"
+)]
+fn every_event_carries_the_journey_id_and_workflow_name(
+    world: &mut World,
+    id: String,
+    workflow: String,
+) -> Result<(), Unmet> {
+    let (events, _) = stream(world)?;
+    let carried = events.iter().all(|event| belongs_to(event, &id, &workflow));
+    let increasing = events.windows(2).all(in_sequence);
+    expect(
+        !events.is_empty() && carried && increasing,
+        format_args!("every event of \"{workflow}\" for \"{id}\", in increasing sequence"),
+        &events,
+    )
+}
+
+/// Whether the event is of this journey of this workflow.
+fn belongs_to(event: &Event, id: &str, workflow: &str) -> bool {
+    event.journey_id.to_string() == id && event.workflow == workflow
+}
+
+/// Whether two consecutive events have increasing sequence numbers.
+fn in_sequence(pair: &[Event]) -> bool {
+    matches!(pair, [earlier, later] if earlier.sequence < later.sequence)
+}
+
+#[then(expr = "no engine event carries the value of {string}")]
+fn no_engine_event_carries_the_value_of(world: &mut World, key: String) -> Result<(), Unmet> {
+    let values = world.model.values_of(&key);
+    if values.is_empty() {
+        return Err(Unmet::Case(format!(
+            "the scenario gives \"{key}\" no value"
+        )));
+    }
+    let (events, lines) = stream(world)?;
+    let carrying = events
+        .iter()
+        .zip(&lines)
+        .filter(|(event, _)| is_engine_event(event))
+        .any(|(_, line)| line.carries_any(&values));
+    expect(
+        !carrying,
+        format_args!("no engine event to carry the value of \"{key}\""),
+        &events,
+    )
+}
+
+/// Whether the engine emitted the event, rather than a step or a hook emitting it.
+fn is_engine_event(event: &Event) -> bool {
+    !Level::is_emitted(event.kind())
+}
+
+#[then(expr = "no event carries the message {string}")]
+fn no_event_carries_the_message(world: &mut World, message: String) -> Result<(), Unmet> {
+    let (events, lines) = stream(world)?;
+    let carrying = lines.iter().any(|line| line.carries_message(&message));
+    expect(
+        !carrying,
+        format_args!("no event to carry \"{message}\""),
+        &events,
+    )
 }

@@ -596,6 +596,7 @@ version = "0.0.0"
 dependencies = [
  "derive_more",
  "erased-serde",
+ "futures",
  "itinera",
  "serde",
  "serde_json",

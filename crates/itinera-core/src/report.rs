@@ -483,21 +483,9 @@ mod tests {
 
     #[cfg(feature = "async")]
     mod asynchronous {
-        use std::future::Future;
-        use std::pin::pin;
-        use std::task::{Context, Poll, Waker};
+        use futures::executor::block_on;
 
         use super::*;
-
-        fn ready<F: Future>(future: F) -> F::Output {
-            let mut future = pin!(future);
-            let mut context = Context::from_waker(Waker::noop());
-            loop {
-                if let Poll::Ready(output) = future.as_mut().poll(&mut context) {
-                    return output;
-                }
-            }
-        }
 
         #[derive(derive_more::From)]
         struct AsyncRecording {
@@ -511,12 +499,12 @@ mod tests {
         }
 
         fn dispatcher_of(reporters: Vec<BoxedReporter>) -> DefaultDispatcher<BoxedReporter> {
-            let mut dispatcher = ready(AsyncDispatcherFactory::create(
+            let mut dispatcher = block_on(AsyncDispatcherFactory::create(
                 &mut DefaultDispatcherFactory,
             ))
             .unwrap();
             for reporter in reporters {
-                ready(dispatcher.add(reporter)).unwrap();
+                block_on(dispatcher.add(reporter)).unwrap();
             }
             dispatcher
         }
@@ -531,7 +519,7 @@ mod tests {
                 BoxedReporter::from_reporter(Recording::new("metrics", &log)),
             ]);
 
-            ready(dispatcher.dispatch(&started())).unwrap();
+            block_on(dispatcher.dispatch(&started())).unwrap();
 
             assert_eq!(
                 entries(&log),
@@ -551,7 +539,7 @@ mod tests {
                     BoxedReporter::from_reporter(Recording::new("metrics", &log)),
                 ]);
 
-            let error = ready(dispatcher.dispatch(&started())).unwrap_err();
+            let error = block_on(dispatcher.dispatch(&started())).unwrap_err();
 
             assert_eq!(error.to_string(), "fragile failed");
             assert_eq!(entries(&log), ["audit journey_started"]);
@@ -569,7 +557,7 @@ mod tests {
                     BoxedReporter::from_reporter(Recording::new("audit", &log)),
                 ]);
 
-            assert!(ready(dispatcher.dispatch(&aborted())).is_err());
+            assert!(block_on(dispatcher.dispatch(&aborted())).is_err());
             assert_eq!(entries(&log), ["audit journey_aborted"]);
         }
     }

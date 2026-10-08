@@ -1,5 +1,7 @@
 //! Scripted reporters and dispatchers.
 
+use itinera::event::Event;
+
 use super::ModelError;
 
 /// The kinds of event of the catalogue, by the names the cases use.
@@ -50,6 +52,11 @@ impl EventKind {
         Self { name }
     }
 
+    /// Whether the event is of this kind.
+    pub(crate) fn is_of(self, event: &Event) -> bool {
+        event.kind() == self.name
+    }
+
     pub(crate) fn name(self) -> &'static str {
         self.name
     }
@@ -61,7 +68,7 @@ fn is_named(kind: &&str, name: &str) -> bool {
 }
 
 /// When a scripted reporter fails.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ReporterFailure {
     /// On the first event it receives.
     First,
@@ -88,7 +95,7 @@ pub(crate) enum Dispatching {
 }
 
 /// What a dispatcher the scenario gives does besides delivering to its reporter.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(crate) enum Holding {
     /// Adds the workflow's reporters and delivers to them as well.
     #[default]

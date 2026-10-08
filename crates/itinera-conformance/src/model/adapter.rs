@@ -28,3 +28,18 @@ pub(crate) enum Answer {
     Nothing,
     Fails(String),
 }
+
+/// The value an adapter supplies for this key, when its answer is for it and is a value.
+pub(crate) fn answer_for<'a>((name, answer): &'a (String, Answer), key: &str) -> Option<&'a Value> {
+    if name == key { answer.value() } else { None }
+}
+
+impl Answer {
+    /// The value the adapter supplies, if it supplies one.
+    pub(crate) fn value(&self) -> Option<&Value> {
+        match self {
+            Self::Value(value) => Some(value),
+            Self::Nothing | Self::Fails(_) => None,
+        }
+    }
+}

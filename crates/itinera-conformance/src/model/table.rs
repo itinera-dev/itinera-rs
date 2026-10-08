@@ -15,9 +15,7 @@ pub(crate) struct Row {
 impl Row {
     /// The row of these cells, each under the column in the same position of the header.
     fn under(header: &[String], cells: &[String]) -> Self {
-        Self {
-            cells: header.iter().cloned().zip(cells.iter().cloned()).collect(),
-        }
+        header.iter().cloned().zip(cells.iter().cloned()).collect()
     }
 
     pub(crate) fn optional(&self, column: &'static str) -> Option<&str> {
@@ -25,6 +23,10 @@ impl Row {
             .iter()
             .find(|cell| is_under(cell, column))
             .and_then(|(_, cell)| filled(cell))
+    }
+
+    pub(crate) fn columns(&self) -> impl Iterator<Item = &str> {
+        self.cells.iter().map(|(name, _)| name.as_str())
     }
 
     pub(crate) fn required(&self, column: &'static str) -> Result<&str, ModelError> {
@@ -35,6 +37,14 @@ impl Row {
         let cell = self.required(column)?;
         cell.parse()
             .map_err(|_| ModelError::Cell(column, cell.to_owned()))
+    }
+}
+
+impl FromIterator<(String, String)> for Row {
+    fn from_iter<I: IntoIterator<Item = (String, String)>>(cells: I) -> Self {
+        Self {
+            cells: cells.into_iter().collect(),
+        }
     }
 }
 
@@ -61,9 +71,7 @@ mod tests {
     use super::*;
 
     fn row(cells: &[(&str, &str)]) -> Row {
-        Row {
-            cells: cells.iter().map(owned).collect(),
-        }
+        cells.iter().map(owned).collect()
     }
 
     fn owned(&(name, cell): &(&str, &str)) -> (String, String) {
