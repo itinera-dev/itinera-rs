@@ -93,12 +93,15 @@ impl Policy {
 
 /// The script of this hook, among hooks of one kind.
 fn script_of<H: PartialEq>(hooks: &mut [(H, HookScript)], hook: H) -> Option<&mut HookScript> {
-    for (defined, script) in hooks {
-        if *defined == hook {
-            return Some(script);
-        }
-    }
-    None
+    hooks
+        .iter_mut()
+        .find(|entry| defines(entry, &hook))
+        .map(|(_, script)| script)
+}
+
+/// Whether the entry is the script of this hook.
+fn defines<H: PartialEq>((defined, _): &&mut (H, HookScript), hook: &H) -> bool {
+    defined == hook
 }
 
 /// What a hook requests, what it does, and what it returns.

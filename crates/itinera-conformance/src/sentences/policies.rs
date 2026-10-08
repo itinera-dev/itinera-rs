@@ -30,11 +30,10 @@ fn step_has_the_policies(
     step_name: String,
     policies: Names,
 ) -> Result<(), ModelError> {
-    for policy in &policies.0 {
-        if !world.model.policy_mut(policy)?.is_step_policy() {
-            return Err(ModelError::NotStepPolicy(policy.clone()));
-        }
-    }
+    policies
+        .0
+        .iter()
+        .try_for_each(|policy| world.model.require_step_policy(policy))?;
     world.model.step_mut(&step_name)?;
     world
         .model
@@ -48,11 +47,10 @@ fn step_has_the_policies(
 
 #[given(expr = "the workflow has the policies {names}")]
 fn the_workflow_has_the_policies(world: &mut World, policies: Names) -> Result<(), ModelError> {
-    for policy in &policies.0 {
-        if world.model.policy_mut(policy)?.is_step_policy() {
-            return Err(ModelError::NotWorkflowPolicy(policy.clone()));
-        }
-    }
+    policies
+        .0
+        .iter()
+        .try_for_each(|policy| world.model.require_workflow_policy(policy))?;
     world.model.workflow_mut()?.policies.extend(policies.0);
     Ok(())
 }

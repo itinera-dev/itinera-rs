@@ -150,6 +150,24 @@ impl Model {
             .ok_or_else(|| ModelError::UnknownPolicy(policy.to_owned()))
     }
 
+    /// Fails unless the policy is defined, as a step policy.
+    pub(crate) fn require_step_policy(&mut self, policy: &str) -> Result<(), ModelError> {
+        if self.policy_mut(policy)?.is_step_policy() {
+            Ok(())
+        } else {
+            Err(ModelError::NotStepPolicy(policy.to_owned()))
+        }
+    }
+
+    /// Fails unless the policy is defined, as a workflow policy.
+    pub(crate) fn require_workflow_policy(&mut self, policy: &str) -> Result<(), ModelError> {
+        if self.policy_mut(policy)?.is_step_policy() {
+            Err(ModelError::NotWorkflowPolicy(policy.to_owned()))
+        } else {
+            Ok(())
+        }
+    }
+
     pub(crate) fn hook_mut(
         &mut self,
         policy: &str,

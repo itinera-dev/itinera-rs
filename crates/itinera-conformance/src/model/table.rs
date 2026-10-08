@@ -12,12 +12,10 @@ pub(crate) struct Row(Vec<(String, String)>);
 
 impl Row {
     pub(crate) fn optional(&self, column: &'static str) -> Option<&str> {
-        for (name, cell) in &self.0 {
-            if name == column {
-                return (!cell.is_empty()).then_some(cell.as_str());
-            }
-        }
-        None
+        self.0
+            .iter()
+            .find(|cell| is_under(cell, column))
+            .and_then(|(_, cell)| filled(cell))
     }
 
     pub(crate) fn required(&self, column: &'static str) -> Result<&str, ModelError> {
@@ -39,6 +37,16 @@ pub(crate) fn rows(step: &gherkin::Step) -> Result<Vec<Row>, ModelError> {
     Ok(rows
         .map(|cells| Row(header.iter().cloned().zip(cells.iter().cloned()).collect()))
         .collect())
+}
+
+/// Whether the cell is under this column.
+fn is_under((name, _): &&(String, String), column: &str) -> bool {
+    name == column
+}
+
+/// The text of a cell, unless it is empty.
+fn filled(cell: &str) -> Option<&str> {
+    (!cell.is_empty()).then_some(cell)
 }
 
 #[cfg(test)]

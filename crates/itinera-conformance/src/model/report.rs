@@ -36,17 +36,21 @@ pub(crate) struct EventKind(&'static str);
 
 impl EventKind {
     pub(crate) fn named(name: &str) -> Result<Self, ModelError> {
-        for kind in EVENT_KINDS {
-            if kind == name {
-                return Ok(Self(kind));
-            }
-        }
-        Err(ModelError::UnknownEvent(name.to_owned()))
+        EVENT_KINDS
+            .into_iter()
+            .find(|kind| is_named(kind, name))
+            .map(Self)
+            .ok_or_else(|| ModelError::UnknownEvent(name.to_owned()))
     }
 
     pub(crate) fn name(self) -> &'static str {
         self.0
     }
+}
+
+/// Whether the kind of event of the catalogue has this name.
+fn is_named(kind: &&str, name: &str) -> bool {
+    *kind == name
 }
 
 /// When a scripted reporter fails.
