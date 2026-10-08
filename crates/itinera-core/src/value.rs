@@ -132,6 +132,8 @@ impl<T: Value> Erased for T {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
 
     #[test]
@@ -148,11 +150,18 @@ mod tests {
         assert_eq!(serde_json::to_string(&value).unwrap(), r#"["a","b"]"#);
     }
 
-    #[test]
-    fn an_erased_value_is_read_only_as_its_exact_type() {
-        let value = AnyValue::new(7_i64);
-        assert!(value.downcast_ref::<i32>().is_none());
-        assert!(value.downcast_ref::<u64>().is_none());
-        assert_eq!(value.downcast_ref::<i64>(), Some(&7));
+    fn reads_as<T: Value>(value: &AnyValue) -> bool {
+        value.downcast_ref::<T>().is_some()
+    }
+
+    #[rstest]
+    #[case::a_narrower_integer(reads_as::<i32>, false)]
+    #[case::an_unsigned_integer(reads_as::<u64>, false)]
+    #[case::its_exact_type(reads_as::<i64>, true)]
+    fn an_erased_value_is_read_only_as_its_exact_type(
+        #[case] reads_as: fn(&AnyValue) -> bool,
+        #[case] readable: bool,
+    ) {
+        assert_eq!(reads_as(&AnyValue::new(7_i64)), readable);
     }
 }

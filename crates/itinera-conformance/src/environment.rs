@@ -70,6 +70,7 @@ mod tests {
     use std::collections::HashMap;
 
     use cucumber::tag::Ext as _;
+    use rstest::rstest;
 
     use super::*;
 
@@ -105,20 +106,12 @@ mod tests {
         assert!(environment.tags.eval(["tier-1"]));
     }
 
-    #[test]
-    fn each_variable_is_required() {
-        assert_eq!(
-            read(&[(TAGS, "@a"), (REPORT, "r")]).unwrap_err(),
-            EnvironmentError::Missing(CASES)
-        );
-        assert_eq!(
-            read(&[(CASES, "c"), (REPORT, "r")]).unwrap_err(),
-            EnvironmentError::Missing(TAGS)
-        );
-        assert_eq!(
-            read(&[(CASES, "c"), (TAGS, "@a")]).unwrap_err(),
-            EnvironmentError::Missing(REPORT)
-        );
+    #[rstest]
+    #[case::without_cases(&[(TAGS, "@a"), (REPORT, "r")], CASES)]
+    #[case::without_tags(&[(CASES, "c"), (REPORT, "r")], TAGS)]
+    #[case::without_report(&[(CASES, "c"), (TAGS, "@a")], REPORT)]
+    fn each_variable_is_required(#[case] vars: &[(&str, &str)], #[case] missing: &'static str) {
+        assert_eq!(read(vars).unwrap_err(), EnvironmentError::Missing(missing));
     }
 
     #[test]
@@ -137,12 +130,16 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_tag_expression_combines_and_or_not_and_parentheses() {
+    #[rstest]
+    #[case::the_first_alternative(&["tier-1", "proposal-0002"], true)]
+    #[case::the_second_alternative(&["proposal-0008"], true)]
+    #[case::an_alternative_but_excluded(&["proposal-0002", "non-value"], false)]
+    #[case::neither_alternative(&["proposal-0009"], false)]
+    fn a_tag_expression_combines_and_or_not_and_parentheses(
+        #[case] scenario_tags: &[&str],
+        #[case] selected: bool,
+    ) {
         let selection = tags("(@proposal-0002 or @proposal-0008) and not @non-value");
-        assert!(selection.eval(["tier-1", "proposal-0002"]));
-        assert!(selection.eval(["proposal-0008"]));
-        assert!(!selection.eval(["proposal-0002", "non-value"]));
-        assert!(!selection.eval(["proposal-0009"]));
+        assert_eq!(selection.eval(scenario_tags), selected);
     }
 }

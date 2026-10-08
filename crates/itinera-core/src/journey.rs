@@ -551,35 +551,34 @@ pub enum Requester {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt;
+
+    use rstest::rstest;
+
     use super::*;
 
-    #[test]
-    fn causes_and_abort_reasons_display_as_the_specification_writes_them() {
-        assert_eq!(FailureCause::Failure.to_string(), "failure");
-        assert_eq!(
-            FailureCause::RetriesExhausted.to_string(),
-            "retries exhausted"
-        );
-        assert_eq!(
-            FailureCause::AbnormalTermination.to_string(),
-            "abnormal termination"
-        );
-        assert_eq!(FailureCause::FailWorkflow.to_string(), "FailWorkflow");
-        assert_eq!(
-            AbortReason::StepCouldNotBeBuilt.to_string(),
-            "step could not be built"
-        );
-        assert_eq!(
-            AbortReason::PolicyCouldNotBeBuilt.to_string(),
-            "policy could not be built"
-        );
-        assert_eq!(
-            AbortReason::RequiredDataMissing.to_string(),
-            "required data missing"
-        );
-        assert_eq!(AbortReason::WrongType.to_string(), "wrong type");
-        assert_eq!(AbortReason::HookFailed.to_string(), "hook failed");
-        assert_eq!(AbortReason::ReporterFailed.to_string(), "reporter failed");
+    #[rstest]
+    #[case::cause_failure(&FailureCause::Failure, "failure")]
+    #[case::cause_retries_exhausted(&FailureCause::RetriesExhausted, "retries exhausted")]
+    #[case::cause_abnormal_termination(&FailureCause::AbnormalTermination, "abnormal termination")]
+    #[case::cause_fail_workflow(&FailureCause::FailWorkflow, "FailWorkflow")]
+    #[case::reason_step_could_not_be_built(&AbortReason::StepCouldNotBeBuilt, "step could not be built")]
+    #[case::reason_policy_could_not_be_built(
+        &AbortReason::PolicyCouldNotBeBuilt,
+        "policy could not be built"
+    )]
+    #[case::reason_required_data_missing(&AbortReason::RequiredDataMissing, "required data missing")]
+    #[case::reason_wrong_type(&AbortReason::WrongType, "wrong type")]
+    #[case::reason_hook_failed(&AbortReason::HookFailed, "hook failed")]
+    #[case::reason_reporter_failed(&AbortReason::ReporterFailed, "reporter failed")]
+    #[case::status_succeeded(&StatusKind::Succeeded, "succeeded")]
+    #[case::status_failed(&StatusKind::Failed, "failed")]
+    #[case::status_aborted(&StatusKind::Aborted, "aborted")]
+    fn statuses_causes_and_abort_reasons_display_as_the_specification_writes_them(
+        #[case] name: &dyn fmt::Display,
+        #[case] written: &str,
+    ) {
+        assert_eq!(name.to_string(), written);
     }
 
     fn bag() -> DataBag {
@@ -611,92 +610,97 @@ mod tests {
         assert_eq!(keys, ["amount", "customer"]);
     }
 
-    #[test]
-    fn only_a_journey_that_succeeded_or_failed_has_a_data_bag() {
-        let succeeded = JourneyStatus::Succeeded { data: bag() };
-        let failed = JourneyStatus::Failed {
-            failure: Failure::Failure(Reason::new("declined")),
-            data: bag(),
-        };
-        let aborted = JourneyStatus::Aborted(Abort::ReporterFailed(Error::msg("down")));
-
-        assert!(succeeded.data().is_some());
-        assert!(failed.data().is_some());
-        assert!(aborted.data().is_none());
-    }
-
-    #[test]
-    fn a_status_names_its_kind() {
-        assert_eq!(
-            JourneyStatus::Succeeded { data: bag() }.kind(),
-            StatusKind::Succeeded
-        );
-        assert_eq!(
-            JourneyStatus::Aborted(Abort::HookFailed(Error::msg("down"))).kind(),
-            StatusKind::Aborted
-        );
-        assert_eq!(StatusKind::Succeeded.to_string(), "succeeded");
-        assert_eq!(StatusKind::Failed.to_string(), "failed");
-        assert_eq!(StatusKind::Aborted.to_string(), "aborted");
-    }
-
-    #[test]
-    fn a_failure_names_its_cause() {
-        assert_eq!(
-            Failure::Failure(Reason::new("declined")).cause(),
-            FailureCause::Failure
-        );
-        assert_eq!(
-            Failure::RetriesExhausted(LastFailure::Error(Error::msg("timeout"))).cause(),
-            FailureCause::RetriesExhausted
-        );
-        assert_eq!(
-            Failure::AbnormalTermination(Error::msg("timeout")).cause(),
-            FailureCause::AbnormalTermination
-        );
-        assert_eq!(
-            Failure::FailWorkflow(Reason::new("fraud")).cause(),
-            FailureCause::FailWorkflow
-        );
-    }
-
-    #[test]
-    fn an_abort_names_its_reason() {
-        let missing = MissingData::Key {
+    fn missing_amount() -> MissingData {
+        MissingData::Key {
             key: "amount".to_string(),
             requester: Requester::Step,
-        };
-        assert_eq!(
-            Abort::StepCouldNotBeBuilt(Error::msg("closed")).reason(),
-            AbortReason::StepCouldNotBeBuilt
-        );
-        assert_eq!(
-            Abort::PolicyCouldNotBeBuilt {
-                policy: "audit".to_string(),
-                error: Error::msg("closed"),
-            }
-            .reason(),
-            AbortReason::PolicyCouldNotBeBuilt
-        );
-        assert_eq!(
-            Abort::RequiredDataMissing(missing).reason(),
-            AbortReason::RequiredDataMissing
-        );
-        assert_eq!(
-            Abort::WrongType {
-                key: "amount".to_string(),
-                requester: Requester::Step,
-            }
-            .reason(),
-            AbortReason::WrongType
-        );
-        assert_eq!(
-            Abort::HookFailed(Error::msg("closed")).reason(),
-            AbortReason::HookFailed
-        );
-        assert_eq!(
-            Abort::ReporterFailed(Error::msg("closed")).reason(),
-            AbortReason::ReporterFailed
-        );
+        }
+    }
+
+    #[rstest]
+    #[case::succeeded(JourneyStatus::Succeeded { data: bag() }, true)]
+    #[case::failed(
+        JourneyStatus::Failed {
+            failure: Failure::Failure(Reason::new("declined")),
+            data: bag(),
+        },
+        true
+    )]
+    #[case::aborted(
+        JourneyStatus::Aborted(Abort::ReporterFailed(Error::msg("down"))),
+        false
+    )]
+    fn only_a_journey_that_succeeded_or_failed_has_a_data_bag(
+        #[case] status: JourneyStatus,
+        #[case] has_data: bool,
+    ) {
+        assert_eq!(status.data().is_some(), has_data);
+    }
+
+    #[rstest]
+    #[case::succeeded(JourneyStatus::Succeeded { data: bag() }, StatusKind::Succeeded)]
+    #[case::failed(
+        JourneyStatus::Failed {
+            failure: Failure::Failure(Reason::new("declined")),
+            data: bag(),
+        },
+        StatusKind::Failed
+    )]
+    #[case::aborted(
+        JourneyStatus::Aborted(Abort::HookFailed(Error::msg("down"))),
+        StatusKind::Aborted
+    )]
+    fn a_status_names_its_kind(#[case] status: JourneyStatus, #[case] kind: StatusKind) {
+        assert_eq!(status.kind(), kind);
+    }
+
+    #[rstest]
+    #[case::failure(Failure::Failure(Reason::new("declined")), FailureCause::Failure)]
+    #[case::retries_exhausted(
+        Failure::RetriesExhausted(LastFailure::Error(Error::msg("timeout"))),
+        FailureCause::RetriesExhausted
+    )]
+    #[case::abnormal_termination(
+        Failure::AbnormalTermination(Error::msg("timeout")),
+        FailureCause::AbnormalTermination
+    )]
+    #[case::fail_workflow(
+        Failure::FailWorkflow(Reason::new("fraud")),
+        FailureCause::FailWorkflow
+    )]
+    fn a_failure_names_its_cause(#[case] failure: Failure, #[case] cause: FailureCause) {
+        assert_eq!(failure.cause(), cause);
+    }
+
+    #[rstest]
+    #[case::step_could_not_be_built(
+        Abort::StepCouldNotBeBuilt(Error::msg("closed")),
+        AbortReason::StepCouldNotBeBuilt
+    )]
+    #[case::policy_could_not_be_built(
+        Abort::PolicyCouldNotBeBuilt {
+            policy: "audit".to_string(),
+            error: Error::msg("closed"),
+        },
+        AbortReason::PolicyCouldNotBeBuilt
+    )]
+    #[case::required_data_missing(
+        Abort::RequiredDataMissing(missing_amount()),
+        AbortReason::RequiredDataMissing
+    )]
+    #[case::wrong_type(
+        Abort::WrongType {
+            key: "amount".to_string(),
+            requester: Requester::Step,
+        },
+        AbortReason::WrongType
+    )]
+    #[case::hook_failed(Abort::HookFailed(Error::msg("closed")), AbortReason::HookFailed)]
+    #[case::reporter_failed(
+        Abort::ReporterFailed(Error::msg("closed")),
+        AbortReason::ReporterFailed
+    )]
+    fn an_abort_names_its_reason(#[case] abort: Abort, #[case] reason: AbortReason) {
+        assert_eq!(abort.reason(), reason);
     }
 }

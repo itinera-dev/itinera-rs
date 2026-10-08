@@ -358,6 +358,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 - **Comments are as few as possible.** They explain a non-obvious reason only when the code cannot. Code and comments never refer to specification sections, issues, pull requests or other documents: git keeps that history, and the tech specs map rules to code. There are no `TODO` comments.
 - **Public documentation** describes each item's behaviour in its own words, with an example. `missing_docs` is an error.
 - **Test names** state the rule as a sentence, for example `a_failed_attempts_contributions_are_never_committed`.
+- **Table tests**: a rule checked on several inputs is one `rstest` test with a named case per input; when what varies is a type, each case holds a generic function instantiated for one type, passed as a function pointer. A loop over every value of a closed set stays a loop.
 - **British spelling** in documentation, as in the specification.
 
 ## Tooling
@@ -377,6 +378,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
   | `syn`, `quote`, `proc-macro2` | macros | the macros |
   | `cucumber` (`macros`, `output-json`), `tokio` (`rt`), `futures`, `serde_json` | conformance runner | running the cases |
   | `trybuild`, `proptest`, `serde_json` | tests | compile-fail, property-based and equivalence tests |
+  | `rstest` | tests | one test per rule, with a named case per input |
 
   No async runtime and no `futures` crate in the core. A new dependency of the core needs a stated reason in its pull request.
 - **`deny.toml`** allows the licences MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Unicode-3.0 and Zlib, and BlueOak-1.0.0 for the three `synthez` crates only, which cucumber's macros use in the runner. It denies security advisories, accepts crates only from crates.io, and warns on duplicate versions.

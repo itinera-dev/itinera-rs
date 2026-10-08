@@ -68,6 +68,8 @@ fn filled(cell: &str) -> Option<&str> {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
 
     fn row(cells: &[(&str, &str)]) -> Row {
@@ -89,13 +91,14 @@ mod tests {
         assert_eq!(row.optional("message"), Some("late"));
     }
 
-    #[test]
-    fn a_cell_is_parsed_into_the_type_asked_for() {
+    #[rstest]
+    #[case::a_cell_of_that_type("attempt", Ok(2))]
+    #[case::a_cell_of_another_type("count", Err(ModelError::Cell("count", "two".to_owned())))]
+    fn a_cell_is_parsed_into_the_type_asked_for(
+        #[case] column: &'static str,
+        #[case] parsed: Result<u32, ModelError>,
+    ) {
         let row = row(&[("attempt", "2"), ("count", "two")]);
-        assert_eq!(row.parse::<u32>("attempt").unwrap(), 2);
-        assert_eq!(
-            row.parse::<u32>("count").unwrap_err(),
-            ModelError::Cell("count", "two".to_owned())
-        );
+        assert_eq!(row.parse::<u32>(column), parsed);
     }
 }

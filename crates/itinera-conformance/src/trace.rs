@@ -459,6 +459,7 @@ pub(crate) fn are_exactly(events: &[Line], expected: &[Line]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
     use serde_json::json;
 
     use super::*;
@@ -494,41 +495,54 @@ mod tests {
         );
     }
 
-    #[test]
-    fn an_empty_cell_is_not_compared() {
+    #[rstest]
+    #[case::no_cells("step_failed", &[], true)]
+    #[case::a_cell_that_matches("step_failed", &[("code", "declined")], true)]
+    #[case::a_cell_that_differs("step_failed", &[("code", "timeout")], false)]
+    #[case::a_cell_the_event_leaves_empty("step_failed", &[("retriable", "true")], false)]
+    #[case::another_event("step_skipped", &[], false)]
+    fn an_empty_cell_is_not_compared(
+        #[case] kind: &str,
+        #[case] cells: &[(&'static str, &str)],
+        #[case] matches: bool,
+    ) {
         let event = line("step_failed", &[("step", "charge"), ("code", "declined")]);
-        assert!(line("step_failed", &[]).matches(&event));
-        assert!(line("step_failed", &[("code", "declined")]).matches(&event));
-        assert!(!line("step_failed", &[("code", "timeout")]).matches(&event));
-        assert!(!line("step_failed", &[("retriable", "true")]).matches(&event));
-        assert!(!line("step_skipped", &[]).matches(&event));
+        assert_eq!(line(kind, cells).matches(&event), matches);
     }
 
-    #[test]
-    fn data_is_compared_as_json() {
+    #[rstest]
+    #[case::the_same_object_written_in_another_order(r#"{"slow": true, "ms": 1200}"#, true)]
+    #[case::another_object(r#"{"ms": 1300}"#, false)]
+    fn data_is_compared_as_json(#[case] data: &str, #[case] matches: bool) {
         let mut event = line("step_warning", &[]);
         event.data = Some(json!({"ms": 1200, "slow": true}));
         let mut expected = line("step_warning", &[]);
-        expected.data = Some(json(r#"{"slow": true, "ms": 1200}"#).unwrap());
-        assert!(expected.matches(&event));
-        expected.data = Some(json!({"ms": 1300}));
-        assert!(!expected.matches(&event));
+        expected.data = Some(json(data).unwrap());
+        assert_eq!(expected.matches(&event), matches);
     }
 
-    #[test]
-    fn a_value_is_carried_within_any_text_or_value_an_event_carries() {
+    #[rstest]
+    #[case::within_an_error_as_text(json!("4111"), true)]
+    #[case::within_an_error_as_a_number(json!(4111), true)]
+    #[case::within_a_value(json!(4112), true)]
+    #[case::as_part_of_a_value(json!({"number": 4112}), true)]
+    #[case::text_it_does_not_carry(json!("secret-token"), false)]
+    #[case::a_number_it_does_not_carry(json!(4113), false)]
+    fn a_value_is_carried_within_any_text_or_value_an_event_carries(
+        #[case] value: Value,
+        #[case] carried: bool,
+    ) {
         let mut event = line("journey_aborted", &[("error", "card 4111 declined")]);
         event.carried.push(json!({"card": {"number": 4112}}));
-        assert!(event.carries_value(&json!("4111")));
-        assert!(event.carries_value(&json!(4111)));
-        assert!(event.carries_value(&json!(4112)));
-        assert!(event.carries_value(&json!({"number": 4112})));
-        assert!(!event.carries_value(&json!("secret-token")));
-        assert!(!event.carries_value(&json!(4113)));
+        assert_eq!(event.carries_value(&value), carried);
     }
 
-    #[test]
-    fn the_names_and_labels_an_event_gives_are_not_values_it_carries() {
+    #[rstest]
+    #[case::the_step(json!("charge"))]
+    #[case::the_attempt(json!(1))]
+    #[case::who_decided(json!("default"))]
+    #[case::an_empty_text(json!(""))]
+    fn the_names_and_labels_an_event_gives_are_not_values_it_carries(#[case] value: Value) {
         let event = line(
             "step_retrying",
             &[
@@ -537,46 +551,47 @@ mod tests {
                 ("decided by", "default"),
             ],
         );
-        assert!(!event.carries_value(&json!("charge")));
-        assert!(!event.carries_value(&json!(1)));
-        assert!(!event.carries_value(&json!("default")));
-        assert!(!event.carries_value(&json!("")));
+        assert!(!event.carries_value(&value));
     }
 
-    #[test]
-    fn a_message_is_carried_as_a_message_an_error_or_a_reasons_message() {
+    #[rstest]
+    #[case::as_its_message("first", true)]
+    #[case::within_what_it_carries("later", true)]
+    #[case::not_at_all("second", false)]
+    fn a_message_is_carried_as_a_message_an_error_or_a_reasons_message(
+        #[case] message: &str,
+        #[case] carried: bool,
+    ) {
         let mut event = line("step_info", &[("message", "first")]);
         event.carried.push(json!("later"));
-        assert!(event.carries_message("first"));
-        assert!(event.carries_message("later"));
-        assert!(!event.carries_message("second"));
+        assert_eq!(event.carries_message(message), carried);
     }
 
-    #[test]
-    fn included_events_may_have_others_in_between_but_keep_their_order() {
-        let events = stream();
-        let first = line("journey_started", &[]);
-        let last = line("journey_succeeded", &[]);
-        assert!(includes_in_order(
-            &events,
-            &[line("journey_started", &[]), line("journey_succeeded", &[])]
-        ));
-        assert!(!includes_in_order(&events, &[last, first]));
-        assert!(!includes_in_order(&events, &[line("step_failed", &[])]));
+    fn lines(kinds: &[&str]) -> Vec<Line> {
+        kinds.iter().map(|kind| line(kind, &[])).collect()
     }
 
-    #[test]
-    fn exact_events_are_the_whole_stream_in_order() {
-        let events = stream();
-        let whole: Vec<_> = [
-            "journey_started",
-            "attempt_started",
-            "step_succeeded",
-            "journey_succeeded",
-        ]
-        .map(|kind| line(kind, &[]))
-        .into();
-        assert!(are_exactly(&events, &whole));
-        assert!(!are_exactly(&events, whole.get(1..).unwrap()));
+    #[rstest]
+    #[case::with_others_in_between(&["journey_started", "journey_succeeded"], true)]
+    #[case::in_another_order(&["journey_succeeded", "journey_started"], false)]
+    #[case::an_event_the_stream_lacks(&["step_failed"], false)]
+    fn included_events_may_have_others_in_between_but_keep_their_order(
+        #[case] kinds: &[&str],
+        #[case] included: bool,
+    ) {
+        assert_eq!(includes_in_order(&stream(), &lines(kinds)), included);
+    }
+
+    #[rstest]
+    #[case::the_whole_stream(
+        &["journey_started", "attempt_started", "step_succeeded", "journey_succeeded"],
+        true
+    )]
+    #[case::the_stream_without_its_first_event(
+        &["attempt_started", "step_succeeded", "journey_succeeded"],
+        false
+    )]
+    fn exact_events_are_the_whole_stream_in_order(#[case] kinds: &[&str], #[case] exact: bool) {
+        assert_eq!(are_exactly(&stream(), &lines(kinds)), exact);
     }
 }

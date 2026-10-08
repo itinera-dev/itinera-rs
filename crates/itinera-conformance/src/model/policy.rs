@@ -215,6 +215,10 @@ mod tests {
         for hook in Hook::ALL {
             assert_eq!(Hook::named(&hook.to_string()).unwrap(), hook);
         }
+    }
+
+    #[test]
+    fn a_name_outside_the_hooks_is_refused() {
         assert!(Hook::named("on step start").is_err());
     }
 

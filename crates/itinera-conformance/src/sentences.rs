@@ -98,17 +98,15 @@ fn stream(world: &World) -> Result<(Vec<Event>, Vec<Line>), Unmet> {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
 
-    #[test]
-    fn names_are_read_from_their_quotes_in_order() {
-        assert_eq!(
-            r#""audit", "metrics""#.parse::<Names>().unwrap(),
-            Names::from(vec!["audit".to_owned(), "metrics".to_owned()])
-        );
-        assert_eq!(
-            r#""audit""#.parse::<Names>().unwrap(),
-            Names::from(vec!["audit".to_owned()])
-        );
+    #[rstest]
+    #[case::two_names(r#""audit", "metrics""#, &["audit", "metrics"])]
+    #[case::one_name(r#""audit""#, &["audit"])]
+    fn names_are_read_from_their_quotes_in_order(#[case] text: &str, #[case] names: &[&str]) {
+        let names: Vec<String> = names.iter().copied().map(str::to_owned).collect();
+        assert_eq!(text.parse::<Names>().unwrap(), Names::from(names));
     }
 }
