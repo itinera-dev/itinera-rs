@@ -22,7 +22,8 @@ use std::fmt;
 /// assert_eq!(parse("42").ok(), Some(42));
 /// assert!(parse("forty-two").is_err());
 /// ```
-#[derive(derive_more::Display)]
+#[derive(derive_more::Debug, derive_more::Display)]
+#[debug("{inner:?}")]
 pub struct Error {
     inner: Box<dyn std::error::Error + Send + Sync + 'static>,
 }
@@ -101,21 +102,10 @@ impl From<Error> for Box<dyn std::error::Error + Send + Sync + 'static> {
     }
 }
 
-impl fmt::Debug for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.inner, f)
-    }
-}
-
-#[derive(derive_more::Display)]
+#[derive(derive_more::Debug, derive_more::Display)]
+#[debug("{message:?}")]
 struct Message<M> {
     message: M,
-}
-
-impl<M: fmt::Debug> fmt::Debug for Message<M> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.message, f)
-    }
 }
 
 impl<M: fmt::Display + fmt::Debug> std::error::Error for Message<M> {}

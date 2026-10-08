@@ -1,7 +1,6 @@
 //! Values: data that can be serialized, the only data a data bag, an event or a reason holds.
 
 use std::any::{self, Any};
-use std::fmt;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -45,6 +44,8 @@ impl<T> Value for T where T: Serialize + DeserializeOwned + Clone + Send + Sync 
 /// assert_eq!(value.downcast_ref::<i64>(), Some(&42));
 /// assert_eq!(value.downcast_ref::<i32>(), None);
 /// ```
+#[derive(derive_more::Debug)]
+#[debug("AnyValue({:?})", value.type_name())]
 pub struct AnyValue {
     value: Box<dyn Erased>,
 }
@@ -100,12 +101,6 @@ impl Clone for AnyValue {
         Self {
             value: self.value.clone_box(),
         }
-    }
-}
-
-impl fmt::Debug for AnyValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("AnyValue").field(&self.type_name()).finish()
     }
 }
 

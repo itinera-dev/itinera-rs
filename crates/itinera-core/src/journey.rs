@@ -154,14 +154,12 @@ pub struct DataBag {
 }
 
 impl DataBag {
-    #[cfg_attr(not(test), expect(dead_code, reason = "the instance builder fills it"))]
     pub(crate) fn new() -> Self {
         Self {
             values: BTreeMap::new(),
         }
     }
 
-    #[cfg_attr(not(test), expect(dead_code, reason = "the instance builder fills it"))]
     pub(crate) fn insert(&mut self, key: String, value: AnyValue) {
         self.values.insert(key, value);
     }

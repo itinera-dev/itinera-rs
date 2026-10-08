@@ -1,16 +1,17 @@
 //! Reporters, which receive the events of a journey, and dispatchers, which deliver them.
 
-use std::fmt;
-
 use crate::error::Error;
 use crate::event::{Event, EventBody};
+use crate::journey::{DataBag, JourneyId};
 
 #[cfg(feature = "async")]
 mod asynchronous;
 mod sealed;
 
 #[cfg(feature = "async")]
-pub use asynchronous::{AsyncDispatcher, AsyncDispatcherFactory, AsyncReporter, BoxedReporter};
+pub use asynchronous::{
+    AsyncDispatcher, AsyncDispatcherFactory, AsyncReporter, AsyncWorkflowReporter, BoxedReporter,
+};
 
 /// Receives the events of a journey, and decides on its own what to do with each: filter it,
 /// map it, forward it or ignore it.
@@ -65,6 +66,78 @@ pub trait Reporter: Send + 'static {
     /// }
     /// ```
     fn report(&mut self, event: &Event) -> Result<(), Error>;
+}
+
+/// A [`Reporter`] that a workflow lists, which every instance of the workflow makes for itself.
+///
+/// The workflow lists its reporters by type. Creating an instance makes each of them with
+/// [`init`](WorkflowReporter::init), after the journey ID, so a reporter can be made for that
+/// journey alone.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::error::Error;
+/// use itinera::event::Event;
+/// use itinera::journey::{DataBag, JourneyId};
+/// use itinera::report::{Reporter, WorkflowReporter};
+///
+/// struct Orders;
+///
+/// struct Audit {
+///     journey: JourneyId,
+/// }
+///
+/// impl Reporter for Audit {
+///     fn report(&mut self, event: &Event) -> Result<(), Error> {
+///         eprintln!("{} {}", self.journey, event.kind());
+///         Ok(())
+///     }
+/// }
+///
+/// impl WorkflowReporter<Orders> for Audit {
+///     fn init(_: &Orders, journey_id: &JourneyId, _: &DataBag) -> Result<Self, Error> {
+///         Ok(Audit {
+///             journey: journey_id.clone(),
+///         })
+///     }
+/// }
+/// ```
+pub trait WorkflowReporter<W>: Reporter + Sized {
+    /// Makes the reporter for one journey, from the workflow's own value, the journey ID and the
+    /// initial data. Failing makes creating the instance fail.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::event::Event;
+    /// use itinera::journey::{DataBag, JourneyId};
+    /// use itinera::report::{Reporter, WorkflowReporter};
+    ///
+    /// struct Orders {
+    ///     audited: bool,
+    /// }
+    ///
+    /// struct Audit;
+    ///
+    /// impl Reporter for Audit {
+    ///     fn report(&mut self, _event: &Event) -> Result<(), Error> {
+    ///         Ok(())
+    ///     }
+    /// }
+    ///
+    /// impl WorkflowReporter<Orders> for Audit {
+    ///     fn init(orders: &Orders, _: &JourneyId, _: &DataBag) -> Result<Self, Error> {
+    ///         if orders.audited {
+    ///             Ok(Audit)
+    ///         } else {
+    ///             Err(Error::msg("auditing is off"))
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    fn init(workflow: &W, journey_id: &JourneyId, data: &DataBag) -> Result<Self, Error>;
 }
 
 /// Delivers the events of one journey to the reporters added to it.
@@ -219,7 +292,9 @@ pub trait DispatcherFactory: Send + 'static {
 /// dispatcher.add(Box::new(Silent))?;
 /// # Ok::<(), Error>(())
 /// ```
+#[derive(derive_more::Debug)]
 pub struct DefaultDispatcher<R: sealed::Held = Box<dyn Reporter>> {
+    #[debug("{}", reporters.len())]
     reporters: Vec<R>,
 }
 
@@ -236,14 +311,6 @@ impl DefaultDispatcher {
     /// ```
     pub fn new() -> Self {
         Self::default()
-    }
-}
-
-impl<R: sealed::Held> fmt::Debug for DefaultDispatcher<R> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("DefaultDispatcher")
-            .field("reporters", &self.reporters.len())
-            .finish()
     }
 }
 
