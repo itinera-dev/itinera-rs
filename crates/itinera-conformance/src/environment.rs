@@ -1,7 +1,6 @@
 //! The environment variables that tell the runner what to run and where to report.
 
 use std::ffi::OsString;
-use std::fmt;
 use std::path::PathBuf;
 
 use cucumber::gherkin::tagexpr::TagOperation;
@@ -56,24 +55,15 @@ fn is_set(value: &OsString) -> bool {
 }
 
 /// Why the environment does not say what to run.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub(crate) enum EnvironmentError {
+    #[error("{0} is not set")]
     Missing(&'static str),
+    #[error("{TAGS} is not valid Unicode")]
     TagsNotUnicode,
+    #[error("{TAGS} is not a tag expression: {0}")]
     InvalidTags(String),
 }
-
-impl fmt::Display for EnvironmentError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Missing(name) => write!(f, "{name} is not set"),
-            Self::TagsNotUnicode => write!(f, "{TAGS} is not valid Unicode"),
-            Self::InvalidTags(tags) => write!(f, "{TAGS} is not a tag expression: {tags}"),
-        }
-    }
-}
-
-impl std::error::Error for EnvironmentError {}
 
 #[cfg(test)]
 mod tests {

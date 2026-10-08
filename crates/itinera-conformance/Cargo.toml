@@ -11,6 +11,7 @@ publish = false
 [dependencies]
 cucumber.workspace = true
 futures.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]

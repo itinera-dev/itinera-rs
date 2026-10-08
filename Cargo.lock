@@ -562,6 +562,7 @@ dependencies = [
  "cucumber",
  "futures",
  "serde_json",
+ "thiserror",
  "tokio",
 ]
 
