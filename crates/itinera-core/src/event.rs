@@ -926,6 +926,8 @@ pub(crate) mod tests {
     use std::num::NonZeroU32;
     use std::time::Duration;
 
+    use rstest::rstest;
+
     use super::*;
 
     pub(crate) fn event(sequence: u64, body: EventBody) -> Event {
@@ -1076,30 +1078,28 @@ pub(crate) mod tests {
         assert_eq!(event.kind(), "attempt_started");
     }
 
-    #[test]
-    fn names_display_as_the_specification_writes_them() {
-        assert_eq!(GiveUpHook::OnStepRetry.to_string(), "on step retry");
-        assert_eq!(
-            GiveUpHook::OnStepAbnormalTermination.to_string(),
-            "on step abnormal termination"
-        );
-        assert_eq!(
-            RetryCause::RetriableFailure.to_string(),
-            "retriable failure"
-        );
-        assert_eq!(
-            RetryCause::AbnormalTermination.to_string(),
-            "abnormal termination"
-        );
-        assert_eq!(GiveUpCause::Failure.to_string(), "failure");
-        assert_eq!(
-            GiveUpCause::AbnormalTermination.to_string(),
-            "abnormal termination"
-        );
-        assert_eq!(
-            GiveUpCause::RetriesExhausted.to_string(),
-            "retries exhausted"
-        );
+    #[rstest]
+    #[case::give_up_on_step_retry(&GiveUpHook::OnStepRetry, "on step retry")]
+    #[case::give_up_on_step_abnormal_termination(
+        &GiveUpHook::OnStepAbnormalTermination,
+        "on step abnormal termination"
+    )]
+    #[case::retry_after_a_retriable_failure(&RetryCause::RetriableFailure, "retriable failure")]
+    #[case::retry_after_an_abnormal_termination(
+        &RetryCause::AbnormalTermination,
+        "abnormal termination"
+    )]
+    #[case::given_up_after_a_failure(&GiveUpCause::Failure, "failure")]
+    #[case::given_up_after_an_abnormal_termination(
+        &GiveUpCause::AbnormalTermination,
+        "abnormal termination"
+    )]
+    #[case::given_up_with_retries_exhausted(&GiveUpCause::RetriesExhausted, "retries exhausted")]
+    fn names_display_as_the_specification_writes_them(
+        #[case] name: &dyn fmt::Display,
+        #[case] written: &str,
+    ) {
+        assert_eq!(name.to_string(), written);
     }
 
     #[test]
@@ -1114,32 +1114,31 @@ pub(crate) mod tests {
         assert_eq!(cause.to_string(), "FailWorkflow");
     }
 
-    #[test]
-    fn a_journey_failure_names_its_cause() {
-        let failures = [
-            (
-                JourneyFailure::Failure(Reason::new("declined")),
-                FailureCause::Failure,
-            ),
-            (
-                JourneyFailure::RetriesExhausted(LastFailure::Error("timeout".to_string())),
-                FailureCause::RetriesExhausted,
-            ),
-            (
-                JourneyFailure::AbnormalTermination("boom".to_string()),
-                FailureCause::AbnormalTermination,
-            ),
-            (
-                JourneyFailure::FailWorkflow {
-                    decided_by: close(StepHook::OnStepSuccess),
-                    reason: Reason::new("fraud"),
-                },
-                FailureCause::FailWorkflow,
-            ),
-        ];
-        for (failure, cause) in failures {
-            assert_eq!(failure.cause(), cause);
-        }
+    #[rstest]
+    #[case::failure(
+        JourneyFailure::Failure(Reason::new("declined")),
+        FailureCause::Failure
+    )]
+    #[case::retries_exhausted(
+        JourneyFailure::RetriesExhausted(LastFailure::Error("timeout".to_string())),
+        FailureCause::RetriesExhausted
+    )]
+    #[case::abnormal_termination(
+        JourneyFailure::AbnormalTermination("boom".to_string()),
+        FailureCause::AbnormalTermination
+    )]
+    #[case::fail_workflow(
+        JourneyFailure::FailWorkflow {
+            decided_by: close(StepHook::OnStepSuccess),
+            reason: Reason::new("fraud"),
+        },
+        FailureCause::FailWorkflow
+    )]
+    fn a_journey_failure_names_its_cause(
+        #[case] failure: JourneyFailure,
+        #[case] cause: FailureCause,
+    ) {
+        assert_eq!(failure.cause(), cause);
     }
 
     #[test]
@@ -1200,16 +1199,21 @@ pub(crate) mod tests {
         Utc { seconds, nanos }.to_string()
     }
 
-    #[test]
-    fn a_timestamp_displays_in_utc_in_iso_8601() {
-        assert_eq!(at(0, 0), "1970-01-01T00:00:00Z");
-        assert_eq!(at(951_868_800, 0), "2000-03-01T00:00:00Z");
-        assert_eq!(at(1_709_208_000, 0), "2024-02-29T12:00:00Z");
-        assert_eq!(at(1_700_000_000, 123_000_000), "2023-11-14T22:13:20.123Z");
-        assert_eq!(at(1_700_000_000, 5), "2023-11-14T22:13:20.000000005Z");
-        assert_eq!(at(253_402_300_799, 0), "9999-12-31T23:59:59Z");
-        assert_eq!(at(-62_167_219_200, 0), "0000-01-01T00:00:00Z");
-        assert_eq!(at(-86_400, 0), "1969-12-31T00:00:00Z");
+    #[rstest]
+    #[case::the_epoch(0, 0, "1970-01-01T00:00:00Z")]
+    #[case::the_day_after_a_leap_day_in_a_century(951_868_800, 0, "2000-03-01T00:00:00Z")]
+    #[case::a_leap_day(1_709_208_000, 0, "2024-02-29T12:00:00Z")]
+    #[case::milliseconds(1_700_000_000, 123_000_000, "2023-11-14T22:13:20.123Z")]
+    #[case::nanoseconds(1_700_000_000, 5, "2023-11-14T22:13:20.000000005Z")]
+    #[case::the_last_second_of_year_9999(253_402_300_799, 0, "9999-12-31T23:59:59Z")]
+    #[case::the_first_second_of_year_0(-62_167_219_200, 0, "0000-01-01T00:00:00Z")]
+    #[case::a_day_before_the_epoch(-86_400, 0, "1969-12-31T00:00:00Z")]
+    fn a_timestamp_displays_in_utc_in_iso_8601(
+        #[case] seconds: i128,
+        #[case] nanos: u32,
+        #[case] written: &str,
+    ) {
+        assert_eq!(at(seconds, nanos), written);
     }
 
     #[test]
@@ -1226,9 +1230,13 @@ pub(crate) mod tests {
         );
     }
 
-    #[test]
-    fn a_year_outside_0_to_9999_is_written_as_an_expanded_year() {
-        assert_eq!(at(253_402_300_800, 0), "+10000-01-01T00:00:00Z");
-        assert_eq!(at(-62_167_219_201, 0), "-00001-12-31T23:59:59Z");
+    #[rstest]
+    #[case::year_10000(253_402_300_800, "+10000-01-01T00:00:00Z")]
+    #[case::year_minus_1(-62_167_219_201, "-00001-12-31T23:59:59Z")]
+    fn a_year_outside_0_to_9999_is_written_as_an_expanded_year(
+        #[case] seconds: i128,
+        #[case] written: &str,
+    ) {
+        assert_eq!(at(seconds, 0), written);
     }
 }

@@ -108,17 +108,20 @@ pub(crate) enum Holding {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
 
-    #[test]
-    fn only_the_kinds_of_the_catalogue_are_events() {
-        assert_eq!(
-            EventKind::named("step_retrying").unwrap().name(),
-            "step_retrying"
-        );
-        assert_eq!(
-            EventKind::named("step_started").unwrap_err(),
-            ModelError::UnknownEvent("step_started".to_owned())
-        );
+    #[rstest]
+    #[case::a_kind_of_the_catalogue("step_retrying", Ok("step_retrying"))]
+    #[case::a_kind_outside_it(
+        "step_started",
+        Err(ModelError::UnknownEvent("step_started".to_owned()))
+    )]
+    fn only_the_kinds_of_the_catalogue_are_events(
+        #[case] name: &str,
+        #[case] read: Result<&str, ModelError>,
+    ) {
+        assert_eq!(EventKind::named(name).map(EventKind::name), read);
     }
 }

@@ -156,8 +156,11 @@ pub enum Refusal {
 pub(crate) mod tests {
     use std::sync::{Arc, Mutex};
 
+    use rstest::rstest;
+
     use super::*;
     use crate::event::{Event, EventBody, JourneyAbort};
+    use crate::instance::Instance;
     use crate::journey::{Abort, DataBag, JourneyId, JourneyStatus};
     use crate::report::{DefaultDispatcher, Reporter, WorkflowReporter};
     use crate::workflow::WorkflowDescriptor;
@@ -259,14 +262,26 @@ pub(crate) mod tests {
             .build()
     }
 
-    fn run(shop: Shop) -> (JourneyResult, Log) {
+    type Execute = fn(Instance<Shop>) -> Result<JourneyResult, Refusal>;
+
+    fn on<F: DispatcherFactory + Default>(
+        instance: Instance<Shop>,
+    ) -> Result<JourneyResult, Refusal> {
+        LocalExecutor::with_dispatcher_factory(F::default()).run(instance)
+    }
+
+    fn run_on(execute: Execute, shop: Shop) -> (JourneyResult, Log) {
         let log = Arc::clone(&shop.log);
         let instance = shop_workflow()
             .instance(shop)
             .data("amount", 42_i64)
             .create()
             .unwrap();
-        (LocalExecutor::new().run(instance).unwrap(), log)
+        (execute(instance).unwrap(), log)
+    }
+
+    fn run(shop: Shop) -> (JourneyResult, Log) {
+        run_on(on::<DefaultDispatcherFactory>, shop)
     }
 
     #[test]
@@ -317,9 +332,14 @@ pub(crate) mod tests {
         assert_eq!(*runs.lock().unwrap(), 1);
     }
 
-    #[test]
-    fn a_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others() {
-        let (result, log) = run(Shop::failing("fragile", "attempt_started"));
+    #[rstest]
+    #[case::the_default_dispatcher(on::<DefaultDispatcherFactory>)]
+    #[case::a_dispatcher_that_ignores_failures(on::<CarelessFactory>)]
+    #[case::a_dispatcher_that_stops_at_any_failure(on::<StrictFactory>)]
+    fn a_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others(
+        #[case] execute: Execute,
+    ) {
+        let (result, log) = run_on(execute, Shop::failing("fragile", "attempt_started"));
 
         let JourneyStatus::Aborted(Abort::ReporterFailed(error)) = result.status else {
             panic!(
@@ -342,6 +362,37 @@ pub(crate) mod tests {
         );
     }
 
+    #[rstest]
+    #[case::the_default_dispatcher(on::<DefaultDispatcherFactory>)]
+    #[case::a_dispatcher_that_ignores_failures(on::<CarelessFactory>)]
+    #[case::a_dispatcher_that_stops_at_any_failure(on::<StrictFactory>)]
+    fn a_reporter_that_fails_while_journey_aborted_is_delivered_is_ignored(
+        #[case] execute: Execute,
+    ) {
+        let mut shop = Shop::failing("audit", "attempt_started");
+        shop.fails_on.push(("fragile", "journey_aborted"));
+        let (result, log) = run_on(execute, shop);
+
+        let JourneyStatus::Aborted(Abort::ReporterFailed(error)) = result.status else {
+            panic!(
+                "the journey was not aborted by a reporter: {:?}",
+                result.status
+            );
+        };
+        assert_eq!(error.to_string(), "audit failed on attempt_started");
+        assert_eq!(
+            entries(&log),
+            [
+                "audit journey_started",
+                "fragile journey_started",
+                "metrics journey_started",
+                "audit attempt_started",
+                "fragile journey_aborted",
+                "metrics journey_aborted",
+            ]
+        );
+    }
+
     #[test]
     fn a_reporter_that_fails_on_the_last_decision_still_aborts_the_journey() {
         let (result, log) = run(Shop::failing("metrics", "journey_succeeded"));
@@ -358,29 +409,6 @@ pub(crate) mod tests {
                 "metrics journey_succeeded",
                 "audit journey_aborted",
                 "fragile journey_aborted",
-            ]
-        );
-    }
-
-    #[test]
-    fn a_failure_while_journey_aborted_is_delivered_is_ignored() {
-        let mut shop = Shop::failing("audit", "journey_started");
-        shop.fails_on.push(("fragile", "journey_aborted"));
-        let (result, log) = run(shop);
-
-        let JourneyStatus::Aborted(Abort::ReporterFailed(error)) = result.status else {
-            panic!(
-                "the journey was not aborted by a reporter: {:?}",
-                result.status
-            );
-        };
-        assert_eq!(error.to_string(), "audit failed on journey_started");
-        assert_eq!(
-            entries(&log),
-            [
-                "audit journey_started",
-                "fragile journey_aborted",
-                "metrics journey_aborted",
             ]
         );
     }
@@ -468,6 +496,7 @@ pub(crate) mod tests {
         }
     }
 
+    #[derive(Default)]
     struct CarelessFactory;
 
     impl DispatcherFactory for CarelessFactory {
@@ -476,33 +505,6 @@ pub(crate) mod tests {
         fn create(&mut self) -> Result<Careless, Error> {
             Ok(Careless::default())
         }
-    }
-
-    #[test]
-    fn a_reporter_that_fails_aborts_the_journey_whatever_the_dispatcher() {
-        let shop = Shop::failing("audit", "attempt_started");
-        let log = Arc::clone(&shop.log);
-        let instance = shop_workflow().instance(shop).create().unwrap();
-
-        let result = LocalExecutor::with_dispatcher_factory(CarelessFactory)
-            .run(instance)
-            .unwrap();
-
-        assert!(matches!(
-            result.status,
-            JourneyStatus::Aborted(Abort::ReporterFailed(_))
-        ));
-        assert_eq!(
-            entries(&log),
-            [
-                "audit journey_started",
-                "fragile journey_started",
-                "metrics journey_started",
-                "audit attempt_started",
-                "fragile journey_aborted",
-                "metrics journey_aborted",
-            ]
-        );
     }
 
     /// A dispatcher that fails on one kind of event, or when a reporter is added.
@@ -628,6 +630,7 @@ pub(crate) mod tests {
         }
     }
 
+    #[derive(Default)]
     struct StrictFactory;
 
     impl DispatcherFactory for StrictFactory {
@@ -636,37 +639,6 @@ pub(crate) mod tests {
         fn create(&mut self) -> Result<Strict, Error> {
             Ok(Strict::default())
         }
-    }
-
-    #[test]
-    fn journey_aborted_reaches_every_reporter_but_the_one_that_failed_whatever_the_dispatcher() {
-        let mut shop = Shop::failing("audit", "attempt_started");
-        shop.fails_on.push(("fragile", "journey_aborted"));
-        let log = Arc::clone(&shop.log);
-        let instance = shop_workflow().instance(shop).create().unwrap();
-
-        let result = LocalExecutor::with_dispatcher_factory(StrictFactory)
-            .run(instance)
-            .unwrap();
-
-        let JourneyStatus::Aborted(Abort::ReporterFailed(error)) = result.status else {
-            panic!(
-                "the journey was not aborted by a reporter: {:?}",
-                result.status
-            );
-        };
-        assert_eq!(error.to_string(), "audit failed on attempt_started");
-        assert_eq!(
-            entries(&log),
-            [
-                "audit journey_started",
-                "fragile journey_started",
-                "metrics journey_started",
-                "audit attempt_started",
-                "fragile journey_aborted",
-                "metrics journey_aborted",
-            ]
-        );
     }
 
     #[test]

@@ -49,6 +49,7 @@ pub(crate) fn entries(text: &str) -> Result<Vec<(String, Value)>, ModelError> {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
     use serde_json::json;
 
     use super::*;
@@ -57,29 +58,31 @@ mod tests {
         name.parse().unwrap()
     }
 
-    #[test]
-    fn every_type_of_the_neutral_vocabulary_is_read() {
-        let names = ["string", "integer", "number", "boolean", "list", "object"];
-        let types = names.map(parsed);
-        assert_eq!(
-            types,
-            [
-                ValueType::String,
-                ValueType::Integer,
-                ValueType::Number,
-                ValueType::Boolean,
-                ValueType::List,
-                ValueType::Object,
-            ]
-        );
-        assert!("float".parse::<ValueType>().is_err());
+    #[rstest]
+    #[case::string("string", ValueType::String)]
+    #[case::integer("integer", ValueType::Integer)]
+    #[case::number("number", ValueType::Number)]
+    #[case::boolean("boolean", ValueType::Boolean)]
+    #[case::list("list", ValueType::List)]
+    #[case::object("object", ValueType::Object)]
+    fn every_type_of_the_neutral_vocabulary_is_read(#[case] name: &str, #[case] read: ValueType) {
+        assert_eq!(parsed(name), read);
     }
 
     #[test]
-    fn a_number_without_a_fraction_is_an_integer_and_any_other_is_not() {
-        assert!(json("42").unwrap().is_i64());
-        assert!(json("4.0").unwrap().is_f64());
-        assert!(json("4.5").unwrap().is_f64());
+    fn a_type_outside_the_neutral_vocabulary_is_refused() {
+        assert!("float".parse::<ValueType>().is_err());
+    }
+
+    #[rstest]
+    #[case::a_whole_number("42", true)]
+    #[case::a_zero_fraction("4.0", false)]
+    #[case::a_fraction("4.5", false)]
+    fn a_number_without_a_fraction_is_an_integer_and_any_other_is_not(
+        #[case] text: &str,
+        #[case] integer: bool,
+    ) {
+        assert_eq!(json(text).unwrap().is_i64(), integer);
     }
 
     #[test]

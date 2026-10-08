@@ -300,6 +300,7 @@ fn value_under<'a>((name, value): &'a (String, Value), key: &str) -> Option<&'a 
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
     use serde_json::json;
 
     use super::*;
@@ -345,20 +346,26 @@ mod tests {
         assert!(model.values_of("note").is_empty());
     }
 
-    #[test]
-    fn only_step_and_journey_levels_are_emitted_events() {
-        assert!(Level::is_emitted("step_warning"));
-        assert!(Level::is_emitted("journey_info"));
-        assert!(!Level::is_emitted("step_failed"));
-        assert!(!Level::is_emitted("journey_aborted"));
+    #[rstest]
+    #[case::a_step_level("step_warning", true)]
+    #[case::a_journey_level("journey_info", true)]
+    #[case::a_step_outcome("step_failed", false)]
+    #[case::a_journey_end("journey_aborted", false)]
+    fn only_step_and_journey_levels_are_emitted_events(#[case] kind: &str, #[case] emitted: bool) {
+        assert_eq!(Level::is_emitted(kind), emitted);
     }
 
-    #[test]
-    fn an_emitted_kind_names_its_level_after_the_prefix_of_whoever_emits_it() {
-        assert_eq!(Level::of("step", "step_warning").unwrap(), Level::Warning);
-        assert_eq!(Level::of("journey", "journey_error").unwrap(), Level::Error);
-        assert!(Level::of("step", "journey_info").is_err());
-        assert!(Level::of("step", "step_debug").is_err());
+    #[rstest]
+    #[case::by_a_step("step", "step_warning", Some(Level::Warning))]
+    #[case::by_the_journey("journey", "journey_error", Some(Level::Error))]
+    #[case::with_the_prefix_of_another("step", "journey_info", None)]
+    #[case::at_a_level_outside_the_catalogue("step", "step_debug", None)]
+    fn an_emitted_kind_names_its_level_after_the_prefix_of_whoever_emits_it(
+        #[case] emitter: &str,
+        #[case] kind: &str,
+        #[case] level: Option<Level>,
+    ) {
+        assert_eq!(Level::of(emitter, kind).ok(), level);
     }
 
     #[test]

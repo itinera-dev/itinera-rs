@@ -79,25 +79,27 @@ pub enum Lifecycle {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt;
+
+    use rstest::rstest;
+
     use super::*;
 
-    #[test]
-    fn hooks_and_lifecycles_display_as_the_specification_writes_them() {
-        assert_eq!(StepHook::OnStepSuccess.to_string(), "on step success");
-        assert_eq!(StepHook::OnStepFailure.to_string(), "on step failure");
-        assert_eq!(StepHook::OnStepRetry.to_string(), "on step retry");
-        assert_eq!(
-            StepHook::OnStepAbnormalTermination.to_string(),
-            "on step abnormal termination"
-        );
-        assert_eq!(
-            WorkflowHook::OnWorkflowSuccess.to_string(),
-            "on workflow success"
-        );
-        assert_eq!(
-            WorkflowHook::OnWorkflowFailure.to_string(),
-            "on workflow failure"
-        );
-        assert_eq!(Lifecycle::FinishWorkflow.to_string(), "FinishWorkflow");
+    #[rstest]
+    #[case::on_step_success(&StepHook::OnStepSuccess, "on step success")]
+    #[case::on_step_failure(&StepHook::OnStepFailure, "on step failure")]
+    #[case::on_step_retry(&StepHook::OnStepRetry, "on step retry")]
+    #[case::on_step_abnormal_termination(
+        &StepHook::OnStepAbnormalTermination,
+        "on step abnormal termination"
+    )]
+    #[case::on_workflow_success(&WorkflowHook::OnWorkflowSuccess, "on workflow success")]
+    #[case::on_workflow_failure(&WorkflowHook::OnWorkflowFailure, "on workflow failure")]
+    #[case::finish_workflow(&Lifecycle::FinishWorkflow, "FinishWorkflow")]
+    fn hooks_and_lifecycles_display_as_the_specification_writes_them(
+        #[case] name: &dyn fmt::Display,
+        #[case] written: &str,
+    ) {
+        assert_eq!(name.to_string(), written);
     }
 }
