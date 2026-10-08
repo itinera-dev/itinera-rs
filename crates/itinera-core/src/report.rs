@@ -1,7 +1,5 @@
 //! Reporters, which receive the events of a journey, and dispatchers, which deliver them.
 
-use std::fmt;
-
 use crate::error::Error;
 use crate::event::{Event, EventBody};
 use crate::journey::{DataBag, JourneyId};
@@ -294,7 +292,9 @@ pub trait DispatcherFactory: Send + 'static {
 /// dispatcher.add(Box::new(Silent))?;
 /// # Ok::<(), Error>(())
 /// ```
+#[derive(derive_more::Debug)]
 pub struct DefaultDispatcher<R: sealed::Held = Box<dyn Reporter>> {
+    #[debug("{}", reporters.len())]
     reporters: Vec<R>,
 }
 
@@ -311,14 +311,6 @@ impl DefaultDispatcher {
     /// ```
     pub fn new() -> Self {
         Self::default()
-    }
-}
-
-impl<R: sealed::Held> fmt::Debug for DefaultDispatcher<R> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("DefaultDispatcher")
-            .field("reporters", &self.reporters.len())
-            .finish()
     }
 }
 

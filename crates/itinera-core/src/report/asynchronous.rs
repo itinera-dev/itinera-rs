@@ -1,4 +1,3 @@
-use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
 
@@ -134,23 +133,18 @@ pub trait AsyncWorkflowReporter<W>: AsyncReporter + Sized {
 /// let reporter = BoxedReporter::from_reporter(Silent);
 /// # drop(reporter);
 /// ```
+#[derive(derive_more::Debug)]
+#[debug("BoxedReporter({kind:?})")]
 pub struct BoxedReporter {
     kind: Kind,
 }
 
+#[derive(derive_more::Debug)]
 enum Kind {
+    #[debug("{:?}", "sync")]
     Sync(Box<dyn Reporter>),
+    #[debug("{:?}", "async")]
     Async(Box<dyn DynAsyncReporter>),
-}
-
-impl fmt::Debug for BoxedReporter {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let kind = match self.kind {
-            Kind::Sync(_) => "sync",
-            Kind::Async(_) => "async",
-        };
-        f.debug_tuple("BoxedReporter").field(&kind).finish()
-    }
 }
 
 impl BoxedReporter {

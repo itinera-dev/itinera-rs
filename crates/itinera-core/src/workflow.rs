@@ -1,6 +1,5 @@
 //! Workflows: their declaration, the workflow descriptor, shared by every instance.
 
-use std::fmt;
 use std::sync::Arc;
 
 use uuid::Builder;
@@ -36,13 +35,17 @@ mod asynchronous;
 ///
 /// assert_eq!(ORDERS.name(), "orders");
 /// ```
+#[derive(derive_more::Debug)]
 pub struct WorkflowDescriptor<W, M: Mode = Synchronous> {
     declaration: Arc<Declaration<W, M>>,
 }
 
+#[derive(derive_more::Debug)]
 struct Declaration<W, M: Mode> {
     name: String,
+    #[debug("{}", reporters.len())]
     reporters: Vec<MakeReporter<W, M>>,
+    #[debug("{}", id_generator.is_some())]
     id_generator: Option<GenerateId<W>>,
 }
 
@@ -144,22 +147,6 @@ impl<W, M: Mode> Clone for WorkflowDescriptor<W, M> {
     }
 }
 
-impl<W, M: Mode> fmt::Debug for WorkflowDescriptor<W, M> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.declaration.fmt(f)
-    }
-}
-
-impl<W, M: Mode> fmt::Debug for Declaration<W, M> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("WorkflowDescriptor")
-            .field("name", &self.name)
-            .field("reporters", &self.reporters.len())
-            .field("id_generator", &self.id_generator.is_some())
-            .finish()
-    }
-}
-
 /// Declares a workflow, one part at a time, and builds its [`WorkflowDescriptor`].
 ///
 /// # Examples
@@ -184,6 +171,7 @@ impl<W, M: Mode> fmt::Debug for Declaration<W, M> {
 /// # drop(instance);
 /// # Ok::<(), itinera::instance::InstanceError>(())
 /// ```
+#[derive(derive_more::Debug)]
 pub struct WorkflowBuilder<W, M: Mode = Synchronous> {
     declaration: Declaration<W, M>,
 }
@@ -280,12 +268,6 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
         WorkflowDescriptor {
             declaration: Arc::new(self.declaration),
         }
-    }
-}
-
-impl<W, M: Mode> fmt::Debug for WorkflowBuilder<W, M> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.declaration.fmt(f)
     }
 }
 

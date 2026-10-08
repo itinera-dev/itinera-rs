@@ -1,7 +1,5 @@
 //! Workflow instances: one per journey, holding its journey ID, its reporters and its data.
 
-use std::fmt;
-
 use crate::error::Error;
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::{Mode, Synchronous};
@@ -151,10 +149,13 @@ pub trait WorkflowInstance: Send + Sized + 'static {
 /// assert_eq!(instance.descriptor().name(), "orders");
 /// # Ok::<(), itinera::instance::InstanceError>(())
 /// ```
+#[derive(derive_more::Debug)]
 pub struct Instance<W, M: Mode = Synchronous> {
     descriptor: WorkflowDescriptor<W, M>,
+    #[debug(skip)]
     workflow: W,
     journey_id: JourneyId,
+    #[debug("{}", reporters.len())]
     reporters: Vec<M::Reporter>,
     data: DataBag,
 }
@@ -188,17 +189,6 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowInstance for Instance<W, M> {
     }
 }
 
-impl<W, M: Mode> fmt::Debug for Instance<W, M> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Instance")
-            .field("descriptor", &self.descriptor)
-            .field("journey_id", &self.journey_id)
-            .field("reporters", &self.reporters.len())
-            .field("data", &self.data)
-            .finish_non_exhaustive()
-    }
-}
-
 /// Creates an [`Instance`]: takes its initial data, then produces its journey ID and makes its
 /// reporters, in that order.
 ///
@@ -219,8 +209,10 @@ impl<W, M: Mode> fmt::Debug for Instance<W, M> {
 /// assert_eq!(instance.data_bag().keys().collect::<Vec<_>>(), ["amount", "customer"]);
 /// # Ok::<(), itinera::instance::InstanceError>(())
 /// ```
+#[derive(derive_more::Debug)]
 pub struct InstanceBuilder<W, M: Mode = Synchronous> {
     descriptor: WorkflowDescriptor<W, M>,
+    #[debug(skip)]
     workflow: W,
     data: DataBag,
 }
@@ -296,15 +288,6 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
             reporters,
             data,
         })
-    }
-}
-
-impl<W, M: Mode> fmt::Debug for InstanceBuilder<W, M> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("InstanceBuilder")
-            .field("descriptor", &self.descriptor)
-            .field("data", &self.data)
-            .finish_non_exhaustive()
     }
 }
 
@@ -552,5 +535,26 @@ mod tests {
             assert_eq!(made.lock().unwrap()[1], "forward");
             assert_eq!(made.lock().unwrap().len(), 3);
         }
+    }
+
+    #[test]
+    fn an_instance_shows_its_journey_its_data_and_how_many_reporters_it_has_but_not_its_workflow() {
+        let workflow = WorkflowDescriptor::builder("orders")
+            .reporter::<Audit>()
+            .id_generator(|_: &Orders, _| Ok("order-7".to_string()))
+            .build();
+        let instance = workflow
+            .instance(Orders::new())
+            .data("amount", 42_i64)
+            .create()
+            .unwrap();
+        assert_eq!(
+            format!("{instance:?}"),
+            "Instance { \
+             descriptor: WorkflowDescriptor { declaration: Declaration { \
+             name: \"orders\", reporters: 1, id_generator: true } }, \
+             journey_id: JourneyId(\"order-7\"), reporters: 1, \
+             data: DataBag { values: {\"amount\": AnyValue(\"i64\")} }, .. }"
+        );
     }
 }

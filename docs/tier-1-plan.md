@@ -370,7 +370,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
   | Crate | Used by | For |
   |---|---|---|
   | `serde`, `erased-serde` | core | the value bound, letting reporters serialize type-erased values |
-  | `derive_more` (`display`, `from`, `into`, `as_ref`, `into_iterator`) | core | `Display`, `From`, `Into`, `AsRef` and `IntoIterator` on newtypes, names and collections, which the types use throughout |
+  | `derive_more` (`debug`, `display`, `from`, `into`, `as_ref`, `into_iterator`) | core | `Debug` on types whose type parameters need not be `Debug`, or whose fields are skipped, summarised or forwarded, and `Display`, `From`, `Into`, `AsRef` and `IntoIterator` on newtypes, names and collections, which the types use throughout |
   | `uuid`, `getrandom` (`std`) | core | the default journey ID, a UUID v4 made from random bytes, so that a failing random source is an error rather than a panic |
   | `thiserror` | core, conformance runner | `Display` and `std::error::Error` on error enums, such as `InstanceError` |
   | `syn`, `quote`, `proc-macro2` | macros | the macros |
