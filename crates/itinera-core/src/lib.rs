@@ -1,5 +1,5 @@
 //! The core of Itinera: values and the data bag, events, reporters and dispatchers, steps,
-//! policies, workflow descriptors, workflow instances and the local executors.
+//! policies, execution modes, workflow descriptors, workflow instances and the local executors.
 //!
 //! Applications depend on the `itinera` crate, which re-exports this one.
 
@@ -46,3 +46,21 @@ pub mod report;
 #[cfg(not(feature = "unstable"))]
 #[allow(dead_code, unreachable_pub, unused_imports)]
 mod report;
+
+#[cfg(feature = "unstable")]
+pub mod mode;
+#[cfg(not(feature = "unstable"))]
+#[allow(dead_code, unreachable_pub, unused_imports)]
+mod mode;
+
+#[cfg(feature = "unstable")]
+pub mod workflow;
+#[cfg(not(feature = "unstable"))]
+#[allow(dead_code, unreachable_pub, unused_imports)]
+mod workflow;
+
+#[cfg(feature = "unstable")]
+pub mod instance;
+#[cfg(not(feature = "unstable"))]
+#[allow(dead_code, unreachable_pub, unused_imports)]
+mod instance;

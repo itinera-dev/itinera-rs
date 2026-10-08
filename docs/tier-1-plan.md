@@ -36,7 +36,7 @@ The builder is the public API, and the macros are only syntax over it. There is 
 
 - **Lifecycles.** Each hook has its own return type, holding only the lifecycles it may return, so an invalid lifecycle cannot be written.
 - **Roles.** A workflow is generic over its own type `W`, and a policy that needs a role is implemented only for workflows whose `W` implements that role's trait. Attaching it to a workflow without the role does not compile.
-- **Execution modes.** The mode is part of the descriptor's type. Adding an asynchronous part turns a `Sync` descriptor into an `Async` one, and the synchronous executor accepts only `Sync`.
+- **Execution modes.** The mode is part of the descriptor's type. Adding an asynchronous part turns a `Synchronous` descriptor into an `Asynchronous` one, and the synchronous executor accepts only `Synchronous`. The modes are `itinera::mode::Synchronous` and `itinera::mode::Asynchronous`, named so that they never hide the standard `Sync` trait.
 - **Values.** Only values can enter the data bag, event data or a reason's details (decision 3).
 - **Late handles.** A contributor or reporter cannot outlive its attempt or hook (decision 4).
 
@@ -116,12 +116,12 @@ The rules types cannot reach are checked when the descriptor is built (decision 
 - **Policies are built by the executor from factories** that return the policy or an `Error`: workflow policies once per journey, before it starts, where an error is a refusal; step policies for every attempt, with the step, where an error aborts the journey with `policy could not be built`. The builder also accepts factories that cannot fail.
 - **Roles are plain traits**, implemented by the workflow's own type `W`. A hook requests one as `#[role] notifier: &dyn Notifier`. There is no marker trait. A role operation that can fail returns `Result<_, itinera::error::Error>`, and the hook propagates it, which aborts with `hook failed`.
 - **Panics are never caught.** A panic is a bug: it propagates to whoever called `run`, and the journey stops as if the process had crashed.
-- **Each hook has a synchronous trait and an asynchronous one**, behind the `async` feature. Any asynchronous part makes the workflow `Async`.
+- **Each hook has a synchronous trait and an asynchronous one**, behind the `async` feature. Any asynchronous part makes the workflow `Asynchronous`.
 
 ### 6. Workflow descriptors and input adapters
 
 ```rust
-static ORDERS: LazyLock<WorkflowDescriptor<Orders, Sync>> = LazyLock::new(|| {
+static ORDERS: LazyLock<WorkflowDescriptor<Orders, Synchronous>> = LazyLock::new(|| {
     WorkflowDescriptor::builder("orders")
         .step(StepDescriptor::new("charge", ChargeFactory)
             .retries(2)
@@ -130,7 +130,7 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Sync>> = LazyLock::new(|| {
         .step(StepDescriptor::new("ship", ShipFactory))
         .policy(|| Notify::new())
         .reporter::<AuditLog>()
-        .id_generator(|w: &Orders, data: &InitialData| format!("order-{}", w.next_number()))
+        .id_generator(|w: &Orders, data: &DataBag| Ok(format!("order-{}", w.next_number())))
         .build()
         .expect("the orders workflow is well formed")
 });
@@ -159,14 +159,15 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Sync>> = LazyLock::new(|| {
 The specification requires only that any executor can run any instance, however it was produced. In Rust, that contract is one trait, the only thing an executor relies on. The executor coordinates the flow; it does not own data.
 
 ```rust
-pub trait WorkflowInstance: Send + 'static {
+pub trait WorkflowInstance: Send + Sized + 'static {
     type Workflow: Send + Sync + 'static;
     type Mode: Mode;
     fn descriptor(&self) -> &WorkflowDescriptor<Self::Workflow, Self::Mode>;
     fn workflow(&self) -> &Self::Workflow;
     fn journey_id(&self) -> &JourneyId;
-    fn take_reporters(&mut self) -> Vec<BoxedReporter>;
+    fn take_reporters(&mut self) -> Vec<<Self::Mode as Mode>::Reporter>;
     fn data_bag(&self) -> &DataBag;
+    fn into_data_bag(self) -> DataBag;
     fn data_for_step(&self, step: &str, input: &InputRequest) -> Resolution;
     fn data_for_workflow(&self, request: &DataRequest) -> Resolution;
     fn commit(&mut self, key: String, value: AnyValue, source: Source) -> Committed;
@@ -182,16 +183,16 @@ pub trait WorkflowInstance: Send + 'static {
       .create()?;
   ```
 
-  `create()` produces the journey ID first, with the descriptor's generator (a closure returning a `String`) or the default UUID version 4, then builds each reporter, then the instance. A failure there is an `InstanceError`, outside any journey.
-- **Reporters are listed on the workflow by type.** Each implements `WorkflowReporter<W>`, whose `init(&W, &JourneyId, &InitialData) -> Result<Self, Error>` builds a new reporter for every instance.
+  `create()` produces the journey ID first, with the descriptor's generator (a closure returning a `Result<String, Error>`, which may read the initial data) or the default UUID version 4, then builds each reporter, then the instance. A failure of the generator or of a reporter's `init` is an `InstanceError`, outside any journey.
+- **Reporters are listed on the workflow by type.** Each implements `WorkflowReporter<W>`, whose `init(&W, &JourneyId, &DataBag) -> Result<Self, Error>` builds a new reporter for every instance; an asynchronous one implements `AsyncWorkflowReporter<W>`, and listing it makes the workflow `Asynchronous`. A mode says how its workflows hold reporters: a `Synchronous` one as `Box<dyn Reporter>`, an `Asynchronous` one as `BoxedReporter`.
 - **The three data operations** are provided by itinera for `Instance<W>`. `data_for_step` applies the step's input adapter, then the data bag; `data_for_workflow` reads only the data bag; `commit` writes and says whether a value was replaced. Each answer carries an ordered report of what happened, which the engine turns into events and aborts.
 - **A hand-written instance** implements the trait itself, points at a descriptor that only `build()` can produce, and may reuse itinera's data operations.
-- **An instance runs once**: `run` takes it by value.
+- **An instance runs once**: `run` takes it by value, and `into_data_bag` gives up the instance for the data bag the result carries.
 
 ### 8. Executors
 
-- **`LocalExecutor`** runs `Sync` workflows. **`AsyncLocalExecutor`**, behind the `async` feature, runs `Sync` and `Async` workflows, running synchronous parts inline.
-- **One engine.** The scan, the decisions, the hooks and the events are written once, as asynchronous code. The synchronous executor drives it with `std::task::Waker::noop()`: a `Sync` workflow has nothing to wait for, so it runs straight through.
+- **`LocalExecutor`** runs `Synchronous` workflows. **`AsyncLocalExecutor`**, behind the `async` feature, runs `Synchronous` and `Asynchronous` workflows, running synchronous parts inline.
+- **One engine.** The scan, the decisions, the hooks and the events are written once, as asynchronous code. The synchronous executor drives it with `std::task::Waker::noop()`: a `Synchronous` workflow has nothing to wait for, so it runs straight through.
 - **No runtime dependency.** The engine never spawns, sleeps, sets timers or cancels. It only awaits the futures of the workflow's own parts, one after another, so it runs on any async runtime.
 - **`run` returns the journey's result, or a refusal before the journey starts**:
 
@@ -199,7 +200,7 @@ pub trait WorkflowInstance: Send + 'static {
   impl<F: DispatcherFactory> LocalExecutor<F> {
       pub fn new() -> LocalExecutor<DefaultDispatcherFactory>;
       pub fn with_dispatcher_factory(factory: F) -> Self;
-      pub fn run<I: WorkflowInstance<Mode = Sync>>(&mut self, instance: I) -> Result<JourneyResult, Refusal>;
+      pub fn run<I: WorkflowInstance<Mode = Synchronous>>(&mut self, instance: I) -> Result<JourneyResult, Refusal>;
   }
   ```
 
@@ -213,7 +214,7 @@ pub trait WorkflowInstance: Send + 'static {
 - **One `Event` type**: a sequence number from 1, a `Timestamp` (a `SystemTime` that displays in ISO 8601 in UTC), the journey ID, the workflow name, and a typed body with one variant per event of the catalogue. `kind()` returns the event's snake_case name. No variant has a field able to hold a value from the data bag. Hook names are `StepHook` or `WorkflowHook`, and an event from or about a hook carries the step and attempt only for a step hook. Who decided follows from each decision, and names only a hook that may have decided it: `journey_failed` by `FailWorkflow` holds a `DecidingHook` (a policy and any step hook), `step_given_up` by `FailWorkflow` one whose hook is a `GiveUpHook` (`on step retry` or `on step abnormal termination`), and `journey_succeeded` by `FinishWorkflow` the policy whose `on step success` returned it. Every other decision, and every retry, is decided by default. Events are the domain's and reporters are its adapters, so events carry no format: neither `Event` nor any type it carries implements `Serialize`. Each reporter writes events as it chooses, from their fields, `kind()`, and names that display as the specification writes them. Only itinera constructs events: `Event` and its variants are `#[non_exhaustive]`, so code outside the crate can read them but not make them. The types events carry live with their concepts: `JourneyId`, `AbortReason`, `FailureCause` and `LastFailure` in `journey`, `StepAttempt` and `Reason` in `step`, the hook names and `Lifecycle` in `policy`. What only events need stays in `event`: who did or decided something, the decisions' causes, and `JourneyFailure` and `JourneyAbort`, which tell how a journey ended with errors as messages.
 - **`journey_failed` and `journey_aborted` are events about the journey.** They name the step but carry no attempt number. `journey_failed` carries the cause, the reason when there is one and the error's message when there is one; `journey_aborted` has one variant per abort reason, holding the step when there is one, the details, and the error's message when failing custom code caused the abort. Events never carry an `itinera::error::Error`, only its `Display` text.
 - **Data in step and hook events, and reason details,** are values carried in memory, cloned when emitted, and serialized only by reporters, in their own format.
-- **Reporters**: `Reporter` with `report(&mut self, &Event) -> Result<(), Error>`, and `AsyncReporter` behind the `async` feature. A reporter is expected to handle its own trouble (log it, drop the event, retry later) and return `Ok`, and the documentation says so. An `Err` aborts the journey with `reporter failed`, and delivery of that event stops at that reporter: the reporters after it never receive it. `journey_aborted` then goes to every reporter except the one that failed, so the order of reporters matters, and the documentation says that too. The executor wraps each reporter it adds for the journey, so this holds whatever the dispatcher: once a reporter has failed, the wrappers let only `journey_aborted` through, and never to the one that failed. An error while `journey_aborted` itself is delivered is ignored. An asynchronous reporter makes the workflow `Async`.
+- **Reporters**: `Reporter` with `report(&mut self, &Event) -> Result<(), Error>`, and `AsyncReporter` behind the `async` feature. A reporter is expected to handle its own trouble (log it, drop the event, retry later) and return `Ok`, and the documentation says so. An `Err` aborts the journey with `reporter failed`, and delivery of that event stops at that reporter: the reporters after it never receive it. `journey_aborted` then goes to every reporter except the one that failed, so the order of reporters matters, and the documentation says that too. The executor wraps each reporter it adds for the journey, so this holds whatever the dispatcher: once a reporter has failed, the wrappers let only `journey_aborted` through, and never to the one that failed. An error while `journey_aborted` itself is delivered is ignored. An asynchronous reporter makes the workflow `Asynchronous`.
 - **The handles given to steps and hooks** are restricted views of the journey's dispatcher. A `StepReporter` emits only `step_info`, `step_warning` and `step_error`, stamped with the step and attempt; a `HookReporter` emits only `journey_info`, `journey_warning` and `journey_error`, stamped with the policy and hook. Delivery happens before the emit call returns. If a reporter fails during that delivery, the engine records the abort at once, and the call returns `Interrupted`. From then on nothing the step or hook emits is delivered, and when it returns, its outcome, lifecycle and contributions are ignored, even if it ignored `Interrupted` and carried on. In a workflow with an asynchronous reporter, the handles are asynchronous, and only asynchronous steps and hooks can request them.
 - **Dispatchers**: `Dispatcher` and `AsyncDispatcher`, with `add` and `dispatch`, both returning `Result<(), Error>`. `LocalExecutor` is given a `DispatcherFactory` and `AsyncLocalExecutor` an `AsyncDispatcherFactory`, or each uses `DefaultDispatcherFactory`, which implements both. A synchronous dispatcher accepts only synchronous reporters; an asynchronous one accepts a `BoxedReporter`, which holds either kind. The executor calls the factory once per journey, before the journey starts, adds the instance's reporters, and drops the dispatcher when the journey ends. `DefaultDispatcher` holds `Box<dyn Reporter>`, or `BoxedReporter` for the asynchronous executor, and nothing else, since a sealed trait bounds its parameter. It calls reporters in the order they were added, and stops at the first that fails, except on `journey_aborted`, whose delivery a failure does not stop; leaving out the reporter that failed is the work of the executor's wrappers.
 - **One emitter** in the engine assigns sequence numbers and timestamps. Its clock can be replaced inside the crate for tests.
@@ -352,7 +353,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 - **Names** use the specification's vocabulary exactly: `JourneyId`, `StepDescriptor`, `Contributor`, `Outcome`, `retry_budget`, `FailWorkflow`. Event kinds keep their snake_case names.
 - **No panics in library code**: Clippy denies `unwrap_used`, `expect_used`, `panic`, `indexing_slicing`, `todo` and `unimplemented` outside tests.
 - **A small public surface**: `pub(crate)` by default, checked by `unreachable_pub`; public types that may grow are `#[non_exhaustive]`.
-- **Modules of `itinera-core` follow concepts**, named with the specification's vocabulary: `error`, `value`, `journey` (the journey ID, the journey's data and how it ends, the result included), `step`, `policy`, `event` (events, and what only events carry), `report` (reporters and dispatchers), `workflow` (descriptors, input adapters and violations), `instance`, `executor`, and the private `engine`. A type lives with its concept, not where it is first used, and modules may use one another. A module with submodules re-exports its public face, so public paths have one module level, such as `itinera::journey::JourneyId`; the crate root exports modules, not types.
+- **Modules of `itinera-core` follow concepts**, named with the specification's vocabulary: `error`, `value`, `journey` (the journey ID, the journey's data and how it ends, the result included), `step`, `policy`, `event` (events, and what only events carry), `report` (reporters and dispatchers), `mode` (execution modes), `workflow` (descriptors, input adapters and violations), `instance`, `executor`, and the private `engine`. A type lives with its concept, not where it is first used, and modules may use one another. A module with submodules re-exports its public face, so public paths have one module level, such as `itinera::journey::JourneyId`; the crate root exports modules, not types.
 - **Comments are as few as possible.** They explain a non-obvious reason only when the code cannot. Code and comments never refer to specification sections, issues, pull requests or other documents: git keeps that history, and the tech specs map rules to code. There are no `TODO` comments.
 - **Public documentation** describes each item's behaviour in its own words, with an example. `missing_docs` is an error.
 - **Test names** state the rule as a sentence, for example `a_failed_attempts_contributions_are_never_committed`.
@@ -370,7 +371,8 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
   |---|---|---|
   | `serde`, `erased-serde` | core | the value bound, letting reporters serialize type-erased values |
   | `derive_more` (`display`, `from`, `into`, `as_ref`, `into_iterator`) | core | `Display`, `From`, `Into`, `AsRef` and `IntoIterator` on newtypes, names and collections, which the types use throughout |
-  | `uuid` (`v4`) | core | the default journey ID |
+  | `uuid`, `getrandom` (`std`) | core | the default journey ID, a UUID v4 made from random bytes, so that a failing random source is an error rather than a panic |
+  | `thiserror` | core, conformance runner | `Display` and `std::error::Error` on error enums, such as `InstanceError` |
   | `syn`, `quote`, `proc-macro2` | macros | the macros |
   | `cucumber` (`macros`, `output-json`), `tokio` (`rt`), `futures`, `serde_json` | conformance runner | running the cases |
   | `trybuild`, `proptest`, `serde_json` | tests | compile-fail, property-based and equivalence tests |
@@ -382,7 +384,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
   | Feature | Default | Adds |
   |---|---|---|
   | `macros` | on | the macros |
-  | `async` | off | the asynchronous executor, steps, hooks, reporters and dispatchers, and the `Async` mode |
+  | `async` | off | the asynchronous executor, steps, hooks, reporters and dispatchers, and the `Asynchronous` mode |
   | `unstable` | off | the API of proposals not yet listed in `conformance.json` |
 
   The engine is asynchronous internally whatever the features; without `async`, nothing asynchronous is public.
