@@ -14,7 +14,7 @@ unstable = []
 [dependencies]
 serde.workspace = true
 erased-serde.workspace = true
-derive_more.workspace = true
+derive_more = { workspace = true, features = ["into_iterator"] }
 
 [dev-dependencies]
 futures = { workspace = true, features = ["executor"] }

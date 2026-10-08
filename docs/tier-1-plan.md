@@ -314,11 +314,11 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | Stage | Content | Proposals completed |
 |---|---|---|
 | 0. Bootstrap | the workspace and crates, `rust-toolchain.toml`, lints, CI, `deny.toml`, the README, an agents' manual, `conformance.json` pinning the latest cases candidate, with the capabilities, no proposals, and `"impossible": {}` | none |
-| 1. Events | `Error`, `Value` and `AnyValue` (the data bag waits for stage 5), `Event` and the types it carries, reporters, dispatchers and their factories, `DefaultDispatcher` | none |
+| 1. Events | `Error`, `Value` and `AnyValue` (the data bag waits for stage 3), `Event` and the types it carries, reporters, dispatchers and their factories, `DefaultDispatcher` | none |
 | 2. Runner skeleton | cucumber-rs, the environment variables, the recording dispatcher factory, the scenario model, the Cucumber JSON report | none |
-| 3. Minimal executor | the engine and both executors, `WorkflowDescriptor` with one synchronous step, `WorkflowInstance` and `Instance<W>`, journey IDs, reporters built by `create()`, `JourneyResult` and `Refusal` | none |
+| 3. Minimal executor | the engine and both executors, `WorkflowDescriptor` with one synchronous step that can only succeed, the data bag holding the initial data, `WorkflowInstance` and `Instance<W>`, journey IDs, reporters built by `create()`, `JourneyResult` and `Refusal` | none |
 | 4. Declarations and admission | step and policy descriptors, input adapter declarations, the listing, `Violations` | 0062 |
-| 5. Steps | needs and tokens, building per attempt, outcomes, contributions, the data bag, read-only received data, values, handles and `Interrupted` | 0056, 0057, 0064 (their scenarios are all proven impossible) |
+| 5. Steps | needs and tokens, building per attempt, outcomes, contributions, typed reads from the data bag, read-only received data, values, handles and `Interrupted` | 0056, 0057, 0064 (their scenarios are all proven impossible) |
 | 6. The scan and its decisions | statuses, retries, `abnormal termination retriable`, aborts and the result; the decision logic with its hook points in place, tested through internal test hooks | 0012, 0032, 0042, 0061, 0063, 0065 |
 | 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, 0054, 0055, 0058, 0060, 0081, 0083, 0085 |
 | 8. Macros | `#[step]`, `#[step_policy]`, `#[workflow_policy]`, `#[workflow]`, their equivalence and compile-fail tests | none |
@@ -369,7 +369,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
   | Crate | Used by | For |
   |---|---|---|
   | `serde`, `erased-serde` | core | the value bound, letting reporters serialize type-erased values |
-  | `derive_more` (`display`, `from`, `into`, `as_ref`) | core | `Display`, `From`, `Into` and `AsRef` on newtypes and names, which the types use throughout |
+  | `derive_more` (`display`, `from`, `into`, `as_ref`, `into_iterator`) | core | `Display`, `From`, `Into`, `AsRef` and `IntoIterator` on newtypes, names and collections, which the types use throughout |
   | `uuid` (`v4`) | core | the default journey ID |
   | `syn`, `quote`, `proc-macro2` | macros | the macros |
   | `cucumber` (`macros`, `output-json`), `tokio` (`rt`), `futures`, `serde_json` | conformance runner | running the cases |
