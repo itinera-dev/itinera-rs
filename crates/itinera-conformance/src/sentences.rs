@@ -55,21 +55,14 @@ fn unquoted(name: &str) -> Result<String, ModelError> {
 }
 
 /// Why a Then sentence does not hold.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 enum Unmet {
     /// The implementation did not do what the sentence says.
+    #[error("{0}")]
     Expected(String),
     /// The case cannot be checked as written.
+    #[error("the case is in error: {0}")]
     Case(String),
-}
-
-impl fmt::Display for Unmet {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Expected(what) => write!(f, "{what}"),
-            Self::Case(what) => write!(f, "the case is in error: {what}"),
-        }
-    }
 }
 
 impl From<ModelError> for Unmet {
@@ -80,15 +73,7 @@ impl From<ModelError> for Unmet {
 
 impl From<NoStream> for Unmet {
     fn from(error: NoStream) -> Self {
-        Self::Case(match error {
-            NoStream::UnknownReporter(name) => format!("no reporter \"{name}\" was made"),
-            NoStream::NoReporterListed => {
-                "the workflow lists no reporter to read the events from".to_owned()
-            }
-            NoStream::EveryReporterFailed => "every reporter the workflow lists failed, so none \
-                received the whole event stream"
-                .to_owned(),
-        })
+        Self::Case(error.to_string())
     }
 }
 

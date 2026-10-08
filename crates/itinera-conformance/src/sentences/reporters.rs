@@ -1,6 +1,5 @@
 //! Events and reporters.
 
-use std::fmt;
 use std::num::NonZeroU64;
 
 use cucumber::{given, then};
@@ -235,10 +234,13 @@ fn received(world: &World, reporter: &str, event: &str, times: Times) -> Result<
 }
 
 /// How often a reporter is expected to receive an event.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, derive_more::Display)]
 enum Times {
+    #[display("at least once")]
     AtLeastOnce,
+    #[display("{_0} times")]
     Exactly(usize),
+    #[display("never")]
     Never,
 }
 
@@ -248,16 +250,6 @@ impl Times {
             Self::AtLeastOnce => count > 0,
             Self::Exactly(times) => count == times,
             Self::Never => count == 0,
-        }
-    }
-}
-
-impl fmt::Display for Times {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::AtLeastOnce => write!(f, "at least once"),
-            Self::Exactly(times) => write!(f, "{times} times"),
-            Self::Never => write!(f, "never"),
         }
     }
 }

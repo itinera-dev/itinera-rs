@@ -90,12 +90,14 @@ pub(crate) struct Recorders {
 }
 
 /// Why no stream can be read.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, thiserror::Error)]
 pub(crate) enum NoStream {
+    #[error("no reporter \"{0}\" was made")]
     UnknownReporter(String),
     /// The workflow lists no reporter, so nothing receives its events.
+    #[error("the workflow lists no reporter to read the events from")]
     NoReporterListed,
-    /// Every reporter the workflow lists failed, so none received the whole stream.
+    #[error("every reporter the workflow lists failed, so none received the whole event stream")]
     EveryReporterFailed,
 }
 
