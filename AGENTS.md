@@ -79,6 +79,7 @@ In CI the `run-conformance` action sets these from `conformance.json`.
 - Every pull request names an open issue in this repository: `Refs #N` when it contributes, `Closes #N` when it finishes. Work that belongs to no proposal refers to #7, or to an issue of its own.
 - Public API of a proposal not yet listed in `conformance.json` stays behind the `unstable` feature. Modules always compile, since the engine needs them; without `unstable` they are private.
 - Commit messages and pull request descriptions say what changed and why, in plain prose.
+- Every change an agent makes is also reviewed by a separate reviewer agent. A new pull request is reviewed before it is opened, since that is the version the maintainer reads first. A later change to an open pull request is pushed as soon as the checks under "Running the checks" pass, and is reviewed while CI runs; an accepted finding becomes a further push, reviewed in the same way. A review passes when it has no accepted finding left.
 
 ## Writing
 
@@ -89,3 +90,4 @@ In CI the `run-conformance` action sets these from `conformance.json`.
 
 - Start every reply with a heading.
 - When a design decision is open, present one decision at a time, with a recommendation, and wait for the answer.
+- Tell the maintainer a pull request is ready for review only when both the review and the CI of its latest push have passed, as soon as the later of the two does.
