@@ -31,9 +31,11 @@ A proposal is added to `proposals` in `conformance.json` only by the pull reques
 - Names use the specification's vocabulary exactly.
 - Library code never panics: Clippy denies `unwrap`, `expect`, `panic!`, indexing, `todo!` and `unimplemented!` outside tests.
 - Reuse before writing. Look first at the standard library and the APIs already at hand, then at crates the workspace already depends on, then at well-known crates. Write it ourselves only when none fits, or when a crate would replace only a couple of lines. Judge a crate by what it will replace across the project, not only by its first use: `derive_more` saves a few lines on one newtype, and newtypes are used throughout.
+- Error enums derive `Display` and `std::error::Error` with `thiserror`, one `#[error("…")]` per variant. Any other `Display` whose text is one format string per variant, or that forwards to its only field, as on newtypes, derives with `derive_more`. A `Display` is written by hand only when it needs logic.
 - Types hold every constraint of the specification and the plan that Rust can express: `NonZeroU32` for a number counted from 1, an enum for a closed set of values, a newtype for an identifier. A documentation comment stating a constraint that the type could enforce means the type is wrong.
 - Modules follow concepts. Each type lives in the module of the concept it belongs to, named with the specification's vocabulary, never where it happens to be used first: `JourneyId` is in `journey`, though events use it before the result does. A type that only events need, such as who decided a decision, lives in `event`. Modules may use one another freely.
 - A module with submodules decides its public face: the submodules are private, and the module re-exports what applications use, so a public path has one module level, for example `itinera::journey::JourneyId`. The crate root exports modules, not types, and `itinera` re-exports the modules of `itinera-core`.
+- A chain of adapters reads as a sentence of names, such as `.map(to_new_format).filter(only_oven).max_by(lesser)`, and the details live in the functions it names. Each step is a function name, or a closure whose whole body is one call, one method call or one field read, such as `|x| to_new_format(x, unit)`, `|tag| tag.as_ref()` or `|step| &step.actions`; taking one part of a tuple, as in `|(_, script)| script`, counts as a field read. Its arguments are names, literals, fields or one conversion of them, such as `name.to_owned()`. A closure that does more, comparing, negating, matching, computing, building a value or chaining calls, becomes a named function. A closure bound with `let` before the chain follows the same rule.
 - Every module is a file of its own. Inline `mod` blocks are only for tests. A module gated by a feature puts the gate on its `mod` declaration, for example `#[cfg(feature = "async")] mod asynchronous;` in `report.rs`, with the module in `report/asynchronous.rs`.
 - Everything is `pub(crate)` unless it must be public. Public types that may grow are `#[non_exhaustive]`.
 - Every crate has `#![forbid(unsafe_code)]`.
@@ -55,7 +57,7 @@ Each of these is a required CI check, and every one must pass before pushing:
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 - `cargo test --workspace --all-features`
 - `cargo check --workspace --no-default-features`
-- `cargo +1.85 check --workspace`
+- `cargo +1.85 check --workspace --exclude itinera-conformance`
 - `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`
 - `cargo deny check`
 

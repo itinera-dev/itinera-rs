@@ -30,13 +30,13 @@ The `unstable` feature holds the API of proposals not yet listed in `conformance
 
 ## Building and testing
 
-The toolchain is pinned in `rust-toolchain.toml`, and the minimum supported Rust version is 1.85. Every one of these is a required check in CI:
+The toolchain is pinned in `rust-toolchain.toml`, and the minimum supported Rust version of the published crates is 1.85. The conformance runner, which is not published, needs 1.88. Every one of these is a required check in CI:
 
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 - `cargo test --workspace --all-features`
 - `cargo check --workspace --no-default-features`
-- `cargo +1.85 check --workspace`
+- `cargo +1.85 check --workspace --exclude itinera-conformance`
 - `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings`
 - `cargo deny check`
 

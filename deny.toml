@@ -16,6 +16,12 @@ allow = [
     "Zlib",
 ]
 unused-allowed-license = "allow"
+# Only the conformance runner depends on these, through cucumber's macros.
+exceptions = [
+    { crate = "synthez", allow = ["BlueOak-1.0.0"] },
+    { crate = "synthez-codegen", allow = ["BlueOak-1.0.0"] },
+    { crate = "synthez-core", allow = ["BlueOak-1.0.0"] },
+]
 
 [bans]
 multiple-versions = "warn"
