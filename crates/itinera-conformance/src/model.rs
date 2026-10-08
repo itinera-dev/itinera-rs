@@ -9,7 +9,6 @@ mod table;
 mod value;
 
 use std::collections::BTreeMap;
-use std::fmt;
 use std::num::NonZeroU32;
 
 use serde_json::Value;
@@ -179,79 +178,54 @@ impl Model {
 }
 
 /// A sentence that does not fit the scenario declared so far, or a value it cannot read.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, thiserror::Error)]
 pub(crate) enum ModelError {
+    #[error("no workflow is declared yet")]
     NoWorkflow,
+    #[error("a workflow is already declared")]
     WorkflowDeclaredTwice,
+    #[error("the workflow has no step \"{0}\"")]
     UnknownStep(String),
+    #[error("no policy \"{0}\" is defined")]
     UnknownPolicy(String),
+    #[error("no input adapter \"{0}\" is declared")]
     UnknownAdapter(String),
+    #[error("the workflow provides no role \"{0}\"")]
     UnknownRole(String),
+    #[error("\"{0}\" is not a hook")]
     UnknownHook(String),
+    #[error("\"{0}\" is not an event of the catalogue")]
     UnknownEvent(String),
+    #[error("\"{0}\" cannot be emitted here")]
     UnknownEmit(String),
+    #[error("\"{0}\" is not a type of the vocabulary")]
     UnknownType(String),
+    #[error("policy \"{0}\" cannot define \"{1}\", a hook of the other kind")]
     HookOfOtherKind(String, Hook),
+    #[error("policy \"{0}\" already defines \"{1}\"")]
     HookDefinedTwice(String, Hook),
+    #[error("policy \"{0}\" does not define \"{1}\"")]
     HookNotDefined(String, Hook),
+    #[error("\"{0}\" is not a step policy")]
     NotStepPolicy(String),
+    #[error("\"{0}\" is not a workflow policy")]
     NotWorkflowPolicy(String),
+    #[error("the role has no operation \"{0}\"")]
     UnknownOperation(String),
+    #[error("{0} is not JSON")]
     NotJson(String),
+    #[error("{0} is not a JSON object")]
     NotAnObject(String),
+    #[error("the sentence needs a table with a header")]
     MissingTable,
+    #[error("a row has no {0}")]
     MissingCell(&'static str),
+    #[error("\"{1}\" is not a valid {0}")]
     Cell(&'static str, String),
+    #[error("attempt {0} is out of order; rows count attempts from 1")]
     AttemptOutOfOrder(NonZeroU32),
+    #[error("{0} is already stated")]
     StatedTwice(&'static str),
-}
-
-impl fmt::Display for ModelError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NoWorkflow => write!(f, "no workflow is declared yet"),
-            Self::WorkflowDeclaredTwice => write!(f, "a workflow is already declared"),
-            Self::UnknownStep(step) => write!(f, "the workflow has no step \"{step}\""),
-            Self::UnknownPolicy(policy) => write!(f, "no policy \"{policy}\" is defined"),
-            Self::UnknownAdapter(adapter) => {
-                write!(f, "no input adapter \"{adapter}\" is declared")
-            }
-            Self::UnknownRole(role) => write!(f, "the workflow provides no role \"{role}\""),
-            Self::UnknownHook(hook) => write!(f, "\"{hook}\" is not a hook"),
-            Self::UnknownEvent(event) => write!(f, "\"{event}\" is not an event of the catalogue"),
-            Self::UnknownEmit(kind) => write!(f, "\"{kind}\" cannot be emitted here"),
-            Self::UnknownType(name) => write!(f, "\"{name}\" is not a type of the vocabulary"),
-            Self::HookOfOtherKind(policy, hook) => {
-                write!(
-                    f,
-                    "policy \"{policy}\" cannot define \"{hook}\", a hook of the other kind"
-                )
-            }
-            Self::HookDefinedTwice(policy, hook) => {
-                write!(f, "policy \"{policy}\" already defines \"{hook}\"")
-            }
-            Self::HookNotDefined(policy, hook) => {
-                write!(f, "policy \"{policy}\" does not define \"{hook}\"")
-            }
-            Self::NotStepPolicy(policy) => write!(f, "\"{policy}\" is not a step policy"),
-            Self::NotWorkflowPolicy(policy) => write!(f, "\"{policy}\" is not a workflow policy"),
-            Self::UnknownOperation(operation) => {
-                write!(f, "the role has no operation \"{operation}\"")
-            }
-            Self::NotJson(text) => write!(f, "{text} is not JSON"),
-            Self::NotAnObject(text) => write!(f, "{text} is not a JSON object"),
-            Self::MissingTable => write!(f, "the sentence needs a table with a header"),
-            Self::MissingCell(column) => write!(f, "a row has no {column}"),
-            Self::Cell(column, cell) => write!(f, "\"{cell}\" is not a valid {column}"),
-            Self::AttemptOutOfOrder(attempt) => {
-                write!(
-                    f,
-                    "attempt {attempt} is out of order; rows count attempts from 1"
-                )
-            }
-            Self::StatedTwice(what) => write!(f, "{what} is already stated"),
-        }
-    }
 }
 
 #[cfg(test)]

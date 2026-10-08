@@ -1,7 +1,6 @@
 //! What scripted policies and their hooks do, and the roles a workflow provides.
 
 use std::collections::BTreeSet;
-use std::fmt;
 
 use itinera::policy::{StepHook, WorkflowHook};
 use serde_json::Value;
@@ -25,7 +24,7 @@ pub(crate) enum Hooks {
 }
 
 /// The name of a hook of either kind.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_more::Display)]
 pub(crate) enum Hook {
     Step(StepHook),
     Workflow(WorkflowHook),
@@ -50,15 +49,6 @@ impl Hook {
             .into_iter()
             .find(|hook| hook.is_named(name))
             .ok_or_else(|| ModelError::UnknownHook(name.to_owned()))
-    }
-}
-
-impl fmt::Display for Hook {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Step(hook) => hook.fmt(f),
-            Self::Workflow(hook) => hook.fmt(f),
-        }
     }
 }
 

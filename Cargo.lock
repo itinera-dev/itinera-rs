@@ -582,6 +582,7 @@ name = "itinera-conformance"
 version = "0.0.0"
 dependencies = [
  "cucumber",
+ "derive_more",
  "futures",
  "itinera",
  "serde_json",
