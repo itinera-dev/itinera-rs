@@ -24,6 +24,16 @@ pub struct StepAttempt {
     pub attempt: NonZeroU32,
 }
 
+impl StepAttempt {
+    /// The first attempt of a step.
+    pub(crate) fn first(step: &str) -> Self {
+        Self {
+            step: step.to_owned(),
+            attempt: NonZeroU32::MIN,
+        }
+    }
+}
+
 /// Why a step failed or was skipped, or why a hook failed the journey: a code, an optional
 /// message and optional details.
 ///

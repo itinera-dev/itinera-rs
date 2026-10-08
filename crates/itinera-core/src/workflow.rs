@@ -13,7 +13,7 @@ use crate::report::{Reporter, WorkflowReporter};
 #[cfg(feature = "async")]
 mod asynchronous;
 
-/// A workflow's declaration: its name, its reporters and how it produces journey IDs.
+/// A workflow's declaration: its name, its step, its reporters and how it produces journey IDs.
 ///
 /// It is fixed once built, shared by every instance of the workflow, and cheap to clone. Only
 /// [`WorkflowBuilder::build`] makes one. Its mode `M` is [`Synchronous`] unless the workflow has
@@ -30,6 +30,7 @@ mod asynchronous;
 ///
 /// static ORDERS: LazyLock<WorkflowDescriptor<Orders>> = LazyLock::new(|| {
 ///     WorkflowDescriptor::builder("orders")
+///         .step("charge", || {})
 ///         .build()
 /// });
 ///
@@ -43,6 +44,7 @@ pub struct WorkflowDescriptor<W, M: Mode = Synchronous> {
 #[derive(derive_more::Debug)]
 struct Declaration<W, M: Mode> {
     name: String,
+    step: Option<StandInStep>,
     #[debug("{}", reporters.len())]
     reporters: Vec<MakeReporter<W, M>>,
     #[debug("{}", id_generator.is_some())]
@@ -53,6 +55,24 @@ type MakeReporter<W, M> =
     Box<dyn Fn(&W, &JourneyId, &DataBag) -> Result<<M as Mode>::Reporter, Error> + Send + Sync>;
 
 type GenerateId<W> = Box<dyn Fn(&W, &DataBag) -> Result<String, Error> + Send + Sync>;
+
+/// A stand-in for a step, which can only succeed, until steps can be declared in full.
+#[derive(derive_more::Debug)]
+pub(crate) struct StandInStep {
+    name: String,
+    #[debug(skip)]
+    run: Box<dyn Fn() + Send + Sync>,
+}
+
+impl StandInStep {
+    pub(crate) fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub(crate) fn run(&self) {
+        (self.run)();
+    }
+}
 
 impl<W: Send + Sync + 'static> WorkflowDescriptor<W> {
     /// Starts declaring a workflow with this name.
@@ -71,6 +91,7 @@ impl<W: Send + Sync + 'static> WorkflowDescriptor<W> {
         WorkflowBuilder {
             declaration: Declaration {
                 name: name.into(),
+                step: None,
                 reporters: Vec::new(),
                 id_generator: None,
             },
@@ -96,6 +117,10 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     /// ```
     pub fn instance(&self, workflow: W) -> InstanceBuilder<W, M> {
         InstanceBuilder::new(self.clone(), workflow)
+    }
+
+    pub(crate) fn step(&self) -> Option<&StandInStep> {
+        self.declaration.step.as_ref()
     }
 
     /// The journey ID for a new instance: the workflow's generator's, or a UUID v4.
@@ -177,6 +202,31 @@ pub struct WorkflowBuilder<W, M: Mode = Synchronous> {
 }
 
 impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
+    /// Gives the workflow its step, replacing any step given before.
+    ///
+    /// The step is a stand-in that can only succeed, until steps can be declared in full: the
+    /// journey runs it once, and it succeeds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::workflow::WorkflowDescriptor;
+    ///
+    /// struct Orders;
+    ///
+    /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
+    ///     .step("charge", || {})
+    ///     .build();
+    /// # drop(orders);
+    /// ```
+    pub fn step(mut self, name: impl Into<String>, run: impl Fn() + Send + Sync + 'static) -> Self {
+        self.declaration.step = Some(StandInStep {
+            name: name.into(),
+            run: Box::new(run),
+        });
+        self
+    }
+
     /// Lists a reporter, which each instance makes for its journey. Reporters receive events in
     /// the order they are listed.
     ///

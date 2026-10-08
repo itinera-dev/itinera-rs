@@ -552,7 +552,7 @@ mod tests {
             format!("{instance:?}"),
             "Instance { \
              descriptor: WorkflowDescriptor { declaration: Declaration { \
-             name: \"orders\", reporters: 1, id_generator: true } }, \
+             name: \"orders\", step: None, reporters: 1, id_generator: true } }, \
              journey_id: JourneyId(\"order-7\"), reporters: 1, \
              data: DataBag { values: {\"amount\": AnyValue(\"i64\")} }, .. }"
         );

@@ -46,12 +46,14 @@ impl<W: Send + Sync + 'static> WorkflowBuilder<W, Synchronous> {
     fn asynchronous(self) -> WorkflowBuilder<W, Asynchronous> {
         let Declaration {
             name,
+            step,
             reporters,
             id_generator,
         } = self.declaration;
         WorkflowBuilder {
             declaration: Declaration {
                 name,
+                step,
                 reporters: reporters.into_iter().map(asynchronous).collect(),
                 id_generator,
             },
