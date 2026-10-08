@@ -2,12 +2,13 @@
 
 Tech spec for [proposal 0056](https://github.com/itinera-dev/spec/blob/main/proposals/0056-data-bag-values.md), implemented in [#24](https://github.com/itinera-dev/itinera-rs/issues/24). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: in progress. Stage 1 adds values and the type-erased value; the data bag arrives in stage 5.
+Status: in progress. Stage 1 adds values and the type-erased value, stage 3 the data bag holding the initial data, and stage 5 typed reads and contributions.
 
 ## API
 
 - **`itinera::value::Value`** is implemented for every `T: Serialize + DeserializeOwned + Clone + Send + Sync + 'static`. Closures, function pointers and handles are not values.
 - **`itinera::value::AnyValue`** holds a value whose type has been erased. It can be cloned and serialized, and read back with `downcast_ref::<T>()`, which reads nothing unless `T` is the exact type.
+- **`itinera::journey::DataBag`** maps string keys to `AnyValue`s. Only itinera fills it.
 
 ## How the rules are enforced
 
