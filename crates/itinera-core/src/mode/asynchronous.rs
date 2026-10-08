@@ -42,4 +42,8 @@ impl Mode for Asynchronous {
     type Reporter = BoxedReporter;
 }
 
-impl sealed::Sealed for Asynchronous {}
+impl sealed::Sealed for Asynchronous {
+    fn boxed(reporter: BoxedReporter) -> BoxedReporter {
+        reporter
+    }
+}

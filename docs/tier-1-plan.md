@@ -207,6 +207,7 @@ pub trait WorkflowInstance: Send + Sized + 'static {
   A refusal comes from custom code called before the journey starts: a workflow policy that cannot be built, a dispatcher factory that fails, or a dispatcher that fails while the journey's reporters are added. Declaration violations are settled by `build()`, modes by types, and the journey ID and reporters by `create()`. `&mut self` makes concurrent journeys on one executor impossible to write.
 - **Everything asynchronous is awaited**: asynchronous steps, hooks, reporters and dispatchers alike.
 - **A dropped future abandons the journey.** If the caller drops the future returned by `AsyncLocalExecutor::run`, the journey stops where it is. The documentation says so.
+- **The future is `Send`** whenever the instance is: the engine holds no reference to the instance across an await, so an instance need not be `Sync`.
 - **Deferred:** cooperative yields between units of the async engine.
 
 ### 9. Events, reporters and dispatchers

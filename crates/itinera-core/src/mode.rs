@@ -4,7 +4,7 @@ use crate::report::Reporter;
 
 #[cfg(feature = "async")]
 mod asynchronous;
-mod sealed;
+pub(crate) mod sealed;
 
 #[cfg(feature = "async")]
 pub use asynchronous::Asynchronous;
