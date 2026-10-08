@@ -11,7 +11,7 @@ publish = false
 [dependencies]
 itinera = { path = "../itinera", default-features = false, features = ["unstable", "async"] }
 cucumber.workspace = true
-derive_more.workspace = true
+derive_more = { workspace = true, features = ["into_iterator"] }
 futures.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 thiserror.workspace = true

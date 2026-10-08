@@ -8,11 +8,20 @@ use super::ModelError;
 
 /// One row of a table, by the names in its header. An empty cell counts as no cell.
 #[derive(Debug)]
-pub(crate) struct Row(Vec<(String, String)>);
+pub(crate) struct Row {
+    cells: Vec<(String, String)>,
+}
 
 impl Row {
+    /// The row of these cells, each under the column in the same position of the header.
+    fn under(header: &[String], cells: &[String]) -> Self {
+        Self {
+            cells: header.iter().cloned().zip(cells.iter().cloned()).collect(),
+        }
+    }
+
     pub(crate) fn optional(&self, column: &'static str) -> Option<&str> {
-        self.0
+        self.cells
             .iter()
             .find(|cell| is_under(cell, column))
             .and_then(|(_, cell)| filled(cell))
@@ -34,9 +43,7 @@ pub(crate) fn rows(step: &gherkin::Step) -> Result<Vec<Row>, ModelError> {
     let table = step.table.as_ref().ok_or(ModelError::MissingTable)?;
     let mut rows = table.rows.iter();
     let header = rows.next().ok_or(ModelError::MissingTable)?;
-    Ok(rows
-        .map(|cells| Row(header.iter().cloned().zip(cells.iter().cloned()).collect()))
-        .collect())
+    Ok(rows.map(|cells| Row::under(header, cells)).collect())
 }
 
 /// Whether the cell is under this column.
@@ -54,7 +61,9 @@ mod tests {
     use super::*;
 
     fn row(cells: &[(&str, &str)]) -> Row {
-        Row(cells.iter().map(owned).collect())
+        Row {
+            cells: cells.iter().map(owned).collect(),
+        }
     }
 
     fn owned(&(name, cell): &(&str, &str)) -> (String, String) {

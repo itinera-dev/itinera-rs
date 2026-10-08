@@ -14,7 +14,7 @@ fn the_workflow_declares_the_input_adapter(
 ) -> Result<(), ModelError> {
     world.model.workflow_mut()?.adapters.push(Adapter {
         name: adapter,
-        steps: steps.0,
+        steps: steps.into(),
         answers: Vec::new(),
         requests: Vec::new(),
     });

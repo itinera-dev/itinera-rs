@@ -11,7 +11,7 @@ use crate::world::World;
 
 #[given(expr = "the workflow lists the reporters {names}")]
 fn the_workflow_lists_the_reporters(world: &mut World, reporters: Names) -> Result<(), ModelError> {
-    world.model.workflow_mut()?.reporters.extend(reporters.0);
+    world.model.workflow_mut()?.reporters.extend(reporters);
     Ok(())
 }
 

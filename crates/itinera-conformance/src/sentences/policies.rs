@@ -31,7 +31,7 @@ fn step_has_the_policies(
     policies: Names,
 ) -> Result<(), ModelError> {
     policies
-        .0
+        .as_ref()
         .iter()
         .try_for_each(|policy| world.model.require_step_policy(policy))?;
     world.model.step_mut(&step_name)?;
@@ -41,17 +41,17 @@ fn step_has_the_policies(
         .step_policies
         .entry(step_name)
         .or_default()
-        .extend(policies.0);
+        .extend(policies);
     Ok(())
 }
 
 #[given(expr = "the workflow has the policies {names}")]
 fn the_workflow_has_the_policies(world: &mut World, policies: Names) -> Result<(), ModelError> {
     policies
-        .0
+        .as_ref()
         .iter()
         .try_for_each(|policy| world.model.require_workflow_policy(policy))?;
-    world.model.workflow_mut()?.policies.extend(policies.0);
+    world.model.workflow_mut()?.policies.extend(policies);
     Ok(())
 }
 

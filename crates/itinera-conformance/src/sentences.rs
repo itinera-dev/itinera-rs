@@ -14,9 +14,19 @@ use std::str::FromStr;
 use crate::model::ModelError;
 
 /// One or more names, each in double quotes, separated by commas: `"a", "b"`.
-#[derive(Debug, PartialEq, cucumber::Parameter)]
+#[derive(
+    Debug,
+    PartialEq,
+    cucumber::Parameter,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::AsRef,
+    derive_more::IntoIterator,
+)]
 #[param(name = "names", regex = r#""[^"]*"(?:, "[^"]*")*"#)]
-struct Names(Vec<String>);
+struct Names {
+    names: Vec<String>,
+}
 
 impl FromStr for Names {
     type Err = ModelError;
@@ -24,8 +34,8 @@ impl FromStr for Names {
     fn from_str(text: &str) -> Result<Self, ModelError> {
         text.split(", ")
             .map(unquoted)
-            .collect::<Result<_, _>>()
-            .map(Self)
+            .collect::<Result<Vec<_>, _>>()
+            .map(Self::from)
     }
 }
 
@@ -44,11 +54,11 @@ mod tests {
     fn names_are_read_from_their_quotes_in_order() {
         assert_eq!(
             r#""audit", "metrics""#.parse::<Names>().unwrap(),
-            Names(vec!["audit".to_owned(), "metrics".to_owned()])
+            Names::from(vec!["audit".to_owned(), "metrics".to_owned()])
         );
         assert_eq!(
             r#""audit""#.parse::<Names>().unwrap(),
-            Names(vec!["audit".to_owned()])
+            Names::from(vec!["audit".to_owned()])
         );
     }
 }

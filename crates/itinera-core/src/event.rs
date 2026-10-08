@@ -531,12 +531,14 @@ pub enum Source {
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, derive_more::From, derive_more::Into,
 )]
-pub struct Timestamp(SystemTime);
+pub struct Timestamp {
+    instant: SystemTime,
+}
 const SECONDS_PER_DAY: i128 = 86_400;
 const NANOS_PER_SECOND: u32 = 1_000_000_000;
 impl fmt::Display for Timestamp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let (seconds, nanos) = seconds_since_epoch(self.0);
+        let (seconds, nanos) = seconds_since_epoch(self.instant);
         Utc { seconds, nanos }.fmt(f)
     }
 }

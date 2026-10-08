@@ -32,19 +32,26 @@ const EVENT_KINDS: [&str; 24] = [
 
 /// The name of a kind of event of the catalogue, as `Event::kind` returns it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct EventKind(&'static str);
+pub(crate) struct EventKind {
+    name: &'static str,
+}
 
 impl EventKind {
     pub(crate) fn named(name: &str) -> Result<Self, ModelError> {
         EVENT_KINDS
             .into_iter()
             .find(|kind| is_named(kind, name))
-            .map(Self)
+            .map(Self::of)
             .ok_or_else(|| ModelError::UnknownEvent(name.to_owned()))
     }
 
+    /// The kind of this name, which `named` has found in the catalogue.
+    fn of(name: &'static str) -> Self {
+        Self { name }
+    }
+
     pub(crate) fn name(self) -> &'static str {
-        self.0
+        self.name
     }
 }
 
