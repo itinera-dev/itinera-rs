@@ -1,0 +1,17 @@
+error[E0521]: borrowed data escapes outside of method
+  --> tests/proofs/late-handle/kept_by_the_factory.rs:20:10
+   |
+18 |     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charged, Error> {
+   |              --  -------- `self` is a reference that is only valid in the method body
+   |              |
+   |              lifetime `'a` defined here
+19 |         let handles = (got.contributor()?, got.reporter()?);
+20 |         *self.kept.lock().unwrap() = Some(handles);
+   |          ^^^^^^^^^^^^^^^^
+   |          |
+   |          `self` escapes the method body here
+   |          argument requires that `'a` must outlive `'static`
+   |
+   = note: requirement occurs because of the type `std::sync::Mutex<Option<(Contributor<'_>, StepReporter<'_>)>>`, which makes the generic argument `Option<(Contributor<'_>, StepReporter<'_>)>` invariant
+   = note: the struct `std::sync::Mutex<T>` is invariant over the parameter `T`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance

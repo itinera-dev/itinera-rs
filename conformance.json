@@ -1,6 +1,41 @@
 {
   "cases": "v0.1.0-rc.5",
-  "proposals": [62],
+  "proposals": [56, 57, 62, 64],
   "capabilities": ["sync", "async"],
-  "impossible": {}
+  "impossible": {
+    "non-value": [
+      {
+        "feature": "cases/tier-1/0056-data-bag-values/data-bag-values.feature",
+        "scenario": "A step that contributes a non-value aborts the journey",
+        "proof": { "test": "a_step_cannot_contribute_a_non_value", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0056-data-bag-values/data-bag-values.feature",
+        "scenario": "Initial data holding a non-value is refused before any journey",
+        "proof": { "test": "initial_data_cannot_hold_a_non_value", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0056-data-bag-values/data-bag-values.feature",
+        "scenario": "An input adapter that supplies a non-value aborts with \"step could not be built\"",
+        "proof": { "test": "an_input_adapter_cannot_supply_a_non_value", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0064-event-data-values/reason-details.feature",
+        "scenario": "A failure whose details are not a value aborts the journey",
+        "proof": { "test": "a_reasons_details_cannot_be_a_non_value", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0011-events/emitted-by-steps-and-hooks.feature",
+        "scenario": "Data that is not a value aborts the journey, and the event is not delivered",
+        "proof": { "test": "a_step_event_cannot_carry_a_non_value", "file": "crates/itinera/tests/proofs.rs" }
+      }
+    ],
+    "late-handle": [
+      {
+        "feature": "cases/tier-1/0057-handles-valid-during-their-attempt/late-handles.feature",
+        "scenario": "A step's contributor and reporter used after its attempt change nothing",
+        "proof": { "test": "a_steps_handles_cannot_outlive_its_attempt", "file": "crates/itinera/tests/proofs.rs" }
+      }
+    ]
+  }
 }

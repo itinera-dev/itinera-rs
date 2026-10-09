@@ -1,0 +1,17 @@
+error[E0521]: borrowed data escapes outside of method
+  --> tests/proofs/late-handle/moved_into_a_thread.rs:18:9
+   |
+13 |       fn run(self) -> Result<Outcome, Error> {
+   |              ----
+   |              |
+   |              `self` is a reference that is only valid in the method body
+   |              has type `Charge<'1>`
+...
+18 | /         thread::spawn(move || {
+19 | |             contributor.contribute("stale", 1_i64);
+20 | |             reporter.info("stale")
+21 | |         });
+   | |          ^
+   | |          |
+   | |__________`self` escapes the method body here
+   |            argument requires that `'1` must outlive `'static`
