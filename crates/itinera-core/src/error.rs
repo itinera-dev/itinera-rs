@@ -102,6 +102,28 @@ impl From<Error> for Box<dyn std::error::Error + Send + Sync + 'static> {
     }
 }
 
+/// The executor's signal that ends a step or hook at an emit call: a reporter failed while the
+/// event was delivered, and the journey is aborted with `reporter failed`.
+///
+/// The step or hook propagates it with `?`, which converts it into an [`Error`]. The abort stands
+/// whatever it does afterwards: nothing more it emits is delivered, and its outcome and
+/// contributions are ignored. Only itinera makes one.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::error::{Error, Interrupted};
+///
+/// fn propagated(emitted: Result<(), Interrupted>) -> Result<(), Error> {
+///     emitted?;
+///     Ok(())
+/// }
+/// ```
+#[derive(Debug, thiserror::Error)]
+#[error("the journey was aborted: a reporter failed while the event was delivered")]
+#[non_exhaustive]
+pub struct Interrupted;
+
 #[derive(derive_more::Debug, derive_more::Display)]
 #[debug("{message:?}")]
 struct Message<M> {

@@ -163,6 +163,50 @@ pub trait WorkflowInstance: Send + Sized + 'static {
         self.descriptor()
             .data_for_step(self.workflow(), self.data_bag(), step, key)
     }
+
+    /// Commits a contribution to the data bag, replacing any value under its key, and says
+    /// which it did.
+    ///
+    /// The executor calls it for each contribution of an attempt that succeeded, and turns the
+    /// answer into events.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::instance::{Committed, WorkflowInstance};
+    /// use itinera::value::AnyValue;
+    /// use itinera::workflow::WorkflowDescriptor;
+    ///
+    /// struct Orders;
+    ///
+    /// let orders = WorkflowDescriptor::builder("orders").build()?;
+    /// let mut instance = orders.instance(Orders).data("amount", 42_i64).create()?;
+    /// let amount = instance.commit("amount".to_string(), AnyValue::new(40_i64));
+    /// assert_eq!(amount, Committed::Overwritten);
+    /// let receipt = instance.commit("receipt".to_string(), AnyValue::new("R-1".to_string()));
+    /// assert_eq!(receipt, Committed::Added);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    fn commit(&mut self, key: String, value: AnyValue) -> Committed;
+}
+
+/// What committing a contribution did to the data bag.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::instance::Committed;
+///
+/// fn overwrote(committed: Committed) -> bool {
+///     committed == Committed::Overwritten
+/// }
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Committed {
+    /// The data bag had no value under the key.
+    Added,
+    /// The value replaced the one the data bag had under the key.
+    Overwritten,
 }
 
 /// Where the value of a step's input came from, as the instance answers the executor.
@@ -251,6 +295,13 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowInstance for Instance<W, M> {
 
     fn into_data_bag(self) -> DataBag {
         self.data
+    }
+
+    fn commit(&mut self, key: String, value: AnyValue) -> Committed {
+        match self.data.insert(key, value) {
+            Some(_) => Committed::Overwritten,
+            None => Committed::Added,
+        }
     }
 }
 

@@ -1,8 +1,12 @@
 use std::future::Future;
 
-use super::{Attempts, Got, Outcome, Resolved, Running, StepDescriptor, StepName, StepNeeds};
-use crate::error::Error;
+use super::{
+    Attempts, Got, Level, Outcome, Reporting, Resolved, Running, StepDescriptor, StepName,
+    StepNeeds,
+};
+use crate::error::{Error, Interrupted};
 use crate::mode::Asynchronous;
+use crate::value::{AnyValue, Value};
 
 /// A step of an asynchronous workflow: built for one attempt, it does its work when run, and
 /// reports an [`Outcome`].
@@ -29,7 +33,9 @@ pub trait AsyncStep: Send {
     ///
     /// # Errors
     ///
-    /// An error is an abnormal termination of the attempt. It never aborts the journey.
+    /// An error is an abnormal termination of the attempt, which never aborts the journey.
+    /// [`Interrupted`](crate::error::Interrupted), propagated from the step's reporter, is the
+    /// exception: the journey was already aborted with `reporter failed`.
     ///
     /// # Examples
     ///
@@ -116,7 +122,9 @@ pub trait AsyncStepFactory: Send + Sync + 'static {
     ///
     /// # Errors
     ///
-    /// An error means the step could not be built, which aborts the journey.
+    /// An error means the step could not be built, which aborts the journey with
+    /// `step could not be built`. [`Interrupted`](crate::error::Interrupted), propagated from the
+    /// step's reporter, is the exception: the journey was already aborted with `reporter failed`.
     ///
     /// # Examples
     ///
@@ -176,5 +184,220 @@ impl StepDescriptor<Asynchronous> {
     /// ```
     pub fn new_async(name: StepName, factory: impl AsyncStepFactory) -> Self {
         Self::holding(name, factory.needs(), Box::new(Asynchronously { factory }))
+    }
+}
+
+impl<'a> Resolved<'a, Asynchronous> {
+    /// Takes the step's reporter.
+    ///
+    /// # Errors
+    ///
+    /// When the step's needs do not declare a reporter, or it was already taken. Building fails
+    /// with that error, and the journey is aborted with `step could not be built`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::mode::Asynchronous;
+    /// use itinera::step::{AsyncStepReporter, Resolved};
+    ///
+    /// fn reporter<'a>(got: &mut Resolved<'a, Asynchronous>) -> Result<AsyncStepReporter<'a>, Error> {
+    ///     got.reporter()
+    /// }
+    /// ```
+    pub fn reporter(&mut self) -> Result<AsyncStepReporter<'a>, Error> {
+        self.reporting().map(AsyncStepReporter::from)
+    }
+}
+
+/// An asynchronous step's means of emitting its own events, `step_info`, `step_warning` and
+/// `step_error`, each stamped with the step and its attempt.
+///
+/// Everything [`StepReporter`](super::StepReporter) says applies to it, except that each emit
+/// call is awaited: the step waits there until every reporter has the event.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::error::Error;
+/// use itinera::mode::Asynchronous;
+/// use itinera::step::{AsyncStep, AsyncStepFactory, AsyncStepReporter, Outcome, Resolved, StepNeeds};
+///
+/// struct Charge<'a> {
+///     reporter: AsyncStepReporter<'a>,
+/// }
+///
+/// impl AsyncStep for Charge<'_> {
+///     async fn run(mut self) -> Result<Outcome, Error> {
+///         self.reporter.info_with("charging", 42_i64).await?;
+///         Ok(Outcome::success())
+///     }
+/// }
+///
+/// struct ChargeFactory;
+///
+/// impl AsyncStepFactory for ChargeFactory {
+///     type Step<'a> = Charge<'a>;
+///
+///     fn needs(&self) -> StepNeeds {
+///         StepNeeds::new().reporter()
+///     }
+///
+///     fn build<'a>(&'a self, got: &mut Resolved<'a, Asynchronous>) -> Result<Charge<'a>, Error> {
+///         Ok(Charge {
+///             reporter: got.reporter()?,
+///         })
+///     }
+/// }
+/// ```
+#[derive(Debug, derive_more::From)]
+pub struct AsyncStepReporter<'a> {
+    reporting: Reporting<'a>,
+}
+
+impl AsyncStepReporter<'_> {
+    /// Emits `step_info` with a message.
+    ///
+    /// # Errors
+    ///
+    /// [`Interrupted`] when a reporter failed, here or earlier in the attempt.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Interrupted;
+    /// use itinera::step::AsyncStepReporter;
+    ///
+    /// async fn starting(reporter: &mut AsyncStepReporter<'_>) -> Result<(), Interrupted> {
+    ///     reporter.info("starting").await
+    /// }
+    /// ```
+    pub fn info(
+        &mut self,
+        message: impl Into<String>,
+    ) -> impl Future<Output = Result<(), Interrupted>> + Send + '_ {
+        self.reporting.emit(Level::Info, message.into(), None)
+    }
+
+    /// Emits `step_info` with a message and data.
+    ///
+    /// # Errors
+    ///
+    /// [`Interrupted`] when a reporter failed, here or earlier in the attempt.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Interrupted;
+    /// use itinera::step::AsyncStepReporter;
+    ///
+    /// async fn starting(reporter: &mut AsyncStepReporter<'_>) -> Result<(), Interrupted> {
+    ///     reporter.info_with("starting", 42_i64).await
+    /// }
+    /// ```
+    pub fn info_with<T: Value>(
+        &mut self,
+        message: impl Into<String>,
+        data: T,
+    ) -> impl Future<Output = Result<(), Interrupted>> + Send + '_ {
+        self.reporting
+            .emit(Level::Info, message.into(), Some(AnyValue::new(data)))
+    }
+
+    /// Emits `step_warning` with a message.
+    ///
+    /// # Errors
+    ///
+    /// [`Interrupted`] when a reporter failed, here or earlier in the attempt.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Interrupted;
+    /// use itinera::step::AsyncStepReporter;
+    ///
+    /// async fn slow(reporter: &mut AsyncStepReporter<'_>) -> Result<(), Interrupted> {
+    ///     reporter.warning("the gateway is slow").await
+    /// }
+    /// ```
+    pub fn warning(
+        &mut self,
+        message: impl Into<String>,
+    ) -> impl Future<Output = Result<(), Interrupted>> + Send + '_ {
+        self.reporting.emit(Level::Warning, message.into(), None)
+    }
+
+    /// Emits `step_warning` with a message and data.
+    ///
+    /// # Errors
+    ///
+    /// [`Interrupted`] when a reporter failed, here or earlier in the attempt.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Interrupted;
+    /// use itinera::step::AsyncStepReporter;
+    ///
+    /// async fn slow(reporter: &mut AsyncStepReporter<'_>) -> Result<(), Interrupted> {
+    ///     reporter.warning_with("the gateway is slow", 42_i64).await
+    /// }
+    /// ```
+    pub fn warning_with<T: Value>(
+        &mut self,
+        message: impl Into<String>,
+        data: T,
+    ) -> impl Future<Output = Result<(), Interrupted>> + Send + '_ {
+        self.reporting
+            .emit(Level::Warning, message.into(), Some(AnyValue::new(data)))
+    }
+
+    /// Emits `step_error` with a message. It does not change the step's outcome.
+    ///
+    /// # Errors
+    ///
+    /// [`Interrupted`] when a reporter failed, here or earlier in the attempt.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Interrupted;
+    /// use itinera::step::AsyncStepReporter;
+    ///
+    /// async fn no_receipt(reporter: &mut AsyncStepReporter<'_>) -> Result<(), Interrupted> {
+    ///     reporter.error("the receipt was not printed").await
+    /// }
+    /// ```
+    pub fn error(
+        &mut self,
+        message: impl Into<String>,
+    ) -> impl Future<Output = Result<(), Interrupted>> + Send + '_ {
+        self.reporting.emit(Level::Error, message.into(), None)
+    }
+
+    /// Emits `step_error` with a message and data. It does not change the step's outcome.
+    ///
+    /// # Errors
+    ///
+    /// [`Interrupted`] when a reporter failed, here or earlier in the attempt.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Interrupted;
+    /// use itinera::step::AsyncStepReporter;
+    ///
+    /// async fn no_receipt(reporter: &mut AsyncStepReporter<'_>) -> Result<(), Interrupted> {
+    ///     reporter.error_with("the receipt was not printed", 42_i64).await
+    /// }
+    /// ```
+    pub fn error_with<T: Value>(
+        &mut self,
+        message: impl Into<String>,
+        data: T,
+    ) -> impl Future<Output = Result<(), Interrupted>> + Send + '_ {
+        self.reporting
+            .emit(Level::Error, message.into(), Some(AnyValue::new(data)))
     }
 }

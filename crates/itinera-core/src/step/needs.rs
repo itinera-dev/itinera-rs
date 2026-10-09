@@ -2,7 +2,9 @@ use std::any;
 use std::marker::PhantomData;
 use std::mem;
 
+use super::{Reporting, StepReporter};
 use crate::error::Error;
+use crate::journey::Contributor;
 use crate::mode::Synchronous;
 use crate::value::{AnyValue, Value};
 
@@ -106,7 +108,8 @@ impl<T: Value> OptionalInput<T> {
     }
 }
 
-/// Everything a step declares it needs, which the executor resolves before the step is built.
+/// Everything a step declares it needs, which the executor resolves before the step is built:
+/// its inputs, and whether it needs a contributor and a step reporter.
 ///
 /// Its inputs are resolved in the order they are declared.
 ///
@@ -118,11 +121,17 @@ impl<T: Value> OptionalInput<T> {
 /// const AMOUNT: Input<i64> = Input::new("amount");
 /// const DISCOUNT: OptionalInput<i64> = OptionalInput::new("discount");
 ///
-/// let needs = StepNeeds::new().input(&AMOUNT).optional_input(&DISCOUNT);
+/// let needs = StepNeeds::new()
+///     .input(&AMOUNT)
+///     .optional_input(&DISCOUNT)
+///     .contributor()
+///     .reporter();
 /// ```
 #[derive(Clone, Debug, Default)]
 pub struct StepNeeds {
     inputs: Vec<InputNeed>,
+    contributor: bool,
+    reporter: bool,
 }
 
 /// Whether a step needs an input to be built, or may be built without it.
@@ -206,8 +215,44 @@ impl StepNeeds {
         self
     }
 
+    /// Declares that the step needs a contributor, for the data it contributes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::StepNeeds;
+    ///
+    /// let needs = StepNeeds::new().contributor();
+    /// ```
+    pub fn contributor(mut self) -> Self {
+        self.contributor = true;
+        self
+    }
+
+    /// Declares that the step needs a step reporter, for its own events.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::StepNeeds;
+    ///
+    /// let needs = StepNeeds::new().reporter();
+    /// ```
+    pub fn reporter(mut self) -> Self {
+        self.reporter = true;
+        self
+    }
+
     pub(crate) fn inputs(&self) -> &[InputNeed] {
         &self.inputs
+    }
+
+    pub(crate) fn wants_contributor(&self) -> bool {
+        self.contributor
+    }
+
+    pub(crate) fn wants_reporter(&self) -> bool {
+        self.reporter
     }
 }
 
@@ -298,6 +343,67 @@ impl<'a, M> Resolved<'a, M> {
             None => Err(undeclared::<T>(input.key)),
         }
     }
+
+    /// Takes the step's contributor.
+    ///
+    /// # Errors
+    ///
+    /// When the step's needs do not declare a contributor, or it was already taken. Building
+    /// fails with that error, and the journey is aborted with `step could not be built`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::journey::Contributor;
+    /// use itinera::step::Resolved;
+    ///
+    /// fn contributor<'a>(got: &mut Resolved<'a>) -> Result<Contributor<'a>, Error> {
+    ///     got.contributor()
+    /// }
+    /// ```
+    pub fn contributor(&mut self) -> Result<Contributor<'a>, Error> {
+        self.got
+            .contributor
+            .take()
+            .ok_or_else(|| undeclared_handle("a contributor"))
+    }
+
+    pub(crate) fn reporting(&mut self) -> Result<Reporting<'a>, Error> {
+        self.got
+            .reporting
+            .take()
+            .ok_or_else(|| undeclared_handle("a step reporter"))
+    }
+}
+
+impl<'a> Resolved<'a, Synchronous> {
+    /// Takes the step's reporter.
+    ///
+    /// # Errors
+    ///
+    /// When the step's needs do not declare a reporter, or it was already taken. Building fails
+    /// with that error, and the journey is aborted with `step could not be built`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::step::{Resolved, StepReporter};
+    ///
+    /// fn reporter<'a>(got: &mut Resolved<'a>) -> Result<StepReporter<'a>, Error> {
+    ///     got.reporter()
+    /// }
+    /// ```
+    pub fn reporter(&mut self) -> Result<StepReporter<'a>, Error> {
+        self.reporting().map(StepReporter::from)
+    }
+}
+
+fn undeclared_handle(handle: &str) -> Error {
+    Error::msg(format!(
+        "the step does not declare {handle}, or took it already"
+    ))
 }
 
 fn undeclared<T>(key: &str) -> Error {
@@ -311,8 +417,8 @@ fn undeclared<T>(key: &str) -> Error {
 #[derive(derive_more::Debug)]
 pub(crate) struct Got<'a> {
     inputs: Vec<Received>,
-    #[debug(skip)]
-    attempt: PhantomData<&'a mut ()>,
+    contributor: Option<Contributor<'a>>,
+    reporting: Option<Reporting<'a>>,
 }
 
 /// One declared input and its value, until the factory takes it.
@@ -343,13 +449,18 @@ impl Received {
     }
 }
 
-impl Got<'_> {
+impl<'a> Got<'a> {
     /// Holds the values of the inputs, in the order the needs declare them, absent ones as
-    /// `None`.
-    pub(crate) fn new(inputs: impl IntoIterator<Item = (&'static str, Option<AnyValue>)>) -> Self {
+    /// `None`, and the handles the needs declare.
+    pub(crate) fn new(
+        inputs: impl IntoIterator<Item = (&'static str, Option<AnyValue>)>,
+        contributor: Option<Contributor<'a>>,
+        reporting: Option<Reporting<'a>>,
+    ) -> Self {
         Self {
             inputs: inputs.into_iter().map(received).collect(),
-            attempt: PhantomData,
+            contributor,
+            reporting,
         }
     }
 
@@ -382,7 +493,7 @@ mod tests {
     const AMOUNT: Input<i64> = Input::new("amount");
 
     fn resolved<'a>(inputs: Vec<(&'static str, Option<AnyValue>)>) -> Resolved<'a> {
-        Resolved::new(Got::new(inputs))
+        Resolved::new(Got::new(inputs, None, None))
     }
 
     #[test]
@@ -396,7 +507,7 @@ mod tests {
         );
     }
 
-    type Read = fn(&mut Resolved<'_>) -> Result<(), Error>;
+    type Take = fn(&mut Resolved<'_>) -> Result<(), Error>;
 
     fn read_amount(got: &mut Resolved<'_>) -> Result<(), Error> {
         got.input(&AMOUNT).map(drop)
@@ -410,8 +521,8 @@ mod tests {
     #[rstest]
     #[case::a_required_input(read_amount)]
     #[case::an_optional_input(read_discount)]
-    fn an_input_the_step_does_not_declare_cannot_be_read(#[case] read: Read) {
-        assert!(read(&mut resolved(Vec::new())).is_err());
+    fn an_input_the_step_does_not_declare_cannot_be_read(#[case] take: Take) {
+        assert!(take(&mut resolved(Vec::new())).is_err());
     }
 
     #[test]
@@ -419,5 +530,28 @@ mod tests {
         let mut got = resolved(vec![("amount", Some(AnyValue::new(42_i64)))]);
 
         assert!(got.input(&Input::<i32>::new("amount")).is_err());
+    }
+
+    fn take_contributor(got: &mut Resolved<'_>) -> Result<(), Error> {
+        got.contributor().map(drop)
+    }
+
+    fn take_reporter(got: &mut Resolved<'_>) -> Result<(), Error> {
+        got.reporter().map(drop)
+    }
+
+    #[rstest]
+    #[case::a_contributor(take_contributor, "a contributor")]
+    #[case::a_step_reporter(take_reporter, "a step reporter")]
+    fn a_handle_the_step_does_not_declare_cannot_be_taken(
+        #[case] take: Take,
+        #[case] handle: &str,
+    ) {
+        let error = take(&mut resolved(Vec::new())).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            format!("the step does not declare {handle}, or took it already")
+        );
     }
 }
