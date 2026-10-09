@@ -12,6 +12,9 @@ fn the_workflow_declares_the_input_adapter(
     adapter: String,
     steps: Names,
 ) -> Result<(), ModelError> {
+    if world.model.adapter_mut(&adapter).is_ok() {
+        return Err(ModelError::AdapterDeclaredTwice(adapter));
+    }
     world.model.workflow_mut()?.adapters.push(Adapter {
         name: adapter,
         steps: steps.into(),

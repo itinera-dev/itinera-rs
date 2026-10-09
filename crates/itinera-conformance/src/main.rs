@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod cases;
+mod declaration;
 mod environment;
 mod executor;
 #[expect(dead_code, reason = "the sentences that act on the model read it")]
