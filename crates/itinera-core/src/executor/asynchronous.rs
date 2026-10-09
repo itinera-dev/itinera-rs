@@ -2,11 +2,11 @@ use super::Refusal;
 use crate::engine::{self, Awaited, Failures};
 use crate::instance::WorkflowInstance;
 use crate::journey::JourneyResult;
-use crate::mode::sealed::Sealed;
+use crate::mode::Asynchronous;
 use crate::report::{AsyncDispatcher, AsyncDispatcherFactory, DefaultDispatcherFactory};
 
-/// Runs workflows of either mode in process, one journey at a time, with no persistence:
-/// everything asynchronous is awaited, and synchronous parts run inline.
+/// Runs asynchronous workflows in process, one journey at a time, with no persistence: everything
+/// asynchronous is awaited, and synchronous reporters are called inline.
 ///
 /// It is given an [`AsyncDispatcherFactory`], or uses [`DefaultDispatcherFactory`]. Nothing of a
 /// journey remains in it once `run` returns, so it can run many journeys one after another. It
@@ -26,7 +26,7 @@ use crate::report::{AsyncDispatcher, AsyncDispatcherFactory, DefaultDispatcherFa
 /// struct Orders;
 ///
 /// async fn charge() -> Result<StatusKind, Box<dyn std::error::Error>> {
-///     let orders = WorkflowDescriptor::builder("orders")
+///     let orders = WorkflowDescriptor::async_builder("orders")
 ///         .step(StepDescriptor::new(step_name!("charge"), || {}))
 ///         .build()?;
 ///     let mut executor = AsyncLocalExecutor::new();
@@ -95,7 +95,7 @@ impl<F: AsyncDispatcherFactory> AsyncLocalExecutor<F> {
     /// struct Orders;
     ///
     /// async fn charge() -> Result<JourneyResult, Box<dyn std::error::Error>> {
-    ///     let orders = WorkflowDescriptor::builder("orders")
+    ///     let orders = WorkflowDescriptor::async_builder("orders")
     ///         .step(StepDescriptor::new(step_name!("charge"), || {}))
     ///         .build()?;
     ///     let instance = orders.instance(Orders).data("amount", 42_i64).create()?;
@@ -106,7 +106,7 @@ impl<F: AsyncDispatcherFactory> AsyncLocalExecutor<F> {
     /// assert_eq!(result.status.kind(), StatusKind::Succeeded);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub async fn run<I: WorkflowInstance>(
+    pub async fn run<I: WorkflowInstance<Mode = Asynchronous>>(
         &mut self,
         mut instance: I,
     ) -> Result<JourneyResult, Refusal> {
@@ -117,9 +117,8 @@ impl<F: AsyncDispatcherFactory> AsyncLocalExecutor<F> {
             .map_err(Refusal::DispatcherFactory)?;
         let failures = Failures::default();
         for reporter in instance.take_reporters() {
-            let reporter = failures.guard_boxed(<I::Mode as Sealed>::boxed(reporter));
             dispatcher
-                .add(reporter)
+                .add(failures.guard_boxed(reporter))
                 .await
                 .map_err(Refusal::Dispatcher)?;
         }
@@ -142,7 +141,7 @@ mod tests {
     use super::*;
     use crate::error::Error;
     use crate::event::Event;
-    use crate::executor::tests::{Log, Recorder, Shop, entries, shop_workflow};
+    use crate::executor::tests::{Log, Recorder, Shop, entries};
     use crate::instance::Instance;
     use crate::journey::{Abort, DataBag, JourneyId, JourneyStatus};
     use crate::mode::Asynchronous;
@@ -170,7 +169,7 @@ mod tests {
     }
 
     fn mixed_workflow() -> WorkflowDescriptor<Shop, Asynchronous> {
-        WorkflowDescriptor::builder("shop")
+        WorkflowDescriptor::async_builder("shop")
             .step(StepDescriptor::new(StepName::new("charge"), || {}))
             .reporter::<Recorder<0>>()
             .async_reporter::<AsyncRecorder<1>>()
@@ -216,16 +215,23 @@ mod tests {
     }
 
     #[test]
-    fn the_asynchronous_executor_runs_synchronous_workflows() {
+    fn an_asynchronous_workflow_may_list_only_synchronous_reporters() {
         let shop = Shop::new();
         let log = Arc::clone(&shop.log);
-        let instance = shop_workflow().instance(shop).create().unwrap();
+        let workflow = WorkflowDescriptor::async_builder("shop")
+            .step(StepDescriptor::new(StepName::new("charge"), || {}))
+            .reporter::<Recorder<0>>()
+            .reporter::<Recorder<1>>()
+            .id_generator(|_: &Shop, _| Ok("order-7".to_string()))
+            .build()
+            .unwrap();
+        let instance = workflow.instance(shop).create().unwrap();
 
         let result = block_on(AsyncLocalExecutor::new().run(instance)).unwrap();
 
         assert_eq!(result.journey_id.to_string(), "order-7");
         assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
-        assert_eq!(entries(&log).len(), 12);
+        assert_eq!(entries(&log).len(), 8);
     }
 
     #[test]

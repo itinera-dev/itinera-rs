@@ -1,67 +1,28 @@
-use super::{Declaration, MakeReporter, WorkflowBuilder};
+use super::{WorkflowBuilder, WorkflowDescriptor, WorkflowName};
 use crate::error::Error;
 use crate::journey::{DataBag, JourneyId};
-use crate::mode::{Asynchronous, Synchronous};
+use crate::mode::Asynchronous;
 use crate::report::{AsyncWorkflowReporter, BoxedReporter};
 
-impl<W: Send + Sync + 'static> WorkflowBuilder<W, Synchronous> {
-    /// Lists an asynchronous reporter, which each instance makes for its journey, and makes the
-    /// workflow asynchronous. Reporters receive events in the order they are listed.
+impl<W: Send + Sync + 'static> WorkflowDescriptor<W, Asynchronous> {
+    /// Starts declaring an asynchronous workflow with this name, which only the asynchronous
+    /// executor runs. Its steps are asynchronous, and its reporters may be of either kind.
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
-    /// use itinera::event::Event;
-    /// use itinera::journey::{DataBag, JourneyId};
     /// use itinera::mode::Asynchronous;
-    /// use itinera::report::{AsyncReporter, AsyncWorkflowReporter};
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// struct Orders;
     ///
-    /// struct Forward;
-    ///
-    /// impl AsyncReporter for Forward {
-    ///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
-    ///         Ok(())
-    ///     }
-    /// }
-    ///
-    /// impl AsyncWorkflowReporter<Orders> for Forward {
-    ///     fn init(_: &Orders, _: &JourneyId, _: &DataBag) -> Result<Self, Error> {
-    ///         Ok(Forward)
-    ///     }
-    /// }
-    ///
-    /// let orders: WorkflowDescriptor<Orders, Asynchronous> = WorkflowDescriptor::builder("orders")
-    ///     .async_reporter::<Forward>()
-    ///     .build()?;
+    /// let orders: WorkflowDescriptor<Orders, Asynchronous> =
+    ///     WorkflowDescriptor::async_builder("orders").build()?;
+    /// assert_eq!(orders.name().to_string(), "orders");
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
-    pub fn async_reporter<R: AsyncWorkflowReporter<W>>(self) -> WorkflowBuilder<W, Asynchronous> {
-        self.asynchronous().async_reporter::<R>()
-    }
-
-    fn asynchronous(self) -> WorkflowBuilder<W, Asynchronous> {
-        let Declaration {
-            name,
-            steps,
-            policies,
-            adapters,
-            reporters,
-            id_generator,
-        } = self.declaration;
-        WorkflowBuilder {
-            declaration: Declaration {
-                name,
-                steps,
-                policies,
-                adapters,
-                reporters: reporters.into_iter().map(asynchronous).collect(),
-                id_generator,
-            },
-        }
+    pub fn async_builder(name: impl Into<WorkflowName>) -> WorkflowBuilder<W, Asynchronous> {
+        WorkflowBuilder::named(name.into())
     }
 }
 
@@ -94,8 +55,7 @@ impl<W: Send + Sync + 'static> WorkflowBuilder<W, Asynchronous> {
     ///     }
     /// }
     ///
-    /// let orders = WorkflowDescriptor::builder("orders")
-    ///     .async_reporter::<Forward>()
+    /// let orders = WorkflowDescriptor::async_builder("orders")
     ///     .async_reporter::<Forward>()
     ///     .build()?;
     /// # Ok::<(), itinera::workflow::Violations>(())
@@ -106,13 +66,6 @@ impl<W: Send + Sync + 'static> WorkflowBuilder<W, Asynchronous> {
             .push(Box::new(make_async_reporter::<W, R>));
         self
     }
-}
-
-/// A synchronous workflow's way of making a reporter, as an asynchronous workflow holds it.
-fn asynchronous<W: 'static>(make: MakeReporter<W, Synchronous>) -> MakeReporter<W, Asynchronous> {
-    Box::new(move |workflow, journey_id, data| {
-        make(workflow, journey_id, data).map(BoxedReporter::from)
-    })
 }
 
 fn make_async_reporter<W, R: AsyncWorkflowReporter<W>>(

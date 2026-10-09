@@ -1,8 +1,10 @@
 use super::{Mode, sealed};
 use crate::report::BoxedReporter;
 
-/// The mode of a workflow with at least one asynchronous part, which only the asynchronous
-/// executor accepts.
+/// The mode of an asynchronous workflow, which only the asynchronous executor accepts.
+///
+/// Its steps are asynchronous, and await the delivery of the events they emit. Its reporters may
+/// be of either kind.
 ///
 /// # Examples
 ///
@@ -30,7 +32,7 @@ use crate::report::BoxedReporter;
 ///     }
 /// }
 ///
-/// let orders: WorkflowDescriptor<Orders, Asynchronous> = WorkflowDescriptor::builder("orders")
+/// let orders: WorkflowDescriptor<Orders, Asynchronous> = WorkflowDescriptor::async_builder("orders")
 ///     .async_reporter::<Forward>()
 ///     .build()?;
 /// # Ok::<(), itinera::workflow::Violations>(())
@@ -42,8 +44,4 @@ impl Mode for Asynchronous {
     type Reporter = BoxedReporter;
 }
 
-impl sealed::Sealed for Asynchronous {
-    fn boxed(reporter: BoxedReporter) -> BoxedReporter {
-        reporter
-    }
-}
+impl sealed::Sealed for Asynchronous {}

@@ -520,9 +520,9 @@ mod tests {
         }
 
         #[test]
-        fn an_asynchronous_reporter_makes_the_workflow_asynchronous_and_keeps_the_order() {
+        fn an_asynchronous_workflow_makes_reporters_of_both_kinds_in_order() {
             let orders: WorkflowDescriptor<Orders, Asynchronous> =
-                WorkflowDescriptor::builder("orders")
+                WorkflowDescriptor::async_builder("orders")
                     .reporter::<Audit>()
                     .async_reporter::<Forward>()
                     .reporter::<Audit>()
