@@ -164,7 +164,7 @@ pub(crate) mod tests {
     use crate::journey::{Abort, DataBag, JourneyId, JourneyStatus};
     use crate::report::{DefaultDispatcher, Reporter, WorkflowReporter};
     use crate::step::{StepDescriptor, StepName};
-    use crate::workflow::WorkflowDescriptor;
+    use crate::workflow::{WorkflowBuilder, WorkflowDescriptor};
 
     /// What the journey's reporters received, in order, as "reporter kind" lines.
     pub(crate) type Log = Arc<Mutex<Vec<String>>>;
@@ -253,8 +253,12 @@ pub(crate) mod tests {
         log.lock().unwrap().clone()
     }
 
-    pub(crate) fn shop_workflow() -> WorkflowDescriptor<Shop> {
+    fn shop_builder() -> WorkflowBuilder<Shop> {
         WorkflowDescriptor::builder("shop")
+    }
+
+    pub(crate) fn shop_workflow() -> WorkflowDescriptor<Shop> {
+        shop_builder()
             .step(StepDescriptor::new(StepName::new("charge"), || {}))
             .reporter::<Recorder<0>>()
             .reporter::<Recorder<1>>()
@@ -322,7 +326,7 @@ pub(crate) mod tests {
     fn the_step_runs_once() {
         let runs = Arc::new(Mutex::new(0));
         let counted = Arc::clone(&runs);
-        let workflow = WorkflowDescriptor::builder("shop")
+        let workflow = shop_builder()
             .step(StepDescriptor::new(StepName::new("charge"), move || {
                 count(&counted)
             }))
@@ -687,7 +691,7 @@ pub(crate) mod tests {
 
     #[test]
     fn an_executor_runs_journeys_one_after_another_each_with_a_new_dispatcher() {
-        let workflow = WorkflowDescriptor::builder("shop")
+        let workflow = shop_builder()
             .step(StepDescriptor::new(StepName::new("charge"), || {}))
             .build()
             .unwrap();
@@ -708,10 +712,7 @@ pub(crate) mod tests {
     fn a_journey_without_a_step_succeeds() {
         let shop = Shop::new();
         let log = Arc::clone(&shop.log);
-        let workflow = WorkflowDescriptor::builder("shop")
-            .reporter::<Recorder<0>>()
-            .build()
-            .unwrap();
+        let workflow = shop_builder().reporter::<Recorder<0>>().build().unwrap();
 
         let result = LocalExecutor::new()
             .run(workflow.instance(shop).create().unwrap())

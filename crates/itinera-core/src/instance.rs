@@ -382,8 +382,12 @@ mod tests {
         Ok(format!("order-{number}"))
     }
 
+    fn orders() -> WorkflowBuilder<Orders> {
+        WorkflowDescriptor::builder("orders")
+    }
+
     fn numbered_orders() -> WorkflowBuilder<Orders> {
-        WorkflowDescriptor::builder("orders").id_generator(numbered)
+        orders().id_generator(numbered)
     }
 
     fn is_uuid_v4(id: &str) -> bool {
@@ -396,7 +400,7 @@ mod tests {
 
     #[test]
     fn without_a_generator_the_journey_id_is_a_uuid_v4() {
-        let orders = WorkflowDescriptor::builder("orders").build().unwrap();
+        let orders = orders().build().unwrap();
         let first = orders.instance(Orders::new()).create().unwrap();
         let second = orders.instance(Orders::new()).create().unwrap();
 
@@ -456,7 +460,7 @@ mod tests {
 
     #[test]
     fn a_reporter_that_cannot_be_made_makes_creating_the_instance_fail() {
-        let orders = WorkflowDescriptor::builder("orders")
+        let orders = orders()
             .reporter::<Audit>()
             .reporter::<Broken>()
             .build()
@@ -472,7 +476,7 @@ mod tests {
 
     #[test]
     fn the_instance_holds_the_workflows_value_and_its_initial_data() {
-        let orders = WorkflowDescriptor::builder("orders").build().unwrap();
+        let orders = orders().build().unwrap();
         let instance = orders
             .instance(Orders::new())
             .data("amount", 42_i64)
@@ -544,7 +548,7 @@ mod tests {
 
     #[test]
     fn an_instance_shows_its_journey_its_data_and_how_many_reporters_it_has_but_not_its_workflow() {
-        let workflow = WorkflowDescriptor::builder("orders")
+        let workflow = orders()
             .reporter::<Audit>()
             .id_generator(|_: &Orders, _| Ok("order-7".to_string()))
             .build()
