@@ -1,6 +1,7 @@
 //! The sentences of the catalogue, grouped as the catalogue groups them. A sentence used only
 //! by scenarios that Rust makes impossible to express is not defined, since those never run.
 
+mod admission;
 mod building;
 mod data;
 mod events;

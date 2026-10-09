@@ -14,7 +14,9 @@ use std::num::NonZeroU32;
 use serde_json::Value;
 
 pub(crate) use adapter::{Adapter, Answer, answer_for};
-pub(crate) use policy::{Hook, HookAction, HookRequest, HookReturn, HookScript, Policy, Role};
+pub(crate) use policy::{
+    Hook, HookAction, HookRequest, HookReturn, HookScript, Hooks, Policy, Role,
+};
 pub(crate) use report::{Dispatching, EventKind, Holding, ReporterFailure};
 pub(crate) use step::{Attempt, Input, Step, StepAction, attempts};
 pub(crate) use table::{Row, rows};
@@ -286,6 +288,14 @@ pub(crate) enum ModelError {
     AttemptOutOfOrder(NonZeroU32),
     #[error("{0} is already stated")]
     StatedTwice(&'static str),
+    #[error("a step name cannot be empty")]
+    EmptyStepName,
+    #[error("policy \"{0}\" defines no hook")]
+    NoHooks(String),
+    #[error("input adapter \"{0}\" is attached to no step")]
+    AdapterWithoutSteps(String),
+    #[error("an input adapter \"{0}\" is already declared")]
+    AdapterDeclaredTwice(String),
 }
 
 /// A step that does nothing yet, under its name.

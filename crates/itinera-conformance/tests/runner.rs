@@ -145,6 +145,37 @@ fn a_sentence_that_does_not_fit_the_scenario_declared_so_far_fails_it() {
 }
 
 #[test]
+fn admission_and_the_listing_read_what_building_the_workflow_gave() {
+    let run = run("admission", "admission", "@fixture and not @mismatch");
+    assert!(
+        run.succeeded(),
+        "{}",
+        String::from_utf8_lossy(&run.output.stdout)
+    );
+}
+
+#[test]
+fn a_listing_or_a_refusal_other_than_the_table_fails_its_scenario() {
+    let run = run("mismatch", "admission", "@mismatch");
+    assert!(!run.succeeded());
+    let elements = run.elements();
+    assert_eq!(elements.len(), 4);
+    assert!(elements.iter().all(has_failed));
+}
+
+fn has_failed(element: &Value) -> bool {
+    element["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(is_failed_step)
+}
+
+fn is_failed_step(step: &Value) -> bool {
+    step["result"]["status"] == "failed"
+}
+
+#[test]
 fn a_feature_that_does_not_parse_fails_the_run() {
     let run = run("malformed", "malformed", "@fixture");
     assert!(!run.succeeded());

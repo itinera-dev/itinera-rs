@@ -1,6 +1,6 @@
 {
   "cases": "v0.1.0-rc.5",
-  "proposals": [],
+  "proposals": [62],
   "capabilities": ["sync", "async"],
   "impossible": {}
 }
