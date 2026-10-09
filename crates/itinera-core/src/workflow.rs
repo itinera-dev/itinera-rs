@@ -8,11 +8,15 @@ use crate::error::Error;
 use crate::instance::InstanceBuilder;
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::{Mode, Synchronous};
+use crate::policy::WorkflowPolicyDescriptor;
 use crate::report::{Reporter, WorkflowReporter};
-use crate::step::StepName;
+use crate::step::{StepDescriptor, StepName};
 
 #[cfg(feature = "async")]
 mod asynchronous;
+mod violation;
+
+pub use violation::{Violation, ViolationKind, Violations};
 
 /// A workflow's name, fixed when the program is compiled.
 ///
@@ -73,26 +77,28 @@ pub struct WorkflowName(&'static str);
 #[as_ref(forward)]
 pub struct AdapterName(&'static str);
 
-/// A workflow's declaration: its name, its step, its reporters and how it produces journey IDs.
+/// A workflow's declaration: its name, its step descriptors in order, its workflow policies, its
+/// input adapters, its reporters and how it produces journey IDs.
 ///
 /// It is fixed once built, shared by every instance of the workflow, and cheap to clone. Only
-/// [`WorkflowBuilder::build`] makes one. Its mode `M` is [`Synchronous`] unless the workflow has
-/// an asynchronous part.
+/// [`WorkflowBuilder::build`] makes one, after checking the declaration. Its mode `M` is
+/// [`Synchronous`] unless the workflow has an asynchronous part.
 ///
 /// # Examples
 ///
 /// ```
 /// use std::sync::LazyLock;
 ///
-/// use itinera::step::step_name;
+/// use itinera::step::{StepDescriptor, step_name};
 /// use itinera::workflow::WorkflowDescriptor;
 ///
 /// struct Orders;
 ///
 /// static ORDERS: LazyLock<WorkflowDescriptor<Orders>> = LazyLock::new(|| {
 ///     WorkflowDescriptor::builder("orders")
-///         .step(step_name!("charge"), || {})
+///         .step(StepDescriptor::new(step_name!("charge"), || {}))
 ///         .build()
+///         .expect("the orders workflow is well formed")
 /// });
 ///
 /// assert_eq!(ORDERS.name().to_string(), "orders");
@@ -105,7 +111,9 @@ pub struct WorkflowDescriptor<W, M: Mode = Synchronous> {
 #[derive(derive_more::Debug)]
 struct Declaration<W, M: Mode> {
     name: WorkflowName,
-    step: Option<StandInStep>,
+    steps: Vec<StepDescriptor>,
+    policies: Vec<WorkflowPolicyDescriptor>,
+    adapters: Vec<InputAdapter>,
     #[debug("{}", reporters.len())]
     reporters: Vec<MakeReporter<W, M>>,
     #[debug("{}", id_generator.is_some())]
@@ -117,24 +125,6 @@ type MakeReporter<W, M> =
 
 type GenerateId<W> = Box<dyn Fn(&W, &DataBag) -> Result<String, Error> + Send + Sync>;
 
-/// A stand-in for a step, which can only succeed, until steps can be declared in full.
-#[derive(derive_more::Debug)]
-pub(crate) struct StandInStep {
-    name: StepName,
-    #[debug(skip)]
-    run: Box<dyn Fn() + Send + Sync>,
-}
-
-impl StandInStep {
-    pub(crate) fn name(&self) -> StepName {
-        self.name
-    }
-
-    pub(crate) fn run(&self) {
-        (self.run)();
-    }
-}
-
 impl<W: Send + Sync + 'static> WorkflowDescriptor<W> {
     /// Starts declaring a workflow with this name.
     ///
@@ -145,14 +135,17 @@ impl<W: Send + Sync + 'static> WorkflowDescriptor<W> {
     ///
     /// struct Orders;
     ///
-    /// let orders = WorkflowDescriptor::<Orders>::builder("orders").build();
+    /// let orders = WorkflowDescriptor::<Orders>::builder("orders").build()?;
     /// assert_eq!(orders.name().to_string(), "orders");
+    /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     pub fn builder(name: impl Into<WorkflowName>) -> WorkflowBuilder<W> {
         WorkflowBuilder {
             declaration: Declaration {
                 name: name.into(),
-                step: None,
+                steps: Vec::new(),
+                policies: Vec::new(),
+                adapters: Vec::new(),
                 reporters: Vec::new(),
                 id_generator: None,
             },
@@ -171,17 +164,16 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     ///
     /// struct Orders;
     ///
-    /// let orders = WorkflowDescriptor::builder("orders").build();
+    /// let orders = WorkflowDescriptor::builder("orders").build()?;
     /// let instance = orders.instance(Orders).data("amount", 42_i64).create()?;
-    /// # drop(instance);
-    /// # Ok::<(), itinera::instance::InstanceError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn instance(&self, workflow: W) -> InstanceBuilder<W, M> {
         InstanceBuilder::new(self.clone(), workflow)
     }
 
-    pub(crate) fn step(&self) -> Option<&StandInStep> {
-        self.declaration.step.as_ref()
+    pub(crate) fn steps(&self) -> &[StepDescriptor] {
+        &self.declaration.steps
     }
 
     /// The journey ID for a new instance: the workflow's generator's, or a UUID v4.
@@ -217,8 +209,9 @@ impl<W, M: Mode> WorkflowDescriptor<W, M> {
     ///
     /// struct Orders;
     ///
-    /// let orders = WorkflowDescriptor::<Orders>::builder("orders").build();
+    /// let orders = WorkflowDescriptor::<Orders>::builder("orders").build()?;
     /// assert_eq!(orders.name().to_string(), "orders");
+    /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     pub fn name(&self) -> WorkflowName {
         self.declaration.name
@@ -252,10 +245,9 @@ impl<W, M: Mode> Clone for WorkflowDescriptor<W, M> {
 ///
 /// let orders = WorkflowDescriptor::builder("orders")
 ///     .id_generator(first_order)
-///     .build();
+///     .build()?;
 /// let instance = orders.instance(Orders { prefix: "order" }).create()?;
-/// # drop(instance);
-/// # Ok::<(), itinera::instance::InstanceError>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(derive_more::Debug)]
 pub struct WorkflowBuilder<W, M: Mode = Synchronous> {
@@ -263,29 +255,86 @@ pub struct WorkflowBuilder<W, M: Mode = Synchronous> {
 }
 
 impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
-    /// Gives the workflow its step, replacing any step given before.
-    ///
-    /// The step is a stand-in that can only succeed, until steps can be declared in full: the
-    /// journey runs it once, and it succeeds.
+    /// Adds a step, after the steps already added. Steps run in the order they are added.
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::step_name;
+    /// use itinera::step::{StepDescriptor, step_name};
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// struct Orders;
     ///
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
-    ///     .step(step_name!("charge"), || {})
-    ///     .build();
-    /// # drop(orders);
+    ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
+    ///     .step(StepDescriptor::new(step_name!("ship"), || {}))
+    ///     .build()?;
+    /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
-    pub fn step(mut self, name: StepName, run: impl Fn() + Send + Sync + 'static) -> Self {
-        self.declaration.step = Some(StandInStep {
-            name,
-            run: Box::new(run),
-        });
+    pub fn step(mut self, step: StepDescriptor) -> Self {
+        self.declaration.steps.push(step);
+        self
+    }
+
+    /// Attaches a workflow policy, after those already attached.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::policy::{WorkflowHook, WorkflowPolicyDescriptor};
+    /// use itinera::workflow::WorkflowDescriptor;
+    ///
+    /// struct Orders;
+    ///
+    /// let notify = WorkflowPolicyDescriptor::new("notify", WorkflowHook::OnWorkflowSuccess);
+    /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
+    ///     .policy(notify)
+    ///     .build()?;
+    /// # Ok::<(), itinera::workflow::Violations>(())
+    /// ```
+    pub fn policy(mut self, policy: WorkflowPolicyDescriptor) -> Self {
+        self.declaration.policies.push(policy);
+        self
+    }
+
+    /// Declares an input adapter of the workflow.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the workflow already has an input adapter with the same name, since adapter
+    /// names are unique within a workflow.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::{StepDescriptor, step_name};
+    /// use itinera::workflow::{InputAdapter, WorkflowDescriptor};
+    ///
+    /// struct Orders;
+    ///
+    /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
+    ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
+    ///     .input_adapter(InputAdapter::new("pricing", step_name!("charge")))
+    ///     .build()?;
+    /// # Ok::<(), itinera::workflow::Violations>(())
+    /// ```
+    #[expect(
+        clippy::panic,
+        reason = "two adapters with one name are a mistake in a declaration, before any journey"
+    )]
+    pub fn input_adapter(mut self, adapter: InputAdapter) -> Self {
+        if self
+            .declaration
+            .adapters
+            .iter()
+            .any(|known| known.is_named(adapter.name))
+        {
+            panic!(
+                "the workflow already has an input adapter named \"{}\"",
+                adapter.name
+            );
+        }
+        self.declaration.adapters.push(adapter);
         self
     }
 
@@ -317,8 +366,8 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     ///     }
     /// }
     ///
-    /// let orders = WorkflowDescriptor::builder("orders").reporter::<Audit>().build();
-    /// # drop(orders);
+    /// let orders = WorkflowDescriptor::builder("orders").reporter::<Audit>().build()?;
+    /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     pub fn reporter<R: WorkflowReporter<W>>(mut self) -> Self {
         self.declaration
@@ -350,11 +399,11 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     ///
     /// let orders = WorkflowDescriptor::builder("orders")
     ///     .id_generator(order_number)
-    ///     .build();
+    ///     .build()?;
     /// let instance = orders.instance(Orders).data("number", 7_i64).create()?;
     /// # use itinera::instance::WorkflowInstance;
     /// assert_eq!(instance.journey_id().to_string(), "order-7");
-    /// # Ok::<(), itinera::instance::InstanceError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn id_generator(
         mut self,
@@ -364,22 +413,120 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
         self
     }
 
-    /// Builds the workflow descriptor.
+    /// Checks the declaration and builds the workflow descriptor, or returns every violation
+    /// found: steps with the same name, a hook defined twice for one step or for the workflow, and
+    /// input adapters attached to a step the workflow does not have, or to a step another adapter
+    /// is attached to.
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::workflow::WorkflowDescriptor;
+    /// use itinera::step::{StepDescriptor, step_name};
+    /// use itinera::workflow::{Violation, ViolationKind, WorkflowDescriptor};
     ///
     /// struct Orders;
     ///
-    /// let orders = WorkflowDescriptor::<Orders>::builder("orders").build();
-    /// assert_eq!(orders.clone().name().to_string(), "orders");
+    /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
+    ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
+    ///     .build()?;
+    /// assert_eq!(orders.name().to_string(), "orders");
+    ///
+    /// let refused = WorkflowDescriptor::<Orders>::builder("orders")
+    ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
+    ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
+    ///     .build();
+    /// let kinds: Vec<ViolationKind> = refused.unwrap_err().iter().map(Violation::kind).collect();
+    /// assert_eq!(kinds, [ViolationKind::DuplicateStepName]);
+    /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
-    pub fn build(self) -> WorkflowDescriptor<W, M> {
-        WorkflowDescriptor {
+    pub fn build(self) -> Result<WorkflowDescriptor<W, M>, Violations> {
+        violation::check(
+            &self.declaration.steps,
+            &self.declaration.policies,
+            &self.declaration.adapters,
+        )?;
+        Ok(WorkflowDescriptor {
             declaration: Arc::new(self.declaration),
+        })
+    }
+}
+
+/// An input adapter of a workflow: its name, and the steps it is attached to, at least one.
+///
+/// It is declared on the workflow with [`WorkflowBuilder::input_adapter`]. Until input adapters can
+/// be written, it supplies no value, so every input of its steps is read from the data bag.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::step::step_name;
+/// use itinera::workflow::InputAdapter;
+///
+/// let pricing = InputAdapter::new("pricing", step_name!("charge")).step(step_name!("refund"));
+/// assert_eq!(pricing.name().to_string(), "pricing");
+/// ```
+#[derive(Clone, Debug)]
+pub struct InputAdapter {
+    name: AdapterName,
+    steps: Vec<StepName>,
+}
+
+impl InputAdapter {
+    /// Declares an input adapter with its name and a step it is attached to.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::step_name;
+    /// use itinera::workflow::InputAdapter;
+    ///
+    /// let pricing = InputAdapter::new("pricing", step_name!("charge"));
+    /// ```
+    pub fn new(name: impl Into<AdapterName>, step: StepName) -> Self {
+        Self {
+            name: name.into(),
+            steps: vec![step],
         }
+    }
+
+    /// Attaches the adapter to another step. A step it is already attached to is not added again.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::step_name;
+    /// use itinera::workflow::InputAdapter;
+    ///
+    /// let pricing = InputAdapter::new("pricing", step_name!("charge")).step(step_name!("refund"));
+    /// ```
+    pub fn step(mut self, step: StepName) -> Self {
+        if !self.steps.contains(&step) {
+            self.steps.push(step);
+        }
+        self
+    }
+
+    /// The adapter's name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::step_name;
+    /// use itinera::workflow::InputAdapter;
+    ///
+    /// let pricing = InputAdapter::new("pricing", step_name!("charge"));
+    /// assert_eq!(pricing.name().to_string(), "pricing");
+    /// ```
+    pub fn name(&self) -> AdapterName {
+        self.name
+    }
+
+    pub(crate) fn steps(&self) -> &[StepName] {
+        &self.steps
+    }
+
+    fn is_named(&self, name: AdapterName) -> bool {
+        self.name == name
     }
 }
 

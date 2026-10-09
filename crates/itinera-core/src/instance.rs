@@ -75,10 +75,10 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     ///
     /// let orders = WorkflowDescriptor::builder("orders")
     ///     .id_generator(|_: &Orders, _| Ok("order-1".to_string()))
-    ///     .build();
+    ///     .build()?;
     /// let instance = orders.instance(Orders).create()?;
     /// assert_eq!(instance.journey_id().to_string(), "order-1");
-    /// # Ok::<(), itinera::instance::InstanceError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     fn journey_id(&self) -> &JourneyId;
 
@@ -93,10 +93,10 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     ///
     /// struct Orders;
     ///
-    /// let orders = WorkflowDescriptor::builder("orders").build();
+    /// let orders = WorkflowDescriptor::builder("orders").build()?;
     /// let mut instance = orders.instance(Orders).create()?;
     /// assert!(instance.take_reporters().is_empty());
-    /// # Ok::<(), itinera::instance::InstanceError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     fn take_reporters(&mut self) -> Vec<<Self::Mode as Mode>::Reporter>;
 
@@ -110,10 +110,10 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     ///
     /// struct Orders;
     ///
-    /// let orders = WorkflowDescriptor::builder("orders").build();
+    /// let orders = WorkflowDescriptor::builder("orders").build()?;
     /// let instance = orders.instance(Orders).data("amount", 42_i64).create()?;
     /// assert_eq!(instance.data_bag().keys().collect::<Vec<_>>(), ["amount"]);
-    /// # Ok::<(), itinera::instance::InstanceError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     fn data_bag(&self) -> &DataBag;
 
@@ -127,10 +127,10 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     ///
     /// struct Orders;
     ///
-    /// let orders = WorkflowDescriptor::builder("orders").build();
+    /// let orders = WorkflowDescriptor::builder("orders").build()?;
     /// let instance = orders.instance(Orders).data("amount", 42_i64).create()?;
     /// assert!(instance.into_data_bag().get("amount").is_some());
-    /// # Ok::<(), itinera::instance::InstanceError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     fn into_data_bag(self) -> DataBag;
 }
@@ -145,10 +145,10 @@ pub trait WorkflowInstance: Send + Sized + 'static {
 ///
 /// struct Orders;
 ///
-/// let orders = WorkflowDescriptor::builder("orders").build();
+/// let orders = WorkflowDescriptor::builder("orders").build()?;
 /// let instance: Instance<Orders> = orders.instance(Orders).create()?;
 /// assert_eq!(instance.descriptor().name().to_string(), "orders");
-/// # Ok::<(), itinera::instance::InstanceError>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(derive_more::Debug)]
 pub struct Instance<W, M: Mode = Synchronous> {
@@ -201,14 +201,14 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowInstance for Instance<W, M> {
 ///
 /// struct Orders;
 ///
-/// let orders = WorkflowDescriptor::builder("orders").build();
+/// let orders = WorkflowDescriptor::builder("orders").build()?;
 /// let instance = orders
 ///     .instance(Orders)
 ///     .data("amount", 42_i64)
 ///     .data("customer", "ana".to_string())
 ///     .create()?;
 /// assert_eq!(instance.data_bag().keys().collect::<Vec<_>>(), ["amount", "customer"]);
-/// # Ok::<(), itinera::instance::InstanceError>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(derive_more::Debug)]
 pub struct InstanceBuilder<W, M: Mode = Synchronous> {
@@ -237,11 +237,11 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
     ///
     /// struct Orders;
     ///
-    /// let orders = WorkflowDescriptor::builder("orders").build();
+    /// let orders = WorkflowDescriptor::builder("orders").build()?;
     /// let instance = orders.instance(Orders).data("amount", 42_i64).create()?;
     /// let amount = instance.data_bag().get("amount").and_then(|v| v.downcast_ref::<i64>());
     /// assert_eq!(amount, Some(&42));
-    /// # Ok::<(), itinera::instance::InstanceError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn data<T: Value>(mut self, key: impl Into<String>, value: T) -> Self {
         self.data.insert(key.into(), AnyValue::new(value));
@@ -266,9 +266,10 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
     ///
     /// let orders = WorkflowDescriptor::builder("orders")
     ///     .id_generator(|_: &Orders, _| Err(Error::msg("no number")))
-    ///     .build();
+    ///     .build()?;
     /// let error = orders.instance(Orders).create().unwrap_err();
     /// assert!(matches!(error, InstanceError::JourneyId(_)));
+    /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     pub fn create(self) -> Result<Instance<W, M>, InstanceError> {
         let Self {
@@ -321,6 +322,7 @@ mod tests {
     use super::*;
     use crate::event::Event;
     use crate::report::{Reporter, WorkflowReporter};
+    use crate::workflow::WorkflowBuilder;
 
     struct Orders {
         made: Arc<Mutex<Vec<String>>>,
@@ -380,6 +382,14 @@ mod tests {
         Ok(format!("order-{number}"))
     }
 
+    fn orders() -> WorkflowBuilder<Orders> {
+        WorkflowDescriptor::builder("orders")
+    }
+
+    fn numbered_orders() -> WorkflowBuilder<Orders> {
+        orders().id_generator(numbered)
+    }
+
     fn is_uuid_v4(id: &str) -> bool {
         uuid::Uuid::parse_str(id).is_ok_and(is_version_4)
     }
@@ -390,7 +400,7 @@ mod tests {
 
     #[test]
     fn without_a_generator_the_journey_id_is_a_uuid_v4() {
-        let orders = WorkflowDescriptor::builder("orders").build();
+        let orders = orders().build().unwrap();
         let first = orders.instance(Orders::new()).create().unwrap();
         let second = orders.instance(Orders::new()).create().unwrap();
 
@@ -400,9 +410,7 @@ mod tests {
 
     #[test]
     fn the_generator_produces_the_journey_id_from_the_initial_data() {
-        let orders = WorkflowDescriptor::builder("orders")
-            .id_generator(numbered)
-            .build();
+        let orders = numbered_orders().build().unwrap();
         let instance = orders
             .instance(Orders::new())
             .data("number", 7_i64)
@@ -414,9 +422,7 @@ mod tests {
 
     #[test]
     fn a_generator_that_fails_makes_creating_the_instance_fail() {
-        let orders = WorkflowDescriptor::builder("orders")
-            .id_generator(numbered)
-            .build();
+        let orders = numbered_orders().build().unwrap();
         let error = orders.instance(Orders::new()).create().unwrap_err();
 
         assert!(matches!(error, InstanceError::JourneyId(_)));
@@ -428,11 +434,11 @@ mod tests {
 
     #[test]
     fn reporters_are_made_after_the_journey_id_with_the_initial_data() {
-        let orders = WorkflowDescriptor::builder("orders")
-            .id_generator(numbered)
+        let orders = numbered_orders()
             .reporter::<Audit>()
             .reporter::<Audit>()
-            .build();
+            .build()
+            .unwrap();
         let workflow = Orders::new();
         let made = Arc::clone(&workflow.made);
         let mut instance = orders
@@ -454,10 +460,11 @@ mod tests {
 
     #[test]
     fn a_reporter_that_cannot_be_made_makes_creating_the_instance_fail() {
-        let orders = WorkflowDescriptor::builder("orders")
+        let orders = orders()
             .reporter::<Audit>()
             .reporter::<Broken>()
-            .build();
+            .build()
+            .unwrap();
         let error = orders.instance(Orders::new()).create().unwrap_err();
 
         assert!(matches!(error, InstanceError::Reporter(_)));
@@ -469,7 +476,7 @@ mod tests {
 
     #[test]
     fn the_instance_holds_the_workflows_value_and_its_initial_data() {
-        let orders = WorkflowDescriptor::builder("orders").build();
+        let orders = orders().build().unwrap();
         let instance = orders
             .instance(Orders::new())
             .data("amount", 42_i64)
@@ -519,7 +526,8 @@ mod tests {
                     .reporter::<Audit>()
                     .async_reporter::<Forward>()
                     .reporter::<Audit>()
-                    .build();
+                    .build()
+                    .unwrap();
             let workflow = Orders::new();
             let made = Arc::clone(&workflow.made);
             let mut instance = orders.instance(workflow).create().unwrap();
@@ -540,10 +548,11 @@ mod tests {
 
     #[test]
     fn an_instance_shows_its_journey_its_data_and_how_many_reporters_it_has_but_not_its_workflow() {
-        let workflow = WorkflowDescriptor::builder("orders")
+        let workflow = orders()
             .reporter::<Audit>()
             .id_generator(|_: &Orders, _| Ok("order-7".to_string()))
-            .build();
+            .build()
+            .unwrap();
         let instance = workflow
             .instance(Orders::new())
             .data("amount", 42_i64)
@@ -553,7 +562,8 @@ mod tests {
             format!("{instance:?}"),
             "Instance { \
              descriptor: WorkflowDescriptor { declaration: Declaration { \
-             name: WorkflowName(\"orders\"), step: None, reporters: 1, id_generator: true } }, \
+             name: WorkflowName(\"orders\"), steps: [], policies: [], adapters: [], \
+             reporters: 1, id_generator: true } }, \
              journey_id: JourneyId(\"order-7\"), reporters: 1, \
              data: DataBag { values: {\"amount\": AnyValue(\"i64\")} }, .. }"
         );

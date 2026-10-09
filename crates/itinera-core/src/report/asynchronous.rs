@@ -20,8 +20,7 @@ use crate::journey::{DataBag, JourneyId};
 /// struct Forward;
 ///
 /// impl AsyncReporter for Forward {
-///     async fn report(&mut self, event: &Event) -> Result<(), Error> {
-///         let _ = event.kind();
+///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
 ///         Ok(())
 ///     }
 /// }
@@ -131,7 +130,6 @@ pub trait AsyncWorkflowReporter<W>: AsyncReporter + Sized {
 /// }
 ///
 /// let reporter = BoxedReporter::from_reporter(Silent);
-/// # drop(reporter);
 /// ```
 #[derive(derive_more::Debug)]
 #[debug("BoxedReporter({kind:?})")]
@@ -166,7 +164,6 @@ impl BoxedReporter {
     /// }
     ///
     /// let reporter = BoxedReporter::from_reporter(Silent);
-    /// # drop(reporter);
     /// ```
     pub fn from_reporter(reporter: impl Reporter) -> Self {
         Self {
@@ -192,7 +189,6 @@ impl BoxedReporter {
     /// }
     ///
     /// let reporter = BoxedReporter::from_async_reporter(Silent);
-    /// # drop(reporter);
     /// ```
     pub fn from_async_reporter(reporter: impl AsyncReporter) -> Self {
         Self {

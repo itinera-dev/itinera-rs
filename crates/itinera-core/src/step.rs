@@ -2,6 +2,7 @@
 
 use std::num::NonZeroU32;
 
+use crate::policy::StepPolicyDescriptor;
 use crate::value::{AnyValue, Value};
 
 /// A step's name: non-empty text, fixed when the program is compiled, unique within its workflow
@@ -95,6 +96,94 @@ macro_rules! __step_name {
 
 #[doc(inline)]
 pub use crate::__step_name as step_name;
+
+/// What a workflow holds for one step: the step's name, how to run it, and the step policies
+/// attached to it, in the order they were attached.
+///
+/// The step is a stand-in that can only succeed, until steps can be declared in full: each
+/// journey runs it once, and it succeeds.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::policy::{StepHook, StepPolicyDescriptor};
+/// use itinera::step::{StepDescriptor, step_name};
+///
+/// let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess);
+/// let charge = StepDescriptor::new(step_name!("charge"), || {}).policy(audit);
+/// assert_eq!(charge.name().to_string(), "charge");
+/// ```
+#[derive(derive_more::Debug)]
+pub struct StepDescriptor {
+    name: StepName,
+    #[debug(skip)]
+    run: Box<dyn Fn() + Send + Sync>,
+    policies: Vec<StepPolicyDescriptor>,
+}
+
+impl StepDescriptor {
+    /// Describes a step with its name and how to run it, with no policies.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::{StepDescriptor, step_name};
+    ///
+    /// let ship = StepDescriptor::new(step_name!("ship"), || {});
+    /// ```
+    pub fn new(name: StepName, run: impl Fn() + Send + Sync + 'static) -> Self {
+        Self {
+            name,
+            run: Box::new(run),
+            policies: Vec::new(),
+        }
+    }
+
+    /// Attaches a step policy, after those already attached.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::policy::{StepHook, StepPolicyDescriptor};
+    /// use itinera::step::{StepDescriptor, step_name};
+    ///
+    /// let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess);
+    /// let alarm = StepPolicyDescriptor::new("alarm", StepHook::OnStepFailure);
+    /// let charge = StepDescriptor::new(step_name!("charge"), || {})
+    ///     .policy(audit)
+    ///     .policy(alarm);
+    /// ```
+    pub fn policy(mut self, policy: StepPolicyDescriptor) -> Self {
+        self.policies.push(policy);
+        self
+    }
+
+    /// The step's name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::{StepDescriptor, step_name};
+    ///
+    /// let ship = StepDescriptor::new(step_name!("ship"), || {});
+    /// assert_eq!(ship.name(), step_name!("ship"));
+    /// ```
+    pub fn name(&self) -> StepName {
+        self.name
+    }
+
+    pub(crate) fn policies(&self) -> &[StepPolicyDescriptor] {
+        &self.policies
+    }
+
+    pub(crate) fn run(&self) {
+        (self.run)();
+    }
+
+    pub(crate) fn is_named(&self, name: StepName) -> bool {
+        self.name == name
+    }
+}
 
 /// A step and one of its attempts, counted from 1.
 ///

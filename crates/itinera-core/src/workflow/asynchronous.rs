@@ -36,8 +36,8 @@ impl<W: Send + Sync + 'static> WorkflowBuilder<W, Synchronous> {
     ///
     /// let orders: WorkflowDescriptor<Orders, Asynchronous> = WorkflowDescriptor::builder("orders")
     ///     .async_reporter::<Forward>()
-    ///     .build();
-    /// # drop(orders);
+    ///     .build()?;
+    /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     pub fn async_reporter<R: AsyncWorkflowReporter<W>>(self) -> WorkflowBuilder<W, Asynchronous> {
         self.asynchronous().async_reporter::<R>()
@@ -46,14 +46,18 @@ impl<W: Send + Sync + 'static> WorkflowBuilder<W, Synchronous> {
     fn asynchronous(self) -> WorkflowBuilder<W, Asynchronous> {
         let Declaration {
             name,
-            step,
+            steps,
+            policies,
+            adapters,
             reporters,
             id_generator,
         } = self.declaration;
         WorkflowBuilder {
             declaration: Declaration {
                 name,
-                step,
+                steps,
+                policies,
+                adapters,
                 reporters: reporters.into_iter().map(asynchronous).collect(),
                 id_generator,
             },
@@ -93,8 +97,8 @@ impl<W: Send + Sync + 'static> WorkflowBuilder<W, Asynchronous> {
     /// let orders = WorkflowDescriptor::builder("orders")
     ///     .async_reporter::<Forward>()
     ///     .async_reporter::<Forward>()
-    ///     .build();
-    /// # drop(orders);
+    ///     .build()?;
+    /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     pub fn async_reporter<R: AsyncWorkflowReporter<W>>(mut self) -> Self {
         self.declaration

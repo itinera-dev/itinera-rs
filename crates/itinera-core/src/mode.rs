@@ -41,8 +41,8 @@ pub trait Mode: sealed::Sealed + Send + Sync + 'static {
 /// struct Orders;
 ///
 /// let orders: WorkflowDescriptor<Orders, Synchronous> =
-///     WorkflowDescriptor::builder("orders").build();
-/// # drop(orders);
+///     WorkflowDescriptor::builder("orders").build()?;
+/// # Ok::<(), itinera::workflow::Violations>(())
 /// ```
 #[derive(Clone, Copy, Debug)]
 pub enum Synchronous {}

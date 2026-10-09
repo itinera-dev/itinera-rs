@@ -45,7 +45,6 @@ pub use asynchronous::{
 /// }
 ///
 /// let reporter: Box<dyn Reporter> = Box::new(Kinds::default());
-/// # drop(reporter);
 /// ```
 pub trait Reporter: Send + 'static {
     /// Receives one event.
@@ -307,7 +306,6 @@ impl DefaultDispatcher {
     /// use itinera::report::DefaultDispatcher;
     ///
     /// let dispatcher = DefaultDispatcher::new();
-    /// # drop(dispatcher);
     /// ```
     pub fn new() -> Self {
         Self::default()
