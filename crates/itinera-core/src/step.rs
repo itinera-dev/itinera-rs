@@ -240,3 +240,14 @@ impl Reason {
         self.details.as_ref()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "a step name cannot be empty")]
+    fn a_step_name_cannot_be_empty() {
+        let _ = StepName::new("");
+    }
+}

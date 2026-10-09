@@ -123,11 +123,11 @@ The rules types cannot reach are checked when the descriptor is built (decision 
 ```rust
 static ORDERS: LazyLock<WorkflowDescriptor<Orders, Synchronous>> = LazyLock::new(|| {
     WorkflowDescriptor::builder("orders")
-        .step(StepDescriptor::new("charge", ChargeFactory)
+        .step(StepDescriptor::new(step_name!("charge"), ChargeFactory)
             .retries(2)
             .abnormal_termination_retriable()
             .policy(|| Audit::default()))
-        .step(StepDescriptor::new("ship", ShipFactory))
+        .step(StepDescriptor::new(step_name!("ship"), ShipFactory))
         .policy(|| Notify::new())
         .reporter::<AuditLog>()
         .id_generator(|w: &Orders, data: &DataBag| Ok(format!("order-{}", w.next_number())))
@@ -243,7 +243,7 @@ pub enum Failure {
 
 pub enum Abort {
     StepCouldNotBeBuilt(Error),
-    PolicyCouldNotBeBuilt { policy: String, error: Error },
+    PolicyCouldNotBeBuilt { policy: PolicyName, error: Error },
     RequiredDataMissing(MissingData),
     WrongType { key: String, requester: Requester },
     HookFailed(Error),
