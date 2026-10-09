@@ -15,13 +15,16 @@ use crate::value::{AnyValue, Value};
 mod asynchronous;
 mod needs;
 mod outcome;
+mod reporter;
 
 #[cfg(feature = "async")]
-pub use asynchronous::{AsyncStep, AsyncStepFactory};
+pub use asynchronous::{AsyncStep, AsyncStepFactory, AsyncStepReporter};
 pub(crate) use needs::{Got, InputNeed, Requirement};
 pub use needs::{Input, OptionalInput, Resolved, StepNeeds};
 pub use outcome::Outcome;
 pub(crate) use outcome::OutcomeKind;
+pub use reporter::StepReporter;
+pub(crate) use reporter::{Level, Reporting};
 
 /// A step's name: non-empty text, fixed when the program is compiled, unique within its workflow
 /// and compared case-sensitively.
@@ -146,7 +149,9 @@ pub trait Step {
     ///
     /// # Errors
     ///
-    /// An error is an abnormal termination of the attempt. It never aborts the journey.
+    /// An error is an abnormal termination of the attempt, which never aborts the journey.
+    /// [`Interrupted`](crate::error::Interrupted), propagated from the step's reporter, is the
+    /// exception: the journey was already aborted with `reporter failed`.
     ///
     /// # Examples
     ///
@@ -227,7 +232,9 @@ pub trait StepFactory: Send + Sync + 'static {
     ///
     /// # Errors
     ///
-    /// An error means the step could not be built, which aborts the journey.
+    /// An error means the step could not be built, which aborts the journey with
+    /// `step could not be built`. [`Interrupted`](crate::error::Interrupted), propagated from the
+    /// step's reporter, is the exception: the journey was already aborted with `reporter failed`.
     ///
     /// # Examples
     ///

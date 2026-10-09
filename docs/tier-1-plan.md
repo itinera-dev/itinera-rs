@@ -69,7 +69,7 @@ The rules types cannot reach are checked when the descriptor is built (decision 
   }
 
   impl Step for Charge<'_> {
-      fn run(self) -> Result<Outcome, Error> {
+      fn run(mut self) -> Result<Outcome, Error> {
           self.reporter.info("charging")?;
           self.contributor.contribute("receipt", "R-1".to_string());
           Ok(Outcome::success())
@@ -79,7 +79,7 @@ The rules types cannot reach are checked when the descriptor is built (decision 
 
 - **`run(self)` takes nothing else.** It consumes the step, so nothing survives into another attempt. `Step` and `AsyncStep` are separate traits, so the mode is in the type.
 - **Handles borrow their attempt.** `Contributor<'a>` and `StepReporter<'a>` carry the lifetime of the attempt, chosen by the executor, so they cannot be moved into a thread or task that outlives it. The guarantee comes from the types, with or without the macros.
-- **Emitting can be interrupted.** `StepReporter` methods return `Result<(), Interrupted>`. `Interrupted` is the executor's signal that a reporter failed while the event was being delivered (decision 9); the step propagates it with `?`. `Contributor::contribute` returns nothing: it cannot fail, since only values can be contributed.
+- **Emitting can be interrupted.** `StepReporter` has `info`, `warning` and `error`, each with a `_with` form that adds data, a value; `AsyncStepReporter` has the same methods, awaited. They return `Result<(), Interrupted>`. `Interrupted` is the executor's signal that a reporter failed while the event was being delivered (decision 9); the step propagates it with `?`. `Contributor::contribute` returns nothing: it cannot fail, since only values can be contributed.
 - **The builder takes a `StepFactory`**, which the macro implements:
 
   ```rust
@@ -94,7 +94,7 @@ The rules types cannot reach are checked when the descriptor is built (decision 
 - **Outcomes**: `Outcome::success()`, `Outcome::failure(reason)`, `Outcome::retriable_failure(reason)`, `Outcome::skipped()` and `Outcome::skipped_because(reason)`. A `Reason` has a code, an optional message and optional details, which are a value.
 - **One error type, `itinera::error::Error`**, for every custom code that can fail: a step's `run` and constructor, hooks, role operations, policy factories, reporters and their `init`, dispatchers and dispatcher factories. It converts from any `std::error::Error + Send + Sync + 'static`, so `?` works on any library's error, and from `Interrupted`. Because of that conversion it does not itself implement `std::error::Error`; it offers `Display`, `source()` and `Error::msg`.
 - **`?` in `run` is an abnormal termination**: an error the step did not anticipate. A failure the step chose is returned as `Outcome::failure`. The one exception is `Interrupted`: the engine recognises its own signal, the journey is already aborted, and nothing the step returns afterwards counts.
-- **Contributions are kept per attempt**: visible to that attempt's hooks whatever its outcome, committed only on Success, dropped on an abnormal termination.
+- **Contributions are kept per attempt**: visible to that attempt's hooks whatever its outcome, committed only on Success, in the order their keys were first contributed, each key with its last value, and dropped otherwise.
 
 ### 5. Policies, hooks and roles
 
@@ -171,7 +171,7 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     fn into_data_bag(self) -> DataBag;
     fn data_for_step(&self, step: StepName, key: &str) -> Resolution;
     fn data_for_workflow(&self, request: &DataRequest) -> Resolution;
-    fn commit(&mut self, key: String, value: AnyValue, source: Source) -> Committed;
+    fn commit(&mut self, key: String, value: AnyValue) -> Committed;
 }
 ```
 
@@ -186,7 +186,7 @@ pub trait WorkflowInstance: Send + Sized + 'static {
 
   `create()` produces the journey ID first, with the descriptor's generator (a closure returning a `Result<String, Error>`, which may read the initial data) or the default UUID version 4, then builds each reporter, then the instance. A failure of the generator or of a reporter's `init` is an `InstanceError`, outside any journey.
 - **Reporters are listed on the workflow by type.** Each implements `WorkflowReporter<W>`, whose `init(&W, &JourneyId, &DataBag) -> Result<Self, Error>` builds a new reporter for every instance; an asynchronous one implements `AsyncWorkflowReporter<W>`, and only an `Asynchronous` workflow lists one. A mode says how its workflows hold reporters: a `Synchronous` one as `Box<dyn Reporter>`, an `Asynchronous` one as `BoxedReporter`.
-- **The three data operations** are provided by itinera for `Instance<W>`. `data_for_step` applies the step's input adapter, then the data bag; `data_for_workflow` reads only the data bag; `commit` writes and says whether a value was replaced. Each answer carries an ordered report of what happened, which the engine turns into events and aborts.
+- **The three data operations** are provided by itinera for `Instance<W>`. `data_for_step` applies the step's input adapter, then the data bag; `data_for_workflow` reads only the data bag; `commit` writes and says whether a value was replaced, `Committed::Added` or `Committed::Overwritten`. Each answer carries an ordered report of what happened, which the engine turns into events and aborts.
 - **A hand-written instance** implements the trait itself, points at a descriptor that only `build()` can produce, and may reuse itinera's data operations.
 - **An instance runs once**: `run` takes it by value, and `into_data_bag` gives up the instance for the data bag the result carries.
 

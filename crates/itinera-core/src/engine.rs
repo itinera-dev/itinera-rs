@@ -2,18 +2,21 @@
 //! result.
 
 use std::future::Future;
+use std::pin::Pin;
 
-use crate::error::Error;
+use crate::error::{Error, Interrupted};
 use crate::event::{
-    self, Event, EventBody, GiveUpCause, JourneyAbort, JourneyFailure, RequestSource,
+    self, Event, EventBody, GiveUpCause, JourneyAbort, JourneyFailure, RequestSource, Source,
 };
-use crate::instance::{Resolution, WorkflowInstance};
+use crate::instance::{Committed, Resolution, WorkflowInstance};
 use crate::journey::{
-    Abort, Failure, JourneyResult, JourneyStatus, LastFailure, MissingData, Requester,
+    Abort, Contribution, Contributions, Contributor, Failure, JourneyResult, JourneyStatus,
+    LastFailure, MissingData, Requester,
 };
 use crate::report::Dispatcher;
 use crate::step::{
-    Got, InputNeed, OutcomeKind, Requirement, StepAttempt, StepDescriptor, StepName,
+    Got, InputNeed, Outcome, OutcomeKind, Reporting, Requirement, StepAttempt, StepDescriptor,
+    StepName,
 };
 use crate::value::AnyValue;
 use crate::workflow::WorkflowDescriptor;
@@ -47,6 +50,15 @@ impl<D: Dispatcher> Delivery for Inline<D> {
     }
 }
 
+/// An event a step or hook emitted, delivered once awaited.
+pub(crate) type Emitted<'a> = Pin<Box<dyn Future<Output = Result<(), Interrupted>> + Send + 'a>>;
+
+/// The journey, as the handles of steps and hooks emit through it.
+pub(crate) trait Emitting: Send {
+    /// Delivers an event a step or hook emitted, unless a reporter failed while it ran.
+    fn relay(&mut self, body: EventBody) -> Emitted<'_>;
+}
+
 /// Runs one journey of the instance, delivering its events through the dispatcher, whose
 /// reporters were guarded by `failures`.
 pub(crate) async fn run<I: WorkflowInstance>(
@@ -63,6 +75,7 @@ pub(crate) async fn run<I: WorkflowInstance>(
         delivery,
         failures,
         step: None,
+        interrupted: None,
     };
     let status = match journey.travel(&mut instance, &descriptor).await {
         Ok(()) => JourneyStatus::Succeeded {
@@ -78,6 +91,7 @@ pub(crate) async fn run<I: WorkflowInstance>(
 }
 
 /// How a journey ends before its last step, instead of succeeding.
+#[derive(derive_more::From)]
 enum End {
     Failed(Failure),
     Aborted(Box<Aborted>),
@@ -102,6 +116,9 @@ struct Journey<D> {
     failures: Failures,
     /// The step being run, if any.
     step: Option<StepName>,
+    /// The abort recorded when a reporter failed on an event a step emitted, while it was built
+    /// or ran. It stands whatever the step does afterwards.
+    interrupted: Option<Box<Aborted>>,
 }
 
 impl<D: Delivery> Journey<D> {
@@ -123,7 +140,8 @@ impl<D: Delivery> Journey<D> {
             self.step = None;
         }
         self.emit(EventBody::JourneySucceeded { decided_by: None })
-            .await
+            .await?;
+        Ok(())
     }
 
     /// Builds and runs the one attempt a step has until retries exist, and acts on its outcome.
@@ -143,13 +161,45 @@ impl<D: Delivery> Journey<D> {
             let value = self.resolve(&attempt, input, resolution).await?;
             inputs.push((input.key(), value));
         }
-        let ran = match step.attempt(Got::new(inputs)) {
-            Ok(running) => running.await,
-            Err(error) => return Err(could_not_build(step.name(), error)),
-        };
-        match ran {
-            Ok(outcome) => self.conclude(attempt, outcome.into()).await,
+        let mut contributions = Contributions::default();
+        let ran = self
+            .build_and_run(step, &attempt, inputs, &mut contributions)
+            .await;
+        if let Some(aborted) = self.interrupted.take() {
+            return Err(End::Aborted(aborted));
+        }
+        match ran? {
+            Ok(outcome) => {
+                self.conclude(instance, attempt, outcome.into(), contributions)
+                    .await
+            }
             Err(error) => self.terminate(attempt, error).await,
+        }
+    }
+
+    /// Builds the step for its attempt, with the inputs resolved and the handles it declares, and
+    /// runs it.
+    async fn build_and_run<M>(
+        &mut self,
+        step: &StepDescriptor<M>,
+        attempt: &StepAttempt,
+        inputs: Vec<(&'static str, Option<AnyValue>)>,
+        contributions: &mut Contributions,
+    ) -> Result<Result<Outcome, Error>, End> {
+        let needs = step.needs();
+        let contributor = if needs.wants_contributor() {
+            Some(Contributor::new(contributions))
+        } else {
+            None
+        };
+        let reporting = if needs.wants_reporter() {
+            Some(Reporting::new(self, attempt.clone()))
+        } else {
+            None
+        };
+        match step.attempt(Got::new(inputs, contributor, reporting)) {
+            Ok(running) => Ok(running.await),
+            Err(error) => Err(could_not_build(step.name(), error)),
         }
     }
 
@@ -213,10 +263,23 @@ impl<D: Delivery> Journey<D> {
         Ok(None)
     }
 
-    /// Acts on the outcome a step reported. Until retries exist, a failure is the step's last.
-    async fn conclude(&mut self, attempt: StepAttempt, outcome: OutcomeKind) -> Result<(), End> {
+    /// Acts on the outcome a step reported, and on its contributions. Until retries exist, a
+    /// failure is the step's last.
+    async fn conclude<I: WorkflowInstance>(
+        &mut self,
+        instance: &mut I,
+        attempt: StepAttempt,
+        outcome: OutcomeKind,
+        contributions: Contributions,
+    ) -> Result<(), End> {
         match outcome {
-            OutcomeKind::Success => self.emit(EventBody::StepSucceeded { step: attempt }).await,
+            OutcomeKind::Success => {
+                self.emit(EventBody::StepSucceeded {
+                    step: attempt.clone(),
+                })
+                .await?;
+                self.commit(instance, &attempt, contributions).await
+            }
             OutcomeKind::Skipped(reason) => {
                 self.emit(EventBody::StepSkipped {
                     step: attempt.clone(),
@@ -224,7 +287,8 @@ impl<D: Delivery> Journey<D> {
                 })
                 .await?;
                 self.emit(EventBody::ContributionsDiscarded { step: attempt })
-                    .await
+                    .await?;
+                Ok(())
             }
             OutcomeKind::Failure(reason) => {
                 self.emit(EventBody::StepFailed {
@@ -257,6 +321,29 @@ impl<D: Delivery> Journey<D> {
                 .await
             }
         }
+    }
+
+    /// Commits a successful attempt's contributions to the data bag, in order.
+    async fn commit<I: WorkflowInstance>(
+        &mut self,
+        instance: &mut I,
+        attempt: &StepAttempt,
+        contributions: Contributions,
+    ) -> Result<(), End> {
+        for Contribution { key, value } in contributions {
+            let committed = instance.commit(key.clone(), value);
+            let source = Source::Step(attempt.clone());
+            self.emit(EventBody::ContributionCommitted {
+                key: key.clone(),
+                source: source.clone(),
+            })
+            .await?;
+            if committed == Committed::Overwritten {
+                self.emit(EventBody::DataOverwritten { key, source })
+                    .await?;
+            }
+        }
+        Ok(())
     }
 
     /// Acts on an error that escaped a running step: an abnormal termination, which is not
@@ -301,12 +388,27 @@ impl<D: Delivery> Journey<D> {
 
     /// Emits one event, failing with the error of the reporter that failed on it, or else of
     /// the dispatcher.
-    async fn emit(&mut self, body: EventBody) -> Result<(), End> {
+    async fn emit(&mut self, body: EventBody) -> Result<(), Box<Aborted>> {
         let event = self.emitter.next(body);
         let delivered = self.delivery.deliver(&event).await;
         match self.failures.take().map_or(delivered, Err) {
             Ok(()) => Ok(()),
             Err(error) => Err(reporter_failed(self.step, error)),
+        }
+    }
+
+    /// Emits an event for a step or hook, unless a reporter failed while it ran. A failure now is
+    /// recorded, and interrupts it.
+    async fn relay_interruptibly(&mut self, body: EventBody) -> Result<(), Interrupted> {
+        if self.interrupted.is_some() {
+            return Err(Interrupted);
+        }
+        match self.emit(body).await {
+            Ok(()) => Ok(()),
+            Err(aborted) => {
+                self.interrupted = Some(aborted);
+                Err(Interrupted)
+            }
         }
     }
 
@@ -318,6 +420,12 @@ impl<D: Delivery> Journey<D> {
             .next(EventBody::JourneyAborted { abort: reported });
         let _ignored = self.delivery.deliver(&event).await;
         JourneyStatus::Aborted(abort)
+    }
+}
+
+impl<D: Delivery> Emitting for Journey<D> {
+    fn relay(&mut self, body: EventBody) -> Emitted<'_> {
+        Box::pin(self.relay_interruptibly(body))
     }
 }
 
@@ -359,12 +467,15 @@ fn wrong_type(key: &str, requester: Requester, reported: event::Requester) -> En
     )
 }
 
-fn reporter_failed(step: Option<StepName>, error: Error) -> End {
+fn reporter_failed(step: Option<StepName>, error: Error) -> Box<Aborted> {
     let reported = JourneyAbort::ReporterFailed {
         step,
         error: error.to_string(),
     };
-    End::aborted(Abort::ReporterFailed(error), reported)
+    Box::new(Aborted {
+        abort: Abort::ReporterFailed(error),
+        reported,
+    })
 }
 
 /// Runs a future that never waits to its end, without a runtime.
@@ -396,7 +507,7 @@ mod tests {
     use crate::report::{DefaultDispatcher, Reporter};
     use crate::step::{
         Input, OptionalInput, Outcome, Reason, Resolved, Step, StepDescriptor, StepFactory,
-        StepNeeds,
+        StepNeeds, StepReporter,
     };
     use crate::workflow::{
         AdapterName, InputAdapter, WorkflowBuilder, WorkflowDescriptor, WorkflowName,
@@ -404,14 +515,19 @@ mod tests {
 
     struct Orders;
 
+    /// A reporter that records every event it receives, and fails on one kind if told to.
     #[derive(Default)]
     struct Recording {
         events: Arc<Mutex<Vec<Event>>>,
+        fails_on: Option<&'static str>,
     }
 
     impl Reporter for Recording {
         fn report(&mut self, event: &Event) -> Result<(), Error> {
             self.events.lock().unwrap().push(event.clone());
+            if self.fails_on == Some(event.kind()) {
+                return Err(Error::msg(format!("failed on {}", event.kind())));
+            }
             Ok(())
         }
     }
@@ -489,17 +605,88 @@ mod tests {
         }
     }
 
+    /// The factory of a step that contributes and emits as its script says, and reports the
+    /// outcome the script returns.
+    struct Scripted<S> {
+        script: S,
+    }
+
+    struct ScriptedStep<'a, S> {
+        script: &'a S,
+        contributor: Contributor<'a>,
+        reporter: StepReporter<'a>,
+    }
+
+    fn scripted<S>(script: S) -> StepDescriptor
+    where
+        S: Fn(&mut Contributor<'_>, &mut StepReporter<'_>) -> Result<Outcome, Error>
+            + Send
+            + Sync
+            + 'static,
+    {
+        StepDescriptor::new(CHARGE, Scripted { script })
+    }
+
+    impl<S> StepFactory for Scripted<S>
+    where
+        S: Fn(&mut Contributor<'_>, &mut StepReporter<'_>) -> Result<Outcome, Error>
+            + Send
+            + Sync
+            + 'static,
+    {
+        type Step<'a> = ScriptedStep<'a, S>;
+
+        fn needs(&self) -> StepNeeds {
+            StepNeeds::new().contributor().reporter()
+        }
+
+        fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<ScriptedStep<'a, S>, Error> {
+            Ok(ScriptedStep {
+                script: &self.script,
+                contributor: got.contributor()?,
+                reporter: got.reporter()?,
+            })
+        }
+    }
+
+    impl<S> Step for ScriptedStep<'_, S>
+    where
+        S: Fn(&mut Contributor<'_>, &mut StepReporter<'_>) -> Result<Outcome, Error>,
+    {
+        fn run(mut self) -> Result<Outcome, Error> {
+            (self.script)(&mut self.contributor, &mut self.reporter)
+        }
+    }
+
+    fn failing_on(kind: &'static str) -> Recording {
+        Recording {
+            fails_on: Some(kind),
+            ..Recording::default()
+        }
+    }
+
     fn noon() -> SystemTime {
         UNIX_EPOCH + Duration::from_secs(1_700_000_000)
     }
 
     /// Runs the journey to its end, and returns its status and the events it emitted.
     fn travel<I: WorkflowInstance>(instance: I) -> (JourneyStatus, Vec<Event>) {
+        travel_before(instance, None)
+    }
+
+    /// Runs the journey to its end with a recording reporter, before the one given if any, and
+    /// returns its status and the events the recording reporter received.
+    fn travel_before<I: WorkflowInstance>(
+        instance: I,
+        after: Option<Recording>,
+    ) -> (JourneyStatus, Vec<Event>) {
         let recording = Recording::default();
         let events = Arc::clone(&recording.events);
         let failures = Failures::default();
         let mut dispatcher = DefaultDispatcher::new();
-        dispatcher.add(failures.guard(Box::new(recording))).unwrap();
+        for reporter in [recording].into_iter().chain(after) {
+            dispatcher.add(failures.guard(Box::new(reporter))).unwrap();
+        }
         let result = finish(run(instance, Inline::from(dispatcher), failures, noon));
         let events = events.lock().unwrap().clone();
         (result.status, events)
@@ -515,6 +702,11 @@ mod tests {
             read: Arc::clone(read),
         };
         orders().step(StepDescriptor::new(CHARGE, charge))
+    }
+
+    /// Runs a journey of the workflow, whose initial data holds an amount of 42.
+    fn travel_with_amount(builder: WorkflowBuilder<Orders>) -> (JourneyStatus, Vec<Event>) {
+        travel(instance(builder).data("amount", 42_i64).create().unwrap())
     }
 
     /// Runs a journey of the workflow, with no initial data.
@@ -585,7 +777,7 @@ mod tests {
             .step(StepDescriptor::new(CHARGE, succeed))
             .id_generator(|_: &Orders, _| Ok("order-7".to_string()));
 
-        let (_, events) = travel(instance(workflow).data("amount", 42_i64).create().unwrap());
+        let (_, events) = travel_with_amount(workflow);
 
         let sequences: Vec<u64> = events.iter().map(sequence).map(NonZeroU64::get).collect();
         assert_eq!(sequences, [1, 2, 3, 4]);
@@ -706,7 +898,7 @@ mod tests {
         let read = Read::default();
         let workflow = charged(&read).input_adapter(InputAdapter::new("pricing", CHARGE, pricing));
 
-        let (_, events) = travel(instance(workflow).data("amount", 42_i64).create().unwrap());
+        let (_, events) = travel_with_amount(workflow);
 
         assert_eq!(reads(&read), [(7, None)]);
         assert_eq!(
@@ -867,11 +1059,242 @@ mod tests {
         );
     }
 
+    fn data_of(status: &JourneyStatus) -> Vec<(String, i64)> {
+        status
+            .data()
+            .into_iter()
+            .flatten()
+            .map(key_and_number)
+            .collect()
+    }
+
+    fn key_and_number((key, value): (&String, &AnyValue)) -> (String, i64) {
+        (key.clone(), value.downcast_ref::<i64>().copied().unwrap())
+    }
+
+    fn key_of(event: &Event) -> Option<&str> {
+        match &event.body {
+            EventBody::ContributionCommitted { key, .. }
+            | EventBody::DataOverwritten { key, .. } => Some(key),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn a_successful_attempts_contributions_are_committed_in_order_reporting_what_they_overwrote() {
+        let workflow = orders().step(scripted(|contributor, _| {
+            contributor.contribute("receipt", 1_i64);
+            contributor.contribute("amount", 40_i64);
+            contributor.contribute("receipt", 2_i64);
+            Ok(Outcome::success())
+        }));
+
+        let (status, events) = travel_with_amount(workflow);
+
+        assert_eq!(
+            data_of(&status),
+            [("amount".to_string(), 40), ("receipt".to_string(), 2)]
+        );
+        assert_eq!(
+            kinds(&events),
+            [
+                "journey_started",
+                "attempt_started",
+                "step_succeeded",
+                "contribution_committed",
+                "contribution_committed",
+                "data_overwritten",
+                "journey_succeeded"
+            ]
+        );
+        let keys: Vec<_> = events.iter().filter_map(key_of).collect();
+        assert_eq!(keys, ["receipt", "amount", "amount"]);
+        let Some(EventBody::ContributionCommitted { source, .. }) = events.get(3).map(|e| &e.body)
+        else {
+            panic!("the fourth event is not contribution_committed");
+        };
+        assert_eq!(source, &Source::Step(StepAttempt::first(CHARGE)));
+    }
+
+    fn skips() -> Result<Outcome, Error> {
+        Ok(Outcome::skipped())
+    }
+
+    #[rstest]
+    #[case::a_skip(skips)]
+    #[case::a_failure(declined)]
+    #[case::a_retriable_failure(timed_out)]
+    #[case::an_abnormal_termination(crashed)]
+    fn an_attempt_that_does_not_succeed_commits_nothing(
+        #[case] ends: fn() -> Result<Outcome, Error>,
+    ) {
+        let workflow = orders().step(scripted(move |contributor, _| {
+            contributor.contribute("receipt", 1_i64);
+            ends()
+        }));
+
+        let (status, events) = travel_with_amount(workflow);
+
+        assert_eq!(data_of(&status), [("amount".to_string(), 42)]);
+        assert!(!kinds(&events).contains(&"contribution_committed"));
+    }
+
+    #[test]
+    fn a_step_emits_its_own_events_stamped_with_its_attempt_before_its_outcome() {
+        let workflow = orders().step(scripted(|_, reporter| {
+            reporter.info("charging")?;
+            reporter.warning_with("slow", 300_i64)?;
+            reporter.error("no receipt")?;
+            Ok(Outcome::success())
+        }));
+
+        let (_, events) = travel_workflow(workflow);
+
+        assert_eq!(
+            kinds(&events),
+            [
+                "journey_started",
+                "attempt_started",
+                "step_info",
+                "step_warning",
+                "step_error",
+                "step_succeeded",
+                "journey_succeeded"
+            ]
+        );
+        let Some(EventBody::StepWarning {
+            step,
+            message,
+            data,
+        }) = events.get(3).map(|e| &e.body)
+        else {
+            panic!("the fourth event is not step_warning");
+        };
+        assert_eq!(step, &StepAttempt::first(CHARGE));
+        assert_eq!(message, "slow");
+        assert_eq!(
+            data.as_ref().and_then(AnyValue::downcast_ref),
+            Some(&300_i64)
+        );
+    }
+
+    #[test]
+    fn a_reporter_failing_on_a_step_event_aborts_the_journey_whatever_the_step_does_next() {
+        let emitted = Arc::new(Mutex::new(Vec::new()));
+        let seen = Arc::clone(&emitted);
+        let workflow = orders().step(scripted(move |contributor, reporter| {
+            let first = reporter.info("charging");
+            let second = reporter.warning("still charging");
+            seen.lock().unwrap().extend([first.is_ok(), second.is_ok()]);
+            contributor.contribute("receipt", 1_i64);
+            Ok(Outcome::success())
+        }));
+        let (status, events) = travel_before(
+            instance(workflow).create().unwrap(),
+            Some(failing_on("step_info")),
+        );
+
+        let JourneyStatus::Aborted(Abort::ReporterFailed(error)) = status else {
+            panic!("the journey was not aborted as a reporter failed: {status:?}");
+        };
+        assert_eq!(error.to_string(), "failed on step_info");
+        assert_eq!(*emitted.lock().unwrap(), [false, false]);
+        assert_eq!(
+            kinds(&events),
+            [
+                "journey_started",
+                "attempt_started",
+                "step_info",
+                "journey_aborted"
+            ]
+        );
+        let Some(EventBody::JourneyAborted { abort }) = events.last().map(|e| &e.body) else {
+            panic!("the last event is not journey_aborted");
+        };
+        assert_eq!(abort.step(), Some(CHARGE));
+    }
+
+    #[test]
+    fn a_step_that_takes_a_handle_it_did_not_declare_cannot_be_built() {
+        let workflow = orders().step(StepDescriptor::new(CHARGE, Undeclaring));
+
+        let (status, _) = travel_workflow(workflow);
+
+        let JourneyStatus::Aborted(Abort::StepCouldNotBeBuilt(error)) = status else {
+            panic!("the journey was not aborted as its step could not be built: {status:?}");
+        };
+        assert_eq!(
+            error.to_string(),
+            "the step does not declare a step reporter, or took it already"
+        );
+    }
+
+    #[test]
+    fn a_reporter_failing_on_an_event_emitted_while_the_step_is_built_aborts_the_journey() {
+        let workflow = orders().step(StepDescriptor::new(CHARGE, Preparing));
+
+        let (status, events) = travel_before(
+            instance(workflow).create().unwrap(),
+            Some(failing_on("step_info")),
+        );
+
+        assert!(matches!(
+            status,
+            JourneyStatus::Aborted(Abort::ReporterFailed(_))
+        ));
+        let Some(EventBody::JourneyAborted { abort }) = events.last().map(|e| &e.body) else {
+            panic!("the last event is not journey_aborted");
+        };
+        assert_eq!(abort.step(), Some(CHARGE));
+    }
+
+    /// The factory of a step that emits while it is built, and fails to build when interrupted.
+    struct Preparing;
+
+    impl StepFactory for Preparing {
+        type Step<'a> = StepReporter<'a>;
+
+        fn needs(&self) -> StepNeeds {
+            StepNeeds::new().reporter()
+        }
+
+        fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<StepReporter<'a>, Error> {
+            let mut reporter = got.reporter()?;
+            reporter.info("preparing")?;
+            Ok(reporter)
+        }
+    }
+
+    /// The factory of a step that takes a reporter it does not declare.
+    struct Undeclaring;
+
+    impl StepFactory for Undeclaring {
+        type Step<'a> = StepReporter<'a>;
+
+        fn needs(&self) -> StepNeeds {
+            StepNeeds::new()
+        }
+
+        fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<StepReporter<'a>, Error> {
+            got.reporter()
+        }
+    }
+
+    impl Step for StepReporter<'_> {
+        fn run(self) -> Result<Outcome, Error> {
+            Ok(Outcome::success())
+        }
+    }
+
     #[cfg(feature = "async")]
     mod asynchronous {
         use super::*;
         use crate::mode::Asynchronous;
-        use crate::step::{AsyncStep, AsyncStepFactory};
+        use crate::step::{AsyncStep, AsyncStepFactory, AsyncStepReporter};
+
+        fn async_orders() -> WorkflowBuilder<Orders, Asynchronous> {
+            WorkflowDescriptor::async_builder("orders")
+        }
 
         impl AsyncStepFactory for Charge {
             type Step<'a> = Charging<'a>;
@@ -900,7 +1323,7 @@ mod tests {
             let charge = Charge {
                 read: Arc::clone(&read),
             };
-            let workflow = WorkflowDescriptor::async_builder("orders")
+            let workflow = async_orders()
                 .step(StepDescriptor::new_async(CHARGE, charge))
                 .build()
                 .unwrap();
@@ -910,6 +1333,84 @@ mod tests {
 
             assert!(matches!(status, JourneyStatus::Succeeded { .. }));
             assert_eq!(reads(&read), [(42, None)]);
+        }
+
+        struct Announcing;
+
+        struct Announcer<'a> {
+            reporter: AsyncStepReporter<'a>,
+        }
+
+        impl AsyncStepFactory for Announcing {
+            type Step<'a> = Announcer<'a>;
+
+            fn needs(&self) -> StepNeeds {
+                StepNeeds::new().reporter()
+            }
+
+            fn build<'a>(
+                &'a self,
+                got: &mut Resolved<'a, Asynchronous>,
+            ) -> Result<Announcer<'a>, Error> {
+                Ok(Announcer {
+                    reporter: got.reporter()?,
+                })
+            }
+        }
+
+        impl AsyncStep for Announcer<'_> {
+            async fn run(mut self) -> Result<Outcome, Error> {
+                self.reporter.info_with("charging", 42_i64).await?;
+                Ok(Outcome::success())
+            }
+        }
+
+        #[test]
+        fn an_asynchronous_step_awaits_its_own_events() {
+            let workflow = async_orders()
+                .step(StepDescriptor::new_async(CHARGE, Announcing))
+                .build()
+                .unwrap();
+
+            let (_, events) = travel(workflow.instance(Orders).create().unwrap());
+
+            assert_eq!(
+                kinds(&events),
+                [
+                    "journey_started",
+                    "attempt_started",
+                    "step_info",
+                    "step_succeeded",
+                    "journey_succeeded"
+                ]
+            );
+        }
+
+        #[test]
+        fn a_reporter_failing_on_an_asynchronous_steps_event_aborts_the_journey() {
+            let workflow = async_orders()
+                .step(StepDescriptor::new_async(CHARGE, Announcing))
+                .build()
+                .unwrap();
+
+            let (status, events) = travel_before(
+                workflow.instance(Orders).create().unwrap(),
+                Some(failing_on("step_info")),
+            );
+
+            assert!(matches!(
+                status,
+                JourneyStatus::Aborted(Abort::ReporterFailed(_))
+            ));
+            assert_eq!(
+                kinds(&events),
+                [
+                    "journey_started",
+                    "attempt_started",
+                    "step_info",
+                    "journey_aborted"
+                ]
+            );
         }
     }
 }

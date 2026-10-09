@@ -9,6 +9,11 @@ use crate::step::Reason;
 use crate::value::AnyValue;
 use crate::workflow::AdapterName;
 
+mod contributor;
+
+pub use contributor::Contributor;
+pub(crate) use contributor::{Contribution, Contributions};
+
 /// The identifier of one journey, unique to it. It is made when the journey's instance is
 /// created, and cheap to clone.
 ///
@@ -163,8 +168,9 @@ impl DataBag {
         }
     }
 
-    pub(crate) fn insert(&mut self, key: String, value: AnyValue) {
-        self.values.insert(key, value);
+    /// Puts a value under a key, and returns the value it replaced, if any.
+    pub(crate) fn insert(&mut self, key: String, value: AnyValue) -> Option<AnyValue> {
+        self.values.insert(key, value)
     }
 
     /// The value under a key, if there is one.
