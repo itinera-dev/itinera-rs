@@ -142,7 +142,8 @@ mod tests {
     use super::*;
     use crate::error::Error;
     use crate::event::Event;
-    use crate::executor::tests::{Recorder, Shop, entries, shop_workflow};
+    use crate::executor::tests::{Log, Recorder, Shop, entries, shop_workflow};
+    use crate::instance::Instance;
     use crate::journey::{Abort, DataBag, JourneyId, JourneyStatus};
     use crate::mode::Asynchronous;
     use crate::report::{AsyncReporter, AsyncWorkflowReporter, BoxedReporter, DefaultDispatcher};
@@ -178,15 +179,18 @@ mod tests {
             .unwrap()
     }
 
+    fn mixed_instance(shop: Shop) -> (Instance<Shop, Asynchronous>, Log) {
+        let log = Arc::clone(&shop.log);
+        (mixed_workflow().instance(shop).create().unwrap(), log)
+    }
+
     fn assert_send<T: Send>(value: T) -> T {
         value
     }
 
     #[test]
     fn an_asynchronous_workflow_emits_its_events_in_order_to_both_kinds_of_reporter() {
-        let shop = Shop::new();
-        let log = Arc::clone(&shop.log);
-        let instance = mixed_workflow().instance(shop).create().unwrap();
+        let (instance, log) = mixed_instance(Shop::new());
         let mut executor = AsyncLocalExecutor::new();
 
         let result = block_on(assert_send(executor.run(instance))).unwrap();
@@ -227,9 +231,7 @@ mod tests {
     #[test]
     fn an_asynchronous_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others()
      {
-        let shop = Shop::failing("fragile", "journey_started");
-        let log = Arc::clone(&shop.log);
-        let instance = mixed_workflow().instance(shop).create().unwrap();
+        let (instance, log) = mixed_instance(Shop::failing("fragile", "journey_started"));
 
         let result = block_on(AsyncLocalExecutor::new().run(instance)).unwrap();
 
@@ -285,9 +287,7 @@ mod tests {
 
     #[test]
     fn an_asynchronous_dispatcher_that_fails_while_reporters_are_added_refuses_the_journey() {
-        let shop = Shop::new();
-        let log = Arc::clone(&shop.log);
-        let instance = mixed_workflow().instance(shop).create().unwrap();
+        let (instance, log) = mixed_instance(Shop::new());
 
         let result =
             block_on(AsyncLocalExecutor::with_dispatcher_factory(ClosedFactory).run(instance));
@@ -301,9 +301,7 @@ mod tests {
 
     #[test]
     fn an_asynchronous_dispatcher_factory_that_fails_refuses_the_journey_before_any_event() {
-        let shop = Shop::new();
-        let log = Arc::clone(&shop.log);
-        let instance = mixed_workflow().instance(shop).create().unwrap();
+        let (instance, log) = mixed_instance(Shop::new());
 
         let result = block_on(AsyncLocalExecutor::with_dispatcher_factory(Refusing).run(instance));
 

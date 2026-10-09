@@ -42,7 +42,7 @@ For each item, the reviewer lists every place in the diff where the item applies
 12. Every item's visibility, against "Everything is `pub(crate)`", and the `unstable` gate, against "Public API of a proposal not yet listed".
 13. Every crate root, against "Every crate has `#![forbid(unsafe_code)]`".
 14. Every public item and its example, against "Every public item has documentation" and "Documentation is written where an item is defined".
-15. Every new or rewritten test, against "Test names state the rule" and the bullet on several inputs where it exists. Check also that no coverage is lost.
+15. Every new or rewritten test, against "Test names state the rule", the bullet on several inputs where it exists, and "A chain repeated in three or more tests". Check also that no coverage is lost.
 16. Every line of code, test and example, against "Every line does something". For each line that changes nothing, say so and ask for it to be removed.
 
 **Comments**

@@ -322,6 +322,7 @@ mod tests {
     use super::*;
     use crate::event::Event;
     use crate::report::{Reporter, WorkflowReporter};
+    use crate::workflow::WorkflowBuilder;
 
     struct Orders {
         made: Arc<Mutex<Vec<String>>>,
@@ -381,6 +382,10 @@ mod tests {
         Ok(format!("order-{number}"))
     }
 
+    fn numbered_orders() -> WorkflowBuilder<Orders> {
+        WorkflowDescriptor::builder("orders").id_generator(numbered)
+    }
+
     fn is_uuid_v4(id: &str) -> bool {
         uuid::Uuid::parse_str(id).is_ok_and(is_version_4)
     }
@@ -401,10 +406,7 @@ mod tests {
 
     #[test]
     fn the_generator_produces_the_journey_id_from_the_initial_data() {
-        let orders = WorkflowDescriptor::builder("orders")
-            .id_generator(numbered)
-            .build()
-            .unwrap();
+        let orders = numbered_orders().build().unwrap();
         let instance = orders
             .instance(Orders::new())
             .data("number", 7_i64)
@@ -416,10 +418,7 @@ mod tests {
 
     #[test]
     fn a_generator_that_fails_makes_creating_the_instance_fail() {
-        let orders = WorkflowDescriptor::builder("orders")
-            .id_generator(numbered)
-            .build()
-            .unwrap();
+        let orders = numbered_orders().build().unwrap();
         let error = orders.instance(Orders::new()).create().unwrap_err();
 
         assert!(matches!(error, InstanceError::JourneyId(_)));
@@ -431,8 +430,7 @@ mod tests {
 
     #[test]
     fn reporters_are_made_after_the_journey_id_with_the_initial_data() {
-        let orders = WorkflowDescriptor::builder("orders")
-            .id_generator(numbered)
+        let orders = numbered_orders()
             .reporter::<Audit>()
             .reporter::<Audit>()
             .build()
