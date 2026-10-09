@@ -90,7 +90,7 @@ impl Line {
     }
 
     fn attempt(&mut self, step: &StepAttempt) {
-        self.set("step", &step.step);
+        self.set("step", step.step);
         self.set("attempt", step.attempt);
     }
 
@@ -137,7 +137,7 @@ impl Line {
         match source {
             Source::Step(step) => {
                 self.attempt(step);
-                self.set("source", &step.step);
+                self.set("source", step.step);
             }
             Source::Hook(hook) => {
                 self.hook(hook);

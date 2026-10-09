@@ -9,7 +9,7 @@ use crate::instance::WorkflowInstance;
 use crate::journey::{Abort, JourneyResult, JourneyStatus};
 use crate::mode::Mode;
 use crate::report::Dispatcher;
-use crate::step::StepAttempt;
+use crate::step::{StepAttempt, StepName};
 use crate::workflow::WorkflowDescriptor;
 
 #[cfg(feature = "async")]
@@ -52,7 +52,7 @@ pub(crate) async fn run<I: WorkflowInstance>(
     let journey_id = instance.journey_id().clone();
     let descriptor = instance.descriptor().clone();
     let initial_keys = instance.data_bag().keys().map(str::to_owned).collect();
-    let emitter = Emitter::new(journey_id.clone(), descriptor.name().to_owned(), clock);
+    let emitter = Emitter::new(journey_id.clone(), descriptor.name(), clock);
     let mut journey = Journey {
         emitter,
         delivery,
@@ -74,7 +74,7 @@ struct Journey<D> {
     delivery: D,
     failures: Failures,
     /// The step being run, if any.
-    step: Option<String>,
+    step: Option<StepName>,
 }
 
 impl<D: Delivery> Journey<D> {
@@ -90,7 +90,7 @@ impl<D: Delivery> Journey<D> {
         self.emit(EventBody::JourneyStarted { initial_keys })
             .await?;
         if let Some(step) = descriptor.step() {
-            self.step = Some(step.name().to_owned());
+            self.step = Some(step.name());
             let attempt = StepAttempt::first(step.name());
             self.emit(EventBody::AttemptStarted {
                 step: attempt.clone(),
@@ -152,7 +152,7 @@ mod tests {
     use super::*;
     use crate::event::{Event, Timestamp};
     use crate::report::{DefaultDispatcher, Reporter};
-    use crate::workflow::WorkflowDescriptor;
+    use crate::workflow::{WorkflowDescriptor, WorkflowName};
 
     struct Orders;
 
@@ -184,7 +184,7 @@ mod tests {
         let mut dispatcher = DefaultDispatcher::new();
         dispatcher.add(failures.guard(Box::new(recording))).unwrap();
         let workflow = WorkflowDescriptor::builder("orders")
-            .step("charge", || {})
+            .step(StepName::new("charge"), || {})
             .id_generator(|_: &Orders, _| Ok("order-7".to_string()))
             .build();
         let instance = workflow
@@ -200,7 +200,7 @@ mod tests {
         assert_eq!(sequences, [1, 2, 3, 4]);
         for event in events.iter() {
             assert_eq!(event.journey_id.to_string(), "order-7");
-            assert_eq!(event.workflow, "orders");
+            assert_eq!(event.workflow, WorkflowName::from("orders"));
             assert_eq!(event.timestamp, Timestamp::from(noon()));
         }
         let Some(EventBody::JourneyStarted { initial_keys }) = events.first().map(|e| &e.body)

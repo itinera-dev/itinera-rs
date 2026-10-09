@@ -9,9 +9,69 @@ use crate::instance::InstanceBuilder;
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::{Mode, Synchronous};
 use crate::report::{Reporter, WorkflowReporter};
+use crate::step::StepName;
 
 #[cfg(feature = "async")]
 mod asynchronous;
+
+/// A workflow's name, fixed when the program is compiled.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::workflow::WorkflowName;
+///
+/// let orders = WorkflowName::from("orders");
+/// let text: &str = orders.as_ref();
+/// assert_eq!(text, "orders");
+/// assert_eq!(orders.to_string(), "orders");
+/// ```
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    derive_more::Display,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::AsRef,
+)]
+#[as_ref(forward)]
+pub struct WorkflowName(&'static str);
+
+/// An input adapter's name, fixed when the program is compiled, unique among its workflow's
+/// adapters.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::workflow::AdapterName;
+///
+/// let pricing = AdapterName::from("pricing");
+/// let text: &str = pricing.as_ref();
+/// assert_eq!(text, "pricing");
+/// assert_eq!(pricing.to_string(), "pricing");
+/// ```
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    derive_more::Display,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::AsRef,
+)]
+#[as_ref(forward)]
+pub struct AdapterName(&'static str);
 
 /// A workflow's declaration: its name, its step, its reporters and how it produces journey IDs.
 ///
@@ -24,17 +84,18 @@ mod asynchronous;
 /// ```
 /// use std::sync::LazyLock;
 ///
+/// use itinera::step::step_name;
 /// use itinera::workflow::WorkflowDescriptor;
 ///
 /// struct Orders;
 ///
 /// static ORDERS: LazyLock<WorkflowDescriptor<Orders>> = LazyLock::new(|| {
 ///     WorkflowDescriptor::builder("orders")
-///         .step("charge", || {})
+///         .step(step_name!("charge"), || {})
 ///         .build()
 /// });
 ///
-/// assert_eq!(ORDERS.name(), "orders");
+/// assert_eq!(ORDERS.name().to_string(), "orders");
 /// ```
 #[derive(derive_more::Debug)]
 pub struct WorkflowDescriptor<W, M: Mode = Synchronous> {
@@ -43,7 +104,7 @@ pub struct WorkflowDescriptor<W, M: Mode = Synchronous> {
 
 #[derive(derive_more::Debug)]
 struct Declaration<W, M: Mode> {
-    name: String,
+    name: WorkflowName,
     step: Option<StandInStep>,
     #[debug("{}", reporters.len())]
     reporters: Vec<MakeReporter<W, M>>,
@@ -59,14 +120,14 @@ type GenerateId<W> = Box<dyn Fn(&W, &DataBag) -> Result<String, Error> + Send + 
 /// A stand-in for a step, which can only succeed, until steps can be declared in full.
 #[derive(derive_more::Debug)]
 pub(crate) struct StandInStep {
-    name: String,
+    name: StepName,
     #[debug(skip)]
     run: Box<dyn Fn() + Send + Sync>,
 }
 
 impl StandInStep {
-    pub(crate) fn name(&self) -> &str {
-        &self.name
+    pub(crate) fn name(&self) -> StepName {
+        self.name
     }
 
     pub(crate) fn run(&self) {
@@ -85,9 +146,9 @@ impl<W: Send + Sync + 'static> WorkflowDescriptor<W> {
     /// struct Orders;
     ///
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders").build();
-    /// assert_eq!(orders.name(), "orders");
+    /// assert_eq!(orders.name().to_string(), "orders");
     /// ```
-    pub fn builder(name: impl Into<String>) -> WorkflowBuilder<W> {
+    pub fn builder(name: impl Into<WorkflowName>) -> WorkflowBuilder<W> {
         WorkflowBuilder {
             declaration: Declaration {
                 name: name.into(),
@@ -157,10 +218,10 @@ impl<W, M: Mode> WorkflowDescriptor<W, M> {
     /// struct Orders;
     ///
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders").build();
-    /// assert_eq!(orders.name(), "orders");
+    /// assert_eq!(orders.name().to_string(), "orders");
     /// ```
-    pub fn name(&self) -> &str {
-        &self.declaration.name
+    pub fn name(&self) -> WorkflowName {
+        self.declaration.name
     }
 }
 
@@ -210,18 +271,19 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// # Examples
     ///
     /// ```
+    /// use itinera::step::step_name;
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// struct Orders;
     ///
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
-    ///     .step("charge", || {})
+    ///     .step(step_name!("charge"), || {})
     ///     .build();
     /// # drop(orders);
     /// ```
-    pub fn step(mut self, name: impl Into<String>, run: impl Fn() + Send + Sync + 'static) -> Self {
+    pub fn step(mut self, name: StepName, run: impl Fn() + Send + Sync + 'static) -> Self {
         self.declaration.step = Some(StandInStep {
-            name: name.into(),
+            name,
             run: Box::new(run),
         });
         self
@@ -312,7 +374,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// struct Orders;
     ///
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders").build();
-    /// assert_eq!(orders.clone().name(), "orders");
+    /// assert_eq!(orders.clone().name().to_string(), "orders");
     /// ```
     pub fn build(self) -> WorkflowDescriptor<W, M> {
         WorkflowDescriptor {

@@ -1,13 +1,16 @@
 //! Journeys, each one execution of a workflow: their identity, their data, and how they end.
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use crate::error::Error;
-use crate::policy::{StepHook, WorkflowHook};
+use crate::policy::{PolicyName, StepHook, WorkflowHook};
 use crate::step::Reason;
 use crate::value::AnyValue;
+use crate::workflow::AdapterName;
 
-/// The identifier of one journey, unique to it.
+/// The identifier of one journey, unique to it. It is made when the journey's instance is
+/// created, and cheap to clone.
 ///
 /// # Examples
 ///
@@ -34,7 +37,7 @@ use crate::value::AnyValue;
 )]
 #[from(forward)]
 #[as_ref(forward)]
-pub struct JourneyId(String);
+pub struct JourneyId(Arc<str>);
 
 /// Why a journey failed.
 ///
@@ -409,7 +412,7 @@ pub enum Abort {
     #[non_exhaustive]
     PolicyCouldNotBeBuilt {
         /// The policy's name.
-        policy: String,
+        policy: PolicyName,
         /// The error it failed with.
         error: Error,
     },
@@ -486,7 +489,7 @@ pub enum MissingData {
     #[non_exhaustive]
     Reason {
         /// The policy's name.
-        policy: String,
+        policy: PolicyName,
         /// The hook that requested it.
         hook: StepHook,
     },
@@ -494,7 +497,7 @@ pub enum MissingData {
     #[non_exhaustive]
     Error {
         /// The policy's name.
-        policy: String,
+        policy: PolicyName,
         /// The hook that requested it.
         hook: StepHook,
     },
@@ -510,11 +513,12 @@ pub enum MissingData {
 ///
 /// ```
 /// use itinera::journey::Requester;
+/// use itinera::policy::PolicyName;
 ///
-/// fn policy(requester: &Requester) -> Option<&str> {
+/// fn policy(requester: &Requester) -> Option<PolicyName> {
 ///     match requester {
 ///         Requester::StepHook { policy, .. } | Requester::WorkflowHook { policy, .. } => {
-///             Some(policy)
+///             Some(*policy)
 ///         }
 ///         _ => None,
 ///     }
@@ -529,13 +533,13 @@ pub enum Requester {
     #[non_exhaustive]
     Adapter {
         /// The adapter's name.
-        adapter: String,
+        adapter: AdapterName,
     },
     /// A step hook.
     #[non_exhaustive]
     StepHook {
         /// The policy's name.
-        policy: String,
+        policy: PolicyName,
         /// The hook.
         hook: StepHook,
     },
@@ -543,7 +547,7 @@ pub enum Requester {
     #[non_exhaustive]
     WorkflowHook {
         /// The policy's name.
-        policy: String,
+        policy: PolicyName,
         /// The hook.
         hook: WorkflowHook,
     },
@@ -679,7 +683,7 @@ mod tests {
     )]
     #[case::policy_could_not_be_built(
         Abort::PolicyCouldNotBeBuilt {
-            policy: "audit".to_string(),
+            policy: PolicyName::from("audit"),
             error: Error::msg("closed"),
         },
         AbortReason::PolicyCouldNotBeBuilt

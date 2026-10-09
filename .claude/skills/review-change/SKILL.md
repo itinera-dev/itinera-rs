@@ -32,7 +32,7 @@ For each item, the reviewer lists every place in the diff where the item applies
 
 3. Formatting configuration, against "Formatting is plain `rustfmt`": no `rustfmt.toml` or `.rustfmt.toml`.
 4. Every new name of a type, function, variant, field and module, against "Names use the specification's vocabulary exactly".
-5. Every `unwrap`, `expect`, `panic!`, indexing, `todo!` and `unimplemented!` outside tests, against "Library code never panics".
+5. Every `unwrap`, `expect`, `panic!`, indexing, `todo!` and `unimplemented!` outside tests, against the rule that library code never panics while a journey runs; a panic allowed at declaration has `#[expect(clippy::panic, reason = "…")]` and a `# Panics` section.
 6. Every hand-written trait implementation, helper function and type, against "Reuse before writing", "Error enums derive", and the bullet on `Debug` where it exists. For each, name what could provide it instead, and weigh it as that bullet says.
 7. Every constraint stated in documentation, the specification or the plan for the new types, against "Types hold every constraint".
 8. Every struct with one field, against "A struct with one field is a tuple struct", in both directions, including how code outside its module reaches the field.

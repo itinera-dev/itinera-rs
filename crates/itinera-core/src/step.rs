@@ -4,6 +4,98 @@ use std::num::NonZeroU32;
 
 use crate::value::{AnyValue, Value};
 
+/// A step's name: non-empty text, fixed when the program is compiled, unique within its workflow
+/// and compared case-sensitively.
+///
+/// [`step_name!`] makes one from a constant, and refuses an empty one at compile time.
+/// [`StepName::new`] does the same from any `&'static str`, at compile time in a `const` context
+/// and otherwise when it is called.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::step::{StepName, step_name};
+///
+/// let charge: StepName = step_name!("charge");
+/// assert_eq!(charge.to_string(), "charge");
+/// let text: &str = charge.as_ref();
+/// assert_eq!(text, "charge");
+/// ```
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    derive_more::Display,
+    derive_more::Into,
+    derive_more::AsRef,
+)]
+#[display("{name}")]
+#[as_ref(forward)]
+pub struct StepName {
+    name: &'static str,
+}
+
+impl StepName {
+    /// Makes a step name.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the name is empty, which is a mistake in the workflow's declaration. In a
+    /// `const` context, such as [`step_name!`], that is a compile error instead.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::StepName;
+    ///
+    /// const SHIP: StepName = StepName::new("ship");
+    /// assert_eq!(SHIP.to_string(), "ship");
+    /// ```
+    #[expect(
+        clippy::panic,
+        reason = "an empty step name is a mistake in a declaration, before any journey"
+    )]
+    pub const fn new(name: &'static str) -> Self {
+        if name.is_empty() {
+            panic!("a step name cannot be empty");
+        }
+        Self { name }
+    }
+}
+
+/// Makes a [`StepName`] from a constant, and refuses an empty one at compile time.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::step::step_name;
+///
+/// assert_eq!(step_name!("charge").to_string(), "charge");
+/// ```
+///
+/// An empty name does not compile:
+///
+/// ```compile_fail,E0080
+/// use itinera::step::step_name;
+///
+/// let nameless = step_name!("");
+/// ```
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __step_name {
+    ($name:expr) => {
+        const { $crate::step::StepName::new($name) }
+    };
+}
+
+#[doc(inline)]
+pub use crate::__step_name as step_name;
+
 /// A step and one of its attempts, counted from 1.
 ///
 /// # Examples
@@ -18,17 +110,17 @@ use crate::value::{AnyValue, Value};
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub struct StepAttempt {
-    /// The step's name.
-    pub step: String,
+    /// The step this attempt belongs to.
+    pub step: StepName,
     /// The attempt number, from 1.
     pub attempt: NonZeroU32,
 }
 
 impl StepAttempt {
     /// The first attempt of a step.
-    pub(crate) fn first(step: &str) -> Self {
+    pub(crate) fn first(step: StepName) -> Self {
         Self {
-            step: step.to_owned(),
+            step,
             attempt: NonZeroU32::MIN,
         }
     }
