@@ -89,7 +89,7 @@ impl<D: Delivery> Journey<D> {
     ) -> Result<(), Error> {
         self.emit(EventBody::JourneyStarted { initial_keys })
             .await?;
-        if let Some(step) = descriptor.step() {
+        for step in descriptor.steps() {
             self.step = Some(step.name());
             let attempt = StepAttempt::first(step.name());
             self.emit(EventBody::AttemptStarted {
@@ -152,6 +152,7 @@ mod tests {
     use super::*;
     use crate::event::{Event, Timestamp};
     use crate::report::{DefaultDispatcher, Reporter};
+    use crate::step::StepDescriptor;
     use crate::workflow::{WorkflowDescriptor, WorkflowName};
 
     struct Orders;
@@ -176,6 +177,49 @@ mod tests {
         event.sequence
     }
 
+    fn kind_and_step(event: &Event) -> (&'static str, Option<StepName>) {
+        let step = match &event.body {
+            EventBody::AttemptStarted { step } | EventBody::StepSucceeded { step } => {
+                Some(step.step)
+            }
+            _ => None,
+        };
+        (event.kind(), step)
+    }
+
+    #[test]
+    fn steps_run_in_the_order_they_were_added() {
+        let recording = Recording::default();
+        let events = Arc::clone(&recording.events);
+        let failures = Failures::default();
+        let mut dispatcher = DefaultDispatcher::new();
+        dispatcher.add(failures.guard(Box::new(recording))).unwrap();
+        let workflow = WorkflowDescriptor::builder("orders")
+            .step(StepDescriptor::new(StepName::new("charge"), || {}))
+            .step(StepDescriptor::new(StepName::new("ship"), || {}))
+            .build()
+            .unwrap();
+        let instance = workflow.instance(Orders).create().unwrap();
+
+        finish(run(instance, Inline::from(dispatcher), failures, noon));
+
+        let charge = Some(StepName::new("charge"));
+        let ship = Some(StepName::new("ship"));
+        let events = events.lock().unwrap();
+        let stream: Vec<_> = events.iter().map(kind_and_step).collect();
+        assert_eq!(
+            stream,
+            [
+                ("journey_started", None),
+                ("attempt_started", charge),
+                ("step_succeeded", charge),
+                ("attempt_started", ship),
+                ("step_succeeded", ship),
+                ("journey_succeeded", None),
+            ]
+        );
+    }
+
     #[test]
     fn events_are_numbered_from_one_and_carry_the_journey_the_workflow_and_the_time() {
         let recording = Recording::default();
@@ -184,9 +228,10 @@ mod tests {
         let mut dispatcher = DefaultDispatcher::new();
         dispatcher.add(failures.guard(Box::new(recording))).unwrap();
         let workflow = WorkflowDescriptor::builder("orders")
-            .step(StepName::new("charge"), || {})
+            .step(StepDescriptor::new(StepName::new("charge"), || {}))
             .id_generator(|_: &Orders, _| Ok("order-7".to_string()))
-            .build();
+            .build()
+            .unwrap();
         let instance = workflow
             .instance(Orders)
             .data("amount", 42_i64)
