@@ -303,7 +303,7 @@ Each job runs one command, as the organisation's rules require. All are required
 | sync-only build | `cargo check --workspace --no-default-features` |
 | minimum Rust version | `cargo +1.85 check --workspace --exclude itinera-conformance` |
 | documentation | `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings` |
-| dependencies | `cargo deny check`, through `EmbarkStudios/cargo-deny-action` |
+| dependencies | `cargo deny check`, with the `cargo-deny` binary that `taiki-e/install-action` installs |
 | conformance, from stage 0 | `itinera-dev/actions/run-conformance@v1`, with `command: cargo run -p itinera-conformance --release`, after checking out and restoring the Rust cache |
 | pull request rules | `pr-has-issue` and `no-cross-repo-closing` |
 | weekly, not blocking | the tests on Rust beta |
