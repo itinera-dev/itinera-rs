@@ -288,4 +288,22 @@ mod tests {
     ) {
         assert_eq!(name.to_string(), written);
     }
+
+    #[test]
+    fn a_step_policy_naming_a_hook_twice_defines_it_once() {
+        let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess)
+            .hook(StepHook::OnStepFailure)
+            .hook(StepHook::OnStepSuccess);
+        assert_eq!(
+            audit.hooks(),
+            [StepHook::OnStepSuccess, StepHook::OnStepFailure]
+        );
+    }
+
+    #[test]
+    fn a_workflow_policy_naming_a_hook_twice_defines_it_once() {
+        let notify = WorkflowPolicyDescriptor::new("notify", WorkflowHook::OnWorkflowSuccess)
+            .hook(WorkflowHook::OnWorkflowSuccess);
+        assert_eq!(notify.hooks(), [WorkflowHook::OnWorkflowSuccess]);
+    }
 }

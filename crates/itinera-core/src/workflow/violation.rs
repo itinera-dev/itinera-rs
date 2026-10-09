@@ -474,10 +474,14 @@ mod tests {
 
     #[test]
     fn violations_display_every_violation() {
-        let builder = orders().step(step("charge")).step(step("charge"));
+        let builder = orders()
+            .step(step("charge"))
+            .step(step("charge"))
+            .input_adapter(InputAdapter::new("pricing", StepName::new("refund")));
         assert_eq!(
             builder.build().unwrap_err().to_string(),
-            "the workflow's declaration has violations: duplicate step name: charge"
+            "the workflow's declaration has violations: duplicate step name: charge; \
+             input adapter for unknown step: pricing on refund"
         );
     }
 
