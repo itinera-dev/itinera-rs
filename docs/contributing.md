@@ -26,7 +26,7 @@ Tier 1 is implemented following the [tier 1 plan](tier-1-plan.md), in stages tra
 | `itinera-macros` | yes | The procedural macros, which are syntax over the builder |
 | `itinera-conformance` | no | The conformance runner |
 
-The `unstable` feature holds the API of proposals not yet listed in `conformance.json`.
+The `unstable` feature holds the API of proposals not yet listed in `conformance.json`, and of listed proposals whose API still holds a stand-in that a later stage replaces or names API behind `unstable`.
 
 ## Building and testing
 

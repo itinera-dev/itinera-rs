@@ -24,6 +24,8 @@ Status: done in stage 4. Stage 3 added the workflow descriptor with its name, it
 - An input adapter supplies no value. Stage 7 makes it a hook of the workflow.
 - A step's retry budget and `abnormal termination retriable` arrive with stage 6, which uses them.
 
+While these stand-ins remain, and while the API names reporters, instances and executors of proposals not yet listed, it stays behind the `unstable` feature, though 62 is listed in `conformance.json`.
+
 ## How the rules are enforced
 
 | Rule | Enforced by |
