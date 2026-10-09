@@ -68,7 +68,7 @@ The rules types cannot reach are checked when the descriptor is built (decision 
       }
   }
 
-  impl<'a> Step<'a> for Charge<'a> {
+  impl Step for Charge<'_> {
       fn run(self) -> Result<Outcome, Error> {
           self.reporter.info("charging")?;
           self.contributor.contribute("receipt", "R-1".to_string());
@@ -84,13 +84,13 @@ The rules types cannot reach are checked when the descriptor is built (decision 
 
   ```rust
   pub trait StepFactory: Send + Sync + 'static {
-      type Step<'a>: Step<'a>;
+      type Step<'a>: Step;
       fn needs(&self) -> StepNeeds;
-      fn build<'a>(&self, got: &mut Resolved<'a>) -> Result<Self::Step<'a>, Error>;
+      fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Self::Step<'a>, Error>;
   }
   ```
 
-  `StepNeeds` hands out typed tokens (`needs.input::<i64>("amount")`, `needs.contributor()`), and `got.take(token)` returns the resolved value or handle, already of the right type. A plain closure is accepted only for steps that use no handles.
+  Inputs are typed tokens, usually constants: `const AMOUNT: Input<i64> = Input::new("amount")` and `OptionalInput<T>`. `needs` lists them, as in `StepNeeds::new().input(&AMOUNT).optional_input(&DISCOUNT)`, and `build` takes each resolved value, already of its type, with `got.input(&AMOUNT)?` or `got.optional_input(&DISCOUNT)?`. Handles are declared and taken the same way, with `.contributor()` and `.reporter()`. The engine checks each value against the declared type before building; a token the step did not declare, or one taken twice, is an error from `build`, so the step could not be built. A step may borrow its factory, which lives as long as the attempt. A closure returning `Result<Outcome, Error>` is the factory of a step that needs nothing. The asynchronous traits, `AsyncStep` and `AsyncStepFactory`, mirror these, and `StepDescriptor::new_async` takes the factory.
 - **Outcomes**: `Outcome::success()`, `Outcome::failure(reason)`, `Outcome::retriable_failure(reason)`, `Outcome::skipped()` and `Outcome::skipped_because(reason)`. A `Reason` has a code, an optional message and optional details, which are a value.
 - **One error type, `itinera::error::Error`**, for every custom code that can fail: a step's `run` and constructor, hooks, role operations, policy factories, reporters and their `init`, dispatchers and dispatcher factories. It converts from any `std::error::Error + Send + Sync + 'static`, so `?` works on any library's error, and from `Interrupted`. Because of that conversion it does not itself implement `std::error::Error`; it offers `Display`, `source()` and `Error::msg`.
 - **`?` in `run` is an abnormal termination**: an error the step did not anticipate. A failure the step chose is returned as `Outcome::failure`. The one exception is `Interrupted`: the engine recognises its own signal, the journey is already aborted, and nothing the step returns afterwards counts.
@@ -148,12 +148,12 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Synchronous>> = LazyLock::new
   #[workflow(name = "orders")]
   impl Orders {
       #[input_adapter(steps = ["charge", "refund"])]
-      fn pricing(&self, #[step_name] step: &str, #[key] key: &str,
-                 #[data_from_workflow("price")] price: i64) -> Result<Option<Value>, Error> { /* ... */ }
+      fn pricing(&self, #[step_name] step: StepName, #[key] key: &str,
+                 #[data_from_workflow("price")] price: i64) -> Result<Option<AnyValue>, Error> { /* ... */ }
   }
   ```
 
-  It is called for each input of an adapted step. A value is used; `None` means "not mine", and the input is read from the data bag; `Err` emits `input_adapter_failed` and aborts with `step could not be built`. Its value is untyped and checked against the step's declared type. It may request the step's name, the key, data from the workflow and the journey ID, never roles, a contributor or a reporter. The macro generates the builder call that registers it.
+  It is called for each input of an adapted step. A value is used; `None` means "not mine", and the input is read from the data bag; `Err` emits `input_adapter_failed` and aborts with `step could not be built`. Its value is untyped and checked against the step's declared type. It may request the step's name, the key, data from the workflow and the journey ID, never roles, a contributor or a reporter. The macro generates the builder call that registers it: `InputAdapter::new(name, step, adapt)`, where `adapt` is a function of the workflow's own value, the step's name and the key, and `.step(other)` attaches it to another step. Stage 7 adds its requests for data from the workflow and the journey ID.
 
 ### 7. The workflow instance
 
@@ -169,7 +169,7 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     fn take_reporters(&mut self) -> Vec<<Self::Mode as Mode>::Reporter>;
     fn data_bag(&self) -> &DataBag;
     fn into_data_bag(self) -> DataBag;
-    fn data_for_step(&self, step: &str, input: &InputRequest) -> Resolution;
+    fn data_for_step(&self, step: StepName, key: &str) -> Resolution;
     fn data_for_workflow(&self, request: &DataRequest) -> Resolution;
     fn commit(&mut self, key: String, value: AnyValue, source: Source) -> Committed;
 }

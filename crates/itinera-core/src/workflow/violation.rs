@@ -161,10 +161,10 @@ pub enum ViolationKind {
 }
 
 /// Checks a workflow's declaration, and returns every violation found.
-pub(super) fn check(
-    steps: &[StepDescriptor],
+pub(super) fn check<M, W>(
+    steps: &[StepDescriptor<M>],
     policies: &[WorkflowPolicyDescriptor],
-    adapters: &[InputAdapter],
+    adapters: &[InputAdapter<W>],
 ) -> Result<(), Violations> {
     let violations: Vec<Violation> = duplicate_step_names(steps)
         .chain(steps.iter().flat_map(step_hooks_defined_twice))
@@ -179,7 +179,7 @@ pub(super) fn check(
     }
 }
 
-fn duplicate_step_names(steps: &[StepDescriptor]) -> impl Iterator<Item = Violation> {
+fn duplicate_step_names<M>(steps: &[StepDescriptor<M>]) -> impl Iterator<Item = Violation> {
     counted(steps.iter().map(StepDescriptor::name))
         .into_iter()
         .filter(repeated)
@@ -190,7 +190,7 @@ fn duplicate_step_name((step, _): (StepName, usize)) -> Violation {
     Violation::DuplicateStepName { step }
 }
 
-fn step_hooks_defined_twice(step: &StepDescriptor) -> impl Iterator<Item = Violation> {
+fn step_hooks_defined_twice<M>(step: &StepDescriptor<M>) -> impl Iterator<Item = Violation> {
     let name = step.name();
     let definitions = step.policies().iter().flat_map(step_hook_definitions);
     grouped(definitions)
@@ -244,9 +244,9 @@ fn defined_by<H>(hook: H, policy: PolicyName) -> (H, PolicyName) {
     (hook, policy)
 }
 
-fn adapters_for_unknown_steps<'a>(
-    steps: &'a [StepDescriptor],
-    adapters: &'a [InputAdapter],
+fn adapters_for_unknown_steps<'a, M, W>(
+    steps: &'a [StepDescriptor<M>],
+    adapters: &'a [InputAdapter<W>],
 ) -> impl Iterator<Item = Violation> + 'a {
     adapters
         .iter()
@@ -259,9 +259,9 @@ fn adapter_for_unknown_step((adapter, step): (AdapterName, StepName)) -> Violati
     Violation::InputAdapterForUnknownStep { adapter, step }
 }
 
-fn steps_adapted_twice(
-    steps: &[StepDescriptor],
-    adapters: &[InputAdapter],
+fn steps_adapted_twice<M, W>(
+    steps: &[StepDescriptor<M>],
+    adapters: &[InputAdapter<W>],
 ) -> impl Iterator<Item = Violation> {
     let known = adapters
         .iter()
@@ -279,7 +279,7 @@ fn step_adapted_twice((step, adapters): (StepName, Vec<AdapterName>)) -> Violati
 }
 
 /// Each step the adapter is attached to, with the adapter's name.
-fn attachments(adapter: &InputAdapter) -> impl Iterator<Item = (AdapterName, StepName)> + '_ {
+fn attachments<W>(adapter: &InputAdapter<W>) -> impl Iterator<Item = (AdapterName, StepName)> + '_ {
     let name = adapter.name();
     adapter
         .steps()
@@ -295,11 +295,11 @@ fn by_step((adapter, step): (AdapterName, StepName)) -> (StepName, AdapterName) 
     (step, adapter)
 }
 
-fn is_known(steps: &[StepDescriptor], name: StepName) -> bool {
+fn is_known<M>(steps: &[StepDescriptor<M>], name: StepName) -> bool {
     steps.iter().any(|step| step.is_named(name))
 }
 
-fn is_unknown(steps: &[StepDescriptor], name: StepName) -> bool {
+fn is_unknown<M>(steps: &[StepDescriptor<M>], name: StepName) -> bool {
     !is_known(steps, name)
 }
 
@@ -347,12 +347,17 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::step::Outcome;
     use crate::workflow::{WorkflowBuilder, WorkflowDescriptor};
 
     struct Orders;
 
     fn step(name: &'static str) -> StepDescriptor {
-        StepDescriptor::new(StepName::new(name), || {})
+        StepDescriptor::new(StepName::new(name), || Ok(Outcome::success()))
+    }
+
+    fn adapter(name: &'static str, step: &'static str) -> InputAdapter<Orders> {
+        InputAdapter::new(name, StepName::new(step), |_, _, _| Ok(None))
     }
 
     fn orders() -> WorkflowBuilder<Orders> {
@@ -403,8 +408,8 @@ mod tests {
     #[case::two_adapters_on_one_step(
         orders()
             .step(step("charge"))
-            .input_adapter(InputAdapter::new("pricing", StepName::new("charge")))
-            .input_adapter(InputAdapter::new("discounts", StepName::new("charge"))),
+            .input_adapter(adapter("pricing", "charge"))
+            .input_adapter(adapter("discounts", "charge")),
         Violation::StepAdaptedTwice {
             step: StepName::new("charge"),
             adapters: vec![AdapterName::from("pricing"), AdapterName::from("discounts")],
@@ -413,7 +418,7 @@ mod tests {
     #[case::an_adapter_on_a_step_the_workflow_does_not_have(
         orders()
             .step(step("charge"))
-            .input_adapter(InputAdapter::new("pricing", StepName::new("refund"))),
+            .input_adapter(adapter("pricing", "refund")),
         Violation::InputAdapterForUnknownStep {
             adapter: AdapterName::from("pricing"),
             step: StepName::new("refund"),
@@ -431,7 +436,7 @@ mod tests {
         let builder = orders()
             .step(step("charge").policy(audit()).policy(audit()))
             .step(step("charge"))
-            .input_adapter(InputAdapter::new("pricing", StepName::new("refund")));
+            .input_adapter(adapter("pricing", "refund"));
         let kinds: Vec<ViolationKind> = violations(builder).iter().map(Violation::kind).collect();
         assert_eq!(
             kinds,
@@ -457,7 +462,7 @@ mod tests {
                 WorkflowHook::OnWorkflowSuccess,
             ))
             .input_adapter(
-                InputAdapter::new("pricing", StepName::new("charge"))
+                adapter("pricing", "charge")
                     .step(StepName::new("Charge"))
                     .step(StepName::new("charge")),
             );
@@ -468,8 +473,8 @@ mod tests {
     #[should_panic(expected = "the workflow already has an input adapter named \"pricing\"")]
     fn two_input_adapters_with_one_name_cannot_be_declared() {
         let _ = orders()
-            .input_adapter(InputAdapter::new("pricing", StepName::new("charge")))
-            .input_adapter(InputAdapter::new("pricing", StepName::new("ship")));
+            .input_adapter(adapter("pricing", "charge"))
+            .input_adapter(adapter("pricing", "ship"));
     }
 
     #[test]
@@ -477,7 +482,7 @@ mod tests {
         let builder = orders()
             .step(step("charge"))
             .step(step("charge"))
-            .input_adapter(InputAdapter::new("pricing", StepName::new("refund")));
+            .input_adapter(adapter("pricing", "refund"));
         assert_eq!(
             builder.build().unwrap_err().to_string(),
             "the workflow's declaration has violations: duplicate step name: charge; \

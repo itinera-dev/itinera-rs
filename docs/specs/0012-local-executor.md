@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0012](https://github.com/itinera-dev/spec/blob/main/proposals/0012-local-executor.md), implemented in [#14](https://github.com/itinera-dev/itinera-rs/issues/14). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: in progress. Stage 3 adds both executors and the engine they share, running a workflow whose one step can only succeed; stage 6 adds the scan and its decisions.
+Status: in progress. Stage 3 adds both executors and the engine they share, running a workflow whose one step can only succeed. Stage 5 builds each step for its attempt and acts on every outcome, with each attempt the step's last; stage 6 adds the scan and its decisions.
 
 ## API
 

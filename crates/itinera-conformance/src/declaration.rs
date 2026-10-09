@@ -3,8 +3,9 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use itinera::error::Error;
 use itinera::policy::{StepPolicyDescriptor, WorkflowPolicyDescriptor};
-use itinera::step::{StepDescriptor, StepName};
+use itinera::step::{Outcome, StepDescriptor, StepName};
 use itinera::workflow::{InputAdapter, Violations, WorkflowBuilder, WorkflowDescriptor};
 
 use crate::model::{Adapter, HookScript, Hooks, Model, ModelError, Policy, Workflow};
@@ -31,8 +32,10 @@ impl StepsRun {
         self.count.load(Ordering::SeqCst) == 0
     }
 
-    fn one_more(&self) {
+    /// Counts one more run of a step, which succeeds.
+    fn run(&self) -> Result<Outcome, Error> {
         self.count.fetch_add(1, Ordering::SeqCst);
+        Ok(Outcome::success())
     }
 }
 
@@ -72,7 +75,7 @@ fn step_descriptor(
     steps_run: &StepsRun,
 ) -> Result<StepDescriptor, ModelError> {
     let runs = steps_run.clone();
-    let descriptor = StepDescriptor::new(step_name(step)?, move || runs.one_more());
+    let descriptor = StepDescriptor::new(step_name(step)?, move || runs.run());
     let policies = workflow
         .step_policies
         .get(step)
@@ -126,7 +129,7 @@ fn no_hooks(policy: &str) -> ModelError {
     ModelError::NoHooks(policy.to_owned())
 }
 
-fn input_adapter(adapter: &Adapter) -> Result<InputAdapter, ModelError> {
+fn input_adapter(adapter: &Adapter) -> Result<InputAdapter<ScriptedWorkflow>, ModelError> {
     let steps = adapter
         .steps
         .iter()
@@ -137,7 +140,7 @@ fn input_adapter(adapter: &Adapter) -> Result<InputAdapter, ModelError> {
         .split_first()
         .ok_or_else(|| ModelError::AdapterWithoutSteps(adapter.name.clone()))?;
     Ok(rest.iter().copied().fold(
-        InputAdapter::new(leaked(&adapter.name), *first),
+        InputAdapter::new(leaked(&adapter.name), *first, |_, _, _| Ok(None)),
         InputAdapter::step,
     ))
 }

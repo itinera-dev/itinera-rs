@@ -1,9 +1,27 @@
-//! Steps: the business units of a workflow, their attempts, and the reasons they give.
+//! Steps: the business units of a workflow, what they need, how they are built and run, their
+//! attempts, their outcomes and the reasons they give.
 
+use std::future::Future;
+use std::marker::PhantomData;
 use std::num::NonZeroU32;
+use std::pin::Pin;
 
+use crate::error::Error;
+use crate::mode::Synchronous;
 use crate::policy::StepPolicyDescriptor;
 use crate::value::{AnyValue, Value};
+
+#[cfg(feature = "async")]
+mod asynchronous;
+mod needs;
+mod outcome;
+
+#[cfg(feature = "async")]
+pub use asynchronous::{AsyncStep, AsyncStepFactory};
+pub(crate) use needs::{Got, InputNeed, Requirement};
+pub use needs::{Input, OptionalInput, Resolved, StepNeeds};
+pub use outcome::Outcome;
+pub(crate) use outcome::OutcomeKind;
 
 /// A step's name: non-empty text, fixed when the program is compiled, unique within its workflow
 /// and compared case-sensitively.
@@ -97,45 +115,220 @@ macro_rules! __step_name {
 #[doc(inline)]
 pub use crate::__step_name as step_name;
 
-/// What a workflow holds for one step: the step's name, how to run it, and the step policies
-/// attached to it, in the order they were attached.
+/// A step: built for one attempt, it does its work when run, and reports an [`Outcome`].
 ///
-/// The step is a stand-in that can only succeed, until steps can be declared in full: each
-/// journey runs it once, and it succeeds.
+/// `run` takes the step by value, so nothing of it survives into another attempt. Returning an
+/// error is an abnormal termination: an error the step did not anticipate. A failure the step
+/// chose is `Ok(Outcome::failure(reason))`.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::error::Error;
+/// use itinera::step::{Outcome, Reason, Step};
+///
+/// struct Charge {
+///     amount: i64,
+/// }
+///
+/// impl Step for Charge {
+///     fn run(self) -> Result<Outcome, Error> {
+///         if self.amount > 0 {
+///             Ok(Outcome::success())
+///         } else {
+///             Ok(Outcome::failure(Reason::new("nothing-to-charge")))
+///         }
+///     }
+/// }
+/// ```
+pub trait Step {
+    /// Does the step's work and reports its outcome.
+    ///
+    /// # Errors
+    ///
+    /// An error is an abnormal termination of the attempt. It never aborts the journey.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::step::{Outcome, Step};
+    ///
+    /// fn outcome_of(step: impl Step) -> Result<Outcome, Error> {
+    ///     step.run()
+    /// }
+    /// ```
+    fn run(self) -> Result<Outcome, Error>;
+}
+
+impl<F: Fn() -> Result<Outcome, Error>> Step for &F {
+    fn run(self) -> Result<Outcome, Error> {
+        self()
+    }
+}
+
+/// What a synchronous workflow holds to build a step for each attempt: the step declares what it
+/// needs, and the factory builds it from what was resolved.
+///
+/// A closure that returns `Result<Outcome, Error>` is a factory of a step that needs nothing.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::error::Error;
+/// use itinera::step::{Input, Outcome, Resolved, Step, StepFactory, StepNeeds};
+///
+/// struct Charge {
+///     amount: i64,
+/// }
+///
+/// impl Step for Charge {
+///     fn run(self) -> Result<Outcome, Error> {
+///         Ok(Outcome::success())
+///     }
+/// }
+///
+/// struct ChargeFactory;
+///
+/// const AMOUNT: Input<i64> = Input::new("amount");
+///
+/// impl StepFactory for ChargeFactory {
+///     type Step<'a> = Charge;
+///
+///     fn needs(&self) -> StepNeeds {
+///         StepNeeds::new().input(&AMOUNT)
+///     }
+///
+///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge, Error> {
+///         Ok(Charge {
+///             amount: got.input(&AMOUNT)?,
+///         })
+///     }
+/// }
+/// ```
+pub trait StepFactory: Send + Sync + 'static {
+    /// The step it builds, which may borrow its attempt.
+    type Step<'a>: Step;
+
+    /// What the step needs. It is asked once, when the step descriptor is made.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::{StepFactory, StepNeeds};
+    ///
+    /// fn needs(factory: &impl StepFactory) -> StepNeeds {
+    ///     factory.needs()
+    /// }
+    /// ```
+    fn needs(&self) -> StepNeeds;
+
+    /// Builds the step for one attempt, from what was resolved for it.
+    ///
+    /// # Errors
+    ///
+    /// An error means the step could not be built, which aborts the journey.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::step::{Resolved, StepFactory};
+    ///
+    /// fn build<'a, F: StepFactory>(factory: &'a F, got: &mut Resolved<'a>) -> Result<F::Step<'a>, Error> {
+    ///     factory.build(got)
+    /// }
+    /// ```
+    fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Self::Step<'a>, Error>;
+}
+
+impl<F> StepFactory for F
+where
+    F: Fn() -> Result<Outcome, Error> + Send + Sync + 'static,
+{
+    type Step<'a> = &'a F;
+
+    fn needs(&self) -> StepNeeds {
+        StepNeeds::new()
+    }
+
+    fn build<'a>(&'a self, _: &mut Resolved<'a>) -> Result<&'a F, Error> {
+        Ok(self)
+    }
+}
+
+/// A step being run: its outcome, or the error that ended it abnormally, once it finishes.
+pub(crate) type Running<'a> = Pin<Box<dyn Future<Output = Result<Outcome, Error>> + Send + 'a>>;
+
+/// A step factory of either mode, as a step descriptor holds it.
+pub(crate) trait Attempts: Send + Sync {
+    /// Builds the step for one attempt and starts it, or fails to build it.
+    fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Running<'a>, Error>;
+}
+
+/// A synchronous step factory, whose steps run as soon as they are built.
+struct Synchronously<F> {
+    factory: F,
+}
+
+impl<F: StepFactory> Attempts for Synchronously<F> {
+    fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Running<'a>, Error> {
+        let step = self.factory.build(&mut Resolved::new(got))?;
+        Ok(Box::pin(std::future::ready(step.run())))
+    }
+}
+
+/// What a workflow holds for one step: its name, what it needs, how to build it for each
+/// attempt, and the step policies attached to it, in the order they were attached.
+///
+/// `M` is the mode of the workflows that may hold it: a step of a synchronous workflow comes from
+/// a [`StepFactory`].
 ///
 /// # Examples
 ///
 /// ```
 /// use itinera::policy::{StepHook, StepPolicyDescriptor};
-/// use itinera::step::{StepDescriptor, step_name};
+/// use itinera::step::{Outcome, StepDescriptor, step_name};
 ///
 /// let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess);
-/// let charge = StepDescriptor::new(step_name!("charge"), || {}).policy(audit);
+/// let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())).policy(audit);
 /// assert_eq!(charge.name().to_string(), "charge");
 /// ```
 #[derive(derive_more::Debug)]
-pub struct StepDescriptor {
+pub struct StepDescriptor<M = Synchronous> {
     name: StepName,
+    needs: StepNeeds,
     #[debug(skip)]
-    run: Box<dyn Fn() + Send + Sync>,
+    factory: Box<dyn Attempts>,
     policies: Vec<StepPolicyDescriptor>,
+    #[debug(skip)]
+    mode: PhantomData<M>,
 }
 
 impl StepDescriptor {
-    /// Describes a step with its name and how to run it, with no policies.
+    /// Describes a step of a synchronous workflow with its name and its factory, with no
+    /// policies.
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{StepDescriptor, step_name};
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
     ///
-    /// let ship = StepDescriptor::new(step_name!("ship"), || {});
+    /// let ship = StepDescriptor::new(step_name!("ship"), || Ok(Outcome::success()));
     /// ```
-    pub fn new(name: StepName, run: impl Fn() + Send + Sync + 'static) -> Self {
+    pub fn new(name: StepName, factory: impl StepFactory) -> Self {
+        Self::holding(name, factory.needs(), Box::new(Synchronously { factory }))
+    }
+}
+
+impl<M> StepDescriptor<M> {
+    fn holding(name: StepName, needs: StepNeeds, factory: Box<dyn Attempts>) -> Self {
         Self {
             name,
-            run: Box::new(run),
+            needs,
+            factory,
             policies: Vec::new(),
+            mode: PhantomData,
         }
     }
 
@@ -145,11 +338,11 @@ impl StepDescriptor {
     ///
     /// ```
     /// use itinera::policy::{StepHook, StepPolicyDescriptor};
-    /// use itinera::step::{StepDescriptor, step_name};
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
     ///
     /// let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess);
     /// let alarm = StepPolicyDescriptor::new("alarm", StepHook::OnStepFailure);
-    /// let charge = StepDescriptor::new(step_name!("charge"), || {})
+    /// let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()))
     ///     .policy(audit)
     ///     .policy(alarm);
     /// ```
@@ -163,21 +356,26 @@ impl StepDescriptor {
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{StepDescriptor, step_name};
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
     ///
-    /// let ship = StepDescriptor::new(step_name!("ship"), || {});
+    /// let ship = StepDescriptor::new(step_name!("ship"), || Ok(Outcome::success()));
     /// assert_eq!(ship.name(), step_name!("ship"));
     /// ```
     pub fn name(&self) -> StepName {
         self.name
     }
 
+    pub(crate) fn needs(&self) -> &StepNeeds {
+        &self.needs
+    }
+
     pub(crate) fn policies(&self) -> &[StepPolicyDescriptor] {
         &self.policies
     }
 
-    pub(crate) fn run(&self) {
-        (self.run)();
+    /// Builds the step for one attempt and starts it, or fails to build it.
+    pub(crate) fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Running<'a>, Error> {
+        self.factory.attempt(got)
     }
 
     pub(crate) fn is_named(&self, name: StepName) -> bool {

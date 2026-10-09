@@ -25,13 +25,13 @@ pub use asynchronous::AsyncLocalExecutor;
 /// ```
 /// use itinera::executor::LocalExecutor;
 /// use itinera::journey::StatusKind;
-/// use itinera::step::{StepDescriptor, step_name};
+/// use itinera::step::{Outcome, StepDescriptor, step_name};
 /// use itinera::workflow::WorkflowDescriptor;
 ///
 /// struct Orders;
 ///
 /// let orders = WorkflowDescriptor::builder("orders")
-///     .step(StepDescriptor::new(step_name!("charge"), || {}))
+///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
 ///     .build()?;
 /// let mut executor = LocalExecutor::new();
 /// let result = executor.run(orders.instance(Orders).create()?)?;
@@ -90,13 +90,13 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
     /// ```
     /// use itinera::executor::LocalExecutor;
     /// use itinera::journey::JourneyStatus;
-    /// use itinera::step::{StepDescriptor, step_name};
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// struct Orders;
     ///
     /// let orders = WorkflowDescriptor::builder("orders")
-    ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
+    ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
     ///     .build()?;
     /// let instance = orders.instance(Orders).data("amount", 42_i64).create()?;
     /// let result = LocalExecutor::new().run(instance)?;
@@ -163,7 +163,7 @@ pub(crate) mod tests {
     use crate::instance::Instance;
     use crate::journey::{Abort, DataBag, JourneyId, JourneyStatus};
     use crate::report::{DefaultDispatcher, Reporter, WorkflowReporter};
-    use crate::step::{StepDescriptor, StepName};
+    use crate::step::{Outcome, StepDescriptor, StepName};
     use crate::workflow::{WorkflowBuilder, WorkflowDescriptor};
 
     /// What the journey's reporters received, in order, as "reporter kind" lines.
@@ -259,7 +259,9 @@ pub(crate) mod tests {
 
     pub(crate) fn shop_workflow() -> WorkflowDescriptor<Shop> {
         shop_builder()
-            .step(StepDescriptor::new(StepName::new("charge"), || {}))
+            .step(StepDescriptor::new(StepName::new("charge"), || {
+                Ok(Outcome::success())
+            }))
             .reporter::<Recorder<0>>()
             .reporter::<Recorder<1>>()
             .reporter::<Recorder<2>>()
@@ -318,8 +320,9 @@ pub(crate) mod tests {
         );
     }
 
-    fn count(runs: &Mutex<u32>) {
+    fn count(runs: &Mutex<u32>) -> Result<Outcome, Error> {
         *runs.lock().unwrap() += 1;
+        Ok(Outcome::success())
     }
 
     #[test]
@@ -692,7 +695,9 @@ pub(crate) mod tests {
     #[test]
     fn an_executor_runs_journeys_one_after_another_each_with_a_new_dispatcher() {
         let workflow = shop_builder()
-            .step(StepDescriptor::new(StepName::new("charge"), || {}))
+            .step(StepDescriptor::new(StepName::new("charge"), || {
+                Ok(Outcome::success())
+            }))
             .build()
             .unwrap();
         let mut executor = LocalExecutor::with_dispatcher_factory(Counting { created: 0 });

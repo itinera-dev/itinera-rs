@@ -20,14 +20,14 @@ use crate::report::{AsyncDispatcher, AsyncDispatcherFactory, DefaultDispatcherFa
 /// ```
 /// use itinera::executor::AsyncLocalExecutor;
 /// use itinera::journey::StatusKind;
-/// use itinera::step::{StepDescriptor, step_name};
+/// use itinera::step::{Outcome, StepDescriptor, step_name};
 /// use itinera::workflow::WorkflowDescriptor;
 ///
 /// struct Orders;
 ///
 /// async fn charge() -> Result<StatusKind, Box<dyn std::error::Error>> {
 ///     let orders = WorkflowDescriptor::async_builder("orders")
-///         .step(StepDescriptor::new(step_name!("charge"), || {}))
+///         .step(StepDescriptor::new_async(step_name!("charge"), async || Ok(Outcome::success())))
 ///         .build()?;
 ///     let mut executor = AsyncLocalExecutor::new();
 ///     let result = executor.run(orders.instance(Orders).create()?).await?;
@@ -89,14 +89,14 @@ impl<F: AsyncDispatcherFactory> AsyncLocalExecutor<F> {
     /// ```
     /// use itinera::executor::AsyncLocalExecutor;
     /// use itinera::journey::{JourneyResult, StatusKind};
-    /// use itinera::step::{StepDescriptor, step_name};
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// struct Orders;
     ///
     /// async fn charge() -> Result<JourneyResult, Box<dyn std::error::Error>> {
     ///     let orders = WorkflowDescriptor::async_builder("orders")
-    ///         .step(StepDescriptor::new(step_name!("charge"), || {}))
+    ///         .step(StepDescriptor::new_async(step_name!("charge"), async || Ok(Outcome::success())))
     ///         .build()?;
     ///     let instance = orders.instance(Orders).data("amount", 42_i64).create()?;
     ///     Ok(AsyncLocalExecutor::new().run(instance).await?)
@@ -146,7 +146,7 @@ mod tests {
     use crate::journey::{Abort, DataBag, JourneyId, JourneyStatus};
     use crate::mode::Asynchronous;
     use crate::report::{AsyncReporter, AsyncWorkflowReporter, BoxedReporter, DefaultDispatcher};
-    use crate::step::{StepDescriptor, StepName};
+    use crate::step::{Outcome, StepDescriptor, StepName};
     use crate::workflow::WorkflowDescriptor;
 
     /// An asynchronous reporter that logs and fails like the synchronous one it wraps.
@@ -170,7 +170,10 @@ mod tests {
 
     fn mixed_workflow() -> WorkflowDescriptor<Shop, Asynchronous> {
         WorkflowDescriptor::async_builder("shop")
-            .step(StepDescriptor::new(StepName::new("charge"), || {}))
+            .step(StepDescriptor::new_async(
+                StepName::new("charge"),
+                async || Ok(Outcome::success()),
+            ))
             .reporter::<Recorder<0>>()
             .async_reporter::<AsyncRecorder<1>>()
             .reporter::<Recorder<2>>()
@@ -219,7 +222,10 @@ mod tests {
         let shop = Shop::new();
         let log = Arc::clone(&shop.log);
         let workflow = WorkflowDescriptor::async_builder("shop")
-            .step(StepDescriptor::new(StepName::new("charge"), || {}))
+            .step(StepDescriptor::new_async(
+                StepName::new("charge"),
+                async || Ok(Outcome::success()),
+            ))
             .reporter::<Recorder<0>>()
             .reporter::<Recorder<1>>()
             .id_generator(|_: &Shop, _| Ok("order-7".to_string()))
