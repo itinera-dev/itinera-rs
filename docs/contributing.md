@@ -25,6 +25,7 @@ Tier 1 is implemented following the [tier 1 plan](tier-1-plan.md), in stages tra
 | `itinera-core` | yes | Values and the data bag, events, reporters and dispatchers, steps, policies, workflow descriptors, workflow instances and the local executors |
 | `itinera-macros` | yes | The procedural macros, which are syntax over the builder |
 | `itinera-conformance` | no | The conformance runner |
+| `xtask` | no | Development tasks, such as `cargo xtask check` |
 
 The `unstable` feature holds the API of proposals not yet listed in `conformance.json`, and of listed proposals whose API still holds a stand-in that a later stage replaces or names API of a proposal not yet listed.
 
@@ -39,6 +40,8 @@ The toolchain is pinned in `rust-toolchain.toml`, and the minimum supported Rust
 - `cargo +1.85 check --workspace --exclude itinera-conformance`
 - `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings`
 - `cargo deny check`
+
+`cargo xtask check` runs them all, in this order, and stops at the first that fails.
 
 ## Conformance in CI
 

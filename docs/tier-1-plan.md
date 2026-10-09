@@ -27,6 +27,7 @@ A Cargo workspace, edition 2024, resolver 3, under `crates/`.
 | `itinera-core` | yes | Values and the data bag, events, reporters and dispatchers, steps, policies, descriptors and their builder, the workflow instance, the engine and both local executors |
 | `itinera-macros` | yes | The procedural macros |
 | `itinera-conformance` | no | The conformance runner |
+| `xtask` | no | Development tasks: `cargo xtask check` runs every required check in order |
 
 There is no separate executor crate in tier 1: both executors share one engine, which stays private. Executors of later tiers, such as durable ones, get crates of their own.
 
