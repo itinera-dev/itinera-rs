@@ -1,5 +1,6 @@
 //! Workflows: their declaration, the workflow descriptor, shared by every instance.
 
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use uuid::Builder;
@@ -8,7 +9,7 @@ use crate::error::Error;
 use crate::instance::InstanceBuilder;
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::{Mode, Synchronous};
-use crate::policy::WorkflowPolicyDescriptor;
+use crate::policy::{PolicyName, StepPolicyDescriptor, WorkflowPolicyDescriptor};
 use crate::report::{Reporter, WorkflowReporter};
 use crate::step::{StepDescriptor, StepName};
 
@@ -170,6 +171,45 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     /// ```
     pub fn instance(&self, workflow: W) -> InstanceBuilder<W, M> {
         InstanceBuilder::new(self.clone(), workflow)
+    }
+
+    /// Lists the workflow's steps in order, without running anything: each step's name, its
+    /// position from 1, the names of its policies in the order they were attached, and the name of
+    /// its input adapter, if it has one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::policy::{StepHook, StepPolicyDescriptor};
+    /// use itinera::step::{StepDescriptor, step_name};
+    /// use itinera::workflow::{InputAdapter, WorkflowDescriptor};
+    ///
+    /// struct Orders;
+    ///
+    /// let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess);
+    /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
+    ///     .step(StepDescriptor::new(step_name!("charge"), || {}).policy(audit))
+    ///     .step(StepDescriptor::new(step_name!("ship"), || {}))
+    ///     .input_adapter(InputAdapter::new("pricing", step_name!("charge")))
+    ///     .build()?;
+    ///
+    /// let listing = orders.listing();
+    /// let charge = &listing[0];
+    /// assert_eq!(charge.step, step_name!("charge"));
+    /// assert_eq!(charge.position.get(), 1);
+    /// assert_eq!(charge.policies.len(), 1);
+    /// assert!(charge.adapter.is_some());
+    /// assert!(listing[1].adapter.is_none());
+    /// # Ok::<(), itinera::workflow::Violations>(())
+    /// ```
+    pub fn listing(&self) -> Vec<ListedStep> {
+        let adapters = &self.declaration.adapters;
+        self.declaration
+            .steps
+            .iter()
+            .zip(positions())
+            .map(|(step, position)| listed(step, position, adapters))
+            .collect()
     }
 
     pub(crate) fn steps(&self) -> &[StepDescriptor] {
@@ -528,6 +568,60 @@ impl InputAdapter {
     fn is_named(&self, name: AdapterName) -> bool {
         self.name == name
     }
+
+    fn is_attached_to(&self, step: StepName) -> bool {
+        self.steps.contains(&step)
+    }
+}
+
+/// One step of a workflow's listing.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::workflow::ListedStep;
+///
+/// fn describe(listed: &ListedStep) -> String {
+///     format!("{}. {}", listed.position, listed.step)
+/// }
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct ListedStep {
+    /// The step's name.
+    pub step: StepName,
+    /// Where the step runs among the workflow's steps, from 1.
+    pub position: NonZeroUsize,
+    /// The step policies attached to it, in the order they were attached.
+    pub policies: Vec<PolicyName>,
+    /// The input adapter attached to it, if any.
+    pub adapter: Option<AdapterName>,
+}
+
+fn listed(step: &StepDescriptor, position: NonZeroUsize, adapters: &[InputAdapter]) -> ListedStep {
+    let name = step.name();
+    ListedStep {
+        step: name,
+        position,
+        policies: step
+            .policies()
+            .iter()
+            .map(StepPolicyDescriptor::name)
+            .collect(),
+        adapter: adapters
+            .iter()
+            .find(|adapter| adapter.is_attached_to(name))
+            .map(InputAdapter::name),
+    }
+}
+
+/// The positions of steps: 1, 2, 3 and so on.
+fn positions() -> impl Iterator<Item = NonZeroUsize> {
+    std::iter::successors(Some(NonZeroUsize::MIN), next_position)
+}
+
+fn next_position(position: &NonZeroUsize) -> Option<NonZeroUsize> {
+    position.checked_add(1)
 }
 
 /// A UUID v4, from the system's random source, which may fail.
@@ -550,4 +644,55 @@ fn make_reporter<W, R: WorkflowReporter<W>, M: Mode>(
 fn held<R: Reporter, M: Mode>(reporter: R) -> M::Reporter {
     let reporter: Box<dyn Reporter> = Box::new(reporter);
     M::Reporter::from(reporter)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::*;
+    use crate::policy::StepHook;
+
+    struct Orders;
+
+    #[test]
+    fn a_workflow_is_listed_in_order_with_its_policies_and_adapters_without_running_anything() {
+        let ran = Arc::new(AtomicUsize::new(0));
+        let charged = Arc::clone(&ran);
+        let shipped = Arc::clone(&ran);
+        let orders = WorkflowDescriptor::<Orders>::builder("orders")
+            .step(
+                StepDescriptor::new(StepName::new("charge"), move || {
+                    charged.fetch_add(1, Ordering::SeqCst);
+                })
+                .policy(StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess))
+                .policy(StepPolicyDescriptor::new("alarm", StepHook::OnStepFailure)),
+            )
+            .step(StepDescriptor::new(StepName::new("ship"), move || {
+                shipped.fetch_add(1, Ordering::SeqCst);
+            }))
+            .input_adapter(InputAdapter::new("pricing", StepName::new("charge")))
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            orders.listing(),
+            [
+                ListedStep {
+                    step: StepName::new("charge"),
+                    position: NonZeroUsize::new(1).unwrap(),
+                    policies: vec![PolicyName::from("audit"), PolicyName::from("alarm")],
+                    adapter: Some(AdapterName::from("pricing")),
+                },
+                ListedStep {
+                    step: StepName::new("ship"),
+                    position: NonZeroUsize::new(2).unwrap(),
+                    policies: Vec::new(),
+                    adapter: None,
+                },
+            ]
+        );
+        assert_eq!(ran.load(Ordering::SeqCst), 0);
+    }
 }
