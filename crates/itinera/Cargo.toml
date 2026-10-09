@@ -18,5 +18,8 @@ unstable = ["itinera-core/unstable"]
 itinera-core.workspace = true
 itinera-macros = { workspace = true, optional = true }
 
+[dev-dependencies]
+trybuild.workspace = true
+
 [lints]
 workspace = true
