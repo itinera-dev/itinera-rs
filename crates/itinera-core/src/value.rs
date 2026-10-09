@@ -82,6 +82,19 @@ impl AnyValue {
         self.value.as_any().downcast_ref()
     }
 
+    /// Whether the value is of type `T` exactly.
+    pub(crate) fn is<T: Value>(&self) -> bool {
+        self.value.as_any().is::<T>()
+    }
+
+    /// Takes the value out, if it is of type `T` exactly.
+    pub(crate) fn downcast<T: Value>(self) -> Option<T> {
+        match self.value.into_any().downcast() {
+            Ok(value) => Some(*value),
+            Err(_) => None,
+        }
+    }
+
     /// The name of the value's type, for diagnostics only: it is not guaranteed to be stable.
     ///
     /// # Examples
@@ -113,6 +126,7 @@ impl Serialize for AnyValue {
 trait Erased: erased_serde::Serialize + Send + Sync {
     fn clone_box(&self) -> Box<dyn Erased>;
     fn as_any(&self) -> &dyn Any;
+    fn into_any(self: Box<Self>) -> Box<dyn Any>;
     fn type_name(&self) -> &'static str;
 }
 
@@ -122,6 +136,10 @@ impl<T: Value> Erased for T {
     }
 
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 

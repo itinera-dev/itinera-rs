@@ -6,12 +6,13 @@ use std::sync::Arc;
 use uuid::Builder;
 
 use crate::error::Error;
-use crate::instance::InstanceBuilder;
+use crate::instance::{InstanceBuilder, Resolution};
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::{Mode, Synchronous};
 use crate::policy::{PolicyName, StepPolicyDescriptor, WorkflowPolicyDescriptor};
 use crate::report::{Reporter, WorkflowReporter};
 use crate::step::{StepDescriptor, StepName};
+use crate::value::AnyValue;
 
 #[cfg(feature = "async")]
 mod asynchronous;
@@ -90,14 +91,14 @@ pub struct AdapterName(&'static str);
 /// ```
 /// use std::sync::LazyLock;
 ///
-/// use itinera::step::{StepDescriptor, step_name};
+/// use itinera::step::{Outcome, StepDescriptor, step_name};
 /// use itinera::workflow::WorkflowDescriptor;
 ///
 /// struct Orders;
 ///
 /// static ORDERS: LazyLock<WorkflowDescriptor<Orders>> = LazyLock::new(|| {
 ///     WorkflowDescriptor::builder("orders")
-///         .step(StepDescriptor::new(step_name!("charge"), || {}))
+///         .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
 ///         .build()
 ///         .expect("the orders workflow is well formed")
 /// });
@@ -112,9 +113,9 @@ pub struct WorkflowDescriptor<W, M: Mode = Synchronous> {
 #[derive(derive_more::Debug)]
 struct Declaration<W, M: Mode> {
     name: WorkflowName,
-    steps: Vec<StepDescriptor>,
+    steps: Vec<StepDescriptor<M>>,
     policies: Vec<WorkflowPolicyDescriptor>,
-    adapters: Vec<InputAdapter>,
+    adapters: Vec<InputAdapter<W>>,
     #[debug("{}", reporters.len())]
     reporters: Vec<MakeReporter<W, M>>,
     #[debug("{}", id_generator.is_some())]
@@ -173,16 +174,16 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     ///
     /// ```
     /// use itinera::policy::{StepHook, StepPolicyDescriptor};
-    /// use itinera::step::{StepDescriptor, step_name};
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
     /// use itinera::workflow::{InputAdapter, WorkflowDescriptor};
     ///
     /// struct Orders;
     ///
     /// let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess);
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
-    ///     .step(StepDescriptor::new(step_name!("charge"), || {}).policy(audit))
-    ///     .step(StepDescriptor::new(step_name!("ship"), || {}))
-    ///     .input_adapter(InputAdapter::new("pricing", step_name!("charge")))
+    ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())).policy(audit))
+    ///     .step(StepDescriptor::new(step_name!("ship"), || Ok(Outcome::success())))
+    ///     .input_adapter(InputAdapter::new("pricing", step_name!("charge"), |_, _, _| Ok(None)))
     ///     .build()?;
     ///
     /// let listing = orders.listing();
@@ -204,8 +205,29 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
             .collect()
     }
 
-    pub(crate) fn steps(&self) -> &[StepDescriptor] {
+    pub(crate) fn steps(&self) -> &[StepDescriptor<M>] {
         &self.declaration.steps
+    }
+
+    /// The value of one input of a step: from the step's input adapter, if it has one that
+    /// supplies it, and otherwise from the data bag.
+    pub(crate) fn data_for_step(
+        &self,
+        workflow: &W,
+        data: &DataBag,
+        step: StepName,
+        key: &str,
+    ) -> Resolution {
+        let adapted = self
+            .declaration
+            .adapters
+            .iter()
+            .find(|adapter| adapter.is_attached_to(step))
+            .map(|adapter| adapter.adapt(workflow, step, key));
+        match adapted {
+            Some(Resolution::Absent) | None => from_data_bag(data, key),
+            Some(answer) => answer,
+        }
     }
 
     /// The journey ID for a new instance: the workflow's generator's, or a UUID v4.
@@ -305,18 +327,18 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{StepDescriptor, step_name};
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// struct Orders;
     ///
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
-    ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
-    ///     .step(StepDescriptor::new(step_name!("ship"), || {}))
+    ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
+    ///     .step(StepDescriptor::new(step_name!("ship"), || Ok(Outcome::success())))
     ///     .build()?;
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
-    pub fn step(mut self, step: StepDescriptor) -> Self {
+    pub fn step(mut self, step: StepDescriptor<M>) -> Self {
         self.declaration.steps.push(step);
         self
     }
@@ -352,14 +374,14 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{StepDescriptor, step_name};
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
     /// use itinera::workflow::{InputAdapter, WorkflowDescriptor};
     ///
     /// struct Orders;
     ///
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
-    ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
-    ///     .input_adapter(InputAdapter::new("pricing", step_name!("charge")))
+    ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
+    ///     .input_adapter(InputAdapter::new("pricing", step_name!("charge"), |_, _, _| Ok(None)))
     ///     .build()?;
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
@@ -367,7 +389,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
         clippy::panic,
         reason = "two adapters with one name are a mistake in a declaration, before any journey"
     )]
-    pub fn input_adapter(mut self, adapter: InputAdapter) -> Self {
+    pub fn input_adapter(mut self, adapter: InputAdapter<W>) -> Self {
         if self
             .declaration
             .adapters
@@ -466,19 +488,19 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{StepDescriptor, step_name};
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
     /// use itinera::workflow::{Violation, ViolationKind, WorkflowDescriptor};
     ///
     /// struct Orders;
     ///
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
-    ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
+    ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
     ///     .build()?;
     /// assert_eq!(orders.name().to_string(), "orders");
     ///
     /// let refused = WorkflowDescriptor::<Orders>::builder("orders")
-    ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
-    ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
+    ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
+    ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
     ///     .build();
     /// let kinds: Vec<ViolationKind> = refused.unwrap_err().iter().map(Violation::kind).collect();
     /// assert_eq!(kinds, [ViolationKind::DuplicateStepName]);
@@ -496,28 +518,49 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     }
 }
 
-/// An input adapter of a workflow: its name, and the steps it is attached to, at least one.
+/// An input adapter of a workflow: its name, the steps it is attached to, at least one, and the
+/// function that adapts their inputs.
 ///
-/// It is declared on the workflow with [`WorkflowBuilder::input_adapter`]. Until input adapters can
-/// be written, it supplies no value, so every input of its steps is read from the data bag.
+/// It is declared on the workflow with [`WorkflowBuilder::input_adapter`]. When one of its steps is
+/// built, it is called for each of the step's inputs, in the order the step declares them, with
+/// the workflow's own value, the step's name and the input's key:
+///
+/// - a value is the input's value, which must have the type the step declares;
+/// - `None` means the adapter does not supply this input, which is read from the data bag;
+/// - an error aborts the journey with `step could not be built`.
 ///
 /// # Examples
 ///
 /// ```
-/// use itinera::step::step_name;
+/// use itinera::error::Error;
+/// use itinera::step::{StepName, step_name};
+/// use itinera::value::AnyValue;
 /// use itinera::workflow::InputAdapter;
 ///
-/// let pricing = InputAdapter::new("pricing", step_name!("charge")).step(step_name!("refund"));
+/// struct Orders {
+///     price: i64,
+/// }
+///
+/// fn pricing(orders: &Orders, _: StepName, key: &str) -> Result<Option<AnyValue>, Error> {
+///     Ok((key == "amount").then(|| AnyValue::new(orders.price)))
+/// }
+///
+/// let pricing = InputAdapter::new("pricing", step_name!("charge"), pricing)
+///     .step(step_name!("refund"));
 /// assert_eq!(pricing.name().to_string(), "pricing");
 /// ```
-#[derive(Clone, Debug)]
-pub struct InputAdapter {
+#[derive(derive_more::Debug)]
+pub struct InputAdapter<W> {
     name: AdapterName,
     steps: Vec<StepName>,
+    #[debug(skip)]
+    adapt: Box<Adapt<W>>,
 }
 
-impl InputAdapter {
-    /// Declares an input adapter with its name and a step it is attached to.
+type Adapt<W> = dyn Fn(&W, StepName, &str) -> Result<Option<AnyValue>, Error> + Send + Sync;
+
+impl<W> InputAdapter<W> {
+    /// Declares an input adapter with its name, a step it is attached to, and its function.
     ///
     /// # Examples
     ///
@@ -525,12 +568,19 @@ impl InputAdapter {
     /// use itinera::step::step_name;
     /// use itinera::workflow::InputAdapter;
     ///
-    /// let pricing = InputAdapter::new("pricing", step_name!("charge"));
+    /// struct Orders;
+    ///
+    /// let nothing = InputAdapter::new("nothing", step_name!("charge"), |_: &Orders, _, _| Ok(None));
     /// ```
-    pub fn new(name: impl Into<AdapterName>, step: StepName) -> Self {
+    pub fn new(
+        name: impl Into<AdapterName>,
+        step: StepName,
+        adapt: impl Fn(&W, StepName, &str) -> Result<Option<AnyValue>, Error> + Send + Sync + 'static,
+    ) -> Self {
         Self {
             name: name.into(),
             steps: vec![step],
+            adapt: Box::new(adapt),
         }
     }
 
@@ -542,7 +592,10 @@ impl InputAdapter {
     /// use itinera::step::step_name;
     /// use itinera::workflow::InputAdapter;
     ///
-    /// let pricing = InputAdapter::new("pricing", step_name!("charge")).step(step_name!("refund"));
+    /// struct Orders;
+    ///
+    /// let nothing = InputAdapter::new("nothing", step_name!("charge"), |_: &Orders, _, _| Ok(None))
+    ///     .step(step_name!("refund"));
     /// ```
     pub fn step(mut self, step: StepName) -> Self {
         if !self.steps.contains(&step) {
@@ -559,8 +612,10 @@ impl InputAdapter {
     /// use itinera::step::step_name;
     /// use itinera::workflow::InputAdapter;
     ///
-    /// let pricing = InputAdapter::new("pricing", step_name!("charge"));
-    /// assert_eq!(pricing.name().to_string(), "pricing");
+    /// struct Orders;
+    ///
+    /// let nothing = InputAdapter::new("nothing", step_name!("charge"), |_: &Orders, _, _| Ok(None));
+    /// assert_eq!(nothing.name().to_string(), "nothing");
     /// ```
     pub fn name(&self) -> AdapterName {
         self.name
@@ -576,6 +631,21 @@ impl InputAdapter {
 
     fn is_attached_to(&self, step: StepName) -> bool {
         self.steps.contains(&step)
+    }
+
+    /// What the adapter answers for one input of one of its steps.
+    fn adapt(&self, workflow: &W, step: StepName, key: &str) -> Resolution {
+        match (self.adapt)(workflow, step, key) {
+            Ok(Some(value)) => Resolution::Supplied {
+                adapter: self.name,
+                value,
+            },
+            Ok(None) => Resolution::Absent,
+            Err(error) => Resolution::AdapterFailed {
+                adapter: self.name,
+                error,
+            },
+        }
     }
 }
 
@@ -603,7 +673,11 @@ pub struct ListedStep {
     pub adapter: Option<AdapterName>,
 }
 
-fn listed(step: &StepDescriptor, position: NonZeroUsize, adapters: &[InputAdapter]) -> ListedStep {
+fn listed<M, W>(
+    step: &StepDescriptor<M>,
+    position: NonZeroUsize,
+    adapters: &[InputAdapter<W>],
+) -> ListedStep {
     let name = step.name();
     ListedStep {
         step: name,
@@ -616,8 +690,14 @@ fn listed(step: &StepDescriptor, position: NonZeroUsize, adapters: &[InputAdapte
         adapter: adapters
             .iter()
             .find(|adapter| adapter.is_attached_to(name))
-            .map(InputAdapter::name),
+            .map(InputAdapter::<W>::name),
     }
+}
+
+fn from_data_bag(data: &DataBag, key: &str) -> Resolution {
+    data.get(key)
+        .cloned()
+        .map_or(Resolution::Absent, Resolution::InDataBag)
 }
 
 /// The positions of steps: 1, 2, 3 and so on.
@@ -658,6 +738,7 @@ mod tests {
 
     use super::*;
     use crate::policy::StepHook;
+    use crate::step::Outcome;
 
     struct Orders;
 
@@ -670,14 +751,20 @@ mod tests {
             .step(
                 StepDescriptor::new(StepName::new("charge"), move || {
                     charged.fetch_add(1, Ordering::SeqCst);
+                    Ok(Outcome::success())
                 })
                 .policy(StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess))
                 .policy(StepPolicyDescriptor::new("alarm", StepHook::OnStepFailure)),
             )
             .step(StepDescriptor::new(StepName::new("ship"), move || {
                 shipped.fetch_add(1, Ordering::SeqCst);
+                Ok(Outcome::success())
             }))
-            .input_adapter(InputAdapter::new("pricing", StepName::new("charge")))
+            .input_adapter(InputAdapter::new(
+                "pricing",
+                StepName::new("charge"),
+                |_, _, _| Ok(None),
+            ))
             .build()
             .unwrap();
 
