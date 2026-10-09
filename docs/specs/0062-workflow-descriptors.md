@@ -6,7 +6,7 @@ Status: done in stage 4. Stage 3 added the workflow descriptor with its name, it
 
 ## API
 
-- **`itinera::workflow::WorkflowDescriptor<W, M>`** is the workflow's declaration. `W` is the workflow's own type and `M` its execution mode, `itinera::mode::Synchronous` unless an asynchronous part makes it `itinera::mode::Asynchronous`. It is cheap to clone, since clones share one declaration behind an `Arc`.
+- **`itinera::workflow::WorkflowDescriptor<W, M>`** is the workflow's declaration. `W` is the workflow's own type and `M` its execution mode, `itinera::mode::Synchronous` when it is declared with `WorkflowDescriptor::builder`, and `itinera::mode::Asynchronous` with `WorkflowDescriptor::async_builder`. It is cheap to clone, since clones share one declaration behind an `Arc`.
 - **`WorkflowDescriptor::builder(name)`** returns a `WorkflowBuilder`. Its `step`, `policy` and `input_adapter` add the workflow's step descriptors in order, its workflow policy descriptors in order, and its input adapters. Only its `build()` makes a descriptor, and it returns `Result<WorkflowDescriptor<W, M>, Violations>`.
 - **`itinera::step::StepDescriptor`** holds a step's name, how to run it, and the step policies attached to it in order, with `StepDescriptor::new(name, run)` and `.policy(descriptor)`.
 - **`itinera::policy::StepPolicyDescriptor`** and **`itinera::policy::WorkflowPolicyDescriptor`** describe one policy each: its name and the hooks it defines, of its own kind only, at least one. They are cloned to be attached to several steps or workflows.

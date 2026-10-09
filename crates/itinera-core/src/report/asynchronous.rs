@@ -47,7 +47,7 @@ pub trait AsyncReporter: Send + 'static {
 }
 
 /// An [`AsyncReporter`] that a workflow lists, which every instance of the workflow makes for
-/// itself. Listing one makes the workflow asynchronous.
+/// itself. Only an asynchronous workflow lists one.
 ///
 /// What [`WorkflowReporter`](super::WorkflowReporter) says about making reporters applies to it
 /// too; making it is synchronous.

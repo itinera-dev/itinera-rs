@@ -1,4 +1,4 @@
-//! Execution modes: whether a workflow's parts are all synchronous, or some are asynchronous.
+//! Execution modes: whether a workflow is synchronous or asynchronous.
 
 use crate::report::Reporter;
 
@@ -9,11 +9,11 @@ pub(crate) mod sealed;
 #[cfg(feature = "async")]
 pub use asynchronous::Asynchronous;
 
-/// An execution mode, part of a workflow descriptor's type, which decides the executors that
-/// accept it.
+/// An execution mode, part of a workflow descriptor's type, which decides the executor that
+/// accepts it.
 ///
-/// It is [`Synchronous`] unless one of the workflow's parts is asynchronous, which makes it
-/// `Asynchronous`, with the `async` feature. No other type can be a mode.
+/// A workflow is declared in its mode from the start: [`Synchronous`], or `Asynchronous`, with
+/// the `async` feature. No other type can be a mode.
 ///
 /// # Examples
 ///
@@ -30,7 +30,8 @@ pub trait Mode: sealed::Sealed + Send + Sync + 'static {
     type Reporter: From<Box<dyn Reporter>> + Send + 'static;
 }
 
-/// The mode of a workflow whose parts are all synchronous, which every executor accepts.
+/// The mode of a workflow whose parts are all synchronous, which only the synchronous executor
+/// accepts.
 ///
 /// # Examples
 ///

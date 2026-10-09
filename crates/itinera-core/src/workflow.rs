@@ -83,7 +83,7 @@ pub struct AdapterName(&'static str);
 ///
 /// It is fixed once built, shared by every instance of the workflow, and cheap to clone. Only
 /// [`WorkflowBuilder::build`] makes one, after checking the declaration. Its mode `M` is
-/// [`Synchronous`] unless the workflow has an asynchronous part.
+/// [`Synchronous`], or `Asynchronous` for a workflow declared with `async_builder`.
 ///
 /// # Examples
 ///
@@ -127,7 +127,8 @@ type MakeReporter<W, M> =
 type GenerateId<W> = Box<dyn Fn(&W, &DataBag) -> Result<String, Error> + Send + Sync>;
 
 impl<W: Send + Sync + 'static> WorkflowDescriptor<W> {
-    /// Starts declaring a workflow with this name.
+    /// Starts declaring a synchronous workflow with this name, which only the synchronous
+    /// executor runs. Its steps and reporters are synchronous.
     ///
     /// # Examples
     ///
@@ -141,16 +142,7 @@ impl<W: Send + Sync + 'static> WorkflowDescriptor<W> {
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     pub fn builder(name: impl Into<WorkflowName>) -> WorkflowBuilder<W> {
-        WorkflowBuilder {
-            declaration: Declaration {
-                name: name.into(),
-                steps: Vec::new(),
-                policies: Vec::new(),
-                adapters: Vec::new(),
-                reporters: Vec::new(),
-                id_generator: None,
-            },
-        }
+        WorkflowBuilder::named(name.into())
     }
 }
 
@@ -295,6 +287,19 @@ pub struct WorkflowBuilder<W, M: Mode = Synchronous> {
 }
 
 impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
+    fn named(name: WorkflowName) -> Self {
+        Self {
+            declaration: Declaration {
+                name,
+                steps: Vec::new(),
+                policies: Vec::new(),
+                adapters: Vec::new(),
+                reporters: Vec::new(),
+                id_generator: None,
+            },
+        }
+    }
+
     /// Adds a step, after the steps already added. Steps run in the order they are added.
     ///
     /// # Examples

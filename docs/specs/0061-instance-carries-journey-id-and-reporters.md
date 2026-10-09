@@ -24,7 +24,7 @@ Status: in progress. Stage 3 adds the instance, its journey ID and its reporters
 
 ## Tests
 
-- Unit tests in `itinera-core/src/instance.rs`: without a generator the journey ID is a UUID v4; the generator produces the journey ID from the initial data; a generator that fails, or a reporter that cannot be made, makes creating the instance fail; reporters are made after the journey ID with the initial data; the instance holds the workflow's value and its initial data; an asynchronous reporter makes the workflow asynchronous and keeps the order of reporters.
+- Unit tests in `itinera-core/src/instance.rs`: without a generator the journey ID is a UUID v4; the generator produces the journey ID from the initial data; a generator that fails, or a reporter that cannot be made, makes creating the instance fail; reporters are made after the journey ID with the initial data; the instance holds the workflow's value and its initial data; an asynchronous workflow makes reporters of both kinds in the order they are listed.
 
 ## Done when
 
