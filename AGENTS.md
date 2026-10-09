@@ -82,7 +82,7 @@ In CI the `run-conformance` action sets these from `conformance.json`.
 
 - Each stage is one stack of pull requests, made with `gh stack`, one layer per coherent piece. Every layer passes all of `main`'s checks.
 - Every pull request names an open issue in this repository: `Refs #N` when it contributes, `Closes #N` when it finishes. Work that belongs to no proposal refers to #7, or to an issue of its own.
-- Public API of a proposal not yet listed in `conformance.json` stays behind the `unstable` feature. So does a listed proposal's API while it holds a stand-in that a later stage replaces, or names API still behind `unstable`. Modules always compile, since the engine needs them; without `unstable` they are private.
+- Public API of a proposal not yet listed in `conformance.json` stays behind the `unstable` feature. So does a listed proposal's API while it holds a stand-in that a later stage replaces, or names API of a proposal not yet listed. Modules always compile, since the engine needs them; without `unstable` they are private.
 - Commit messages and pull request descriptions say what changed and why, in plain prose.
 - Every change an agent makes is also reviewed by a separate reviewer agent. A new pull request is reviewed before it is opened, since that is the version the maintainer reads first. A later change to an open pull request is pushed as soon as the checks under "Running the checks" pass, and is reviewed while CI runs; an accepted finding becomes a further push, reviewed in the same way. A review passes when it has no accepted finding left.
 

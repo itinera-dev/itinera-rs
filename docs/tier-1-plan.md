@@ -336,7 +336,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 - Each stage is one stack (`gh stack`), with one layer per coherent piece. Every layer passes all of `main`'s checks.
 - Every layer says `Refs #N` for the implementation issues it contributes to. The layer that completes a proposal says `Closes #N` and adds the proposal's number to `conformance.json`.
 - Work that belongs to no proposal (stage 0, the macros, the release) refers to #7, or to an issue of its own such as "Macros as syntax over the builder".
-- Public API of a proposal not yet listed in `conformance.json` stays behind the `unstable` feature. So does a listed proposal's API while it holds a stand-in that a later stage replaces, or names API still behind `unstable`, as 0062's does until stage 7. Its modules always compile, since the engine needs them; without `unstable` they are private.
+- Public API of a proposal not yet listed in `conformance.json` stays behind the `unstable` feature. So does a listed proposal's API while it holds a stand-in that a later stage replaces, or names API of a proposal not yet listed, as 0062's does until stage 7. Modules always compile, since the engine needs them; without `unstable` they are private.
 
 ## Issues and tech specs
 
@@ -389,7 +389,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
   |---|---|---|
   | `macros` | on | the macros |
   | `async` | off | the asynchronous executor, steps, hooks, reporters and dispatchers, and the `Asynchronous` mode |
-  | `unstable` | off | the API of proposals not yet listed in `conformance.json`, and of listed ones that still hold stand-ins or name such API |
+  | `unstable` | off | the API of proposals not yet listed in `conformance.json`, and of listed ones that still hold stand-ins or name the API of unlisted ones |
 
   The engine is asynchronous internally whatever the features; without `async`, nothing asynchronous is public.
 - **Documentation**: rustdoc on every public item, published by docs.rs; a crate-level overview in `itinera` with a first complete workflow, linking once to the specification repository; runnable examples in `crates/itinera/examples/` (a synchronous workflow, the same on the asynchronous executor, and one built without macros); a README stating the crates, the tier and capabilities claimed, the rules made impossible, and how to run the conformance runner.

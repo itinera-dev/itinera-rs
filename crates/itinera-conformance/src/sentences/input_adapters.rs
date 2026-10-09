@@ -93,7 +93,7 @@ mod tests {
             .model
             .declare("orders".to_owned(), vec!["charge".to_owned()])
             .unwrap();
-        let steps = || "\"charge\"".parse::<Names>().unwrap();
+        let steps = || Names::from(vec!["charge".to_owned()]);
         the_workflow_declares_the_input_adapter(&mut world, "pricing".to_owned(), steps()).unwrap();
 
         let declared =
