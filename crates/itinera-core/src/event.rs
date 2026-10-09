@@ -5,9 +5,10 @@ use std::num::NonZeroU64;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::journey::{AbortReason, FailureCause, JourneyId, LastFailure};
-use crate::policy::{Lifecycle, StepHook, WorkflowHook};
-use crate::step::{Reason, StepAttempt};
+use crate::policy::{Lifecycle, PolicyName, StepHook, WorkflowHook};
+use crate::step::{Reason, StepAttempt, StepName};
 use crate::value::AnyValue;
+use crate::workflow::{AdapterName, WorkflowName};
 
 /// A hook that was called: a step hook, with the step and attempt that triggered it, or a
 /// workflow hook.
@@ -16,10 +17,11 @@ use crate::value::AnyValue;
 ///
 /// ```
 /// use itinera::event::HookSource;
+/// use itinera::step::StepName;
 ///
-/// fn triggered_by(source: &HookSource) -> Option<&str> {
+/// fn triggered_by(source: &HookSource) -> Option<StepName> {
 ///     match source {
-///         HookSource::Step { step, .. } => Some(&step.step),
+///         HookSource::Step { step, .. } => Some(step.step),
 ///         _ => None,
 ///     }
 /// }
@@ -31,7 +33,7 @@ pub enum HookSource {
     #[non_exhaustive]
     Step {
         /// The policy's name.
-        policy: String,
+        policy: PolicyName,
         /// The hook.
         hook: StepHook,
         /// The step and attempt that triggered it.
@@ -41,7 +43,7 @@ pub enum HookSource {
     #[non_exhaustive]
     Workflow {
         /// The policy's name.
-        policy: String,
+        policy: PolicyName,
         /// The hook.
         hook: WorkflowHook,
     },
@@ -65,7 +67,7 @@ pub enum HookSource {
 #[non_exhaustive]
 pub struct DecidingHook<H = StepHook> {
     /// The policy's name.
-    pub policy: String,
+    pub policy: PolicyName,
     /// The hook.
     pub hook: H,
 }
@@ -210,10 +212,11 @@ impl JourneyFailure {
 ///
 /// ```
 /// use itinera::event::Requester;
+/// use itinera::workflow::AdapterName;
 ///
-/// fn adapter(requester: &Requester) -> Option<&str> {
+/// fn adapter(requester: &Requester) -> Option<AdapterName> {
 ///     match requester {
-///         Requester::Adapter { adapter, .. } => Some(adapter),
+///         Requester::Adapter { adapter, .. } => Some(*adapter),
 ///         _ => None,
 ///     }
 /// }
@@ -225,40 +228,40 @@ pub enum Requester {
     #[non_exhaustive]
     Step {
         /// The step's name.
-        step: String,
+        step: StepName,
     },
     /// An input adapter, for an input of a step.
     #[non_exhaustive]
     Adapter {
         /// The adapter's name.
-        adapter: String,
+        adapter: AdapterName,
         /// The name of the step whose input it was resolving.
-        step: String,
+        step: StepName,
     },
     /// A step hook.
     #[non_exhaustive]
     StepHook {
         /// The policy's name.
-        policy: String,
+        policy: PolicyName,
         /// The hook.
         hook: StepHook,
         /// The name of the step it acts on.
-        step: String,
+        step: StepName,
     },
     /// A workflow hook.
     #[non_exhaustive]
     WorkflowHook {
         /// The policy's name.
-        policy: String,
+        policy: PolicyName,
         /// The hook.
         hook: WorkflowHook,
     },
 }
 impl Requester {
-    fn step(&self) -> Option<&str> {
+    fn step(&self) -> Option<StepName> {
         match self {
             Self::Step { step } | Self::Adapter { step, .. } | Self::StepHook { step, .. } => {
-                Some(step)
+                Some(*step)
             }
             Self::WorkflowHook { .. } => None,
         }
@@ -273,10 +276,11 @@ impl Requester {
 ///
 /// ```
 /// use itinera::event::RequestSource;
+/// use itinera::workflow::AdapterName;
 ///
-/// fn adapter(source: &RequestSource) -> Option<&str> {
+/// fn adapter(source: &RequestSource) -> Option<AdapterName> {
 ///     match source {
-///         RequestSource::Adapter { adapter, .. } => Some(adapter),
+///         RequestSource::Adapter { adapter, .. } => Some(*adapter),
 ///         _ => None,
 ///     }
 /// }
@@ -292,7 +296,7 @@ pub enum RequestSource {
     #[non_exhaustive]
     Adapter {
         /// The adapter's name.
-        adapter: String,
+        adapter: AdapterName,
         /// The step and attempt whose input it was resolving.
         step: StepAttempt,
     },
@@ -321,7 +325,7 @@ pub enum JourneyAbort {
     #[non_exhaustive]
     StepCouldNotBeBuilt {
         /// The step's name.
-        step: String,
+        step: StepName,
         /// The error's message.
         error: String,
     },
@@ -329,9 +333,9 @@ pub enum JourneyAbort {
     #[non_exhaustive]
     PolicyCouldNotBeBuilt {
         /// The step's name.
-        step: String,
+        step: StepName,
         /// The policy's name.
-        policy: String,
+        policy: PolicyName,
         /// The error's message.
         error: String,
     },
@@ -353,7 +357,7 @@ pub enum JourneyAbort {
     #[non_exhaustive]
     HookFailed {
         /// The name of the step a step hook acts on; `None` for a workflow hook.
-        step: Option<String>,
+        step: Option<StepName>,
         /// The error's message.
         error: String,
     },
@@ -361,7 +365,7 @@ pub enum JourneyAbort {
     #[non_exhaustive]
     ReporterFailed {
         /// The name of the step during which it happened, if any.
-        step: Option<String>,
+        step: Option<StepName>,
         /// The error's message.
         error: String,
     },
@@ -401,14 +405,14 @@ impl JourneyAbort {
     ///     abort.step().is_some()
     /// }
     /// ```
-    pub fn step(&self) -> Option<&str> {
+    pub fn step(&self) -> Option<StepName> {
         match self {
             Self::StepCouldNotBeBuilt { step, .. } | Self::PolicyCouldNotBeBuilt { step, .. } => {
-                Some(step)
+                Some(*step)
             }
             Self::RequiredDataMissing { missing } => missing.step(),
             Self::WrongType { requester, .. } => requester.step(),
-            Self::HookFailed { step, .. } | Self::ReporterFailed { step, .. } => step.as_deref(),
+            Self::HookFailed { step, .. } | Self::ReporterFailed { step, .. } => *step,
         }
     }
 
@@ -464,28 +468,28 @@ pub enum MissingData {
     #[non_exhaustive]
     Reason {
         /// The policy's name.
-        policy: String,
+        policy: PolicyName,
         /// The hook that requested it.
         hook: StepHook,
         /// The name of the step it acts on.
-        step: String,
+        step: StepName,
     },
     /// The error, which did not end the attempt.
     #[non_exhaustive]
     Error {
         /// The policy's name.
-        policy: String,
+        policy: PolicyName,
         /// The hook that requested it.
         hook: StepHook,
         /// The name of the step it acts on.
-        step: String,
+        step: StepName,
     },
 }
 impl MissingData {
-    fn step(&self) -> Option<&str> {
+    fn step(&self) -> Option<StepName> {
         match self {
             Self::Key { requester, .. } => requester.step(),
-            Self::Reason { step, .. } | Self::Error { step, .. } => Some(step),
+            Self::Reason { step, .. } | Self::Error { step, .. } => Some(*step),
         }
     }
 }
@@ -638,7 +642,7 @@ pub struct Event {
     /// The journey's ID.
     pub journey_id: JourneyId,
     /// The workflow's name.
-    pub workflow: String,
+    pub workflow: WorkflowName,
     /// What the event says.
     pub body: EventBody,
 }
@@ -699,7 +703,7 @@ pub enum EventBody {
         /// The input's key.
         key: String,
         /// The adapter's name.
-        adapter: String,
+        adapter: AdapterName,
     },
     /// An input adapter failed for a step's input.
     #[non_exhaustive]
@@ -709,7 +713,7 @@ pub enum EventBody {
         /// The input's key.
         key: String,
         /// The adapter's name.
-        adapter: String,
+        adapter: AdapterName,
     },
     /// An optional request had no value.
     #[non_exhaustive]
@@ -808,13 +812,13 @@ pub enum EventBody {
     JourneySucceeded {
         /// The policy whose `on step success` returned `FinishWorkflow`, or `None` when no
         /// step was left and the journey succeeded by default.
-        decided_by: Option<String>,
+        decided_by: Option<PolicyName>,
     },
     /// The executor decided that the journey fails.
     #[non_exhaustive]
     JourneyFailed {
         /// The name of the step that failed, or whose hook returned `FailWorkflow`.
-        step: String,
+        step: StepName,
         /// Why the journey failed, and who decided it.
         failure: JourneyFailure,
     },
@@ -935,21 +939,21 @@ pub(crate) mod tests {
             sequence: NonZeroU64::new(sequence).unwrap(),
             timestamp: Timestamp::from(UNIX_EPOCH + Duration::from_millis(1_700_000_000_123)),
             journey_id: JourneyId::from("order-42"),
-            workflow: "orders".to_string(),
+            workflow: WorkflowName::from("orders"),
             body,
         }
     }
 
     fn charge(attempt: u32) -> StepAttempt {
         StepAttempt {
-            step: "charge".to_string(),
+            step: StepName::new("charge"),
             attempt: NonZeroU32::new(attempt).unwrap(),
         }
     }
 
     fn audit_step(hook: StepHook, step: StepAttempt) -> HookSource {
         HookSource::Step {
-            policy: "audit".to_string(),
+            policy: PolicyName::from("audit"),
             hook,
             step,
         }
@@ -957,14 +961,14 @@ pub(crate) mod tests {
 
     fn audit_workflow(hook: WorkflowHook) -> HookSource {
         HookSource::Workflow {
-            policy: "audit".to_string(),
+            policy: PolicyName::from("audit"),
             hook,
         }
     }
 
     fn close(hook: StepHook) -> DecidingHook {
         DecidingHook {
-            policy: "close".to_string(),
+            policy: PolicyName::from("close"),
             hook,
         }
     }
@@ -979,12 +983,12 @@ pub(crate) mod tests {
             EventBody::InputAdapterSupplied {
                 step: charge(1),
                 key: "amount".to_string(),
-                adapter: "pricing".to_string(),
+                adapter: AdapterName::from("pricing"),
             },
             EventBody::InputAdapterFailed {
                 step: charge(1),
                 key: "amount".to_string(),
-                adapter: "pricing".to_string(),
+                adapter: AdapterName::from("pricing"),
             },
             EventBody::OptionalInputAbsent {
                 key: "discount".to_string(),
@@ -1033,7 +1037,7 @@ pub(crate) mod tests {
             },
             EventBody::JourneySucceeded { decided_by: None },
             EventBody::JourneyFailed {
-                step: "charge".to_string(),
+                step: StepName::new("charge"),
                 failure: JourneyFailure::RetriesExhausted(LastFailure::Reason(reason())),
             },
             EventBody::StepInfo {
@@ -1106,7 +1110,7 @@ pub(crate) mod tests {
     fn a_step_given_up_by_fail_workflow_names_fail_workflow_as_its_cause() {
         let cause = GiveUpCause::FailWorkflow {
             decided_by: DecidingHook {
-                policy: "close".to_string(),
+                policy: PolicyName::from("close"),
                 hook: GiveUpHook::OnStepRetry,
             },
             reason: Reason::new("fraud"),
@@ -1147,13 +1151,13 @@ pub(crate) mod tests {
             missing: MissingData::Key {
                 key: "price".to_string(),
                 requester: Requester::Adapter {
-                    adapter: "pricing".to_string(),
-                    step: "charge".to_string(),
+                    adapter: AdapterName::from("pricing"),
+                    step: StepName::new("charge"),
                 },
             },
         };
         assert_eq!(abort.reason(), AbortReason::RequiredDataMissing);
-        assert_eq!(abort.step(), Some("charge"));
+        assert_eq!(abort.step(), Some(StepName::new("charge")));
         assert_eq!(abort.error(), None);
     }
 
@@ -1161,12 +1165,12 @@ pub(crate) mod tests {
     fn a_required_request_for_a_missing_reason_names_the_step_the_hook_acts_on() {
         let abort = JourneyAbort::RequiredDataMissing {
             missing: MissingData::Reason {
-                policy: "alarm".to_string(),
+                policy: PolicyName::from("alarm"),
                 hook: StepHook::OnStepFailure,
-                step: "charge".to_string(),
+                step: StepName::new("charge"),
             },
         };
-        assert_eq!(abort.step(), Some("charge"));
+        assert_eq!(abort.step(), Some(StepName::new("charge")));
         assert_eq!(abort.error(), None);
     }
 
@@ -1175,7 +1179,7 @@ pub(crate) mod tests {
         let abort = JourneyAbort::WrongType {
             key: "amount".to_string(),
             requester: Requester::WorkflowHook {
-                policy: "close".to_string(),
+                policy: PolicyName::from("close"),
                 hook: WorkflowHook::OnWorkflowSuccess,
             },
         };
@@ -1186,12 +1190,12 @@ pub(crate) mod tests {
     #[test]
     fn an_abort_caused_by_failing_code_carries_the_errors_message() {
         let abort = JourneyAbort::PolicyCouldNotBeBuilt {
-            step: "ship".to_string(),
-            policy: "broken".to_string(),
+            step: StepName::new("ship"),
+            policy: PolicyName::from("broken"),
             error: "no configuration".to_string(),
         };
         assert_eq!(abort.reason(), AbortReason::PolicyCouldNotBeBuilt);
-        assert_eq!(abort.step(), Some("ship"));
+        assert_eq!(abort.step(), Some(StepName::new("ship")));
         assert_eq!(abort.error(), Some("no configuration"));
     }
 

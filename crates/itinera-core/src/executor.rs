@@ -25,12 +25,13 @@ pub use asynchronous::AsyncLocalExecutor;
 /// ```
 /// use itinera::executor::LocalExecutor;
 /// use itinera::journey::StatusKind;
+/// use itinera::step::step_name;
 /// use itinera::workflow::WorkflowDescriptor;
 ///
 /// struct Orders;
 ///
 /// let orders = WorkflowDescriptor::builder("orders")
-///     .step("charge", || {})
+///     .step(step_name!("charge"), || {})
 ///     .build();
 /// let mut executor = LocalExecutor::new();
 /// let result = executor.run(orders.instance(Orders).create()?)?;
@@ -91,12 +92,13 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
     /// ```
     /// use itinera::executor::LocalExecutor;
     /// use itinera::journey::JourneyStatus;
+    /// use itinera::step::step_name;
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// struct Orders;
     ///
     /// let orders = WorkflowDescriptor::builder("orders")
-    ///     .step("charge", || {})
+    ///     .step(step_name!("charge"), || {})
     ///     .build();
     /// let instance = orders.instance(Orders).data("amount", 42_i64).create()?;
     /// let result = LocalExecutor::new().run(instance)?;
@@ -163,6 +165,7 @@ pub(crate) mod tests {
     use crate::instance::Instance;
     use crate::journey::{Abort, DataBag, JourneyId, JourneyStatus};
     use crate::report::{DefaultDispatcher, Reporter, WorkflowReporter};
+    use crate::step::StepName;
     use crate::workflow::WorkflowDescriptor;
 
     /// What the journey's reporters received, in order, as "reporter kind" lines.
@@ -254,7 +257,7 @@ pub(crate) mod tests {
 
     pub(crate) fn shop_workflow() -> WorkflowDescriptor<Shop> {
         WorkflowDescriptor::builder("shop")
-            .step("charge", || {})
+            .step(StepName::new("charge"), || {})
             .reporter::<Recorder<0>>()
             .reporter::<Recorder<1>>()
             .reporter::<Recorder<2>>()
@@ -321,7 +324,7 @@ pub(crate) mod tests {
         let runs = Arc::new(Mutex::new(0));
         let counted = Arc::clone(&runs);
         let workflow = WorkflowDescriptor::builder("shop")
-            .step("charge", move || count(&counted))
+            .step(StepName::new("charge"), move || count(&counted))
             .build();
 
         let result = LocalExecutor::new()
@@ -457,7 +460,7 @@ pub(crate) mod tests {
         else {
             panic!("the last event is not journey_aborted: {events:?}");
         };
-        assert_eq!(step.as_deref(), Some("charge"));
+        assert_eq!(*step, Some(StepName::new("charge")));
         assert_eq!(error, "fragile failed on step_succeeded");
     }
 
@@ -683,7 +686,7 @@ pub(crate) mod tests {
     #[test]
     fn an_executor_runs_journeys_one_after_another_each_with_a_new_dispatcher() {
         let workflow = WorkflowDescriptor::builder("shop")
-            .step("charge", || {})
+            .step(StepName::new("charge"), || {})
             .build();
         let mut executor = LocalExecutor::with_dispatcher_factory(Counting { created: 0 });
 

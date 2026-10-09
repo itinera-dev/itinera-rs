@@ -289,7 +289,9 @@ fn every_event_carries_the_journey_id_and_workflow_name(
 
 /// Whether the event is of this journey of this workflow.
 fn belongs_to(event: &Event, id: &str, workflow: &str) -> bool {
-    event.journey_id.to_string() == id && event.workflow == workflow
+    let journey_id: &str = event.journey_id.as_ref();
+    let name: &str = event.workflow.as_ref();
+    journey_id == id && name == workflow
 }
 
 /// Whether two consecutive events have increasing sequence numbers.

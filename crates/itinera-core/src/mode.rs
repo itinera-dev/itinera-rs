@@ -19,9 +19,9 @@ pub use asynchronous::Asynchronous;
 ///
 /// ```
 /// use itinera::mode::Mode;
-/// use itinera::workflow::WorkflowDescriptor;
+/// use itinera::workflow::{WorkflowDescriptor, WorkflowName};
 ///
-/// fn name<W, M: Mode>(descriptor: &WorkflowDescriptor<W, M>) -> &str {
+/// fn name<W, M: Mode>(descriptor: &WorkflowDescriptor<W, M>) -> WorkflowName {
 ///     descriptor.name()
 /// }
 /// ```

@@ -38,8 +38,9 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     ///
     /// ```
     /// use itinera::instance::WorkflowInstance;
+    /// use itinera::workflow::WorkflowName;
     ///
-    /// fn workflow_name(instance: &impl WorkflowInstance) -> &str {
+    /// fn workflow_name(instance: &impl WorkflowInstance) -> WorkflowName {
     ///     instance.descriptor().name()
     /// }
     /// ```
@@ -146,7 +147,7 @@ pub trait WorkflowInstance: Send + Sized + 'static {
 ///
 /// let orders = WorkflowDescriptor::builder("orders").build();
 /// let instance: Instance<Orders> = orders.instance(Orders).create()?;
-/// assert_eq!(instance.descriptor().name(), "orders");
+/// assert_eq!(instance.descriptor().name().to_string(), "orders");
 /// # Ok::<(), itinera::instance::InstanceError>(())
 /// ```
 #[derive(derive_more::Debug)]
@@ -552,7 +553,7 @@ mod tests {
             format!("{instance:?}"),
             "Instance { \
              descriptor: WorkflowDescriptor { declaration: Declaration { \
-             name: \"orders\", step: None, reporters: 1, id_generator: true } }, \
+             name: WorkflowName(\"orders\"), step: None, reporters: 1, id_generator: true } }, \
              journey_id: JourneyId(\"order-7\"), reporters: 1, \
              data: DataBag { values: {\"amount\": AnyValue(\"i64\")} }, .. }"
         );

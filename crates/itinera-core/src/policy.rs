@@ -2,6 +2,35 @@
 
 use crate::step::Reason;
 
+/// A policy's name, fixed when the program is compiled.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::policy::PolicyName;
+///
+/// let audit = PolicyName::from("audit");
+/// let text: &str = audit.as_ref();
+/// assert_eq!(text, "audit");
+/// assert_eq!(audit.to_string(), "audit");
+/// ```
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    derive_more::Display,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::AsRef,
+)]
+#[as_ref(forward)]
+pub struct PolicyName(&'static str);
+
 /// The name of a step hook, which acts on one attempt of a step.
 ///
 /// It displays as the hook is named, for example `on step success`.

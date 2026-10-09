@@ -123,11 +123,11 @@ The rules types cannot reach are checked when the descriptor is built (decision 
 ```rust
 static ORDERS: LazyLock<WorkflowDescriptor<Orders, Synchronous>> = LazyLock::new(|| {
     WorkflowDescriptor::builder("orders")
-        .step(StepDescriptor::new("charge", ChargeFactory)
+        .step(StepDescriptor::new(step_name!("charge"), ChargeFactory)
             .retries(2)
             .abnormal_termination_retriable()
             .policy(|| Audit::default()))
-        .step(StepDescriptor::new("ship", ShipFactory))
+        .step(StepDescriptor::new(step_name!("ship"), ShipFactory))
         .policy(|| Notify::new())
         .reporter::<AuditLog>()
         .id_generator(|w: &Orders, data: &DataBag| Ok(format!("order-{}", w.next_number())))
@@ -137,7 +137,7 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Synchronous>> = LazyLock::new
 ```
 
 - **A workflow descriptor** is the workflow's declaration: its name, its step descriptors, its policy descriptors, its input adapters, its reporters and its ID generator. It is immutable, `Send + Sync`, cheap to clone, shared by every instance, and only `build()` can produce one.
-- **Names are newtypes**, added in stage 4 with the declarations that bring them in: `WorkflowName`, `StepName`, `PolicyName` and `AdapterName`. Each hides its representation, a cheap-to-clone `Arc<str>`, and `JourneyId` moves to the same, so every event can carry them without copying text. Events, aborts and the result then hold these types instead of `String`.
+- **Names are newtypes fixed at compile time**: `WorkflowName`, `StepName`, `PolicyName` and `AdapterName`, each over a `&'static str`, so they are `Copy` and every event carries them without copying text. A workflow is declared before any journey, and the macros name its parts from the code itself, so a name never needs to be made at run time. `StepName::new` panics on an empty name, and `step_name!("charge")` calls it in a `const` block, which makes an empty literal a compile error. `JourneyId`, made for each instance at run time, holds an `Arc<str>`. Events, aborts and the result hold these types instead of `String`.
 - **Each step descriptor states everything**: the retry budget (0 unless set), `abnormal termination retriable` (false unless set), and its policies in the order attached.
 - **`build()` checks what types cannot**, and returns every violation at once in `Violations`: `duplicate step name`, `hook defined twice`, `input adapter for unknown step` and `step adapted twice`.
 - **`listing()`** gives each step's name, its position from 1, its policy names in order, and its input adapter's name.
@@ -243,7 +243,7 @@ pub enum Failure {
 
 pub enum Abort {
     StepCouldNotBeBuilt(Error),
-    PolicyCouldNotBeBuilt { policy: String, error: Error },
+    PolicyCouldNotBeBuilt { policy: PolicyName, error: Error },
     RequiredDataMissing(MissingData),
     WrongType { key: String, requester: Requester },
     HookFailed(Error),
@@ -352,7 +352,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 
 - **Formatting**: plain `rustfmt`, without configuration.
 - **Names** use the specification's vocabulary exactly: `JourneyId`, `StepDescriptor`, `Contributor`, `Outcome`, `retry_budget`, `FailWorkflow`. Event kinds keep their snake_case names.
-- **No panics in library code**: Clippy denies `unwrap_used`, `expect_used`, `panic`, `indexing_slicing`, `todo` and `unimplemented` outside tests.
+- **No panics while a journey runs**: every failure there is a value, never a panic used as a throw. Before a journey, a mistake in a declaration that types cannot rule out may panic, with a message saying what was wrong. Clippy denies `unwrap_used`, `expect_used`, `panic`, `indexing_slicing`, `todo` and `unimplemented` outside tests; a function allowed to panic at declaration says so with `#[expect(clippy::panic, reason = "…")]` and documents it.
 - **A small public surface**: `pub(crate)` by default, checked by `unreachable_pub`; public types that may grow are `#[non_exhaustive]`.
 - **Modules of `itinera-core` follow concepts**, named with the specification's vocabulary: `error`, `value`, `journey` (the journey ID, the journey's data and how it ends, the result included), `step`, `policy`, `event` (events, and what only events carry), `report` (reporters and dispatchers), `mode` (execution modes), `workflow` (descriptors, input adapters and violations), `instance`, `executor`, and the private `engine`. A type lives with its concept, not where it is first used, and modules may use one another. A module with submodules re-exports its public face, so public paths have one module level, such as `itinera::journey::JourneyId`; the crate root exports modules, not types.
 - **Comments are as few as possible.** They explain a non-obvious reason only when the code cannot. Code and comments never refer to specification sections, issues, pull requests or other documents: git keeps that history, and the tech specs map rules to code. There are no `TODO` comments.

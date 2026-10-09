@@ -3,6 +3,7 @@ use std::time::SystemTime;
 
 use crate::event::{Event, EventBody, Timestamp};
 use crate::journey::JourneyId;
+use crate::workflow::WorkflowName;
 
 /// Where the emitter reads the time: the system's clock, or a test's.
 pub(crate) type Clock = fn() -> SystemTime;
@@ -10,13 +11,13 @@ pub(crate) type Clock = fn() -> SystemTime;
 /// Makes the journey's events, numbering them from 1 and stamping them with the time.
 pub(crate) struct Emitter {
     journey_id: JourneyId,
-    workflow: String,
+    workflow: WorkflowName,
     next: NonZeroU64,
     clock: Clock,
 }
 
 impl Emitter {
-    pub(crate) fn new(journey_id: JourneyId, workflow: String, clock: Clock) -> Self {
+    pub(crate) fn new(journey_id: JourneyId, workflow: WorkflowName, clock: Clock) -> Self {
         Self {
             journey_id,
             workflow,
@@ -32,7 +33,7 @@ impl Emitter {
             sequence,
             timestamp: Timestamp::from((self.clock)()),
             journey_id: self.journey_id.clone(),
-            workflow: self.workflow.clone(),
+            workflow: self.workflow,
             body,
         }
     }
