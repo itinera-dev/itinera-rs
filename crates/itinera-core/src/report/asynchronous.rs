@@ -20,8 +20,7 @@ use crate::journey::{DataBag, JourneyId};
 /// struct Forward;
 ///
 /// impl AsyncReporter for Forward {
-///     async fn report(&mut self, event: &Event) -> Result<(), Error> {
-///         let _ = event.kind();
+///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
 ///         Ok(())
 ///     }
 /// }

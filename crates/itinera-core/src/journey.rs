@@ -237,7 +237,7 @@ pub struct JourneyResult {
 /// # Examples
 ///
 /// ```
-/// use itinera::journey::{FailureCause, JourneyStatus};
+/// use itinera::journey::JourneyStatus;
 ///
 /// fn describe(status: &JourneyStatus) -> String {
 ///     match status {

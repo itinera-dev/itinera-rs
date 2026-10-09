@@ -102,7 +102,6 @@ pub struct AdapterName(&'static str);
 /// });
 ///
 /// assert_eq!(ORDERS.name().to_string(), "orders");
-/// # Ok::<(), itinera::workflow::Violations>(())
 /// ```
 #[derive(derive_more::Debug)]
 pub struct WorkflowDescriptor<W, M: Mode = Synchronous> {
@@ -430,7 +429,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
     ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
     ///     .build()?;
-    /// assert_eq!(orders.clone().name().to_string(), "orders");
+    /// assert_eq!(orders.name().to_string(), "orders");
     ///
     /// let refused = WorkflowDescriptor::<Orders>::builder("orders")
     ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
