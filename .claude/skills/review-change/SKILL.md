@@ -43,19 +43,20 @@ For each item, the reviewer lists every place in the diff where the item applies
 13. Every crate root, against "Every crate has `#![forbid(unsafe_code)]`".
 14. Every public item and its example, against "Every public item has documentation" and "Documentation is written where an item is defined".
 15. Every new or rewritten test, against "Test names state the rule" and the bullet on several inputs where it exists. Check also that no coverage is lost.
+16. Every line of code, test and example, against "Every line does something". For each line that changes nothing, say so and ask for it to be removed.
 
 **Comments**
 
-16. Every comment, doc comment and identifier, against the "Comments" section.
+17. Every comment, doc comment and identifier, against the "Comments" section.
 
 **Pull requests and writing**
 
-17. The commit message and pull request description, against "Every pull request names an open issue" and "Commit messages and pull request descriptions".
-18. Every document, description and diagram, against the "Writing" section.
+18. The commit message and pull request description, against "Every pull request names an open issue" and "Commit messages and pull request descriptions".
+19. Every document, description and diagram, against the "Writing" section.
 
 **Checks**
 
-19. The checks under "Running the checks", run in the worktree at the reviewed revision. Report any that fail.
+20. The checks under "Running the checks", run in the worktree at the reviewed revision. Report any that fail.
 
 ## Handling the findings
 

@@ -33,7 +33,6 @@ use crate::report::BoxedReporter;
 /// let orders: WorkflowDescriptor<Orders, Asynchronous> = WorkflowDescriptor::builder("orders")
 ///     .async_reporter::<Forward>()
 ///     .build()?;
-/// # drop(orders);
 /// # Ok::<(), itinera::workflow::Violations>(())
 /// ```
 #[derive(Clone, Copy, Debug)]

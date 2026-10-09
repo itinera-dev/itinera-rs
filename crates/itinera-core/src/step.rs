@@ -130,7 +130,6 @@ impl StepDescriptor {
     /// use itinera::step::{StepDescriptor, step_name};
     ///
     /// let ship = StepDescriptor::new(step_name!("ship"), || {});
-    /// # drop(ship);
     /// ```
     pub fn new(name: StepName, run: impl Fn() + Send + Sync + 'static) -> Self {
         Self {
@@ -153,7 +152,6 @@ impl StepDescriptor {
     /// let charge = StepDescriptor::new(step_name!("charge"), || {})
     ///     .policy(audit)
     ///     .policy(alarm);
-    /// # drop(charge);
     /// ```
     pub fn policy(mut self, policy: StepPolicyDescriptor) -> Self {
         self.policies.push(policy);

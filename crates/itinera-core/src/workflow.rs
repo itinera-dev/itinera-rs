@@ -167,7 +167,6 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     ///
     /// let orders = WorkflowDescriptor::builder("orders").build()?;
     /// let instance = orders.instance(Orders).data("amount", 42_i64).create()?;
-    /// # drop(instance);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn instance(&self, workflow: W) -> InstanceBuilder<W, M> {
@@ -249,7 +248,6 @@ impl<W, M: Mode> Clone for WorkflowDescriptor<W, M> {
 ///     .id_generator(first_order)
 ///     .build()?;
 /// let instance = orders.instance(Orders { prefix: "order" }).create()?;
-/// # drop(instance);
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(derive_more::Debug)]
@@ -272,7 +270,6 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
     ///     .step(StepDescriptor::new(step_name!("ship"), || {}))
     ///     .build()?;
-    /// # drop(orders);
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     pub fn step(mut self, step: StepDescriptor) -> Self {
@@ -294,7 +291,6 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
     ///     .policy(notify)
     ///     .build()?;
-    /// # drop(orders);
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     pub fn policy(mut self, policy: WorkflowPolicyDescriptor) -> Self {
@@ -321,7 +317,6 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     ///     .step(StepDescriptor::new(step_name!("charge"), || {}))
     ///     .input_adapter(InputAdapter::new("pricing", step_name!("charge")))
     ///     .build()?;
-    /// # drop(orders);
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     #[expect(
@@ -373,7 +368,6 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// }
     ///
     /// let orders = WorkflowDescriptor::builder("orders").reporter::<Audit>().build()?;
-    /// # drop(orders);
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     pub fn reporter<R: WorkflowReporter<W>>(mut self) -> Self {
@@ -488,7 +482,6 @@ impl InputAdapter {
     /// use itinera::workflow::InputAdapter;
     ///
     /// let pricing = InputAdapter::new("pricing", step_name!("charge"));
-    /// # drop(pricing);
     /// ```
     pub fn new(name: impl Into<AdapterName>, step: StepName) -> Self {
         Self {
@@ -506,7 +499,6 @@ impl InputAdapter {
     /// use itinera::workflow::InputAdapter;
     ///
     /// let pricing = InputAdapter::new("pricing", step_name!("charge")).step(step_name!("refund"));
-    /// # drop(pricing);
     /// ```
     pub fn step(mut self, step: StepName) -> Self {
         if !self.steps.contains(&step) {

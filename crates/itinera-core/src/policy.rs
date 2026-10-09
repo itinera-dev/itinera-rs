@@ -63,7 +63,6 @@ impl StepPolicyDescriptor {
     /// use itinera::policy::{StepHook, StepPolicyDescriptor};
     ///
     /// let alarm = StepPolicyDescriptor::new("alarm", StepHook::OnStepFailure);
-    /// # drop(alarm);
     /// ```
     pub fn new(name: impl Into<PolicyName>, hook: StepHook) -> Self {
         Self {
@@ -81,7 +80,6 @@ impl StepPolicyDescriptor {
     ///
     /// let retries = StepPolicyDescriptor::new("retries", StepHook::OnStepRetry)
     ///     .hook(StepHook::OnStepAbnormalTermination);
-    /// # drop(retries);
     /// ```
     pub fn hook(mut self, hook: StepHook) -> Self {
         if !self.hooks.contains(&hook) {
@@ -142,7 +140,6 @@ impl WorkflowPolicyDescriptor {
     /// use itinera::policy::{WorkflowHook, WorkflowPolicyDescriptor};
     ///
     /// let close = WorkflowPolicyDescriptor::new("close", WorkflowHook::OnWorkflowFailure);
-    /// # drop(close);
     /// ```
     pub fn new(name: impl Into<PolicyName>, hook: WorkflowHook) -> Self {
         Self {
@@ -160,7 +157,6 @@ impl WorkflowPolicyDescriptor {
     ///
     /// let notify = WorkflowPolicyDescriptor::new("notify", WorkflowHook::OnWorkflowSuccess)
     ///     .hook(WorkflowHook::OnWorkflowFailure);
-    /// # drop(notify);
     /// ```
     pub fn hook(mut self, hook: WorkflowHook) -> Self {
         if !self.hooks.contains(&hook) {

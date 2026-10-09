@@ -52,7 +52,6 @@ impl LocalExecutor {
     /// use itinera::executor::LocalExecutor;
     ///
     /// let executor = LocalExecutor::new();
-    /// # drop(executor);
     /// ```
     pub fn new() -> Self {
         Self::default()
@@ -69,7 +68,6 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
     /// use itinera::report::DefaultDispatcherFactory;
     ///
     /// let executor = LocalExecutor::with_dispatcher_factory(DefaultDispatcherFactory);
-    /// # drop(executor);
     /// ```
     pub fn with_dispatcher_factory(factory: F) -> Self {
         Self { factory }
