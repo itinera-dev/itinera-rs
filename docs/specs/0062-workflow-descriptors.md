@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0062](https://github.com/itinera-dev/spec/blob/main/proposals/0062-workflow-descriptors.md), implemented in [#29](https://github.com/itinera-dev/itinera-rs/issues/29). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: done in stage 4. Stage 3 added the workflow descriptor with its name, its reporters and its journey ID generator, and the instance trait executors rely on. Stage 4 added step and policy descriptors, input adapters, admission and the listing. Later stages replace the stand-ins described below without changing what this proposal requires.
+Status: done in stage 4. Stage 3 added the workflow descriptor with its name, its reporters and its journey ID generator, and the instance trait executors rely on. Stage 4 added step and policy descriptors, input adapters, admission and the listing. Some of what the proposal asks is met only by the stand-ins described below, until stages 5 and 7 replace them; the table of rules says which.
 
 ## API
 
@@ -30,7 +30,8 @@ Status: done in stage 4. Stage 3 added the workflow descriptor with its name, it
 |---|---|
 | A workflow descriptor does not change once built | types: it has no method that changes it, and its declaration is shared behind an `Arc` |
 | It is the same for every instance | types: every instance holds a clone of the one descriptor |
-| A descriptor holds descriptions and a way to build each step and policy, never instances | types: it holds step and policy descriptors only |
+| A descriptor holds descriptions and a way to build each step and policy, never instances | types: it holds step and policy descriptors only. Until stage 5, a step descriptor holds the step's closure rather than a way to build the step; until stage 7, a policy descriptor holds no way to build the policy, nor what its hooks request or their execution mode |
+| The executor builds steps and policies; an instance never builds, holds or orders them | types: an instance holds only a clone of the descriptor, and the engine runs the steps in order. Building per attempt arrives with stage 5 for steps and stage 7 for policies |
 | Admission applies to every descriptor before a journey starts | types: only `build()` makes a descriptor, and it checks the declaration first |
 | An executor does not depend on how a workflow, its descriptor or its instance was produced | types: executors take any `WorkflowInstance` |
 | The listing reads the descriptor without running anything | `listing()` reads only the declaration |
@@ -44,7 +45,7 @@ Status: done in stage 4. Stage 3 added the workflow descriptor with its name, it
 - The unit tests of `itinera-core/src/workflow/violation.rs` refuse each violation, report every violation together, build a well-formed workflow, and refuse a second adapter with a used name.
 - The unit tests of `itinera-core/src/workflow.rs` list a workflow without running anything, and those of `itinera-core/src/step.rs` refuse an empty step name.
 - The unit tests of `itinera-core/src/engine.rs` run steps in the order they were added.
-- The conformance runner defines "When the workflow is admitted", "When the workflow is listed", "Then the listing is", "Then admission is refused with the violations" and "Then no step ran". Its fixture `tests/cases/admission/` checks them.
+- The conformance runner defines "When the workflow is admitted", "When the workflow is listed", "Then the listing is", "Then admission is refused with the violations" and "Then no step ran". Its fixture `tests/cases/admission/` checks them, and its unit tests refuse an empty step name and a second input adapter with a used name as errors in the case.
 
 ## Done when
 

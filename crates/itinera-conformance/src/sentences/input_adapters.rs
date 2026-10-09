@@ -81,3 +81,27 @@ fn the_input_adapter_requests_data_from_the_workflow(
         .push((key, value_type));
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_second_input_adapter_with_a_used_name_is_a_case_error() {
+        let mut world = World::default();
+        world
+            .model
+            .declare("orders".to_owned(), vec!["charge".to_owned()])
+            .unwrap();
+        let steps = || "\"charge\"".parse::<Names>().unwrap();
+        the_workflow_declares_the_input_adapter(&mut world, "pricing".to_owned(), steps()).unwrap();
+
+        let declared =
+            the_workflow_declares_the_input_adapter(&mut world, "pricing".to_owned(), steps());
+
+        assert_eq!(
+            declared,
+            Err(ModelError::AdapterDeclaredTwice("pricing".to_owned()))
+        );
+    }
+}

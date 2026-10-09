@@ -1,15 +1,16 @@
 //! Admission and the listing: what the workflow's declaration gives before any journey.
 
 use std::fmt;
+use std::num::NonZeroUsize;
 
 use cucumber::gherkin::Step as Sentence;
 use cucumber::{then, when};
 use itinera::workflow::{ListedStep, Violation};
 
 use super::Unmet;
-use crate::declaration::declared;
+use crate::declaration::{Admission, declared};
 use crate::model::{ModelError, Row, rows};
-use crate::world::{Admission, World};
+use crate::world::World;
 
 #[when(expr = "the workflow is admitted")]
 fn the_workflow_is_admitted(world: &mut World) -> Result<(), ModelError> {
@@ -43,7 +44,11 @@ fn admission_is_refused_with_the_violations(
     expected.sort();
     let mut found: Vec<String> = match admission(world)? {
         Admission::Refused(violations) => violations.iter().map(kind_name).collect(),
-        Admission::Admitted(_) => Vec::new(),
+        Admission::Admitted(_) => {
+            return Err(Unmet::Expected(format!(
+                "admission refused with {expected:?}, but the workflow was admitted"
+            )));
+        }
     };
     found.sort();
     holds(
@@ -63,7 +68,10 @@ fn kind_name(violation: &Violation) -> String {
 
 #[then(expr = "the listing is:")]
 fn the_listing_is(world: &mut World, #[step] sentence: &Sentence) -> Result<(), Unmet> {
-    let expected: Vec<Listed> = rows(sentence)?.iter().map(Listed::expected).collect();
+    let expected = rows(sentence)?
+        .iter()
+        .map(Listed::expected)
+        .collect::<Result<Vec<_>, _>>()?;
     let found: Vec<Listed> = match admission(world)? {
         Admission::Admitted(descriptor) => descriptor.listing().iter().map(Listed::from).collect(),
         Admission::Refused(violations) => {
@@ -95,19 +103,19 @@ fn admission(world: &World) -> Result<&Admission, Unmet> {
 #[derive(Debug, PartialEq)]
 struct Listed {
     step: String,
-    position: String,
+    position: NonZeroUsize,
     policies: String,
     adapter: String,
 }
 
 impl Listed {
-    fn expected(row: &Row) -> Self {
-        Self {
-            step: cell(row, "step"),
-            position: cell(row, "position"),
+    fn expected(row: &Row) -> Result<Self, ModelError> {
+        Ok(Self {
+            step: row.required("step")?.to_owned(),
+            position: row.parse("position")?,
             policies: cell(row, "policies"),
             adapter: cell(row, "adapter"),
-        }
+        })
     }
 }
 
@@ -115,7 +123,7 @@ impl From<&ListedStep> for Listed {
     fn from(listed: &ListedStep) -> Self {
         Self {
             step: listed.step.to_string(),
-            position: listed.position.to_string(),
+            position: listed.position,
             policies: listed
                 .policies
                 .iter()

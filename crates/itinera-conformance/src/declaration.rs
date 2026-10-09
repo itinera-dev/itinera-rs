@@ -5,13 +5,20 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use itinera::policy::{StepPolicyDescriptor, WorkflowPolicyDescriptor};
 use itinera::step::{StepDescriptor, StepName};
-use itinera::workflow::{InputAdapter, WorkflowBuilder, WorkflowDescriptor};
+use itinera::workflow::{InputAdapter, Violations, WorkflowBuilder, WorkflowDescriptor};
 
 use crate::model::{Adapter, HookScript, Hooks, Model, ModelError, Policy, Workflow};
 
 /// The workflow's own type.
 #[derive(Debug)]
 pub(crate) struct ScriptedWorkflow;
+
+/// What building the scenario's workflow gave.
+#[derive(Debug)]
+pub(crate) enum Admission {
+    Admitted(WorkflowDescriptor<ScriptedWorkflow>),
+    Refused(Violations),
+}
 
 /// How many times the scenario's steps ran, whatever step it was.
 #[derive(Clone, Debug, Default)]
@@ -237,5 +244,17 @@ mod tests {
         let steps_run = StepsRun::default();
         let _ = declared(&model(), &steps_run).unwrap().build().unwrap();
         assert!(steps_run.none());
+    }
+
+    #[test]
+    fn an_empty_step_name_is_a_case_error() {
+        let mut model = Model::default();
+        model
+            .declare("orders".to_owned(), vec![String::new()])
+            .unwrap();
+
+        let declared = declared(&model, &StepsRun::default());
+
+        assert_eq!(declared.err(), Some(ModelError::EmptyStepName));
     }
 }
