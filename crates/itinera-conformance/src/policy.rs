@@ -99,8 +99,8 @@ impl ScriptedPolicy {
     }
 }
 
-/// The error of a hook called without a script, which only a hook the policy does not define
-/// lacks, and such a hook is never declared.
+/// The error of a hook called without a script. Only a hook the policy does not define has
+/// none, and such a hook is never declared.
 fn unscripted<H: Scripting>() -> Error {
     Error::msg(format!("the hook {} has no script", H::HOOK))
 }
