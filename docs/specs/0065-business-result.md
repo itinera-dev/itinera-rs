@@ -11,8 +11,6 @@ Status: done in stage 6. Stage 3 added the result's types, and the executors tha
 - **`Failure`** has one variant per cause, and **`Abort`** one per abort reason; the tech spec of 0083 says what each holds.
 - **`DataBag`** is the journey's output. It gives the value under a key with `get`, its keys in order with `keys`, and iterates over its keys and values.
 
-Its API stays behind the `unstable` feature, since it names API of proposals not yet listed, such as the events of 0011 and the policies of 0010, until stage 7 lists them.
-
 ## How the rules are enforced
 
 | Rule | Enforced by |

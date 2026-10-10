@@ -12,8 +12,6 @@ Status: done in stage 6. Stage 3 added the instance, its journey ID and its repo
 - **Reporters** are listed by type with `WorkflowBuilder::reporter::<R>()`, where `R: WorkflowReporter<W>`, or with `async_reporter::<R>()`, where `R: AsyncWorkflowReporter<W>`. Each has `init(&W, &JourneyId, &DataBag) -> Result<Self, Error>`.
 - **`itinera::instance::InstanceError`** is what `create()` returns when the generator or a reporter's `init` fails: `JourneyId(Error)` or `Reporter(Error)`.
 
-Its API stays behind the `unstable` feature, since it names API of proposals not yet listed, such as the events of 0011 and the policies of 0010, until stage 7 lists them.
-
 ## How the rules are enforced
 
 | Rule | Enforced by |

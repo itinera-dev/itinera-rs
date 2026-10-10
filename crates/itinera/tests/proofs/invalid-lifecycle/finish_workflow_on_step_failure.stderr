@@ -1,0 +1,17 @@
+error[E0308]: mismatched types
+  --> tests/proofs/invalid-lifecycle/finish_workflow_on_step_failure.rs:18:17
+   |
+18 |         Ok(Some(OnSuccess::FinishWorkflow))
+   |            ---- ^^^^^^^^^^^^^^^^^^^^^^^^^ expected `FailWorkflow`, found `OnSuccess`
+   |            |
+   |            arguments to this enum variant are incorrect
+   |
+help: the type constructed contains `OnSuccess` due to the type of the argument passed
+  --> tests/proofs/invalid-lifecycle/finish_workflow_on_step_failure.rs:18:12
+   |
+18 |         Ok(Some(OnSuccess::FinishWorkflow))
+   |            ^^^^^-------------------------^
+   |                 |
+   |                 this argument influences the type of `Some`
+note: tuple variant defined here
+  --> $RUST/core/src/option.rs

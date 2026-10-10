@@ -1027,6 +1027,7 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     ///     }
     /// }
     /// ```
+    #[cfg(feature = "unstable")]
     pub fn data_bag(&self) -> &'a DataBag {
         self.data_bag
     }

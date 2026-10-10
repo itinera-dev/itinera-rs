@@ -6,11 +6,9 @@ Status: done in stage 6. Stage 3 added the aborted result and `journey_aborted`,
 
 ## API
 
-- **`itinera::journey::Abort`** has one variant per abort reason, with what that reason carries, and `reason()` gives its `AbortReason`. The configuration errors found while running are `StepCouldNotBeBuilt`, `PolicyCouldNotBeBuilt`, `RequiredDataMissing` and `WrongType`. The engine produces `PolicyCouldNotBeBuilt`, and the same errors for hooks' requests, from stage 7, when policies are built and hooks run.
+- **`itinera::journey::Abort`** has one variant per abort reason, with what that reason carries, and `reason()` gives its `AbortReason`. The configuration errors found while running are `StepCouldNotBeBuilt`, `PolicyCouldNotBeBuilt`, `RequiredDataMissing` and `WrongType`. Since stage 7, the engine also produces `PolicyCouldNotBeBuilt`, when a step policy cannot be built, and `RequiredDataMissing` and `WrongType` for the requests of hooks and input adapters.
 - **`itinera::event::JourneyAbort`** is what `journey_aborted` carries: the abort reason, the step concerned, if any, through `step()`, and the details.
 - **`JourneyStatus::Aborted(Abort)`** is the result of an aborted journey, with no data bag.
-
-Its API stays behind the `unstable` feature, since it names API of proposals not yet listed, such as the events of 0011 and the policies of 0010, until stage 7 lists them.
 
 ## How the rules are enforced
 
@@ -20,7 +18,7 @@ Its API stays behind the `unstable` feature, since it names API of proposals not
 | The events already emitted remain | the engine only ever appends to the stream, delivering each event as it happens |
 | `journey_aborted` is the last event, naming the step, the reason and its details | the engine emits it as the journey's end, and emits nothing after it |
 | The result is aborted, with the same reason and details; the step is named by `journey_aborted` alone, since the result carries no step names | each abort is made by one engine function, which builds both the `JourneyAbort` of `journey_aborted` and the result's `Abort` |
-| A hook or reporter that fails is a fault, with the same rules for the stream | the engine ends the journey the same way with `reporter failed`; `hook failed` comes with hooks, in stage 7 |
+| A hook or reporter that fails is a fault, with the same rules for the stream | the engine ends the journey the same way, with `hook failed` or `reporter failed` |
 
 ## Tests
 
@@ -29,4 +27,4 @@ Its API stays behind the `unstable` feature, since it names API of proposals not
 
 ## Done when
 
-Every scenario tagged `@proposal-0032` passes, and 32 is listed in `conformance.json`. Done in stage 6; the scenario also tagged `@proposal-0083` runs once 83 is listed.
+Every scenario tagged `@proposal-0032` passes, and 32 is listed in `conformance.json`. Done in stage 6; the scenario also tagged `@proposal-0083` runs since stage 7 lists 83.

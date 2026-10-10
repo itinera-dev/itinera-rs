@@ -9,8 +9,6 @@ Status: done in stage 6. Stage 4 added admission, which refuses a workflow put t
 - **`itinera::workflow::WorkflowBuilder::build`** returns `Result<WorkflowDescriptor<W, M>, Violations>`. `Violations` holds every violation found, each with its `ViolationKind`; the tech spec of 0062 says which.
 - **The execution mode** is part of the workflow's type: `WorkflowDescriptor<W, M>`, with `M` either `Synchronous` or `Asynchronous`. `LocalExecutor::run` accepts only instances of `Synchronous` workflows, and `AsyncLocalExecutor::run` only instances of `Asynchronous` ones.
 
-Its API stays behind the `unstable` feature, since it names API of proposals not yet listed, such as the events of 0011 and the policies of 0010, until stage 7 lists them.
-
 ## How the rules are enforced
 
 | Rule | Enforced by |
@@ -19,7 +17,7 @@ Its API stays behind the `unstable` feature, since it names API of proposals not
 | No journey starts, the ID generator is not called and no event is emitted | types: a refused workflow has no descriptor, so no instance can be created and nothing can run |
 | `mode not accepted` is caught before the journey starts | types: an instance of a workflow whose mode the executor does not accept does not compile as an argument to its `run` |
 
-The violation `mode not accepted` can never occur at run time, so `ViolationKind` has no variant for it. Nor has `role not provided`: roles arrive in stage 7, where types make that violation impossible to express, and its proof belongs to the tech spec of 0010.
+The violation `mode not accepted` can never occur at run time, so `ViolationKind` has no variant for it. Nor has `role not provided`: types make that violation impossible to express too, and its proof belongs to the tech spec of [0010](0010-hooks-lifecycles-and-roles.md).
 
 ## Tests
 

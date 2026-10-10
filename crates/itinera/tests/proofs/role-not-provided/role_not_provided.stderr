@@ -1,0 +1,34 @@
+error[E0277]: the workflow `Orders` does not provide the role `(dyn Notifier + 'static)`
+  --> tests/proofs/role-not-provided/role_not_provided.rs:27:59
+   |
+27 |     let tell = StepPolicyDescriptor::new("tell", || Tell).on_step_success();
+   |                                                           ^^^^^^^^^^^^^^^ this workflow does not provide the role
+   |
+help: the trait `Provides<(dyn Notifier + 'static)>` is not implemented for `Orders`
+  --> tests/proofs/role-not-provided/role_not_provided.rs:12:1
+   |
+12 | struct Orders;
+   | ^^^^^^^^^^^^^
+   = note: a workflow provides a role by implementing `Provides<(dyn Notifier + 'static)>`
+help: the trait `itinera::policy::OnStepSuccess<W>` is conditionally implemented for `Tell`
+  --> tests/proofs/role-not-provided/role_not_provided.rs:16:1
+   |
+16 | impl<W: Provides<dyn Notifier> + Send + Sync + 'static> OnStepSuccess<W> for Tell {
+   | ^^^^^^^^----------------------^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |         |
+   |         unsatisfied requirement introduced here: `Orders: Provides<(dyn Notifier + 'static)>`
+note: required for `Tell` to implement `itinera::policy::OnStepSuccess<Orders>`
+  --> tests/proofs/role-not-provided/role_not_provided.rs:16:57
+   |
+16 | impl<W: Provides<dyn Notifier> + Send + Sync + 'static> OnStepSuccess<W> for Tell {
+   |         ----------------------                          ^^^^^^^^^^^^^^^^     ^^^^
+   |         |
+   |         unsatisfied trait bound introduced here
+note: required by a bound in `StepPolicyDescriptor::<P, W, Synchronous, S>::on_step_success`
+  --> $WORKSPACE/crates/itinera-core/src/policy/descriptor.rs
+   |
+   |     pub fn on_step_success(self) -> StepPolicyDescriptor<P, W>
+   |            --------------- required by a bound in this associated function
+   |     where
+   |         P: OnStepSuccess<W>,
+   |            ^^^^^^^^^^^^^^^^ required by this bound in `StepPolicyDescriptor::<P, W, Synchronous, S>::on_step_success`

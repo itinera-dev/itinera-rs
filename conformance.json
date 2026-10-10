@@ -1,8 +1,22 @@
 {
   "cases": "v0.1.0-rc.7",
-  "proposals": [12, 32, 42, 56, 57, 61, 62, 63, 64, 65],
+  "proposals": [2, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85],
   "capabilities": ["sync", "async"],
   "impossible": {
+    "invalid-lifecycle": [
+      {
+        "feature": "cases/tier-1/0010-hooks-lifecycles-and-roles/order-and-lifecycles.feature",
+        "scenario": "A lifecycle a hook may not return aborts the journey",
+        "proof": { "test": "a_failure_hook_cannot_finish_the_workflow", "file": "crates/itinera/tests/proofs.rs" }
+      }
+    ],
+    "role-not-provided": [
+      {
+        "feature": "cases/tier-1/0010-hooks-lifecycles-and-roles/roles.feature",
+        "scenario": "A policy needing a role the workflow does not provide is refused at admission",
+        "proof": { "test": "a_policy_cannot_be_attached_to_a_workflow_that_does_not_provide_its_role", "file": "crates/itinera/tests/proofs.rs" }
+      }
+    ],
     "non-value": [
       {
         "feature": "cases/tier-1/0056-data-bag-values/data-bag-values.feature",

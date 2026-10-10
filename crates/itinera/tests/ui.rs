@@ -1,8 +1,6 @@
 //! Rules that Rust's types enforce: each program breaking a rule fails to compile, and its twin,
 //! which keeps the rule, compiles and runs.
 
-#![cfg(feature = "unstable")]
-
 fn enforced(broken: &str, kept: &str) {
     let cases = trybuild::TestCases::new();
     cases.compile_fail(broken);
@@ -19,6 +17,14 @@ fn a_policy_attached_defines_at_least_one_hook() {
     enforced(
         "tests/ui/attach_a_hookless_policy.rs",
         "tests/ui/attach_a_hooked_policy.rs",
+    );
+}
+
+#[test]
+fn a_hook_requests_only_what_its_kind_may_request() {
+    enforced(
+        "tests/ui/request_the_reason_on_step_success.rs",
+        "tests/ui/request_the_reason_on_step_failure.rs",
     );
 }
 

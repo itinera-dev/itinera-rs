@@ -16,8 +16,10 @@ pub use asynchronous::{
     AsyncHookReporter, AsyncOnStepAbnormalTermination, AsyncOnStepFailure, AsyncOnStepRetry,
     AsyncOnStepSuccess, AsyncOnWorkflowFailure, AsyncOnWorkflowSuccess,
 };
+#[cfg(feature = "async")]
+pub(crate) use descriptor::HookCall;
 pub(crate) use descriptor::{
-    BuiltStepPolicy, BuiltWorkflowPolicy, Call, HookCall, StepPolicyEntry, WorkflowPolicyEntry,
+    BuiltStepPolicy, BuiltWorkflowPolicy, Call, StepPolicyEntry, WorkflowPolicyEntry,
 };
 pub use descriptor::{Hooked, Hookless, StepPolicyDescriptor, WorkflowPolicyDescriptor};
 pub use hook::{
