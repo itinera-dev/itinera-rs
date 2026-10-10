@@ -51,6 +51,15 @@ fn a_step_event_cannot_carry_a_non_value() {
 }
 
 #[test]
+#[cfg(feature = "async")]
+fn a_synchronous_executor_cannot_run_an_asynchronous_step() {
+    proves(
+        "tests/proofs/mode-not-accepted/asynchronous_step.rs",
+        "tests/proofs/mode-not-accepted/asynchronous_step_async_executor.rs",
+    );
+}
+
+#[test]
 fn a_steps_handles_cannot_outlive_its_attempt() {
     let cases = trybuild::TestCases::new();
     cases.compile_fail("tests/proofs/late-handle/kept_by_the_factory.rs");

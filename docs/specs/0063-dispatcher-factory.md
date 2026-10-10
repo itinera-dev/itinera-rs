@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0063](https://github.com/itinera-dev/spec/blob/main/proposals/0063-dispatcher-factory.md), implemented in [#30](https://github.com/itinera-dev/itinera-rs/issues/30). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: in progress. Stage 1 adds dispatchers and their factories, and stage 3 the executors that use them.
+Status: done in stage 6. Stage 1 added dispatchers and their factories, and stage 3 the executors that use them; stage 6 lists the proposal, once the conformance runner runs workflows.
 
 ## API
 
@@ -12,6 +12,8 @@ Status: in progress. Stage 1 adds dispatchers and their factories, and stage 3 t
 - `DefaultDispatcherFactory` implements both factory traits. It creates `DefaultDispatcher` for the synchronous executor and `DefaultDispatcher<BoxedReporter>` for the asynchronous one. A sealed trait bounds `DefaultDispatcher`'s parameter, so it holds only those two kinds of reporter.
 - Every operation returns `Result<_, Error>`.
 - `run` returns `Refusal::DispatcherFactory` when the factory fails, and `Refusal::Dispatcher` when the dispatcher fails while the instance's reporters are added. Both carry the error.
+
+Its API stays behind the `unstable` feature, since it names API of proposals not yet listed, such as the events of 0011 and the policies of 0010, until stage 7 lists them.
 
 ## How the rules are enforced
 
@@ -29,4 +31,4 @@ Status: in progress. Stage 1 adds dispatchers and their factories, and stage 3 t
 
 ## Done when
 
-Every scenario tagged `@proposal-0063` passes, and 63 is listed in `conformance.json`. Planned for stage 6.
+Every scenario tagged `@proposal-0063` passes, and 63 is listed in `conformance.json`. Done in stage 6.

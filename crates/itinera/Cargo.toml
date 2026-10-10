@@ -19,6 +19,7 @@ itinera-core.workspace = true
 itinera-macros = { workspace = true, optional = true }
 
 [dev-dependencies]
+futures = { workspace = true, features = ["executor"] }
 trybuild.workspace = true
 
 [lints]

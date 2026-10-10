@@ -1,0 +1,18 @@
+error[E0499]: cannot borrow `executor` as mutable more than once at a time
+  --> tests/ui/run_concurrently.rs:15:21
+   |
+13 |     thread::scope(|scope| {
+   |                    ----- has type `&'1 Scope<'1, '_>`
+14 |         scope.spawn(|| executor.run(first));
+   |         -----------------------------------
+   |         |           |  |
+   |         |           |  first borrow occurs due to use of `executor` in closure
+   |         |           first mutable borrow occurs here
+   |         argument requires that `executor` is borrowed for `'1`
+15 |         scope.spawn(|| executor.run(second));
+   |                     ^^ -------- second borrow occurs due to use of `executor` in closure
+   |                     |
+   |                     second mutable borrow occurs here
+   |
+note: requirement that the value outlives `'1` introduced here
+  --> $RUST/std/src/thread/scoped.rs
