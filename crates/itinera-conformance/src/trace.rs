@@ -75,6 +75,11 @@ impl Line {
             && self.data.as_ref().is_none_or(|data| event.has_data(data))
     }
 
+    /// Whether the event names no input adapter.
+    pub(crate) fn names_no_adapter(&self) -> bool {
+        !self.cells.contains_key("adapter")
+    }
+
     /// Whether the event has this text in this column.
     fn has_cell(&self, column: &str, cell: &str) -> bool {
         self.cells.get(column).map(String::as_str) == Some(cell)
@@ -508,6 +513,19 @@ mod tests {
     ) {
         let event = line("step_failed", &[("step", "charge"), ("code", "declined")]);
         assert_eq!(line(kind, cells).matches(&event), matches);
+    }
+
+    #[rstest]
+    #[case::an_abort_without_an_adapter(&[("step", "charge"), ("key", "amount")], true)]
+    #[case::an_abort_naming_an_adapter(&[("step", "charge"), ("adapter", "pricing")], false)]
+    fn only_an_event_without_an_adapter_names_no_adapter(
+        #[case] cells: &[(&'static str, &str)],
+        #[case] names_no_adapter: bool,
+    ) {
+        assert_eq!(
+            line("journey_aborted", cells).names_no_adapter(),
+            names_no_adapter
+        );
     }
 
     #[rstest]

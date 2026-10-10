@@ -21,13 +21,13 @@ Status: done in stage 5. Stage 1 added values and the type-erased value, stage 3
 | A value is captured when it is contributed | ownership: `contribute` takes the value |
 | The same key twice in one attempt: the last value wins | the attempt's contributions keep each key once, with its last value |
 | Committed only on success, in order, with `data_overwritten` when a key is replaced | the engine commits an attempt's contributions after `step_succeeded`, through `WorkflowInstance::commit`, which says whether it replaced a value |
-| An input, from the data bag or from an input adapter, has the type the step declares, or the journey is aborted with `wrong type` | the engine checks each value's exact type against the token before building the step, so an `i32` is not an `i64`. The abort names the input adapter when it supplied the value, since the adapter knows the types of the steps it serves, and the step otherwise |
+| An input, from the data bag or from an input adapter, has the type the step declares, or the journey is aborted with `wrong type` | the engine checks each value's exact type against the token before building the step, so an `i32` is not an `i64`. The abort names the step and the key, and the input adapter when it supplied the value; an adapter that returned nothing is not named |
 | Nothing is serialized in tier 1 | itinera never calls a serializer; `AnyValue` only lets reporters serialize |
 
 ## Tests
 
 - Unit tests in `itinera-core/src/value.rs`: a clone of an erased value is independent of the original, an erased value serializes as the value itself, and it is read only as its exact type.
-- Unit tests in `itinera-core/src/engine.rs`: a step is built with the inputs it declares, read from the data bag or supplied by its input adapter; a value of another type, from either, aborts with `wrong type`, naming the adapter when it supplied the value.
+- Unit tests in `itinera-core/src/engine.rs`: a step is built with the inputs it declares, read from the data bag or supplied by its input adapter; a value of another type, from either, aborts with `wrong type`, naming the adapter when it supplied the value, and not when it returned nothing.
 - Unit tests in `itinera-core/src/step/needs.rs`: an input is taken once, and only as the type it was declared with.
 - Unit tests in `itinera-core/src/journey/contributor.rs`: a key contributed twice keeps its last value in its first place; a value is captured when contributed.
 - Unit tests in `itinera-core/src/engine.rs`: a successful attempt's contributions are committed in order, reporting what they overwrote; an attempt that does not succeed commits nothing.
