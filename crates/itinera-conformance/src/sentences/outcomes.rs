@@ -237,20 +237,23 @@ impl FromStr for Status {
 }
 
 impl Status {
-    /// The step's status, read from the journey's events: `aborted` when `journey_aborted` names
-    /// it, since the journey was aborted during the step; otherwise the first event that settles
-    /// it, or `not executed` when no attempt started; nothing while it was still being attempted.
+    /// The step's status, read from the journey's events: the first event that settles it, which
+    /// stays final even when the journey is aborted afterwards; otherwise `aborted` when
+    /// `journey_aborted` names it, since the journey was aborted while the step was executing,
+    /// or `not executed` when no attempt started; nothing while it was still being attempted.
     fn of(events: &[Event], step: &str) -> Option<Self> {
-        events
-            .iter()
-            .find_map(|event| aborted_during(event, step))
-            .or_else(|| settling(events, step))
+        settling(events, step)
+            .or_else(|| aborted_while_executing(events, step))
             .or_else(|| not_executed(events, step))
     }
 }
 
 fn settling(events: &[Event], step: &str) -> Option<Status> {
     events.iter().find_map(|event| settled(event, step))
+}
+
+fn aborted_while_executing(events: &[Event], step: &str) -> Option<Status> {
+    events.iter().find_map(|event| aborted_during(event, step))
 }
 
 fn not_executed(events: &[Event], step: &str) -> Option<Status> {
@@ -340,7 +343,7 @@ mod tests {
     }
 
     /// The charge step succeeds, and a reporter fails on its contribution, which aborts the
-    /// journey during the step.
+    /// journey once the step has settled.
     fn is_aborted_once_it_succeeded(model: &mut Model) {
         let charge = model.step_mut("charge").unwrap();
         charge.attempts = Some(vec![Attempt {
@@ -362,10 +365,10 @@ mod tests {
     #[case::that_succeeded_once_retried(is_retried, "charge", Status::Succeeded, 2)]
     #[case::after_one_given_up(is_given_up, "ship", Status::NotExecuted, 0)]
     #[case::that_could_not_be_built(cannot_be_built, "charge", Status::Aborted, 1)]
-    #[case::during_which_the_journey_was_aborted_once_it_succeeded(
+    #[case::that_succeeded_before_the_journey_was_aborted(
         is_aborted_once_it_succeeded,
         "charge",
-        Status::Aborted,
+        Status::Succeeded,
         1
     )]
     fn a_steps_status_and_attempts_are_read_from_its_journeys_events(
