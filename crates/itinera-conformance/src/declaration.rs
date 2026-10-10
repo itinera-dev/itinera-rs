@@ -5,8 +5,8 @@ use itinera::error::Error;
 use itinera::journey::DataBag;
 use itinera::mode::{Asynchronous, Mode, Synchronous};
 use itinera::policy::{
-    Hooked, Hookless, InputAdapter, Requested, StepHook, StepPolicyDescriptor, WorkflowHook,
-    WorkflowPolicyDescriptor,
+    HookNeeds, Hooked, Hookless, InputAdapter, Provides, Requested, StepHook, StepPolicyDescriptor,
+    WorkflowHook, WorkflowPolicyDescriptor,
 };
 use itinera::step::{StepDescriptor, StepName};
 use itinera::value::AnyValue;
@@ -17,21 +17,30 @@ use itinera::workflow::{
 use crate::model::{
     Adapter, Answer, HookScript, Hooks, IdGenerator, Model, ModelError, Policy, Workflow,
 };
-use crate::policy::ScriptedPolicy;
+use crate::policy::{Building, ScriptedPolicy, Scripts, requiring_from_workflow};
 use crate::record::{ListedReporter, Recorder};
+use crate::role::{ProvidedRoles, Roles};
 use crate::step::{Scripted, StepsRun};
 use crate::value::Typed;
+use crate::witness::Witness;
 
 /// The workflow's own value: the recorders of the reporters it lists, in order, which its
-/// instance hands its reporters as it makes them.
+/// instance hands its reporters as it makes them, and the roles it provides.
 #[derive(Debug)]
 pub(crate) struct ScriptedWorkflow {
     reporters: Vec<Recorder>,
+    roles: ProvidedRoles,
+}
+
+impl Provides<dyn Roles> for ScriptedWorkflow {
+    fn role(&self) -> &(dyn Roles + 'static) {
+        &self.roles
+    }
 }
 
 impl ScriptedWorkflow {
-    pub(crate) fn with_reporters(reporters: Vec<Recorder>) -> Self {
-        Self { reporters }
+    pub(crate) fn new(reporters: Vec<Recorder>, roles: ProvidedRoles) -> Self {
+        Self { reporters, roles }
     }
 
     /// The recorder of the reporter listed at this position, counted from 0.
@@ -62,20 +71,22 @@ pub(crate) trait Declares: Mode + Sized {
 
     fn step(name: StepName, factory: Scripted) -> StepDescriptor<ScriptedWorkflow, Self>;
 
-    fn step_policy(name: &'static str) -> StepPolicy<Self, Hookless>;
+    fn step_policy(building: Building) -> StepPolicy<Self, Hookless>;
 
-    /// The step policy, which defines this hook too.
+    /// The step policy, which defines this hook too, needing what its script says.
     fn step_hook<S>(
         policy: StepPolicy<Self, S>,
         hook: StepHook,
+        scripts: &Scripts,
     ) -> Result<StepPolicy<Self>, ModelError>;
 
-    fn workflow_policy(name: &'static str) -> WorkflowPolicy<Self, Hookless>;
+    fn workflow_policy(building: Building) -> WorkflowPolicy<Self, Hookless>;
 
-    /// The workflow policy, which defines this hook too.
+    /// The workflow policy, which defines this hook too, needing what its script says.
     fn workflow_hook<S>(
         policy: WorkflowPolicy<Self, S>,
         hook: WorkflowHook,
+        scripts: &Scripts,
     ) -> Result<WorkflowPolicy<Self>, ModelError>;
 }
 
@@ -88,36 +99,40 @@ impl Declares for Synchronous {
         StepDescriptor::new(name, factory)
     }
 
-    fn step_policy(name: &'static str) -> StepPolicy<Self, Hookless> {
-        StepPolicyDescriptor::new(name, || ScriptedPolicy)
+    fn step_policy(building: Building) -> StepPolicy<Self, Hookless> {
+        StepPolicyDescriptor::fallible(building.name(), move || building.build())
     }
 
     fn step_hook<S>(
         policy: StepPolicy<Self, S>,
         hook: StepHook,
+        scripts: &Scripts,
     ) -> Result<StepPolicy<Self>, ModelError> {
-        match hook {
-            StepHook::OnStepSuccess => Ok(policy.on_step_success()),
-            StepHook::OnStepFailure => Ok(policy.on_step_failure()),
-            StepHook::OnStepRetry => Ok(policy.on_step_retry()),
-            StepHook::OnStepAbnormalTermination => Ok(policy.on_step_abnormal_termination()),
-            _ => Err(unknown(hook)),
-        }
+        Ok(match hook {
+            StepHook::OnStepSuccess => policy.on_step_success_needing(scripts.needs()?),
+            StepHook::OnStepFailure => policy.on_step_failure_needing(scripts.needs()?),
+            StepHook::OnStepRetry => policy.on_step_retry_needing(scripts.needs()?),
+            StepHook::OnStepAbnormalTermination => {
+                policy.on_step_abnormal_termination_needing(scripts.needs()?)
+            }
+            _ => return Err(unknown(hook)),
+        })
     }
 
-    fn workflow_policy(name: &'static str) -> WorkflowPolicy<Self, Hookless> {
-        WorkflowPolicyDescriptor::new(name, || ScriptedPolicy)
+    fn workflow_policy(building: Building) -> WorkflowPolicy<Self, Hookless> {
+        WorkflowPolicyDescriptor::fallible(building.name(), move || building.build())
     }
 
     fn workflow_hook<S>(
         policy: WorkflowPolicy<Self, S>,
         hook: WorkflowHook,
+        scripts: &Scripts,
     ) -> Result<WorkflowPolicy<Self>, ModelError> {
-        match hook {
-            WorkflowHook::OnWorkflowSuccess => Ok(policy.on_workflow_success()),
-            WorkflowHook::OnWorkflowFailure => Ok(policy.on_workflow_failure()),
-            _ => Err(unknown(hook)),
-        }
+        Ok(match hook {
+            WorkflowHook::OnWorkflowSuccess => policy.on_workflow_success_needing(scripts.needs()?),
+            WorkflowHook::OnWorkflowFailure => policy.on_workflow_failure_needing(scripts.needs()?),
+            _ => return Err(unknown(hook)),
+        })
     }
 }
 
@@ -130,36 +145,40 @@ impl Declares for Asynchronous {
         StepDescriptor::new_async(name, factory)
     }
 
-    fn step_policy(name: &'static str) -> StepPolicy<Self, Hookless> {
-        StepPolicyDescriptor::new_async(name, || ScriptedPolicy)
+    fn step_policy(building: Building) -> StepPolicy<Self, Hookless> {
+        StepPolicyDescriptor::fallible_async(building.name(), move || building.build())
     }
 
     fn step_hook<S>(
         policy: StepPolicy<Self, S>,
         hook: StepHook,
+        scripts: &Scripts,
     ) -> Result<StepPolicy<Self>, ModelError> {
-        match hook {
-            StepHook::OnStepSuccess => Ok(policy.on_step_success()),
-            StepHook::OnStepFailure => Ok(policy.on_step_failure()),
-            StepHook::OnStepRetry => Ok(policy.on_step_retry()),
-            StepHook::OnStepAbnormalTermination => Ok(policy.on_step_abnormal_termination()),
-            _ => Err(unknown(hook)),
-        }
+        Ok(match hook {
+            StepHook::OnStepSuccess => policy.on_step_success_needing(scripts.needs()?),
+            StepHook::OnStepFailure => policy.on_step_failure_needing(scripts.needs()?),
+            StepHook::OnStepRetry => policy.on_step_retry_needing(scripts.needs()?),
+            StepHook::OnStepAbnormalTermination => {
+                policy.on_step_abnormal_termination_needing(scripts.needs()?)
+            }
+            _ => return Err(unknown(hook)),
+        })
     }
 
-    fn workflow_policy(name: &'static str) -> WorkflowPolicy<Self, Hookless> {
-        WorkflowPolicyDescriptor::new_async(name, || ScriptedPolicy)
+    fn workflow_policy(building: Building) -> WorkflowPolicy<Self, Hookless> {
+        WorkflowPolicyDescriptor::fallible_async(building.name(), move || building.build())
     }
 
     fn workflow_hook<S>(
         policy: WorkflowPolicy<Self, S>,
         hook: WorkflowHook,
+        scripts: &Scripts,
     ) -> Result<WorkflowPolicy<Self>, ModelError> {
-        match hook {
-            WorkflowHook::OnWorkflowSuccess => Ok(policy.on_workflow_success()),
-            WorkflowHook::OnWorkflowFailure => Ok(policy.on_workflow_failure()),
-            _ => Err(unknown(hook)),
-        }
+        Ok(match hook {
+            WorkflowHook::OnWorkflowSuccess => policy.on_workflow_success_needing(scripts.needs()?),
+            WorkflowHook::OnWorkflowFailure => policy.on_workflow_failure_needing(scripts.needs()?),
+            _ => return Err(unknown(hook)),
+        })
     }
 }
 
@@ -168,21 +187,23 @@ fn unknown(hook: impl ToString) -> ModelError {
     ModelError::UnknownHook(hook.to_string())
 }
 
-/// Declares the scenario's workflow, whose steps count their runs in `steps_run`.
+/// Declares the scenario's workflow, whose steps count their runs in `steps_run`, and whose
+/// steps and hooks record what they received in `witness`.
 pub(crate) fn declared<M: Declares>(
     model: &Model,
     steps_run: &StepsRun,
+    witness: &Witness,
 ) -> Result<WorkflowBuilder<ScriptedWorkflow, M>, ModelError> {
     let workflow = model.workflow()?;
     let steps = workflow
         .steps
         .iter()
-        .map(|step| step_descriptor(model, workflow, step, steps_run))
+        .map(|step| step_descriptor(model, workflow, step, steps_run, witness))
         .collect::<Result<Vec<_>, _>>()?;
     let policies = workflow
         .policies
         .iter()
-        .map(|policy| workflow_policy::<M>(model, policy))
+        .map(|policy| workflow_policy::<M>(model, policy, witness))
         .collect::<Result<Vec<_>, _>>()?;
     let adapters = workflow
         .adapters
@@ -219,13 +240,14 @@ fn step_descriptor<M: Declares>(
     workflow: &Workflow,
     step: &str,
     steps_run: &StepsRun,
+    witness: &Witness,
 ) -> Result<StepDescriptor<ScriptedWorkflow, M>, ModelError> {
     let script = workflow
         .scripts
         .get(step)
         .ok_or_else(|| ModelError::UnknownStep(step.to_owned()))?;
-    let descriptor = M::step(step_name(step)?, Scripted::new(script, steps_run.clone())?)
-        .retry_budget(script.retries);
+    let scripted = Scripted::new(step, script, steps_run.clone(), witness.clone())?;
+    let descriptor = M::step(step_name(step)?, scripted).retry_budget(script.retries);
     let descriptor = if script.abnormal_termination_retriable {
         descriptor.abnormal_termination_retriable()
     } else {
@@ -236,42 +258,49 @@ fn step_descriptor<M: Declares>(
         .get(step)
         .into_iter()
         .flatten()
-        .map(|policy| step_policy::<M>(model, policy))
+        .map(|policy| step_policy::<M>(model, policy, witness))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(policies
         .into_iter()
         .fold(descriptor, StepDescriptor::policy))
 }
 
-fn step_policy<M: Declares>(model: &Model, name: &str) -> Result<StepPolicy<M>, ModelError> {
-    match &policy(model, name)?.hooks {
-        Hooks::Step(hooks) => {
-            let mut hooks = hooks.iter().map(hook_of);
-            let first = hooks.next().ok_or_else(|| no_hooks(name))?;
-            hooks.try_fold(
-                M::step_hook(M::step_policy(leaked(name)), first)?,
-                M::step_hook,
-            )
-        }
-        Hooks::Workflow(_) => Err(ModelError::NotStepPolicy(name.to_owned())),
-    }
+fn step_policy<M: Declares>(
+    model: &Model,
+    name: &str,
+    witness: &Witness,
+) -> Result<StepPolicy<M>, ModelError> {
+    let policy = policy(model, name)?;
+    let Hooks::Step(hooks) = &policy.hooks else {
+        return Err(ModelError::NotStepPolicy(name.to_owned()));
+    };
+    let building = Building::of(name, policy, witness)?;
+    let scripts = building.scripts();
+    let mut hooks = hooks.iter().map(hook_of);
+    let first = hooks.next().ok_or_else(|| no_hooks(name))?;
+    let declared = M::step_hook(M::step_policy(building), first, &scripts)?;
+    hooks.try_fold(declared, |declared, hook| {
+        M::step_hook(declared, hook, &scripts)
+    })
 }
 
 fn workflow_policy<M: Declares>(
     model: &Model,
     name: &str,
+    witness: &Witness,
 ) -> Result<WorkflowPolicy<M>, ModelError> {
-    match &policy(model, name)?.hooks {
-        Hooks::Workflow(hooks) => {
-            let mut hooks = hooks.iter().map(hook_of);
-            let first = hooks.next().ok_or_else(|| no_hooks(name))?;
-            hooks.try_fold(
-                M::workflow_hook(M::workflow_policy(leaked(name)), first)?,
-                M::workflow_hook,
-            )
-        }
-        Hooks::Step(_) => Err(ModelError::NotWorkflowPolicy(name.to_owned())),
-    }
+    let policy = policy(model, name)?;
+    let Hooks::Workflow(hooks) = &policy.hooks else {
+        return Err(ModelError::NotWorkflowPolicy(name.to_owned()));
+    };
+    let building = Building::of(name, policy, witness)?;
+    let scripts = building.scripts();
+    let mut hooks = hooks.iter().map(hook_of);
+    let first = hooks.next().ok_or_else(|| no_hooks(name))?;
+    let declared = M::workflow_hook(M::workflow_policy(building), first, &scripts)?;
+    hooks.try_fold(declared, |declared, hook| {
+        M::workflow_hook(declared, hook, &scripts)
+    })
 }
 
 fn policy<'a>(model: &'a Model, name: &str) -> Result<&'a Policy, ModelError> {
@@ -307,10 +336,15 @@ fn input_adapter(
         .iter()
         .map(Answering::of)
         .collect::<Result<Vec<_>, _>>()?;
+    let needs = adapter
+        .requests
+        .iter()
+        .fold(HookNeeds::new(), requiring_from_workflow);
     Ok(rest.iter().copied().fold(
         InputAdapterDescriptor::new(leaked(&adapter.name), *first, move |_, got| {
             answer(&answers, &got)
-        }),
+        })
+        .needing(needs),
         InputAdapterDescriptor::step,
     ))
 }
@@ -439,7 +473,7 @@ mod tests {
             requests: Vec::new(),
         });
 
-        let descriptor = declared::<Synchronous>(&model, &StepsRun::default())
+        let descriptor = declared::<Synchronous>(&model, &StepsRun::default(), &Witness::default())
             .unwrap()
             .build()
             .unwrap();
@@ -468,7 +502,7 @@ mod tests {
             vec!["audit".to_owned(), "audit".to_owned()],
         );
 
-        let violations = declared::<Synchronous>(&model, &StepsRun::default())
+        let violations = declared::<Synchronous>(&model, &StepsRun::default(), &Witness::default())
             .unwrap()
             .build()
             .unwrap_err();
@@ -480,7 +514,7 @@ mod tests {
     #[test]
     fn declaring_the_workflow_runs_no_step() {
         let steps_run = StepsRun::default();
-        let _ = declared::<Synchronous>(&model(), &steps_run)
+        let _ = declared::<Synchronous>(&model(), &steps_run, &Witness::default())
             .unwrap()
             .build()
             .unwrap();
@@ -494,7 +528,7 @@ mod tests {
             .declare("orders".to_owned(), vec![String::new()])
             .unwrap();
 
-        let declared = declared::<Synchronous>(&model, &StepsRun::default());
+        let declared = declared::<Synchronous>(&model, &StepsRun::default(), &Witness::default());
 
         assert_eq!(declared.err(), Some(ModelError::EmptyStepName));
     }

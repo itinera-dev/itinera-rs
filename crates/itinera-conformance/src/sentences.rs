@@ -11,6 +11,7 @@ mod input_adapters;
 mod journey_ids;
 mod outcomes;
 mod policies;
+mod received;
 mod reporters;
 
 use std::fmt;

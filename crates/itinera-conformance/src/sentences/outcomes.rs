@@ -1,16 +1,25 @@
 //! Outcomes: how the journey ended, as its result and its event stream say.
 
+use std::collections::BTreeMap;
+use std::fmt;
 use std::str::FromStr;
 
+use cucumber::gherkin::Step as Sentence;
 use cucumber::then;
+use itinera::error::Error;
 use itinera::event::{Event, EventBody};
 use itinera::executor::Refusal;
-use itinera::journey::{Failure, JourneyId, JourneyStatus, LastFailure, StatusKind};
+use itinera::journey::{
+    Abort, Failure, JourneyId, JourneyResult, JourneyStatus, LastFailure, StatusKind,
+};
 use itinera::step::{Reason, StepName};
+use itinera::value::AnyValue;
+use serde_json::Value;
+use uuid::{Uuid, Version};
 
-use super::{Unmet, expect, holds, journey, result, stream};
+use super::{Names, Unmet, expect, holds, journey, refused, result, stream};
 use crate::journey::Journey;
-use crate::model::{EventKind, ModelError};
+use crate::model::{EventKind, ModelError, Row, json, rows};
 use crate::trace::Line;
 use crate::world::World;
 
@@ -171,6 +180,302 @@ fn reason_of(failure: &Failure) -> Option<&Reason> {
         Failure::Failure(reason)
         | Failure::FailWorkflow(reason)
         | Failure::RetriesExhausted(LastFailure::Reason(reason)) => Some(reason),
+        _ => None,
+    }
+}
+
+#[then(expr = "the result's failure has the cause {string}")]
+fn the_results_failure_has_the_cause(world: &mut World, cause: String) -> Result<(), Unmet> {
+    let found = failure(world)?.map(Failure::cause);
+    holds(
+        found.is_some_and(|found| is_named(found, &cause)),
+        format_args!("a failure with the cause \"{cause}\""),
+        format_args!("{found:?}"),
+    )
+}
+
+#[then(expr = "the result's failure carries the error {string}")]
+fn the_results_failure_carries_the_error(world: &mut World, message: String) -> Result<(), Unmet> {
+    let found = failure(world)?
+        .and_then(error_of_failure)
+        .map(Error::to_string);
+    holds(
+        found.as_ref() == Some(&message),
+        format_args!("a failure carrying the error \"{message}\""),
+        format_args!("{found:?}"),
+    )
+}
+
+#[then(expr = "the result's failure carries no error")]
+fn the_results_failure_carries_no_error(world: &mut World) -> Result<(), Unmet> {
+    let found = failure(world)?;
+    holds(
+        found.is_some_and(carries_no_error),
+        "a failure carrying no error",
+        format_args!("{found:?}"),
+    )
+}
+
+fn carries_no_error(failure: &Failure) -> bool {
+    error_of_failure(failure).is_none()
+}
+
+#[then(expr = "the result's failure carries no reason")]
+fn the_results_failure_carries_no_reason(world: &mut World) -> Result<(), Unmet> {
+    let found = failure(world)?;
+    holds(
+        found.is_some_and(carries_no_reason),
+        "a failure carrying no reason",
+        format_args!("{found:?}"),
+    )
+}
+
+fn carries_no_reason(failure: &Failure) -> bool {
+    reason_of(failure).is_none()
+}
+
+/// Whether a cause or an abort reason displays as the cases name it.
+fn is_named(found: impl fmt::Display, name: &str) -> bool {
+    found.to_string() == name
+}
+
+/// Why the last journey failed, if it failed.
+fn failure(world: &World) -> Result<Option<&Failure>, Unmet> {
+    Ok(match &result(world)?.status {
+        JourneyStatus::Failed { failure, .. } => Some(failure),
+        _ => None,
+    })
+}
+
+/// The error a failure carries, when an abnormal termination ended it.
+fn error_of_failure(failure: &Failure) -> Option<&Error> {
+    match failure {
+        Failure::AbnormalTermination(error)
+        | Failure::RetriesExhausted(LastFailure::Error(error)) => Some(error),
+        _ => None,
+    }
+}
+
+#[then(expr = "the result's abort carries the error {string}")]
+fn the_results_abort_carries_the_error(world: &mut World, message: String) -> Result<(), Unmet> {
+    let found = abort(world)?.and_then(error_of_abort).map(Error::to_string);
+    holds(
+        found.as_ref() == Some(&message),
+        format_args!("an abort carrying the error \"{message}\""),
+        format_args!("{found:?}"),
+    )
+}
+
+#[then(expr = "the result's abort carries no error")]
+fn the_results_abort_carries_no_error(world: &mut World) -> Result<(), Unmet> {
+    let found = abort(world)?;
+    holds(
+        found.is_some_and(carries_no_error_on_abort),
+        "an abort carrying no error",
+        format_args!("{found:?}"),
+    )
+}
+
+fn carries_no_error_on_abort(abort: &Abort) -> bool {
+    error_of_abort(abort).is_none()
+}
+
+/// Why the last journey was aborted, if it was.
+fn abort(world: &World) -> Result<Option<&Abort>, Unmet> {
+    Ok(match &result(world)?.status {
+        JourneyStatus::Aborted(abort) => Some(abort),
+        _ => None,
+    })
+}
+
+/// The error an abort carries, when failing custom code caused it.
+fn error_of_abort(abort: &Abort) -> Option<&Error> {
+    match abort {
+        Abort::StepCouldNotBeBuilt(error)
+        | Abort::PolicyCouldNotBeBuilt { error, .. }
+        | Abort::HookFailed(error)
+        | Abort::ReporterFailed(error) => Some(error),
+        _ => None,
+    }
+}
+
+#[then(expr = "the result names the failed step {string} with the code {string}")]
+fn the_result_names_the_failed_step(
+    world: &mut World,
+    step_name: String,
+    code: String,
+) -> Result<(), Unmet> {
+    let found = failure(world)?.and_then(reason_of).map(Reason::code);
+    let (events, lines) = stream(world)?;
+    expect(
+        found == Some(code.as_str()) && lines.iter().any(|line| fails_at(line, &step_name)),
+        format_args!(
+            "a failure with the code \"{code}\", whose journey_failed names \"{step_name}\""
+        ),
+        &events,
+    )
+}
+
+/// Whether the line is a `journey_failed` naming the step.
+pub(super) fn fails_at(line: &Line, step: &str) -> bool {
+    line.event == "journey_failed" && line.has_cell("step", step)
+}
+
+#[then(
+    expr = "the result names the step {string} as where the journey was aborted, with the abort reason {string}"
+)]
+fn the_result_names_the_step_where_the_journey_was_aborted(
+    world: &mut World,
+    step_name: String,
+    reason: String,
+) -> Result<(), Unmet> {
+    let found = abort(world)?.map(Abort::reason);
+    let (events, _) = stream(world)?;
+    expect(
+        found.is_some_and(|found| is_named(found, &reason))
+            && events.iter().any(|event| is_aborted_at(event, &step_name)),
+        format_args!("an abort \"{reason}\", whose journey_aborted names \"{step_name}\""),
+        &events,
+    )
+}
+
+fn is_aborted_at(event: &Event, step: &str) -> bool {
+    aborted_during(event, step).is_some()
+}
+
+#[then(expr = "the journey ID is a UUID v4")]
+fn the_journey_id_is_a_uuid_v4(world: &mut World) -> Result<(), Unmet> {
+    let id: &str = journey(world)?.journey_id.as_ref();
+    holds(
+        Uuid::parse_str(id).is_ok_and(is_random),
+        "a UUID v4",
+        format_args!("\"{id}\""),
+    )
+}
+
+fn is_random(uuid: Uuid) -> bool {
+    uuid.get_version() == Some(Version::Random)
+}
+
+#[then(expr = "the result's data bag contains:")]
+fn the_results_data_bag_contains(
+    world: &mut World,
+    #[step] sentence: &Sentence,
+) -> Result<(), Unmet> {
+    contains(result(world)?, sentence)
+}
+
+#[then(expr = "the second journey's data bag contains:")]
+fn the_second_journeys_data_bag_contains(
+    world: &mut World,
+    #[step] sentence: &Sentence,
+) -> Result<(), Unmet> {
+    let second = world
+        .journeys
+        .get(1)
+        .ok_or_else(|| Unmet::Case("no second journey ran".to_owned()))?;
+    contains(second.run.as_ref().map_err(refused)?, sentence)
+}
+
+/// Holds when the result's data bag has every entry of the sentence's table.
+fn contains(result: &JourneyResult, sentence: &Sentence) -> Result<(), Unmet> {
+    let found = in_json(result)?;
+    rows(sentence)?
+        .iter()
+        .try_for_each(|row| holds_entry(&found, row))
+}
+
+fn holds_entry(found: &BTreeMap<&str, Value>, row: &Row) -> Result<(), Unmet> {
+    let key = row.required("key")?;
+    let value = json(row.required("value")?)?;
+    holds(
+        found.get(key) == Some(&value),
+        format_args!("\"{key}\" = {value} in the data bag"),
+        format_args!("{found:?}"),
+    )
+}
+
+/// The result's data bag, each value as JSON.
+fn in_json(result: &JourneyResult) -> Result<BTreeMap<&str, Value>, Unmet> {
+    let data = result.status.data().ok_or_else(|| no_data_bag(result))?;
+    data.into_iter()
+        .map(entry)
+        .collect::<Result<_, _>>()
+        .map_err(not_json)
+}
+
+fn no_data_bag(result: &JourneyResult) -> Unmet {
+    Unmet::Expected(format!("a data bag; the journey {}", result.status.kind()))
+}
+
+fn entry<'d>((key, value): (&'d String, &AnyValue)) -> Result<(&'d str, Value), serde_json::Error> {
+    Ok((key, serde_json::to_value(value)?))
+}
+
+fn not_json(error: serde_json::Error) -> Unmet {
+    Unmet::Case(error.to_string())
+}
+
+#[then(expr = "the result's data bag has no key {string}")]
+fn the_results_data_bag_has_no_key(world: &mut World, key: String) -> Result<(), Unmet> {
+    let found = in_json(result(world)?)?;
+    holds(
+        !found.contains_key(key.as_str()),
+        format_args!("no \"{key}\" in the data bag"),
+        format_args!("{found:?}"),
+    )
+}
+
+/// The status of an aborted journey has no data bag to read, so the result offers none.
+#[then(expr = "the result carries no data bag")]
+fn the_result_carries_no_data_bag(world: &mut World) -> Result<(), Unmet> {
+    let status = &result(world)?.status;
+    holds(
+        status.data().is_none(),
+        "no data bag",
+        format_args!("the data bag of a journey that {}", status.kind()),
+    )
+}
+
+#[then(expr = "no contribution of {string} was committed")]
+fn no_contribution_was_committed(world: &mut World, key: String) -> Result<(), Unmet> {
+    let (events, lines) = stream(world)?;
+    expect(
+        !lines.iter().any(|line| commits(line, &key)),
+        format_args!("no contribution_committed of \"{key}\""),
+        &events,
+    )
+}
+
+fn commits(line: &Line, key: &str) -> bool {
+    line.event == "contribution_committed" && line.has_cell("key", key)
+}
+
+/// `journey_started` holds the keys only, never their values.
+#[then(expr = "the journey_started event lists the initial keys {names} without their values")]
+fn the_journey_started_event_lists_the_initial_keys(
+    world: &mut World,
+    keys: Names,
+) -> Result<(), Unmet> {
+    let mut expected: Vec<String> = keys.into();
+    expected.sort();
+    let (events, _) = stream(world)?;
+    let found = events.iter().find_map(initial_keys);
+    expect(
+        found == Some(expected.clone()),
+        format_args!("journey_started to list {expected:?}"),
+        &events,
+    )
+}
+
+/// The initial keys of a `journey_started`, in order.
+fn initial_keys(event: &Event) -> Option<Vec<String>> {
+    match &event.body {
+        EventBody::JourneyStarted { initial_keys, .. } => {
+            let mut keys = initial_keys.clone();
+            keys.sort();
+            Some(keys)
+        }
         _ => None,
     }
 }

@@ -300,6 +300,10 @@ pub(crate) enum ModelError {
     AdapterDeclaredTwice(String),
     #[error("the runner lists at most {0} reporters")]
     TooManyReporters(usize),
+    #[error("the hook \"{0}\" cannot request {1}")]
+    RequestNotAllowed(Hook, &'static str),
+    #[error("the hook \"{0}\" cannot return {1}")]
+    LifecycleNotAllowed(Hook, &'static str),
 }
 
 /// A step that does nothing yet, under its name.

@@ -33,10 +33,11 @@ fn the_workflow_is_listed(world: &mut World) -> Result<(), ModelError> {
 /// admission nor the listing depends on the execution mode, so the workflow is declared
 /// synchronous.
 fn admit(world: &mut World) -> Result<(), ModelError> {
-    let admission = match declared::<Synchronous>(&world.model, &world.steps_run)?.build() {
-        Ok(descriptor) => Admission::Admitted(descriptor.listing()),
-        Err(violations) => Admission::Refused(violations),
-    };
+    let admission =
+        match declared::<Synchronous>(&world.model, &world.steps_run, &world.witness)?.build() {
+            Ok(descriptor) => Admission::Admitted(descriptor.listing()),
+            Err(violations) => Admission::Refused(violations),
+        };
     world.admission = Some(admission);
     Ok(())
 }
