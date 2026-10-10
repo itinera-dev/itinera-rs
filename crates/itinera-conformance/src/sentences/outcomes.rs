@@ -239,11 +239,11 @@ impl FromStr for Status {
 impl Status {
     /// The step's status, read from the journey's events: the first event that settles it, which
     /// stays final even when the journey is aborted afterwards; otherwise `aborted` when
-    /// `journey_aborted` names it, since the journey was aborted while the step was executing,
-    /// or `not executed` when no attempt started; nothing while it was still being attempted.
+    /// `journey_aborted` names it, since the journey was aborted before the step settled, or
+    /// `not executed` when no attempt started; nothing while it was still being attempted.
     fn of(events: &[Event], step: &str) -> Option<Self> {
         settling(events, step)
-            .or_else(|| aborted_while_executing(events, step))
+            .or_else(|| aborted_before_settling(events, step))
             .or_else(|| not_executed(events, step))
     }
 }
@@ -252,7 +252,7 @@ fn settling(events: &[Event], step: &str) -> Option<Status> {
     events.iter().find_map(|event| settled(event, step))
 }
 
-fn aborted_while_executing(events: &[Event], step: &str) -> Option<Status> {
+fn aborted_before_settling(events: &[Event], step: &str) -> Option<Status> {
     events.iter().find_map(|event| aborted_during(event, step))
 }
 
@@ -344,7 +344,7 @@ mod tests {
 
     /// The charge step succeeds, and a reporter fails on its contribution, which aborts the
     /// journey once the step has settled.
-    fn is_aborted_once_it_succeeded(model: &mut Model) {
+    fn succeeds_before_a_reporter_aborts_the_journey(model: &mut Model) {
         let charge = model.step_mut("charge").unwrap();
         charge.attempts = Some(vec![Attempt {
             outcome: AttemptOutcome::Success,
@@ -366,7 +366,7 @@ mod tests {
     #[case::after_one_given_up(is_given_up, "ship", Status::NotExecuted, 0)]
     #[case::that_could_not_be_built(cannot_be_built, "charge", Status::Aborted, 1)]
     #[case::that_succeeded_before_the_journey_was_aborted(
-        is_aborted_once_it_succeeded,
+        succeeds_before_a_reporter_aborts_the_journey,
         "charge",
         Status::Succeeded,
         1
