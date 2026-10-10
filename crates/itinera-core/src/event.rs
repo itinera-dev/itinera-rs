@@ -5,7 +5,7 @@ use std::num::NonZeroU64;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::journey::{AbortReason, FailureCause, JourneyId, LastFailure};
-use crate::policy::{Lifecycle, PolicyName, StepHook, WorkflowHook};
+use crate::policy::{Lifecycle, PolicyName, RetryCause, StepHook, WorkflowHook};
 use crate::step::{Reason, StepAttempt, StepName};
 use crate::value::AnyValue;
 use crate::workflow::{AdapterName, WorkflowName};
@@ -102,28 +102,6 @@ impl GiveUpHook {
             Self::OnStepAbnormalTermination => StepHook::OnStepAbnormalTermination,
         }
     }
-}
-
-/// Why a step will be attempted again.
-///
-/// It displays as the cause is named, for example `retriable failure`.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::event::RetryCause;
-///
-/// assert_eq!(RetryCause::RetriableFailure.to_string(), "retriable failure");
-/// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
-#[non_exhaustive]
-pub enum RetryCause {
-    /// The attempt reported a retriable failure.
-    #[display("retriable failure")]
-    RetriableFailure,
-    /// The attempt ended in an abnormal termination, and the step allows retrying it.
-    #[display("abnormal termination")]
-    AbnormalTermination,
 }
 
 /// Why a step will not be attempted again.
@@ -1097,11 +1075,6 @@ pub(crate) mod tests {
     #[case::give_up_on_step_abnormal_termination(
         &GiveUpHook::OnStepAbnormalTermination,
         "on step abnormal termination"
-    )]
-    #[case::retry_after_a_retriable_failure(&RetryCause::RetriableFailure, "retriable failure")]
-    #[case::retry_after_an_abnormal_termination(
-        &RetryCause::AbnormalTermination,
-        "abnormal termination"
     )]
     #[case::given_up_after_a_failure(&GiveUpCause::Failure, "failure")]
     #[case::given_up_after_an_abnormal_termination(

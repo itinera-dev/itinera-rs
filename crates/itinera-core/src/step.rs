@@ -8,7 +8,7 @@ use std::pin::Pin;
 
 use crate::error::Error;
 use crate::mode::Synchronous;
-use crate::policy::StepPolicyDescriptor;
+use crate::policy::{StepPolicyDescriptor, StepPolicyEntry};
 use crate::value::{AnyValue, Value};
 
 #[cfg(feature = "async")]
@@ -19,7 +19,7 @@ mod reporter;
 
 #[cfg(feature = "async")]
 pub use asynchronous::{AsyncStep, AsyncStepFactory, AsyncStepReporter};
-pub(crate) use needs::{Got, InputNeed, Requirement};
+pub(crate) use needs::{Got, InputNeed, Requirement, Slots};
 pub use needs::{Input, OptionalInput, Resolved, StepNeeds};
 pub use outcome::Outcome;
 pub(crate) use outcome::OutcomeKind;
@@ -242,7 +242,10 @@ pub trait StepFactory: Send + Sync + 'static {
     /// use itinera::error::Error;
     /// use itinera::step::{Resolved, StepFactory};
     ///
-    /// fn build<'a, F: StepFactory>(factory: &'a F, got: &mut Resolved<'a>) -> Result<F::Step<'a>, Error> {
+    /// fn build<'a, F: StepFactory>(
+    ///     factory: &'a F,
+    ///     got: &mut Resolved<'a>,
+    /// ) -> Result<F::Step<'a>, Error> {
     ///     factory.build(got)
     /// }
     /// ```
@@ -292,24 +295,38 @@ impl<F: StepFactory> Attempts for Synchronously<F> {
 /// The retry budget is 0, and an abnormal termination is not retried, unless the descriptor
 /// says otherwise.
 ///
-/// `M` is the mode of the workflows that may hold it: a step of a synchronous workflow comes from
-/// a [`StepFactory`].
+/// `W` is the type of the workflows that may hold it, which only its policies see, and `M` their
+/// mode: a step of a synchronous workflow comes from a [`StepFactory`].
 ///
 /// # Examples
 ///
 /// ```
-/// use itinera::policy::{StepHook, StepPolicyDescriptor};
+/// use itinera::error::Error;
+/// use itinera::policy::{OnStepSuccess, OnSuccess, Requested, StepPolicyDescriptor, StepSuccess};
 /// use itinera::step::{Outcome, StepDescriptor, step_name};
 ///
-/// let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess);
-/// let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()))
+/// struct Audit;
+///
+/// impl<W: Send + Sync + 'static> OnStepSuccess<W> for Audit {
+///     fn on_step_success(
+///         &self,
+///         _got: Requested<'_, W, StepSuccess>,
+///     ) -> Result<Option<OnSuccess>, Error> {
+///         Ok(None)
+///     }
+/// }
+///
+/// struct Orders;
+///
+/// let audit = StepPolicyDescriptor::new("audit", || Audit).on_step_success();
+/// let charge = StepDescriptor::<Orders>::new(step_name!("charge"), || Ok(Outcome::success()))
 ///     .retry_budget(2)
 ///     .abnormal_termination_retriable()
 ///     .policy(audit);
 /// assert_eq!(charge.name().to_string(), "charge");
 /// ```
 #[derive(derive_more::Debug)]
-pub struct StepDescriptor<M = Synchronous> {
+pub struct StepDescriptor<W, M = Synchronous> {
     name: StepName,
     needs: StepNeeds,
     #[debug(skip)]
@@ -317,12 +334,12 @@ pub struct StepDescriptor<M = Synchronous> {
     /// How many retries the step allows after its first attempt.
     retry_budget: u16,
     abnormal_termination_retriable: bool,
-    policies: Vec<StepPolicyDescriptor>,
+    policies: Vec<Box<dyn StepPolicyEntry<W, M>>>,
     #[debug(skip)]
-    mode: PhantomData<M>,
+    mode: PhantomData<fn() -> M>,
 }
 
-impl StepDescriptor {
+impl<W> StepDescriptor<W> {
     /// Describes a step of a synchronous workflow with its name and its factory, with no
     /// policies.
     ///
@@ -331,14 +348,16 @@ impl StepDescriptor {
     /// ```
     /// use itinera::step::{Outcome, StepDescriptor, step_name};
     ///
-    /// let ship = StepDescriptor::new(step_name!("ship"), || Ok(Outcome::success()));
+    /// struct Orders;
+    ///
+    /// let ship = StepDescriptor::<Orders>::new(step_name!("ship"), || Ok(Outcome::success()));
     /// ```
     pub fn new(name: StepName, factory: impl StepFactory) -> Self {
         Self::holding(name, factory.needs(), Box::new(Synchronously { factory }))
     }
 }
 
-impl<M> StepDescriptor<M> {
+impl<W, M> StepDescriptor<W, M> {
     fn holding(name: StepName, needs: StepNeeds, factory: Box<dyn Attempts>) -> Self {
         Self {
             name,
@@ -360,7 +379,9 @@ impl<M> StepDescriptor<M> {
     /// ```
     /// use itinera::step::{Outcome, StepDescriptor, step_name};
     ///
-    /// let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()))
+    /// struct Orders;
+    ///
+    /// let charge = StepDescriptor::<Orders>::new(step_name!("charge"), || Ok(Outcome::success()))
     ///     .retry_budget(3);
     /// ```
     pub fn retry_budget(mut self, retries: u16) -> Self {
@@ -377,7 +398,9 @@ impl<M> StepDescriptor<M> {
     /// ```
     /// use itinera::step::{Outcome, StepDescriptor, step_name};
     ///
-    /// let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()))
+    /// struct Orders;
+    ///
+    /// let charge = StepDescriptor::<Orders>::new(step_name!("charge"), || Ok(Outcome::success()))
     ///     .retry_budget(1)
     ///     .abnormal_termination_retriable();
     /// ```
@@ -391,17 +414,47 @@ impl<M> StepDescriptor<M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::policy::{StepHook, StepPolicyDescriptor};
+    /// use itinera::error::Error;
+    /// use itinera::policy::{
+    ///     FailWorkflow, OnStepFailure, OnStepSuccess, OnSuccess, Requested, StepFailure,
+    ///     StepPolicyDescriptor, StepSuccess,
+    /// };
     /// use itinera::step::{Outcome, StepDescriptor, step_name};
     ///
-    /// let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess);
-    /// let alarm = StepPolicyDescriptor::new("alarm", StepHook::OnStepFailure);
-    /// let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()))
-    ///     .policy(audit)
-    ///     .policy(alarm);
+    /// struct Audit;
+    ///
+    /// impl<W: Send + Sync + 'static> OnStepSuccess<W> for Audit {
+    ///     fn on_step_success(
+    ///         &self,
+    ///         _got: Requested<'_, W, StepSuccess>,
+    ///     ) -> Result<Option<OnSuccess>, Error> {
+    ///         Ok(None)
+    ///     }
+    /// }
+    ///
+    /// struct Alarm;
+    ///
+    /// impl<W: Send + Sync + 'static> OnStepFailure<W> for Alarm {
+    ///     fn on_step_failure(
+    ///         &self,
+    ///         _got: Requested<'_, W, StepFailure>,
+    ///     ) -> Result<Option<FailWorkflow>, Error> {
+    ///         Ok(None)
+    ///     }
+    /// }
+    ///
+    /// struct Orders;
+    ///
+    /// let charge = StepDescriptor::<Orders>::new(step_name!("charge"), || Ok(Outcome::success()))
+    ///     .policy(StepPolicyDescriptor::new("audit", || Audit).on_step_success())
+    ///     .policy(StepPolicyDescriptor::new("alarm", || Alarm).on_step_failure());
     /// ```
-    pub fn policy(mut self, policy: StepPolicyDescriptor) -> Self {
-        self.policies.push(policy);
+    pub fn policy<P: Send + Sync + 'static>(mut self, policy: StepPolicyDescriptor<P, W, M>) -> Self
+    where
+        W: 'static,
+        M: 'static,
+    {
+        self.policies.push(Box::new(policy));
         self
     }
 
@@ -412,7 +465,9 @@ impl<M> StepDescriptor<M> {
     /// ```
     /// use itinera::step::{Outcome, StepDescriptor, step_name};
     ///
-    /// let ship = StepDescriptor::new(step_name!("ship"), || Ok(Outcome::success()));
+    /// struct Orders;
+    ///
+    /// let ship = StepDescriptor::<Orders>::new(step_name!("ship"), || Ok(Outcome::success()));
     /// assert_eq!(ship.name(), step_name!("ship"));
     /// ```
     pub fn name(&self) -> StepName {
@@ -432,7 +487,7 @@ impl<M> StepDescriptor<M> {
         self.abnormal_termination_retriable
     }
 
-    pub(crate) fn policies(&self) -> &[StepPolicyDescriptor] {
+    pub(crate) fn policies(&self) -> &[Box<dyn StepPolicyEntry<W, M>>] {
         &self.policies
     }
 

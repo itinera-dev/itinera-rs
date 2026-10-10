@@ -1,11 +1,12 @@
 //! Executors, which run workflow instances, and the refusals they give when a journey cannot
 //! start.
 
-use crate::engine::{self, Failures, Inline};
+use crate::engine::{self, Failures, Inline, WorkflowPolicies};
 use crate::error::Error;
 use crate::instance::WorkflowInstance;
 use crate::journey::JourneyResult;
 use crate::mode::Synchronous;
+use crate::policy::{BuiltWorkflowPolicy, PolicyName, WorkflowPolicyEntry};
 use crate::report::{DefaultDispatcherFactory, Dispatcher, DispatcherFactory};
 
 #[cfg(feature = "async")]
@@ -75,18 +76,18 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
 
     /// Runs one journey of the instance and returns its result.
     ///
-    /// Before the journey starts, it creates the journey's dispatcher and adds the instance's
-    /// reporters to it. Whatever happens inside the journey, failures and aborts included, is in
-    /// the result. A panic is not caught: it reaches the caller, and the journey stops where it
-    /// was.
+    /// Before the journey starts, it builds one instance of each of the workflow's policies, then
+    /// creates the journey's dispatcher and adds the instance's reporters to it. Whatever happens
+    /// inside the journey, failures and aborts included, is in the result. A panic is not caught:
+    /// it reaches the caller, and the journey stops where it was.
     ///
     /// `run` takes the instance, so an instance runs one journey and cannot run again. It borrows
     /// the executor mutably, so an executor runs one journey at a time.
     ///
     /// # Errors
     ///
-    /// A [`Refusal`], with no journey and no event, when the dispatcher factory fails, or the
-    /// dispatcher fails while the reporters are added.
+    /// A [`Refusal`], with no journey and no event, when a workflow policy fails while it is
+    /// built, the dispatcher factory fails, or the dispatcher fails while the reporters are added.
     ///
     /// # Examples
     ///
@@ -113,6 +114,7 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
         &mut self,
         mut instance: I,
     ) -> Result<JourneyResult, Refusal> {
+        let policies = build_policies(&instance)?;
         let mut dispatcher = self.factory.create().map_err(Refusal::DispatcherFactory)?;
         let failures = Failures::default();
         instance
@@ -123,6 +125,7 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
             .map_err(Refusal::Dispatcher)?;
         Ok(engine::finish(engine::run(
             instance,
+            policies,
             Inline::from(dispatcher),
             failures,
             std::time::SystemTime::now,
@@ -147,12 +150,47 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum Refusal {
+    /// A workflow policy failed while it was built for the journey.
+    #[error("the workflow policy {policy} could not be built: {error}")]
+    #[non_exhaustive]
+    WorkflowPolicy {
+        /// The policy's name.
+        policy: PolicyName,
+        /// The error it failed with.
+        error: Error,
+    },
     /// The dispatcher factory failed to create the journey's dispatcher.
     #[error("the dispatcher factory failed: {0}")]
     DispatcherFactory(Error),
     /// The dispatcher failed while the journey's reporters were added.
     #[error("the dispatcher failed while the reporters were added: {0}")]
     Dispatcher(Error),
+}
+
+/// Builds one instance of each of the instance's workflow policies, for its journey, in the order
+/// they were attached.
+pub(crate) fn build_policies<I: WorkflowInstance>(
+    instance: &I,
+) -> Result<WorkflowPolicies<I::Workflow, I::Mode>, Refusal> {
+    instance
+        .descriptor()
+        .policies()
+        .iter()
+        .map(Box::as_ref)
+        .map(build_policy)
+        .collect()
+}
+
+fn build_policy<W, M>(
+    policy: &dyn WorkflowPolicyEntry<W, M>,
+) -> Result<Box<dyn BuiltWorkflowPolicy<W, M>>, Refusal> {
+    match policy.build() {
+        Ok(built) => Ok(built),
+        Err(error) => Err(Refusal::WorkflowPolicy {
+            policy: policy.name(),
+            error,
+        }),
+    }
 }
 
 #[cfg(test)]
@@ -165,6 +203,8 @@ pub(crate) mod tests {
     use crate::event::{Event, EventBody, JourneyAbort};
     use crate::instance::Instance;
     use crate::journey::{Abort, DataBag, JourneyId, JourneyStatus};
+    use crate::policy::WorkflowPolicyDescriptor;
+    use crate::policy::tests::Quiet;
     use crate::report::{DefaultDispatcher, Reporter, WorkflowReporter};
     use crate::step::{Outcome, StepDescriptor, StepName};
     use crate::workflow::{WorkflowBuilder, WorkflowDescriptor};
@@ -714,6 +754,52 @@ pub(crate) mod tests {
 
         assert_ne!(first.journey_id, second.journey_id);
         assert_eq!(executor.factory.created, 2);
+    }
+
+    #[test]
+    fn a_workflow_policy_that_cannot_be_built_refuses_the_journey_before_its_dispatcher() {
+        let broken = WorkflowPolicyDescriptor::fallible("notify", || {
+            Err::<Quiet, _>(Error::msg("no mail server"))
+        })
+        .on_workflow_success();
+        let workflow = shop_builder().policy(broken).build().unwrap();
+        let mut executor = LocalExecutor::with_dispatcher_factory(Counting { created: 0 });
+
+        let refused = executor.run(workflow.instance(Shop::new()).create().unwrap());
+
+        let Err(refusal) = refused else {
+            panic!("the journey was not refused");
+        };
+        assert!(matches!(
+            &refusal,
+            Refusal::WorkflowPolicy { policy, .. } if *policy == PolicyName::from("notify")
+        ));
+        assert_eq!(
+            refusal.to_string(),
+            "the workflow policy notify could not be built: no mail server"
+        );
+        assert_eq!(executor.factory.created, 0);
+    }
+
+    #[test]
+    fn each_journey_gets_new_workflow_policy_instances() {
+        let built = Arc::new(Mutex::new(0));
+        let counting = Arc::clone(&built);
+        let notify = WorkflowPolicyDescriptor::new("notify", move || {
+            *counting.lock().unwrap() += 1;
+            Quiet
+        })
+        .on_workflow_success();
+        let workflow = shop_builder().policy(notify).build().unwrap();
+        let mut executor = LocalExecutor::new();
+
+        for _ in 0..2 {
+            executor
+                .run(workflow.instance(Shop::new()).create().unwrap())
+                .unwrap();
+        }
+
+        assert_eq!(*built.lock().unwrap(), 2);
     }
 
     #[test]

@@ -9,6 +9,7 @@ mod executor;
 mod journey;
 #[expect(dead_code, reason = "the sentences that act on the model read it")]
 mod model;
+mod policy;
 mod record;
 mod sentences;
 mod step;

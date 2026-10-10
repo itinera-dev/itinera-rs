@@ -4,7 +4,9 @@
 use itinera::error::Error;
 use itinera::journey::DataBag;
 use itinera::mode::{Asynchronous, Mode, Synchronous};
-use itinera::policy::{StepPolicyDescriptor, WorkflowPolicyDescriptor};
+use itinera::policy::{
+    Hooked, Hookless, StepHook, StepPolicyDescriptor, WorkflowHook, WorkflowPolicyDescriptor,
+};
 use itinera::step::{StepDescriptor, StepName};
 use itinera::value::AnyValue;
 use itinera::workflow::{
@@ -14,6 +16,7 @@ use itinera::workflow::{
 use crate::model::{
     Adapter, Answer, HookScript, Hooks, IdGenerator, Model, ModelError, Policy, Workflow,
 };
+use crate::policy::ScriptedPolicy;
 use crate::record::{ListedReporter, Recorder};
 use crate::step::{Scripted, StepsRun};
 use crate::value::Typed;
@@ -44,11 +47,35 @@ pub(crate) enum Admission {
     Refused(Violations),
 }
 
+/// A scripted step policy, declared in the mode `M`, which names its hooks once it is `Hooked`.
+type StepPolicy<M, S = Hooked> = StepPolicyDescriptor<ScriptedPolicy, ScriptedWorkflow, M, S>;
+
+/// A scripted workflow policy, declared in the mode `M`, which names its hooks once it is
+/// `Hooked`.
+type WorkflowPolicy<M, S = Hooked> =
+    WorkflowPolicyDescriptor<ScriptedPolicy, ScriptedWorkflow, M, S>;
+
 /// An execution mode the scenario's workflow can be declared in.
 pub(crate) trait Declares: Mode + Sized {
     fn builder(name: &'static str) -> WorkflowBuilder<ScriptedWorkflow, Self>;
 
-    fn step(name: StepName, factory: Scripted) -> StepDescriptor<Self>;
+    fn step(name: StepName, factory: Scripted) -> StepDescriptor<ScriptedWorkflow, Self>;
+
+    fn step_policy(name: &'static str) -> StepPolicy<Self, Hookless>;
+
+    /// The step policy, which defines this hook too.
+    fn step_hook<S>(
+        policy: StepPolicy<Self, S>,
+        hook: StepHook,
+    ) -> Result<StepPolicy<Self>, ModelError>;
+
+    fn workflow_policy(name: &'static str) -> WorkflowPolicy<Self, Hookless>;
+
+    /// The workflow policy, which defines this hook too.
+    fn workflow_hook<S>(
+        policy: WorkflowPolicy<Self, S>,
+        hook: WorkflowHook,
+    ) -> Result<WorkflowPolicy<Self>, ModelError>;
 }
 
 impl Declares for Synchronous {
@@ -56,8 +83,40 @@ impl Declares for Synchronous {
         WorkflowDescriptor::builder(name)
     }
 
-    fn step(name: StepName, factory: Scripted) -> StepDescriptor<Self> {
+    fn step(name: StepName, factory: Scripted) -> StepDescriptor<ScriptedWorkflow, Self> {
         StepDescriptor::new(name, factory)
+    }
+
+    fn step_policy(name: &'static str) -> StepPolicy<Self, Hookless> {
+        StepPolicyDescriptor::new(name, || ScriptedPolicy)
+    }
+
+    fn step_hook<S>(
+        policy: StepPolicy<Self, S>,
+        hook: StepHook,
+    ) -> Result<StepPolicy<Self>, ModelError> {
+        match hook {
+            StepHook::OnStepSuccess => Ok(policy.on_step_success()),
+            StepHook::OnStepFailure => Ok(policy.on_step_failure()),
+            StepHook::OnStepRetry => Ok(policy.on_step_retry()),
+            StepHook::OnStepAbnormalTermination => Ok(policy.on_step_abnormal_termination()),
+            _ => Err(unknown(hook)),
+        }
+    }
+
+    fn workflow_policy(name: &'static str) -> WorkflowPolicy<Self, Hookless> {
+        WorkflowPolicyDescriptor::new(name, || ScriptedPolicy)
+    }
+
+    fn workflow_hook<S>(
+        policy: WorkflowPolicy<Self, S>,
+        hook: WorkflowHook,
+    ) -> Result<WorkflowPolicy<Self>, ModelError> {
+        match hook {
+            WorkflowHook::OnWorkflowSuccess => Ok(policy.on_workflow_success()),
+            WorkflowHook::OnWorkflowFailure => Ok(policy.on_workflow_failure()),
+            _ => Err(unknown(hook)),
+        }
     }
 }
 
@@ -66,9 +125,46 @@ impl Declares for Asynchronous {
         WorkflowDescriptor::async_builder(name)
     }
 
-    fn step(name: StepName, factory: Scripted) -> StepDescriptor<Self> {
+    fn step(name: StepName, factory: Scripted) -> StepDescriptor<ScriptedWorkflow, Self> {
         StepDescriptor::new_async(name, factory)
     }
+
+    fn step_policy(name: &'static str) -> StepPolicy<Self, Hookless> {
+        StepPolicyDescriptor::new_async(name, || ScriptedPolicy)
+    }
+
+    fn step_hook<S>(
+        policy: StepPolicy<Self, S>,
+        hook: StepHook,
+    ) -> Result<StepPolicy<Self>, ModelError> {
+        match hook {
+            StepHook::OnStepSuccess => Ok(policy.on_step_success()),
+            StepHook::OnStepFailure => Ok(policy.on_step_failure()),
+            StepHook::OnStepRetry => Ok(policy.on_step_retry()),
+            StepHook::OnStepAbnormalTermination => Ok(policy.on_step_abnormal_termination()),
+            _ => Err(unknown(hook)),
+        }
+    }
+
+    fn workflow_policy(name: &'static str) -> WorkflowPolicy<Self, Hookless> {
+        WorkflowPolicyDescriptor::new_async(name, || ScriptedPolicy)
+    }
+
+    fn workflow_hook<S>(
+        policy: WorkflowPolicy<Self, S>,
+        hook: WorkflowHook,
+    ) -> Result<WorkflowPolicy<Self>, ModelError> {
+        match hook {
+            WorkflowHook::OnWorkflowSuccess => Ok(policy.on_workflow_success()),
+            WorkflowHook::OnWorkflowFailure => Ok(policy.on_workflow_failure()),
+            _ => Err(unknown(hook)),
+        }
+    }
+}
+
+/// A hook itinera knows that the runner does not.
+fn unknown(hook: impl ToString) -> ModelError {
+    ModelError::UnknownHook(hook.to_string())
 }
 
 /// Declares the scenario's workflow, whose steps count their runs in `steps_run`.
@@ -85,7 +181,7 @@ pub(crate) fn declared<M: Declares>(
     let policies = workflow
         .policies
         .iter()
-        .map(|policy| workflow_policy(model, policy))
+        .map(|policy| workflow_policy::<M>(model, policy))
         .collect::<Result<Vec<_>, _>>()?;
     let adapters = workflow
         .adapters
@@ -122,7 +218,7 @@ fn step_descriptor<M: Declares>(
     workflow: &Workflow,
     step: &str,
     steps_run: &StepsRun,
-) -> Result<StepDescriptor<M>, ModelError> {
+) -> Result<StepDescriptor<ScriptedWorkflow, M>, ModelError> {
     let script = workflow
         .scripts
         .get(step)
@@ -139,34 +235,39 @@ fn step_descriptor<M: Declares>(
         .get(step)
         .into_iter()
         .flatten()
-        .map(|policy| step_policy(model, policy))
+        .map(|policy| step_policy::<M>(model, policy))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(policies
         .into_iter()
         .fold(descriptor, StepDescriptor::policy))
 }
 
-fn step_policy(model: &Model, name: &str) -> Result<StepPolicyDescriptor, ModelError> {
+fn step_policy<M: Declares>(model: &Model, name: &str) -> Result<StepPolicy<M>, ModelError> {
     match &policy(model, name)?.hooks {
         Hooks::Step(hooks) => {
-            let ((first, _), rest) = hooks.split_first().ok_or_else(|| no_hooks(name))?;
-            Ok(rest.iter().map(hook_of).fold(
-                StepPolicyDescriptor::new(leaked(name), *first),
-                StepPolicyDescriptor::hook,
-            ))
+            let mut hooks = hooks.iter().map(hook_of);
+            let first = hooks.next().ok_or_else(|| no_hooks(name))?;
+            hooks.try_fold(
+                M::step_hook(M::step_policy(leaked(name)), first)?,
+                M::step_hook,
+            )
         }
         Hooks::Workflow(_) => Err(ModelError::NotStepPolicy(name.to_owned())),
     }
 }
 
-fn workflow_policy(model: &Model, name: &str) -> Result<WorkflowPolicyDescriptor, ModelError> {
+fn workflow_policy<M: Declares>(
+    model: &Model,
+    name: &str,
+) -> Result<WorkflowPolicy<M>, ModelError> {
     match &policy(model, name)?.hooks {
         Hooks::Workflow(hooks) => {
-            let ((first, _), rest) = hooks.split_first().ok_or_else(|| no_hooks(name))?;
-            Ok(rest.iter().map(hook_of).fold(
-                WorkflowPolicyDescriptor::new(leaked(name), *first),
-                WorkflowPolicyDescriptor::hook,
-            ))
+            let mut hooks = hooks.iter().map(hook_of);
+            let first = hooks.next().ok_or_else(|| no_hooks(name))?;
+            hooks.try_fold(
+                M::workflow_hook(M::workflow_policy(leaked(name)), first)?,
+                M::workflow_hook,
+            )
         }
         Hooks::Step(_) => Err(ModelError::NotWorkflowPolicy(name.to_owned())),
     }
@@ -179,12 +280,13 @@ fn policy<'a>(model: &'a Model, name: &str) -> Result<&'a Policy, ModelError> {
         .ok_or_else(|| ModelError::UnknownPolicy(name.to_owned()))
 }
 
-fn hook_of<H: Copy>((hook, _): &(H, HookScript)) -> H {
-    *hook
+/// A policy of the scenario that defines no hook, which itinera cannot declare.
+fn no_hooks(name: &str) -> ModelError {
+    ModelError::NoHooks(name.to_owned())
 }
 
-fn no_hooks(policy: &str) -> ModelError {
-    ModelError::NoHooks(policy.to_owned())
+fn hook_of<H: Copy>((hook, _): &(H, HookScript)) -> H {
+    *hook
 }
 
 fn input_adapter(adapter: &Adapter) -> Result<InputAdapter<ScriptedWorkflow>, ModelError> {

@@ -1,9 +1,7 @@
 use std::collections::BTreeMap;
 
 use super::{AdapterName, InputAdapter};
-use crate::policy::{
-    PolicyName, StepHook, StepPolicyDescriptor, WorkflowHook, WorkflowPolicyDescriptor,
-};
+use crate::policy::{PolicyName, StepHook, StepPolicyEntry, WorkflowHook, WorkflowPolicyEntry};
 use crate::step::{StepDescriptor, StepName};
 
 /// Every violation found in a workflow's declaration, at least one, which kept it from being
@@ -162,8 +160,8 @@ pub enum ViolationKind {
 
 /// Checks a workflow's declaration, and returns every violation found.
 pub(super) fn check<M, W>(
-    steps: &[StepDescriptor<M>],
-    policies: &[WorkflowPolicyDescriptor],
+    steps: &[StepDescriptor<W, M>],
+    policies: &[Box<dyn WorkflowPolicyEntry<W, M>>],
     adapters: &[InputAdapter<W>],
 ) -> Result<(), Violations> {
     let violations: Vec<Violation> = duplicate_step_names(steps)
@@ -179,7 +177,7 @@ pub(super) fn check<M, W>(
     }
 }
 
-fn duplicate_step_names<M>(steps: &[StepDescriptor<M>]) -> impl Iterator<Item = Violation> {
+fn duplicate_step_names<W, M>(steps: &[StepDescriptor<W, M>]) -> impl Iterator<Item = Violation> {
     counted(steps.iter().map(StepDescriptor::name))
         .into_iter()
         .filter(repeated)
@@ -190,17 +188,21 @@ fn duplicate_step_name((step, _): (StepName, usize)) -> Violation {
     Violation::DuplicateStepName { step }
 }
 
-fn step_hooks_defined_twice<M>(step: &StepDescriptor<M>) -> impl Iterator<Item = Violation> {
+fn step_hooks_defined_twice<W, M>(step: &StepDescriptor<W, M>) -> impl Iterator<Item = Violation> {
     let name = step.name();
-    let definitions = step.policies().iter().flat_map(step_hook_definitions);
+    let definitions = step
+        .policies()
+        .iter()
+        .map(Box::as_ref)
+        .flat_map(step_hook_definitions);
     grouped(definitions)
         .into_iter()
         .filter(more_than_once)
         .map(move |(hook, policies)| step_hook_defined_twice(name, hook, policies))
 }
 
-fn step_hook_definitions(
-    policy: &StepPolicyDescriptor,
+fn step_hook_definitions<W, M>(
+    policy: &dyn StepPolicyEntry<W, M>,
 ) -> impl Iterator<Item = (StepHook, PolicyName)> + '_ {
     let name = policy.name();
     policy
@@ -217,17 +219,22 @@ fn step_hook_defined_twice(step: StepName, hook: StepHook, policies: Vec<PolicyN
     }
 }
 
-fn workflow_hooks_defined_twice(
-    policies: &[WorkflowPolicyDescriptor],
+fn workflow_hooks_defined_twice<W, M>(
+    policies: &[Box<dyn WorkflowPolicyEntry<W, M>>],
 ) -> impl Iterator<Item = Violation> {
-    grouped(policies.iter().flat_map(workflow_hook_definitions))
-        .into_iter()
-        .filter(more_than_once)
-        .map(workflow_hook_defined_twice)
+    grouped(
+        policies
+            .iter()
+            .map(Box::as_ref)
+            .flat_map(workflow_hook_definitions),
+    )
+    .into_iter()
+    .filter(more_than_once)
+    .map(workflow_hook_defined_twice)
 }
 
-fn workflow_hook_definitions(
-    policy: &WorkflowPolicyDescriptor,
+fn workflow_hook_definitions<W, M>(
+    policy: &dyn WorkflowPolicyEntry<W, M>,
 ) -> impl Iterator<Item = (WorkflowHook, PolicyName)> + '_ {
     let name = policy.name();
     policy
@@ -245,7 +252,7 @@ fn defined_by<H>(hook: H, policy: PolicyName) -> (H, PolicyName) {
 }
 
 fn adapters_for_unknown_steps<'a, M, W>(
-    steps: &'a [StepDescriptor<M>],
+    steps: &'a [StepDescriptor<W, M>],
     adapters: &'a [InputAdapter<W>],
 ) -> impl Iterator<Item = Violation> + 'a {
     adapters
@@ -260,7 +267,7 @@ fn adapter_for_unknown_step((adapter, step): (AdapterName, StepName)) -> Violati
 }
 
 fn steps_adapted_twice<M, W>(
-    steps: &[StepDescriptor<M>],
+    steps: &[StepDescriptor<W, M>],
     adapters: &[InputAdapter<W>],
 ) -> impl Iterator<Item = Violation> {
     let known = adapters
@@ -295,11 +302,11 @@ fn by_step((adapter, step): (AdapterName, StepName)) -> (StepName, AdapterName) 
     (step, adapter)
 }
 
-fn is_known<M>(steps: &[StepDescriptor<M>], name: StepName) -> bool {
+fn is_known<W, M>(steps: &[StepDescriptor<W, M>], name: StepName) -> bool {
     steps.iter().any(|step| step.is_named(name))
 }
 
-fn is_unknown<M>(steps: &[StepDescriptor<M>], name: StepName) -> bool {
+fn is_unknown<W, M>(steps: &[StepDescriptor<W, M>], name: StepName) -> bool {
     !is_known(steps, name)
 }
 
@@ -347,12 +354,14 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::policy::tests::Quiet;
+    use crate::policy::{StepPolicyDescriptor, WorkflowPolicyDescriptor};
     use crate::step::Outcome;
     use crate::workflow::{WorkflowBuilder, WorkflowDescriptor};
 
     struct Orders;
 
-    fn step(name: &'static str) -> StepDescriptor {
+    fn step(name: &'static str) -> StepDescriptor<Orders> {
         StepDescriptor::new(StepName::new(name), || Ok(Outcome::success()))
     }
 
@@ -364,8 +373,16 @@ mod tests {
         WorkflowDescriptor::builder("orders")
     }
 
-    fn audit() -> StepPolicyDescriptor {
-        StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess)
+    fn audit() -> StepPolicyDescriptor<Quiet, Orders> {
+        StepPolicyDescriptor::new("audit", || Quiet).on_step_success()
+    }
+
+    fn alarm() -> StepPolicyDescriptor<Quiet, Orders> {
+        StepPolicyDescriptor::new("alarm", || Quiet).on_step_failure()
+    }
+
+    fn notify() -> WorkflowPolicyDescriptor<Quiet, Orders> {
+        WorkflowPolicyDescriptor::new("notify", || Quiet).on_workflow_failure()
     }
 
     fn violations(builder: WorkflowBuilder<Orders>) -> Vec<Violation> {
@@ -379,8 +396,9 @@ mod tests {
     )]
     #[case::two_step_policies_defining_one_hook(
         orders().step(step("charge").policy(audit()).policy(
-            StepPolicyDescriptor::new("metrics", StepHook::OnStepFailure)
-                .hook(StepHook::OnStepSuccess),
+            StepPolicyDescriptor::new("metrics", || Quiet)
+                .on_step_failure()
+                .on_step_success(),
         )),
         Violation::StepHookDefinedTwice {
             step: StepName::new("charge"),
@@ -398,8 +416,8 @@ mod tests {
     )]
     #[case::two_workflow_policies_defining_one_hook(
         orders()
-            .policy(WorkflowPolicyDescriptor::new("notify", WorkflowHook::OnWorkflowFailure))
-            .policy(WorkflowPolicyDescriptor::new("close", WorkflowHook::OnWorkflowFailure)),
+            .policy(notify())
+            .policy(WorkflowPolicyDescriptor::new("close", || Quiet).on_workflow_failure()),
         Violation::WorkflowHookDefinedTwice {
             hook: WorkflowHook::OnWorkflowFailure,
             policies: vec![PolicyName::from("notify"), PolicyName::from("close")],
@@ -451,16 +469,10 @@ mod tests {
     #[test]
     fn a_workflow_put_together_rightly_is_built() {
         let builder = orders()
-            .step(
-                step("charge")
-                    .policy(audit())
-                    .policy(StepPolicyDescriptor::new("alarm", StepHook::OnStepFailure)),
-            )
+            .step(step("charge").policy(audit()).policy(alarm()))
             .step(step("Charge").policy(audit()))
-            .policy(WorkflowPolicyDescriptor::new(
-                "notify",
-                WorkflowHook::OnWorkflowSuccess,
-            ))
+            .policy(notify())
+            .policy(WorkflowPolicyDescriptor::new("close", || Quiet).on_workflow_success())
             .input_adapter(
                 adapter("pricing", "charge")
                     .step(StepName::new("Charge"))

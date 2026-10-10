@@ -5,11 +5,13 @@
 use std::num::NonZeroU32;
 
 use crate::error::Error;
-use crate::event::{GiveUpCause, JourneyFailure, RetryCause};
+use crate::event::{GiveUpCause, JourneyFailure};
 use crate::journey::{Failure, LastFailure};
+use crate::policy::{RetryCause, StepFailureCause};
 use crate::step::{Reason, StepDescriptor};
 
 /// How an attempt that did not succeed ended, with what it carries.
+#[derive(Debug)]
 pub(crate) enum Failed {
     Failure(Reason),
     RetriableFailure(Reason),
@@ -17,83 +19,98 @@ pub(crate) enum Failed {
 }
 
 /// What the step's own rule decides, before a hook may decide otherwise.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Decision {
     /// The step is attempted again.
     Retry(RetryCause),
     /// The step will not be attempted again.
-    GiveUp(GivenUp),
-}
-
-/// Why the step's own rule gives it up, with what its last attempt carries.
-#[derive(Debug)]
-pub(crate) enum GivenUp {
-    Failure(Reason),
-    AbnormalTermination(Error),
-    RetriesExhausted(LastFailure<Error>),
+    GiveUp(StepFailureCause),
 }
 
 /// Decides what follows the attempt numbered `attempt` of the step, which ended as `failed`.
-pub(crate) fn decide<M>(failed: Failed, attempt: NonZeroU32, step: &StepDescriptor<M>) -> Decision {
+pub(crate) fn decide<W, M>(
+    failed: &Failed,
+    attempt: NonZeroU32,
+    step: &StepDescriptor<W, M>,
+) -> Decision {
     match failed {
-        Failed::Failure(reason) => Decision::GiveUp(GivenUp::Failure(reason)),
-        Failed::RetriableFailure(reason) => within_budget(
-            RetryCause::RetriableFailure,
-            LastFailure::Reason(reason),
-            attempt,
-            step,
-        ),
-        Failed::AbnormalTermination(error) if step.retries_abnormal_termination() => within_budget(
-            RetryCause::AbnormalTermination,
-            LastFailure::Error(error),
-            attempt,
-            step,
-        ),
-        Failed::AbnormalTermination(error) => Decision::GiveUp(GivenUp::AbnormalTermination(error)),
+        Failed::Failure(_) => Decision::GiveUp(StepFailureCause::Failure),
+        Failed::RetriableFailure(_) => within_budget(RetryCause::RetriableFailure, attempt, step),
+        Failed::AbnormalTermination(_) if step.retries_abnormal_termination() => {
+            within_budget(RetryCause::AbnormalTermination, attempt, step)
+        }
+        Failed::AbnormalTermination(_) => Decision::GiveUp(StepFailureCause::AbnormalTermination),
     }
 }
 
 /// Retries for the cause while the budget allows another attempt, and otherwise gives the step
-/// up with its last failure.
-fn within_budget<M>(
+/// up.
+fn within_budget<W, M>(
     cause: RetryCause,
-    last: LastFailure<Error>,
     attempt: NonZeroU32,
-    step: &StepDescriptor<M>,
+    step: &StepDescriptor<W, M>,
 ) -> Decision {
     if step.budget_allows_after(attempt) {
         Decision::Retry(cause)
     } else {
-        Decision::GiveUp(GivenUp::RetriesExhausted(last))
+        Decision::GiveUp(StepFailureCause::RetriesExhausted)
     }
 }
 
-impl GivenUp {
-    /// The cause `step_given_up` reports.
-    pub(crate) fn cause(&self) -> GiveUpCause {
+/// The cause `step_given_up` reports when the step's own rule gave it up.
+pub(crate) fn given_up(cause: StepFailureCause) -> GiveUpCause {
+    match cause {
+        StepFailureCause::Failure => GiveUpCause::Failure,
+        StepFailureCause::AbnormalTermination => GiveUpCause::AbnormalTermination,
+        StepFailureCause::RetriesExhausted => GiveUpCause::RetriesExhausted,
+    }
+}
+
+impl Failed {
+    /// The reason the attempt reported, if it reported a failure.
+    pub(crate) fn reason(&self) -> Option<&Reason> {
         match self {
-            Self::Failure(_) => GiveUpCause::Failure,
-            Self::AbnormalTermination(_) => GiveUpCause::AbnormalTermination,
-            Self::RetriesExhausted(_) => GiveUpCause::RetriesExhausted,
+            Self::Failure(reason) | Self::RetriableFailure(reason) => Some(reason),
+            Self::AbnormalTermination(_) => None,
         }
     }
 
-    /// How the journey fails when no hook decides otherwise: as `journey_failed` reports it,
-    /// with the error's message, and as the result holds it, with the error itself.
-    pub(crate) fn into_failure(self) -> (JourneyFailure, Failure) {
+    /// The error that ended the attempt, if it ended in an abnormal termination.
+    pub(crate) fn error(&self) -> Option<&Error> {
         match self {
-            Self::Failure(reason) => (
-                JourneyFailure::Failure(reason.clone()),
-                Failure::Failure(reason),
-            ),
-            Self::AbnormalTermination(error) => (
+            Self::AbnormalTermination(error) => Some(error),
+            Self::Failure(_) | Self::RetriableFailure(_) => None,
+        }
+    }
+
+    /// How the journey fails when the step was given up for `cause` and no hook decides
+    /// otherwise: as `journey_failed` reports it, with the error's message, and as the result
+    /// holds it, with the error itself.
+    pub(crate) fn into_failure(self, cause: StepFailureCause) -> (JourneyFailure, Failure) {
+        match (cause, self) {
+            (StepFailureCause::RetriesExhausted, failed) => {
+                let last = failed.into_last();
+                (
+                    JourneyFailure::RetriesExhausted(reported(&last)),
+                    Failure::RetriesExhausted(last),
+                )
+            }
+            (_, Self::AbnormalTermination(error)) => (
                 JourneyFailure::AbnormalTermination(error.to_string()),
                 Failure::AbnormalTermination(error),
             ),
-            Self::RetriesExhausted(last) => (
-                JourneyFailure::RetriesExhausted(reported(&last)),
-                Failure::RetriesExhausted(last),
+            (_, Self::Failure(reason) | Self::RetriableFailure(reason)) => (
+                JourneyFailure::Failure(reason.clone()),
+                Failure::Failure(reason),
             ),
+        }
+    }
+
+    /// What ended the attempt, as the last of a step whose retry budget is spent.
+    fn into_last(self) -> LastFailure<Error> {
+        match self {
+            Self::Failure(reason) | Self::RetriableFailure(reason) => LastFailure::Reason(reason),
+            Self::AbnormalTermination(error) => LastFailure::Error(error),
         }
     }
 }
@@ -111,10 +128,9 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::journey::FailureCause;
     use crate::step::{Outcome, StepName};
 
-    fn charge() -> StepDescriptor {
+    fn charge() -> StepDescriptor<()> {
         StepDescriptor::new(StepName::new("charge"), || Ok(Outcome::success()))
     }
 
@@ -134,94 +150,73 @@ mod tests {
         NonZeroU32::new(number).unwrap()
     }
 
-    /// A decision, as the tests compare it.
-    #[derive(Debug, PartialEq)]
-    enum Decided {
-        Retry(RetryCause),
-        GiveUp(FailureCause),
-    }
-
-    fn decided(decision: Decision) -> Decided {
-        match decision {
-            Decision::Retry(cause) => Decided::Retry(cause),
-            Decision::GiveUp(given_up) => Decided::GiveUp(given_up.into_failure().1.cause()),
-        }
-    }
-
     #[rstest]
     #[case::a_failure_with_budget_left(
         declined(),
         1,
         charge().retry_budget(3),
-        Decided::GiveUp(FailureCause::Failure)
+        Decision::GiveUp(StepFailureCause::Failure)
     )]
     #[case::a_retriable_failure_with_budget_left(
         timed_out(),
         1,
         charge().retry_budget(1),
-        Decided::Retry(RetryCause::RetriableFailure)
+        Decision::Retry(RetryCause::RetriableFailure)
     )]
     #[case::a_retriable_failure_on_the_last_attempt_the_budget_allows(
         timed_out(),
         2,
         charge().retry_budget(1),
-        Decided::GiveUp(FailureCause::RetriesExhausted)
+        Decision::GiveUp(StepFailureCause::RetriesExhausted)
     )]
     #[case::a_retriable_failure_without_a_budget(
         timed_out(),
         1,
         charge(),
-        Decided::GiveUp(FailureCause::RetriesExhausted)
+        Decision::GiveUp(StepFailureCause::RetriesExhausted)
     )]
     #[case::an_abnormal_termination_the_step_does_not_retry(
         crashed(),
         1,
         charge().retry_budget(3),
-        Decided::GiveUp(FailureCause::AbnormalTermination)
+        Decision::GiveUp(StepFailureCause::AbnormalTermination)
     )]
     #[case::an_abnormal_termination_the_step_retries_with_budget_left(
         crashed(),
         3,
         charge().retry_budget(3).abnormal_termination_retriable(),
-        Decided::Retry(RetryCause::AbnormalTermination)
+        Decision::Retry(RetryCause::AbnormalTermination)
     )]
     #[case::an_abnormal_termination_the_step_retries_on_the_last_attempt_the_budget_allows(
         crashed(),
         4,
         charge().retry_budget(3).abnormal_termination_retriable(),
-        Decided::GiveUp(FailureCause::RetriesExhausted)
+        Decision::GiveUp(StepFailureCause::RetriesExhausted)
     )]
     #[case::a_retriable_failure_before_the_last_attempt_the_largest_budget_allows(
         timed_out(),
         u32::from(u16::MAX),
         charge().retry_budget(u16::MAX),
-        Decided::Retry(RetryCause::RetriableFailure)
+        Decision::Retry(RetryCause::RetriableFailure)
     )]
     #[case::a_retriable_failure_on_the_last_attempt_the_largest_budget_allows(
         timed_out(),
         u32::from(u16::MAX) + 1,
         charge().retry_budget(u16::MAX),
-        Decided::GiveUp(FailureCause::RetriesExhausted)
+        Decision::GiveUp(StepFailureCause::RetriesExhausted)
     )]
     fn a_step_is_retried_only_for_a_retriable_end_while_its_budget_allows_another_attempt(
         #[case] failed: Failed,
         #[case] number: u32,
-        #[case] step: StepDescriptor,
-        #[case] expected: Decided,
+        #[case] step: StepDescriptor<()>,
+        #[case] expected: Decision,
     ) {
-        assert_eq!(decided(decide(failed, attempt(number), &step)), expected);
+        assert_eq!(decide(&failed, attempt(number), &step), expected);
     }
 
     #[test]
     fn retries_exhausted_carries_what_ended_the_last_attempt() {
-        let Decision::GiveUp(given_up) = decide(
-            crashed(),
-            attempt(1),
-            &charge().abnormal_termination_retriable(),
-        ) else {
-            panic!("the step was retried without a budget");
-        };
-        let (reported, failure) = given_up.into_failure();
+        let (reported, failure) = crashed().into_failure(StepFailureCause::RetriesExhausted);
         assert!(matches!(
             reported,
             JourneyFailure::RetriesExhausted(LastFailure::Error(message)) if message == "the gateway crashed"
