@@ -171,7 +171,7 @@ impl<F: AsyncStepFactory> Attempts for Asynchronously<F> {
     }
 }
 
-impl StepDescriptor<Asynchronous> {
+impl<W> StepDescriptor<W, Asynchronous> {
     /// Describes a step of an asynchronous workflow with its name and its factory, with no
     /// policies.
     ///
@@ -180,7 +180,11 @@ impl StepDescriptor<Asynchronous> {
     /// ```
     /// use itinera::step::{Outcome, StepDescriptor, step_name};
     ///
-    /// let ship = StepDescriptor::new_async(step_name!("ship"), async || Ok(Outcome::success()));
+    /// struct Orders;
+    ///
+    /// let ship = StepDescriptor::<Orders, _>::new_async(step_name!("ship"), async || {
+    ///     Ok(Outcome::success())
+    /// });
     /// ```
     pub fn new_async(name: StepName, factory: impl AsyncStepFactory) -> Self {
         Self::holding(name, factory.needs(), Box::new(Asynchronously { factory }))
@@ -202,7 +206,9 @@ impl<'a> Resolved<'a, Asynchronous> {
     /// use itinera::mode::Asynchronous;
     /// use itinera::step::{AsyncStepReporter, Resolved};
     ///
-    /// fn reporter<'a>(got: &mut Resolved<'a, Asynchronous>) -> Result<AsyncStepReporter<'a>, Error> {
+    /// fn reporter<'a>(
+    ///     got: &mut Resolved<'a, Asynchronous>,
+    /// ) -> Result<AsyncStepReporter<'a>, Error> {
     ///     got.reporter()
     /// }
     /// ```
@@ -222,7 +228,9 @@ impl<'a> Resolved<'a, Asynchronous> {
 /// ```
 /// use itinera::error::Error;
 /// use itinera::mode::Asynchronous;
-/// use itinera::step::{AsyncStep, AsyncStepFactory, AsyncStepReporter, Outcome, Resolved, StepNeeds};
+/// use itinera::step::{
+///     AsyncStep, AsyncStepFactory, AsyncStepReporter, Outcome, Resolved, StepNeeds,
+/// };
 ///
 /// struct Charge<'a> {
 ///     reporter: AsyncStepReporter<'a>,

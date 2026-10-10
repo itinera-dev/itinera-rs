@@ -1,0 +1,15 @@
+error[E0308]: mismatched types
+  --> tests/ui/attach_a_hookless_policy.rs:21:94
+   |
+21 |     let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())).policy(audit);
+   |                                                                                       ------ ^^^^^ expected `StepPolicyDescriptor<_, _>`, found `StepPolicyDescriptor<Audit, _, ..., ...>`
+   |                                                                                       |
+   |                                                                                       arguments to this method are incorrect
+   |
+   = note: expected struct `StepPolicyDescriptor<_, _, Synchronous, Hooked>`
+              found struct `StepPolicyDescriptor<Audit, _, Synchronous, Hookless>`
+note: method defined here
+  --> $WORKSPACE/crates/itinera-core/src/step.rs
+   |
+   |     pub fn policy<P: Send + Sync + 'static>(mut self, policy: StepPolicyDescriptor<P, W, M>) -> Self
+   |            ^^^^^^

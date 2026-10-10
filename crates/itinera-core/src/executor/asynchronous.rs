@@ -1,4 +1,4 @@
-use super::Refusal;
+use super::{Refusal, build_policies};
 use crate::engine::{self, Awaited, Failures};
 use crate::instance::WorkflowInstance;
 use crate::journey::JourneyResult;
@@ -74,15 +74,15 @@ impl<F: AsyncDispatcherFactory> AsyncLocalExecutor<F> {
 
     /// Runs one journey of the instance and returns its result.
     ///
-    /// Before the journey starts, it creates the journey's dispatcher and adds the instance's
-    /// reporters to it. Whatever happens inside the journey, failures and aborts included, is in
-    /// the result. A panic is not caught: it reaches the caller, and the journey stops where it
-    /// was.
+    /// Before the journey starts, it builds one instance of each of the workflow's policies, then
+    /// creates the journey's dispatcher and adds the instance's reporters to it. Whatever happens
+    /// inside the journey, failures and aborts included, is in the result. A panic is not caught:
+    /// it reaches the caller, and the journey stops where it was.
     ///
     /// # Errors
     ///
-    /// A [`Refusal`], with no journey and no event, when the dispatcher factory fails, or the
-    /// dispatcher fails while the reporters are added.
+    /// A [`Refusal`], with no journey and no event, when a workflow policy fails while it is
+    /// built, the dispatcher factory fails, or the dispatcher fails while the reporters are added.
     ///
     /// # Examples
     ///
@@ -110,6 +110,7 @@ impl<F: AsyncDispatcherFactory> AsyncLocalExecutor<F> {
         &mut self,
         mut instance: I,
     ) -> Result<JourneyResult, Refusal> {
+        let policies = build_policies(&instance)?;
         let mut dispatcher = self
             .factory
             .create()
@@ -124,6 +125,7 @@ impl<F: AsyncDispatcherFactory> AsyncLocalExecutor<F> {
         }
         Ok(engine::run(
             instance,
+            policies,
             Awaited::from(dispatcher),
             failures,
             std::time::SystemTime::now,
@@ -145,6 +147,8 @@ mod tests {
     use crate::instance::Instance;
     use crate::journey::{Abort, DataBag, JourneyId, JourneyStatus};
     use crate::mode::Asynchronous;
+    use crate::policy::tests::Quiet;
+    use crate::policy::{PolicyName, WorkflowPolicyDescriptor};
     use crate::report::{AsyncReporter, AsyncWorkflowReporter, BoxedReporter, DefaultDispatcher};
     use crate::step::{Outcome, StepDescriptor, StepName};
     use crate::workflow::WorkflowDescriptor;
@@ -308,6 +312,31 @@ mod tests {
             panic!("the journey was not refused by the dispatcher");
         };
         assert_eq!(error.to_string(), "the dispatcher refuses reporters");
+        assert!(entries(&log).is_empty());
+    }
+
+    #[test]
+    fn an_asynchronous_workflow_policy_that_cannot_be_built_refuses_the_journey_before_any_event() {
+        let broken = WorkflowPolicyDescriptor::fallible_async("notify", || {
+            Err::<Quiet, _>(Error::msg("no mail server"))
+        })
+        .on_workflow_success();
+        let workflow = WorkflowDescriptor::async_builder("shop")
+            .policy(broken)
+            .reporter::<Recorder<0>>()
+            .build()
+            .unwrap();
+        let shop = Shop::new();
+        let log = Arc::clone(&shop.log);
+
+        let result =
+            block_on(AsyncLocalExecutor::new().run(workflow.instance(shop).create().unwrap()));
+
+        let Err(Refusal::WorkflowPolicy { policy, error }) = result else {
+            panic!("the journey was not refused by the policy");
+        };
+        assert_eq!(policy, PolicyName::from("notify"));
+        assert_eq!(error.to_string(), "no mail server");
         assert!(entries(&log).is_empty());
     }
 

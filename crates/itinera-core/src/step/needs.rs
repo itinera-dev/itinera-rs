@@ -151,6 +151,24 @@ pub(crate) struct InputNeed {
 }
 
 impl InputNeed {
+    /// A value of type `T` under the key, without which nothing can be built.
+    pub(crate) fn required<T: Value>(key: &'static str) -> Self {
+        Self {
+            key,
+            requirement: Requirement::Required,
+            accepts: AnyValue::is::<T>,
+        }
+    }
+
+    /// A value of type `T` under the key, which may be absent.
+    pub(crate) fn optional<T: Value>(key: &'static str) -> Self {
+        Self {
+            key,
+            requirement: Requirement::Optional,
+            accepts: AnyValue::is::<T>,
+        }
+    }
+
     pub(crate) fn key(&self) -> &'static str {
         self.key
     }
@@ -189,11 +207,7 @@ impl StepNeeds {
     /// let needs = StepNeeds::new().input(&Input::<i64>::new("amount"));
     /// ```
     pub fn input<T: Value>(mut self, input: &Input<T>) -> Self {
-        self.inputs.push(InputNeed {
-            key: input.key,
-            requirement: Requirement::Required,
-            accepts: AnyValue::is::<T>,
-        });
+        self.inputs.push(InputNeed::required::<T>(input.key));
         self
     }
 
@@ -207,11 +221,7 @@ impl StepNeeds {
     /// let needs = StepNeeds::new().optional_input(&OptionalInput::<i64>::new("discount"));
     /// ```
     pub fn optional_input<T: Value>(mut self, input: &OptionalInput<T>) -> Self {
-        self.inputs.push(InputNeed {
-            key: input.key,
-            requirement: Requirement::Optional,
-            accepts: AnyValue::is::<T>,
-        });
+        self.inputs.push(InputNeed::optional::<T>(input.key));
         self
     }
 
@@ -416,19 +426,25 @@ fn undeclared<T>(key: &str) -> Error {
 /// What the engine resolved for one attempt, whatever the workflow's mode.
 #[derive(derive_more::Debug)]
 pub(crate) struct Got<'a> {
-    inputs: Vec<Received>,
+    inputs: Slots,
     contributor: Option<Contributor<'a>>,
     reporting: Option<Reporting<'a>>,
 }
 
-/// One declared input and its value, until the factory takes it.
+/// Declared values by key, each taken at most once.
+#[derive(Debug, Default)]
+pub(crate) struct Slots {
+    received: Vec<Received>,
+}
+
+/// One declared value, until it is taken.
 #[derive(Debug)]
 struct Received {
     key: &'static str,
     value: Slot,
 }
 
-/// Where a declared input's value stands: not taken yet, present or absent, or taken.
+/// Where a declared value stands: not taken yet, present or absent, or taken.
 #[derive(Debug)]
 enum Slot {
     Untaken(Option<AnyValue>),
@@ -449,6 +465,34 @@ impl Received {
     }
 }
 
+impl Slots {
+    /// Holds a declared value, present or absent, after those already held.
+    pub(crate) fn hold(&mut self, key: &'static str, value: Option<AnyValue>) {
+        self.received.push(received((key, value)));
+    }
+
+    /// Takes a present value, unless it was not declared or was already taken.
+    pub(crate) fn take(&mut self, key: &str) -> Option<AnyValue> {
+        self.take_optional(key).flatten()
+    }
+
+    /// Takes a value, present or absent, unless it was not declared or was already taken.
+    pub(crate) fn take_optional(&mut self, key: &str) -> Option<Option<AnyValue>> {
+        self.received
+            .iter_mut()
+            .find(|received| received.is(key))
+            .and_then(Received::take)
+    }
+}
+
+impl FromIterator<(&'static str, Option<AnyValue>)> for Slots {
+    fn from_iter<T: IntoIterator<Item = (&'static str, Option<AnyValue>)>>(values: T) -> Self {
+        Self {
+            received: values.into_iter().map(received).collect(),
+        }
+    }
+}
+
 impl<'a> Got<'a> {
     /// Holds the values of the inputs, in the order the needs declare them, absent ones as
     /// `None`, and the handles the needs declare.
@@ -458,22 +502,18 @@ impl<'a> Got<'a> {
         reporting: Option<Reporting<'a>>,
     ) -> Self {
         Self {
-            inputs: inputs.into_iter().map(received).collect(),
+            inputs: inputs.into_iter().collect(),
             contributor,
             reporting,
         }
     }
 
-    fn received(&mut self, key: &str) -> Option<&mut Received> {
-        self.inputs.iter_mut().find(|received| received.is(key))
-    }
-
     fn take(&mut self, key: &str) -> Option<AnyValue> {
-        self.take_optional(key).flatten()
+        self.inputs.take(key)
     }
 
     fn take_optional(&mut self, key: &str) -> Option<Option<AnyValue>> {
-        self.received(key).and_then(Received::take)
+        self.inputs.take_optional(key)
     }
 }
 

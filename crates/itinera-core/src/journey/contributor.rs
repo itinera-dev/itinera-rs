@@ -71,11 +71,20 @@ impl<'a> Contributor<'a> {
 /// What one attempt contributed: each key with its last value, in the order the keys were first
 /// contributed.
 #[derive(Debug, Default, derive_more::IntoIterator)]
+#[into_iterator(owned, ref)]
 pub(crate) struct Contributions {
     contributions: Vec<Contribution>,
 }
 
 impl Contributions {
+    /// The value contributed under the key, if any.
+    pub(crate) fn get(&self, key: &str) -> Option<&AnyValue> {
+        self.contributions
+            .iter()
+            .find(|contribution| contribution.is(key))
+            .map(|contribution| &contribution.value)
+    }
+
     fn add(&mut self, key: String, value: AnyValue) {
         match self
             .contributions

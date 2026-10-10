@@ -1,6 +1,36 @@
-//! Policies: the hooks they define, and the lifecycles hooks return.
+//! Policies: their descriptors, the hooks they define, what hooks request, the lifecycles they
+//! return, and the roles through which they reach a workflow.
 
 use crate::step::Reason;
+
+#[cfg(feature = "async")]
+mod asynchronous;
+mod descriptor;
+mod hook;
+mod kind;
+mod needs;
+mod reporter;
+
+#[cfg(feature = "async")]
+pub use asynchronous::{
+    AsyncHookReporter, AsyncOnStepAbnormalTermination, AsyncOnStepFailure, AsyncOnStepRetry,
+    AsyncOnStepSuccess, AsyncOnWorkflowFailure, AsyncOnWorkflowSuccess,
+};
+pub(crate) use descriptor::{
+    BuiltStepPolicy, BuiltWorkflowPolicy, Call, HookCall, StepPolicyEntry, WorkflowPolicyEntry,
+};
+pub use descriptor::{Hooked, Hookless, StepPolicyDescriptor, WorkflowPolicyDescriptor};
+pub use hook::{
+    OnStepAbnormalTermination, OnStepFailure, OnStepRetry, OnStepSuccess, OnWorkflowFailure,
+    OnWorkflowSuccess,
+};
+pub use kind::{
+    ErrorHookKind, FailureHookKind, HookKind, PolicyHookKind, StepAbnormalTermination, StepFailure,
+    StepHookKind, StepRetry, StepSuccess, WorkflowFailure, WorkflowSuccess,
+};
+pub(crate) use needs::{Answers, Needs, Request};
+pub use needs::{HookNeeds, Requested};
+pub use reporter::HookReporter;
 
 /// A policy's name, fixed when the program is compiled.
 ///
@@ -30,159 +60,6 @@ use crate::step::Reason;
 )]
 #[as_ref(forward)]
 pub struct PolicyName(&'static str);
-
-/// The description of one step policy: its name and the step hooks it defines. It is attached to
-/// steps with [`StepDescriptor::policy`], and may be attached to any number of them.
-///
-/// The hooks a policy defines are named here and keep their default behaviour, until hooks can be
-/// written.
-///
-/// [`StepDescriptor::policy`]: crate::step::StepDescriptor::policy
-///
-/// # Examples
-///
-/// ```
-/// use itinera::policy::{StepHook, StepPolicyDescriptor};
-///
-/// let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess)
-///     .hook(StepHook::OnStepFailure);
-/// assert_eq!(audit.name().to_string(), "audit");
-/// ```
-#[derive(Clone, Debug)]
-pub struct StepPolicyDescriptor {
-    name: PolicyName,
-    hooks: Vec<StepHook>,
-}
-
-impl StepPolicyDescriptor {
-    /// Describes a step policy with its name and a step hook it defines.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::policy::{StepHook, StepPolicyDescriptor};
-    ///
-    /// let alarm = StepPolicyDescriptor::new("alarm", StepHook::OnStepFailure);
-    /// ```
-    pub fn new(name: impl Into<PolicyName>, hook: StepHook) -> Self {
-        Self {
-            name: name.into(),
-            hooks: vec![hook],
-        }
-    }
-
-    /// Adds a step hook the policy defines. A hook it already defines is not added again.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::policy::{StepHook, StepPolicyDescriptor};
-    ///
-    /// let retries = StepPolicyDescriptor::new("retries", StepHook::OnStepRetry)
-    ///     .hook(StepHook::OnStepAbnormalTermination);
-    /// ```
-    pub fn hook(mut self, hook: StepHook) -> Self {
-        if !self.hooks.contains(&hook) {
-            self.hooks.push(hook);
-        }
-        self
-    }
-
-    /// The policy's name.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::policy::{StepHook, StepPolicyDescriptor};
-    ///
-    /// let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess);
-    /// assert_eq!(audit.name().to_string(), "audit");
-    /// ```
-    pub fn name(&self) -> PolicyName {
-        self.name
-    }
-
-    pub(crate) fn hooks(&self) -> &[StepHook] {
-        &self.hooks
-    }
-}
-
-/// The description of one workflow policy: its name and the workflow hooks it defines. It is
-/// attached to workflows with [`WorkflowBuilder::policy`], and may be attached to any number of
-/// them.
-///
-/// The hooks a policy defines are named here and keep their default behaviour, until hooks can be
-/// written.
-///
-/// [`WorkflowBuilder::policy`]: crate::workflow::WorkflowBuilder::policy
-///
-/// # Examples
-///
-/// ```
-/// use itinera::policy::{WorkflowHook, WorkflowPolicyDescriptor};
-///
-/// let notify = WorkflowPolicyDescriptor::new("notify", WorkflowHook::OnWorkflowSuccess)
-///     .hook(WorkflowHook::OnWorkflowFailure);
-/// assert_eq!(notify.name().to_string(), "notify");
-/// ```
-#[derive(Clone, Debug)]
-pub struct WorkflowPolicyDescriptor {
-    name: PolicyName,
-    hooks: Vec<WorkflowHook>,
-}
-
-impl WorkflowPolicyDescriptor {
-    /// Describes a workflow policy with its name and a workflow hook it defines.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::policy::{WorkflowHook, WorkflowPolicyDescriptor};
-    ///
-    /// let close = WorkflowPolicyDescriptor::new("close", WorkflowHook::OnWorkflowFailure);
-    /// ```
-    pub fn new(name: impl Into<PolicyName>, hook: WorkflowHook) -> Self {
-        Self {
-            name: name.into(),
-            hooks: vec![hook],
-        }
-    }
-
-    /// Adds a workflow hook the policy defines. A hook it already defines is not added again.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::policy::{WorkflowHook, WorkflowPolicyDescriptor};
-    ///
-    /// let notify = WorkflowPolicyDescriptor::new("notify", WorkflowHook::OnWorkflowSuccess)
-    ///     .hook(WorkflowHook::OnWorkflowFailure);
-    /// ```
-    pub fn hook(mut self, hook: WorkflowHook) -> Self {
-        if !self.hooks.contains(&hook) {
-            self.hooks.push(hook);
-        }
-        self
-    }
-
-    /// The policy's name.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::policy::{WorkflowHook, WorkflowPolicyDescriptor};
-    ///
-    /// let close = WorkflowPolicyDescriptor::new("close", WorkflowHook::OnWorkflowFailure);
-    /// assert_eq!(close.name().to_string(), "close");
-    /// ```
-    pub fn name(&self) -> PolicyName {
-        self.name
-    }
-
-    pub(crate) fn hooks(&self) -> &[WorkflowHook] {
-        &self.hooks
-    }
-}
 
 /// The name of a step hook, which acts on one attempt of a step.
 ///
@@ -259,13 +136,238 @@ pub enum Lifecycle {
     FailWorkflow(Reason),
 }
 
+/// What `on step success` may return: a lifecycle that ends the journey at once.
+///
+/// Returning `None` instead goes on to the next step, or succeeds the journey after the last.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::policy::OnSuccess;
+/// use itinera::step::Reason;
+///
+/// fn ends_without_the_steps_left(returned: &OnSuccess) -> bool {
+///     matches!(returned, OnSuccess::FinishWorkflow)
+/// }
+///
+/// assert!(ends_without_the_steps_left(&OnSuccess::FinishWorkflow));
+/// assert!(!ends_without_the_steps_left(&OnSuccess::FailWorkflow(Reason::new("refused"))));
+/// ```
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub enum OnSuccess {
+    /// The journey succeeds at once, and the steps left are not run.
+    FinishWorkflow,
+    /// The journey fails at once, with this reason. The step stays succeeded.
+    FailWorkflow(Reason),
+}
+
+/// The lifecycle `on step failure`, `on step retry` and `on step abnormal termination` may
+/// return: the journey fails at once, with this reason.
+///
+/// Returning `None` instead keeps the default: the journey fails with the step's own failure
+/// after `on step failure`, and the step is tried again or given up after the two others.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::policy::FailWorkflow;
+/// use itinera::step::Reason;
+///
+/// let fail = FailWorkflow::from(Reason::new("fraud").with_message("the card is blocked"));
+/// let reason: Reason = fail.into();
+/// assert_eq!(reason.code(), "fraud");
+/// ```
+#[derive(Clone, Debug, derive_more::From, derive_more::Into)]
+pub struct FailWorkflow(Reason);
+
+/// Why `on step failure` is called: why the step was given up.
+///
+/// It displays as the specification writes it, for example `retries exhausted`.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::policy::StepFailureCause;
+///
+/// assert_eq!(StepFailureCause::RetriesExhausted.to_string(), "retries exhausted");
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
+#[non_exhaustive]
+pub enum StepFailureCause {
+    /// The attempt reported a failure that is not retriable.
+    #[display("failure")]
+    Failure,
+    /// The attempt ended in an abnormal termination, which the step does not retry.
+    #[display("abnormal termination")]
+    AbnormalTermination,
+    /// The attempt failed in a way that could be retried, but the retry budget was spent.
+    #[display("retries exhausted")]
+    RetriesExhausted,
+}
+
+/// Why `on step retry` is called: why the step will be attempted again.
+///
+/// It displays as the cause is named, for example `retriable failure`.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::policy::RetryCause;
+///
+/// assert_eq!(RetryCause::RetriableFailure.to_string(), "retriable failure");
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
+#[non_exhaustive]
+pub enum RetryCause {
+    /// The attempt reported a retriable failure.
+    #[display("retriable failure")]
+    RetriableFailure,
+    /// The attempt ended in an abnormal termination, and the step allows retrying it.
+    #[display("abnormal termination")]
+    AbnormalTermination,
+}
+
+/// A role the workflow's own type provides: the operations of the trait `R`, which policies
+/// reach through [`Requested::role`].
+///
+/// A workflow implements it once for each role, returning itself. A policy whose hooks request a
+/// role is implemented only for workflows that provide it, so attaching it to a workflow without
+/// the role does not compile.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::error::Error;
+/// use itinera::policy::Provides;
+///
+/// trait Notifier {
+///     fn notify(&self, message: &str) -> Result<(), Error>;
+/// }
+///
+/// struct Orders;
+///
+/// impl Notifier for Orders {
+///     fn notify(&self, _message: &str) -> Result<(), Error> {
+///         Ok(())
+///     }
+/// }
+///
+/// impl Provides<dyn Notifier> for Orders {
+///     fn role(&self) -> &(dyn Notifier + 'static) {
+///         self
+///     }
+/// }
+///
+/// Orders.role().notify("order shipped")?;
+/// # Ok::<(), Error>(())
+/// ```
+#[diagnostic::on_unimplemented(
+    message = "the workflow `{Self}` does not provide the role `{R}`",
+    label = "this workflow does not provide the role",
+    note = "a workflow provides a role by implementing `Provides<{R}>`"
+)]
+pub trait Provides<R: ?Sized> {
+    /// The workflow, as the role.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::policy::Provides;
+    ///
+    /// trait Clock {
+    ///     fn hour(&self) -> u8;
+    /// }
+    ///
+    /// struct Orders;
+    ///
+    /// impl Clock for Orders {
+    ///     fn hour(&self) -> u8 {
+    ///         9
+    ///     }
+    /// }
+    ///
+    /// impl Provides<dyn Clock> for Orders {
+    ///     fn role(&self) -> &(dyn Clock + 'static) {
+    ///         self
+    ///     }
+    /// }
+    ///
+    /// let clock: &dyn Clock = Orders.role();
+    /// assert_eq!(clock.hour(), 9);
+    /// ```
+    fn role(&self) -> &R;
+}
+
+impl From<OnSuccess> for Lifecycle {
+    fn from(returned: OnSuccess) -> Self {
+        match returned {
+            OnSuccess::FinishWorkflow => Self::FinishWorkflow,
+            OnSuccess::FailWorkflow(reason) => Self::FailWorkflow(reason),
+        }
+    }
+}
+
+impl From<FailWorkflow> for Lifecycle {
+    fn from(returned: FailWorkflow) -> Self {
+        Self::FailWorkflow(returned.into())
+    }
+}
+
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::fmt;
 
     use rstest::rstest;
 
     use super::*;
+    use crate::error::Error;
+    use crate::step::Input;
+
+    const RECEIPT: Input<String> = Input::new("receipt");
+
+    /// A policy whose hooks change nothing.
+    pub(crate) struct Quiet;
+
+    impl<W: Send + Sync + 'static> OnStepSuccess<W> for Quiet {
+        fn on_step_success(
+            &self,
+            _: Requested<'_, W, StepSuccess>,
+        ) -> Result<Option<OnSuccess>, Error> {
+            Ok(None)
+        }
+    }
+
+    impl<W: Send + Sync + 'static> OnStepFailure<W> for Quiet {
+        fn on_step_failure(
+            &self,
+            _: Requested<'_, W, StepFailure>,
+        ) -> Result<Option<FailWorkflow>, Error> {
+            Ok(None)
+        }
+    }
+
+    impl<W: Send + Sync + 'static> OnWorkflowSuccess<W> for Quiet {
+        fn on_workflow_success(&self, _: Requested<'_, W, WorkflowSuccess>) -> Result<(), Error> {
+            Ok(())
+        }
+    }
+
+    impl<W: Send + Sync + 'static> OnWorkflowFailure<W> for Quiet {
+        fn on_workflow_failure(&self, _: Requested<'_, W, WorkflowFailure>) -> Result<(), Error> {
+            Ok(())
+        }
+    }
+
+    #[cfg(feature = "async")]
+    impl<W: Send + Sync + 'static> AsyncOnWorkflowSuccess<W> for Quiet {
+        async fn on_workflow_success(
+            &self,
+            _: Requested<'_, W, WorkflowSuccess, crate::mode::Asynchronous>,
+        ) -> Result<(), Error> {
+            Ok(())
+        }
+    }
 
     #[rstest]
     #[case::on_step_success(&StepHook::OnStepSuccess, "on step success")]
@@ -278,28 +380,51 @@ mod tests {
     #[case::on_workflow_success(&WorkflowHook::OnWorkflowSuccess, "on workflow success")]
     #[case::on_workflow_failure(&WorkflowHook::OnWorkflowFailure, "on workflow failure")]
     #[case::finish_workflow(&Lifecycle::FinishWorkflow, "FinishWorkflow")]
-    fn hooks_and_lifecycles_display_as_the_specification_writes_them(
+    #[case::failure(&StepFailureCause::Failure, "failure")]
+    #[case::abnormal_termination(&StepFailureCause::AbnormalTermination, "abnormal termination")]
+    #[case::retries_exhausted(&StepFailureCause::RetriesExhausted, "retries exhausted")]
+    #[case::retry_after_a_retriable_failure(&RetryCause::RetriableFailure, "retriable failure")]
+    #[case::retry_after_an_abnormal_termination(
+        &RetryCause::AbnormalTermination,
+        "abnormal termination"
+    )]
+    fn hooks_lifecycles_and_causes_display_as_the_specification_writes_them(
         #[case] name: &dyn fmt::Display,
         #[case] written: &str,
     ) {
         assert_eq!(name.to_string(), written);
     }
 
-    #[test]
-    fn a_step_policy_naming_a_hook_twice_defines_it_once() {
-        let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess)
-            .hook(StepHook::OnStepFailure)
-            .hook(StepHook::OnStepSuccess);
-        assert_eq!(
-            audit.hooks(),
-            [StepHook::OnStepSuccess, StepHook::OnStepFailure]
-        );
+    /// The keys of the data a hook needs, from the step or from the workflow.
+    fn keys(needs: &Needs) -> Vec<&'static str> {
+        needs.requests().iter().filter_map(key).collect()
+    }
+
+    fn key(request: &Request) -> Option<&'static str> {
+        match request {
+            Request::FromStep(need) | Request::FromWorkflow(need) => Some(need.key()),
+            Request::Reason(_) | Request::Error(_) => None,
+        }
     }
 
     #[test]
-    fn a_workflow_policy_naming_a_hook_twice_defines_it_once() {
-        let notify = WorkflowPolicyDescriptor::new("notify", WorkflowHook::OnWorkflowSuccess)
-            .hook(WorkflowHook::OnWorkflowSuccess);
+    fn a_step_hook_named_twice_is_defined_once_with_the_needs_named_last() {
+        let audit: StepPolicyDescriptor<Quiet, ()> = StepPolicyDescriptor::new("audit", || Quiet)
+            .on_step_success()
+            .on_step_success_needing(HookNeeds::new().from_step(&RECEIPT));
+
+        assert_eq!(audit.hooks(), [StepHook::OnStepSuccess]);
+        assert_eq!(keys(audit.needs(StepHook::OnStepSuccess)), ["receipt"]);
+    }
+
+    #[test]
+    fn a_workflow_hook_named_twice_is_defined_once_with_the_needs_named_last() {
+        let notify: WorkflowPolicyDescriptor<Quiet, ()> =
+            WorkflowPolicyDescriptor::new("notify", || Quiet)
+                .on_workflow_success_needing(HookNeeds::new().from_workflow(&RECEIPT))
+                .on_workflow_success();
+
         assert_eq!(notify.hooks(), [WorkflowHook::OnWorkflowSuccess]);
+        assert!(keys(notify.needs(WorkflowHook::OnWorkflowSuccess)).is_empty());
     }
 }

@@ -9,7 +9,7 @@ use crate::error::Error;
 use crate::instance::{InstanceBuilder, Resolution};
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::{Mode, Synchronous};
-use crate::policy::{PolicyName, StepPolicyDescriptor, WorkflowPolicyDescriptor};
+use crate::policy::{PolicyName, WorkflowPolicyDescriptor, WorkflowPolicyEntry};
 use crate::report::{Reporter, WorkflowReporter};
 use crate::step::{StepDescriptor, StepName};
 use crate::value::AnyValue;
@@ -113,8 +113,8 @@ pub struct WorkflowDescriptor<W, M: Mode = Synchronous> {
 #[derive(derive_more::Debug)]
 struct Declaration<W, M: Mode> {
     name: WorkflowName,
-    steps: Vec<StepDescriptor<M>>,
-    policies: Vec<WorkflowPolicyDescriptor>,
+    steps: Vec<StepDescriptor<W, M>>,
+    policies: Vec<Box<dyn WorkflowPolicyEntry<W, M>>>,
     adapters: Vec<InputAdapter<W>>,
     #[debug("{}", reporters.len())]
     reporters: Vec<MakeReporter<W, M>>,
@@ -173,15 +173,31 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::policy::{StepHook, StepPolicyDescriptor};
+    /// use itinera::error::Error;
+    /// use itinera::policy::{
+    ///     OnStepSuccess, OnSuccess, Requested, StepPolicyDescriptor, StepSuccess,
+    /// };
     /// use itinera::step::{Outcome, StepDescriptor, step_name};
     /// use itinera::workflow::{InputAdapter, WorkflowDescriptor};
     ///
+    /// struct Audit;
+    ///
+    /// impl<W: Send + Sync + 'static> OnStepSuccess<W> for Audit {
+    ///     fn on_step_success(
+    ///         &self,
+    ///         _got: Requested<'_, W, StepSuccess>,
+    ///     ) -> Result<Option<OnSuccess>, Error> {
+    ///         Ok(None)
+    ///     }
+    /// }
+    ///
     /// struct Orders;
     ///
-    /// let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess);
+    /// let audit = StepPolicyDescriptor::new("audit", || Audit).on_step_success();
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
-    ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())).policy(audit))
+    ///     .step(
+    ///         StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())).policy(audit),
+    ///     )
     ///     .step(StepDescriptor::new(step_name!("ship"), || Ok(Outcome::success())))
     ///     .input_adapter(InputAdapter::new("pricing", step_name!("charge"), |_, _, _| Ok(None)))
     ///     .build()?;
@@ -205,8 +221,12 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
             .collect()
     }
 
-    pub(crate) fn steps(&self) -> &[StepDescriptor<M>] {
+    pub(crate) fn steps(&self) -> &[StepDescriptor<W, M>] {
         &self.declaration.steps
+    }
+
+    pub(crate) fn policies(&self) -> &[Box<dyn WorkflowPolicyEntry<W, M>>] {
+        &self.declaration.policies
     }
 
     /// The value of one input of a step: from the step's input adapter, if it has one that
@@ -338,7 +358,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     ///     .build()?;
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
-    pub fn step(mut self, step: StepDescriptor<M>) -> Self {
+    pub fn step(mut self, step: StepDescriptor<W, M>) -> Self {
         self.declaration.steps.push(step);
         self
     }
@@ -348,19 +368,35 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::policy::{WorkflowHook, WorkflowPolicyDescriptor};
+    /// use itinera::error::Error;
+    /// use itinera::policy::{
+    ///     OnWorkflowSuccess, Requested, WorkflowPolicyDescriptor, WorkflowSuccess,
+    /// };
     /// use itinera::workflow::WorkflowDescriptor;
+    ///
+    /// struct Notify;
+    ///
+    /// impl<W: Send + Sync + 'static> OnWorkflowSuccess<W> for Notify {
+    ///     fn on_workflow_success(
+    ///         &self,
+    ///         _got: Requested<'_, W, WorkflowSuccess>,
+    ///     ) -> Result<(), Error> {
+    ///         Ok(())
+    ///     }
+    /// }
     ///
     /// struct Orders;
     ///
-    /// let notify = WorkflowPolicyDescriptor::new("notify", WorkflowHook::OnWorkflowSuccess);
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
-    ///     .policy(notify)
+    ///     .policy(WorkflowPolicyDescriptor::new("notify", || Notify).on_workflow_success())
     ///     .build()?;
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
-    pub fn policy(mut self, policy: WorkflowPolicyDescriptor) -> Self {
-        self.declaration.policies.push(policy);
+    pub fn policy<P: Send + Sync + 'static>(
+        mut self,
+        policy: WorkflowPolicyDescriptor<P, W, M>,
+    ) -> Self {
+        self.declaration.policies.push(Box::new(policy));
         self
     }
 
@@ -674,7 +710,7 @@ pub struct ListedStep {
 }
 
 fn listed<M, W>(
-    step: &StepDescriptor<M>,
+    step: &StepDescriptor<W, M>,
     position: NonZeroUsize,
     adapters: &[InputAdapter<W>],
 ) -> ListedStep {
@@ -682,11 +718,7 @@ fn listed<M, W>(
     ListedStep {
         step: name,
         position,
-        policies: step
-            .policies()
-            .iter()
-            .map(StepPolicyDescriptor::name)
-            .collect(),
+        policies: step.policies().iter().map(|policy| policy.name()).collect(),
         adapter: adapters
             .iter()
             .find(|adapter| adapter.is_attached_to(name))
@@ -737,7 +769,8 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
-    use crate::policy::StepHook;
+    use crate::policy::StepPolicyDescriptor;
+    use crate::policy::tests::Quiet;
     use crate::step::Outcome;
 
     struct Orders;
@@ -753,8 +786,8 @@ mod tests {
                     charged.fetch_add(1, Ordering::SeqCst);
                     Ok(Outcome::success())
                 })
-                .policy(StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess))
-                .policy(StepPolicyDescriptor::new("alarm", StepHook::OnStepFailure)),
+                .policy(StepPolicyDescriptor::new("audit", || Quiet).on_step_success())
+                .policy(StepPolicyDescriptor::new("alarm", || Quiet).on_step_failure()),
             )
             .step(StepDescriptor::new(StepName::new("ship"), move || {
                 shipped.fetch_add(1, Ordering::SeqCst);

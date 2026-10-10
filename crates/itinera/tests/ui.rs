@@ -15,6 +15,14 @@ fn an_instance_runs_at_most_one_journey() {
 }
 
 #[test]
+fn a_policy_attached_defines_at_least_one_hook() {
+    enforced(
+        "tests/ui/attach_a_hookless_policy.rs",
+        "tests/ui/attach_a_hooked_policy.rs",
+    );
+}
+
+#[test]
 fn an_executor_runs_one_journey_at_a_time() {
     enforced(
         "tests/ui/run_concurrently.rs",
