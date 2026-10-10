@@ -1,0 +1,10 @@
+error[E0382]: use of moved value: `instance`
+  --> tests/ui/run_twice.rs:11:18
+   |
+ 8 |     let instance = orders.instance(Orders).create()?;
+   |         -------- move occurs because `instance` has type `Instance<Orders>`, which does not implement the `Copy` trait
+ 9 |     let mut executor = LocalExecutor::new();
+10 |     executor.run(instance)?;
+   |                  -------- value moved here
+11 |     executor.run(instance)?;
+   |                  ^^^^^^^^ value used here after move

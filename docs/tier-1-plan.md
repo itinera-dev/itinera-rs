@@ -381,6 +381,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
   | `syn`, `quote`, `proc-macro2` | macros | the macros |
   | `cucumber` (`macros`, `output-json`), `tokio` (`rt`), `futures`, `serde_json` | conformance runner | running the cases |
   | `trybuild`, `proptest`, `serde_json` | tests | compile-fail, property-based and equivalence tests |
+  | `futures` (`executor`) | tests | running asynchronous journeys in tests |
   | `rstest` | tests | one test per rule, with a named case per input |
 
   No async runtime and no `futures` crate in the core. A new dependency of the core needs a stated reason in its pull request.

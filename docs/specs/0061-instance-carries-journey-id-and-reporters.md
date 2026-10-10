@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0061](https://github.com/itinera-dev/spec/blob/main/proposals/0061-instance-carries-journey-id-and-reporters.md), implemented in [#28](https://github.com/itinera-dev/itinera-rs/issues/28). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: in progress. Stage 3 adds the instance, its journey ID and its reporters, and the executors that use them.
+Status: done in stage 6. Stage 3 added the instance, its journey ID and its reporters, and the executors that use them; stage 6 lists the proposal, once the conformance runner runs workflows.
 
 ## API
 
@@ -11,6 +11,8 @@ Status: in progress. Stage 3 adds the instance, its journey ID and its reporters
 - **The journey ID generator** is given with `WorkflowBuilder::id_generator`, a closure from the workflow's own value and the initial data to `Result<String, Error>`. Without one, the ID is a UUID v4, built by the `uuid` crate from random bytes that `getrandom` reads; a random source that fails is an `InstanceError`, never a panic.
 - **Reporters** are listed by type with `WorkflowBuilder::reporter::<R>()`, where `R: WorkflowReporter<W>`, or with `async_reporter::<R>()`, where `R: AsyncWorkflowReporter<W>`. Each has `init(&W, &JourneyId, &DataBag) -> Result<Self, Error>`.
 - **`itinera::instance::InstanceError`** is what `create()` returns when the generator or a reporter's `init` fails: `JourneyId(Error)` or `Reporter(Error)`.
+
+Its API stays behind the `unstable` feature, since it names API of proposals not yet listed, such as the events of 0011 and the policies of 0010, until stage 7 lists them.
 
 ## How the rules are enforced
 
@@ -28,4 +30,4 @@ Status: in progress. Stage 3 adds the instance, its journey ID and its reporters
 
 ## Done when
 
-Every scenario tagged `@proposal-0061` passes, and 61 is listed in `conformance.json`. Planned for stage 6.
+Every scenario tagged `@proposal-0061` passes, and 61 is listed in `conformance.json`. Done in stage 6.

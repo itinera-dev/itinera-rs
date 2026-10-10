@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0012](https://github.com/itinera-dev/spec/blob/main/proposals/0012-local-executor.md), implemented in [#14](https://github.com/itinera-dev/itinera-rs/issues/14). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: in progress. Stage 3 adds both executors and the engine they share, running a workflow whose one step can only succeed. Stage 5 builds each step for its attempt and acts on every outcome, with each attempt the step's last; stage 6 adds the scan and its decisions.
+Status: done in stage 6. Stage 3 added both executors and the engine they share, running a workflow whose one step can only succeed. Stage 5 built each step for its attempt and acted on every outcome, with each attempt the step's last; stage 6 added the scan and its decisions.
 
 ## API
 
@@ -10,6 +10,8 @@ Status: in progress. Stage 3 adds both executors and the engine they share, runn
 - **`itinera::executor::AsyncLocalExecutor<F>`**, behind the `async` feature, runs `Asynchronous` workflows with an `AsyncDispatcherFactory`. Its `run` is an `async fn`, whose future is `Send` whenever the instance is.
 - **`itinera::executor::Refusal`** names what refused a journey before it started, with its error: `DispatcherFactory`, or `Dispatcher` while the reporters were added. Stage 7 adds the refusal of a workflow policy that cannot be built.
 - **The engine** is private and asynchronous. The synchronous executor polls it with `Waker::noop()`, since a synchronous workflow never waits. It holds no reference to the instance across an await.
+
+Its API stays behind the `unstable` feature, since it names API of proposals not yet listed, such as the events of 0011 and the policies of 0010, until stage 7 lists them.
 
 ## How the rules are enforced
 
@@ -28,8 +30,14 @@ Status: in progress. Stage 3 adds both executors and the engine they share, runn
 - Unit tests in `itinera-core/src/executor.rs`: a journey emits its events in order to every reporter and succeeds with its data; the step runs once; a journey without a step succeeds; an executor runs journeys one after another, each with a new dispatcher; and the refusal and reporter failure tests listed in the tech specs of 0063 and 0081.
 - Unit tests in `itinera-core/src/executor/asynchronous.rs`: an asynchronous workflow emits its events in order to both kinds of reporter, and its future is `Send`; an asynchronous workflow may list only synchronous reporters.
 - Unit tests in `itinera-core/src/engine.rs`: events are numbered from 1, and carry the journey ID, the workflow name and the time of the engine's clock.
-- Planned: compile-fail tests for running an instance twice and calling `run` concurrently.
+- Compile-fail tests in `itinera/tests/ui.rs`, each with a twin that compiles and runs: `an_instance_runs_at_most_one_journey`, where the twin runs a new instance instead, and `an_executor_runs_one_journey_at_a_time`, where two scoped threads call `run` on one executor, and the twin's second journey runs after the first thread.
+- A proof in `itinera/tests/proofs.rs`, `a_synchronous_executor_cannot_run_an_asynchronous_step`: handing `LocalExecutor` an instance of an asynchronous workflow fails to compile, and its twin, which hands it to `AsyncLocalExecutor`, compiles and runs. It covers the scenario tagged `@mode-not-accepted`, as the tech spec of 0042 says.
+- The conformance runner runs the scenarios of 0012 under both executors, running two journeys with one executor where a scenario says so.
+
+## Excluded scenarios
+
+The scenario "A synchronous-only executor refuses an asynchronous step before the journey starts" is tagged `@mode-not-accepted`, and proven impossible to express by `a_synchronous_executor_cannot_run_an_asynchronous_step` in `crates/itinera/tests/proofs.rs`. It hands `LocalExecutor` an instance of an asynchronous workflow, which does not compile, and its twin hands the instance to `AsyncLocalExecutor`, which compiles and runs the journey.
 
 ## Done when
 
-Every scenario tagged `@proposal-0012` passes, and 12 is listed in `conformance.json`. Planned for stage 6.
+Every scenario tagged `@proposal-0012` passes or is proven impossible to express, and 12 is listed in `conformance.json`. Done in stage 6.

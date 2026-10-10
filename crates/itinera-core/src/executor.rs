@@ -80,6 +80,9 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
     /// the result. A panic is not caught: it reaches the caller, and the journey stops where it
     /// was.
     ///
+    /// `run` takes the instance, so an instance runs one journey and cannot run again. It borrows
+    /// the executor mutably, so an executor runs one journey at a time.
+    ///
     /// # Errors
     ///
     /// A [`Refusal`], with no journey and no event, when the dispatcher factory fails, or the

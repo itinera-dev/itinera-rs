@@ -596,6 +596,7 @@ dependencies = [
 name = "itinera"
 version = "0.0.0"
 dependencies = [
+ "futures",
  "itinera-core",
  "itinera-macros",
  "trybuild",

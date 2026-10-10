@@ -1,6 +1,6 @@
 {
   "cases": "v0.1.0-rc.6",
-  "proposals": [56, 57, 62, 64],
+  "proposals": [12, 32, 42, 56, 57, 61, 62, 63, 64, 65],
   "capabilities": ["sync", "async"],
   "impossible": {
     "non-value": [
@@ -28,6 +28,13 @@
         "feature": "cases/tier-1/0011-events/emitted-by-steps-and-hooks.feature",
         "scenario": "Data that is not a value aborts the journey, and the event is not delivered",
         "proof": { "test": "a_step_event_cannot_carry_a_non_value", "file": "crates/itinera/tests/proofs.rs" }
+      }
+    ],
+    "mode-not-accepted": [
+      {
+        "feature": "cases/tier-1/0012-local-executor/local-executor.feature",
+        "scenario": "A synchronous-only executor refuses an asynchronous step before the journey starts",
+        "proof": { "test": "a_synchronous_executor_cannot_run_an_asynchronous_step", "file": "crates/itinera/tests/proofs.rs" }
       }
     ],
     "late-handle": [

@@ -22,7 +22,7 @@ Status: done in stage 4. Stage 3 added the workflow descriptor with its name, it
 - A policy descriptor names the hooks it defines, with `StepHook` or `WorkflowHook` values, and they keep their default behaviour. Stage 7 replaces the names with the policies' hooks and a factory.
 - An input adapter is a function of the workflow's own value, the step's name and the key, and requests nothing. Stage 7 makes it a hook of the workflow, with its requests.
 
-While these stand-ins remain, or while the API names reporters, instances and executors of proposals not yet listed, it stays behind the `unstable` feature, though 62 is listed in `conformance.json`.
+While these stand-ins remain, or while the API names that of proposals not yet listed, such as the events of 0011 and the policies of 0010, it stays behind the `unstable` feature, though 62 is listed in `conformance.json`.
 
 ## How the rules are enforced
 
