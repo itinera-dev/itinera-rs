@@ -83,10 +83,10 @@ fn a_steps_handles_cannot_outlive_its_attempt() {
 
 #[test]
 fn an_adapters_access_to_the_data_bag_cannot_outlive_its_call() {
-    proves(
-        "tests/proofs/late-handle/kept_by_an_input_adapter.rs",
-        "tests/proofs/late-handle/read_by_an_input_adapter_during_its_call.rs",
-    );
+    let cases = trybuild::TestCases::new();
+    cases.compile_fail("tests/proofs/late-handle/kept_by_an_input_adapter.rs");
+    cases.compile_fail("tests/proofs/late-handle/kept_by_an_input_adapter_taking_a_static_call.rs");
+    cases.pass("tests/proofs/late-handle/read_by_an_input_adapter_during_its_call.rs");
 }
 
 #[test]

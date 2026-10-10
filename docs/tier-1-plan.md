@@ -279,7 +279,7 @@ pub enum Abort {
   - `role-not-provided`: a policy whose hook requests a role, attached to a workflow that does not implement `Provides` for it; the twin's workflow provides the role;
   - `mode-not-accepted`: an asynchronous step run by `LocalExecutor`;
   - `non-value`: a closure as initial data, as a contribution, as an adapter's value, as event data and as a reason's details;
-  - `late-handle`: a contributor and step reporter kept by the step's factory beyond the attempt, or moved into a thread that may outlive it; the twin uses them from a scoped thread, which ends within the attempt. Also an input adapter's access to the data bag kept by the workflow beyond the call; the twin reads through it during the call;
+  - `late-handle`: a contributor and step reporter kept by the step's factory beyond the attempt, or moved into a thread that may outlive it; the twin uses them from a scoped thread, which ends within the attempt. Also an input adapter's access to the data bag kept by the workflow beyond the call, whether the adapter takes the call's own lifetime or claims a `'static` one, which `InputAdapterDescriptor::new` refuses; the twin reads through it during the call;
   - `bag-write`: an input adapter writing through its access to the data bag; the twin reads through it.
 - **The `run-conformance` action** checks the exclusions and writes the report's second file. It leaves the `impossible` tags out of the tag expression, fails if a tagged scenario has no entry or an entry names no scenario at the pinned cases, and writes the exclusions file next to the Cucumber JSON. Together the two files are the conformance report a release carries, written to `conformance-report/cucumber.json` and `conformance-report/exclusions.json` and uploaded as an artifact. While `conformance.json` lists no proposal, the action still checks the manifest but does not run the runner, so its job is part of CI from stage 0.
 - **What runs.** A scenario runs once every proposal it is tagged with is listed in `conformance.json`. Listing a proposal therefore runs those of its scenarios whose other proposals are already listed; the rest join in, by themselves, when their last proposal is listed.
@@ -331,6 +331,8 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | 8. Macros | `#[step]`, `#[step_policy]`, `#[workflow_policy]`, `#[workflow]`, their equivalence and compile-fail tests | none |
 | 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
 
+Proposal 0091, which lets an input adapter read the data bag, joined tier 1 after stage 7. It was completed by the change that moved the cases to `v0.1.0-rc.8`, outside the stages.
+
 - **The decision logic is pure**: what the step's own rule decides after a failed attempt is a function of how the attempt ended, its number, the retry budget and `abnormal termination retriable`, which touches nothing. The engine calls the step hooks around it, in the order of chapter 6, and a hook's lifecycle overrides the default. Until stage 7, every hook point answered nothing, and the engine's tests scripted their answers; since stage 7, they call the policies' hooks. The code around it builds, runs, emits and commits.
 - **Step statuses are not public.** The engine's scan keeps them to itself, as its position in the steps and attempts, and the conformance runner derives each step's status and attempt count from the event stream, as the specification allows.
 - **Proofs land with their feature**, together with their tag's entries under `impossible` in `conformance.json`. A proposal is listed in `conformance.json` only when each of its scenarios that runs once it is listed passes, or is proven.
@@ -341,7 +343,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 - Each stage is one stack (`gh stack`), with one layer per coherent piece. Every layer passes all of `main`'s checks.
 - Every layer says `Refs #N` for the implementation issues it contributes to. The layer that completes a proposal says `Closes #N` and adds the proposal's number to `conformance.json`.
 - Work that belongs to no proposal (stage 0, the macros, the release) refers to #7, or to an issue of its own such as "Macros as syntax over the builder".
-- Public API of a proposal not yet listed in `conformance.json` stays behind the `unstable` feature, and so does a listed proposal's API while it holds a stand-in that a later stage replaces, or names API of a proposal not yet listed. Stage 7 lists every tier 1 proposal, so from then on every module is public, and `unstable` gates only API that the specification has not accepted yet, of which there is none now.
+- Public API of a proposal not yet listed in `conformance.json` stays behind the `unstable` feature, and so does a listed proposal's API while it holds a stand-in that a later stage replaces, or names API of a proposal not yet listed. Stage 7 lists every tier 1 proposal accepted by then, and 0091 was listed once accepted, so every module is public, and `unstable` gates only API that the specification has not accepted yet, of which there is none now.
 
 ## Issues and tech specs
 

@@ -847,7 +847,7 @@ pub(crate) mod tests {
     use crate::event::{Event, Timestamp};
     use crate::executor::build_policies;
     use crate::instance::InstanceBuilder;
-    use crate::journey::{FailureCause, LastFailure};
+    use crate::journey::{FailureCause, LastFailure, Read as Found};
     use crate::policy::{
         HookNeeds, InputAdapter, Lifecycle, OnStepAbnormalTermination, OnStepFailure, OnStepRetry,
         OnStepSuccess, Requested, StepAbnormalTermination, StepFailure, StepPolicyDescriptor,
@@ -1581,7 +1581,7 @@ pub(crate) mod tests {
     ) -> Result<Option<AnyValue>, Error> {
         let base = got.data_bag()?.read::<i64>("base");
         match (got.key(), base) {
-            ("amount", crate::journey::Read::Present(base)) => Ok(Some(AnyValue::new(base * 2))),
+            ("amount", Found::Present(base)) => Ok(Some(AnyValue::new(base * 2))),
             _ => Ok(None),
         }
     }

@@ -1,0 +1,17 @@
+error: implementation of `Fn` is not general enough
+  --> tests/proofs/late-handle/kept_by_an_input_adapter_taking_a_static_call.rs:29:20
+   |
+29 |     let _pricing = InputAdapterDescriptor::new("pricing", step_name!("charge"), Orders::pricing)
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^ implementation of `Fn` is not general enough
+   |
+   = note: `for<'a> fn(&'a Orders, Requested<'static, Orders, InputAdapter>) -> Result<Option<AnyValue>, itinera::error::Error> {Orders::pricing}` must implement `Fn<(&'0 Orders, Requested<'0, Orders, InputAdapter>)>`, for any lifetime `'0`...
+   = note: ...but it actually implements `Fn<(&Orders, Requested<'static, Orders, InputAdapter>)>`
+
+error: implementation of `FnOnce` is not general enough
+  --> tests/proofs/late-handle/kept_by_an_input_adapter_taking_a_static_call.rs:29:20
+   |
+29 |     let _pricing = InputAdapterDescriptor::new("pricing", step_name!("charge"), Orders::pricing)
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^ implementation of `FnOnce` is not general enough
+   |
+   = note: `for<'a> fn(&'a Orders, Requested<'static, Orders, InputAdapter>) -> Result<Option<AnyValue>, itinera::error::Error> {Orders::pricing}` must implement `FnOnce<(&'0 Orders, Requested<'0, Orders, InputAdapter>)>`, for any lifetime `'0`...
+   = note: ...but it actually implements `FnOnce<(&Orders, Requested<'static, Orders, InputAdapter>)>`

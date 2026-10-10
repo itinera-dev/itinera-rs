@@ -33,7 +33,7 @@ Status: done.
 | Scenario, in `data-bag-access.feature` | Tag | Proof in `crates/itinera/tests/proofs.rs` |
 |---|---|---|
 | "An adapter that writes through its access leaves the data bag unchanged" | `@bag-write` | `an_adapter_cannot_write_through_its_access_to_the_data_bag`: a write through the access does not compile, since it has no method to write; the twin reads through it |
-| "An adapter's access kept from an earlier call shows nothing later" | `@late-handle` | `an_adapters_access_to_the_data_bag_cannot_outlive_its_call`: a workflow that keeps the access in a field beyond the call does not compile; the twin reads through it during the call |
+| "An adapter's access kept from an earlier call shows nothing later" | `@late-handle` | `an_adapters_access_to_the_data_bag_cannot_outlive_its_call`: a workflow that keeps the access in a field beyond the call does not compile, nor does an adapter written to take a call that lasts forever, which `InputAdapterDescriptor::new` refuses since it requires an adapter for every call's lifetime; the twin reads through it during the call |
 
 ## Done when
 
