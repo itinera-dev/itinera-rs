@@ -1,21 +1,22 @@
-//! Calling the hooks of a journey's policies: what a hook requests is resolved before it runs,
-//! and what it contributed is committed once it returns.
+//! Calling the hooks of a journey's policies and the input adapters of its workflow: what a hook
+//! requests is resolved before it runs, and what a policy's hook contributed is committed once it
+//! returns.
 
 use super::decision::Failed;
-use super::{Attempting, Delivery, End, Journey, missing, wrong_type};
+use super::{Attempting, Delivery, End, Journey, Requesting, Sources, could_not_build, wrong_type};
 use crate::error::Error;
-use crate::event::{self, EventBody, HookSource, JourneyAbort, RequestSource, Source};
+use crate::event::{self, EventBody, HookSource, JourneyAbort, Source};
 use crate::instance::WorkflowInstance;
-use crate::journey::{Abort, Contributions, Contributor, DataBag, MissingData, Requester};
+use crate::journey::{Abort, Contributions, Contributor, DataBag, MissingData};
 use crate::policy::{
     Answers, BuiltStepPolicy, BuiltWorkflowPolicy, Call, FailWorkflow, HookKind, Lifecycle, Needs,
     OnSuccess, PolicyName, Request, Requested, RetryCause, StepAbnormalTermination, StepFailure,
     StepFailureCause, StepHook, StepHookKind, StepRetry, StepSuccess, WorkflowFailure,
     WorkflowHook, WorkflowSuccess,
 };
-use crate::step::{InputNeed, Reason, Reporting, Requirement, StepName};
+use crate::step::{InputNeed, Reason, Reporting, Requirement, StepAttempt, StepName};
 use crate::value::AnyValue;
-use crate::workflow::WorkflowDescriptor;
+use crate::workflow::{InputAdapterDescriptor, WorkflowDescriptor};
 
 /// The workflow policies built for one journey, in the order they were attached.
 pub(crate) type WorkflowPolicies<W, M> = Vec<Box<dyn BuiltWorkflowPolicy<W, M>>>;
@@ -313,10 +314,11 @@ impl<D: Delivery> Journey<D> {
             context,
             left,
         } = called;
+        let requesting = Requesting::hook(&hook);
         let data_bag = instance.data_bag();
         let mut answers = Answers::default();
         for request in needs.requests() {
-            self.answer(&mut answers, &hook, request, data_bag, left.as_ref())
+            self.answer(&mut answers, &requesting, request, data_bag, left.as_ref())
                 .await?;
         }
         let mut contributions = Contributions::default();
@@ -333,7 +335,13 @@ impl<D: Delivery> Journey<D> {
             };
             answers.contributor = contributor;
             answers.reporting = reporting;
-            let got = Requested::new(instance.workflow(), instance.journey_id(), context, answers);
+            let got = Requested::new(
+                instance.workflow(),
+                instance.journey_id(),
+                data_bag,
+                context,
+                answers,
+            );
             call(policy, got).await
         };
         if let Some(aborted) = self.interrupted.take() {
@@ -357,7 +365,7 @@ impl<D: Delivery> Journey<D> {
     async fn answer<'s>(
         &mut self,
         answers: &mut Answers<'s>,
-        hook: &HookSource,
+        requesting: &Requesting,
         request: &Request,
         data_bag: &DataBag,
         left: Option<&Left<'s>>,
@@ -366,12 +374,14 @@ impl<D: Delivery> Journey<D> {
             Request::FromStep(need) => {
                 let key = need.key();
                 let found = left.and_then(|left| left.contributed(key));
-                let value = self.request(hook, need, found).await?;
+                let value = self.request(requesting, need, found).await?;
                 answers.from_step.hold(key, value);
             }
             Request::FromWorkflow(need) => {
                 let key = need.key();
-                let value = self.request(hook, need, data_bag.get(key).cloned()).await?;
+                let value = self
+                    .request(requesting, need, data_bag.get(key).cloned())
+                    .await?;
                 answers.from_workflow.hold(key, value);
             }
             Request::Reason(requirement) => {
@@ -384,45 +394,56 @@ impl<D: Delivery> Journey<D> {
         Ok(())
     }
 
-    /// Turns what was found for one of a hook's requests into its value, or the abort it causes.
-    async fn request(
+    /// Calls the step's input adapter for one of its inputs, once what the adapter requests is
+    /// resolved: the value it supplied, or `None` when it does not supply this input.
+    pub(super) async fn adapt<W>(
         &mut self,
-        hook: &HookSource,
-        need: &InputNeed,
-        found: Option<AnyValue>,
+        sources: &Sources<'_, W>,
+        adapter: &InputAdapterDescriptor<W>,
+        attempt: &StepAttempt,
+        input: &InputNeed,
     ) -> Result<Option<AnyValue>, End> {
-        let key = need.key();
-        let (requester, reported) = requesters(hook);
-        match found {
-            Some(value) if need.accepts(&value) => Ok(Some(value)),
-            Some(_) => Err(wrong_type(key, requester, reported)),
-            None => match need.requirement() {
-                Requirement::Required => Err(missing(key, requester, reported)),
-                Requirement::Optional => self.absent(key, RequestSource::Hook(hook.clone())).await,
-            },
+        let name = adapter.name();
+        let key = input.key();
+        let requesting = Requesting::adapter(name, attempt);
+        let data_bag = sources.data_bag;
+        let mut answers = Answers::default();
+        for request in adapter.needs().requests() {
+            self.answer(&mut answers, &requesting, request, data_bag, None)
+                .await?;
         }
-    }
-}
-
-/// Who made a hook's request, as the result and as events name it.
-fn requesters(hook: &HookSource) -> (Requester, event::Requester) {
-    match *hook {
-        HookSource::Step {
-            policy,
-            hook,
-            ref step,
-        } => (
-            Requester::StepHook { policy, hook },
-            event::Requester::StepHook {
-                policy,
-                hook,
-                step: step.step,
-            },
-        ),
-        HookSource::Workflow { policy, hook } => (
-            Requester::WorkflowHook { policy, hook },
-            event::Requester::WorkflowHook { policy, hook },
-        ),
+        let got = Requested::new(
+            sources.workflow,
+            sources.journey_id,
+            data_bag,
+            (attempt.step, key),
+            answers,
+        );
+        match adapter.adapt(sources.workflow, got) {
+            Ok(Some(value)) => {
+                self.emit(EventBody::InputAdapterSupplied {
+                    step: attempt.clone(),
+                    key: key.to_owned(),
+                    adapter: name,
+                })
+                .await?;
+                if input.accepts(&value) {
+                    Ok(Some(value))
+                } else {
+                    Err(wrong_type(key, &requesting))
+                }
+            }
+            Ok(None) => Ok(None),
+            Err(error) => {
+                self.emit(EventBody::InputAdapterFailed {
+                    step: attempt.clone(),
+                    key: key.to_owned(),
+                    adapter: name,
+                })
+                .await?;
+                Err(could_not_build(attempt.step, error))
+            }
+        }
     }
 }
 

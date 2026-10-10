@@ -6,13 +6,13 @@ use std::pin::Pin;
 
 use crate::error::{Error, Interrupted};
 use crate::event::{
-    self, DecidingHook, Event, EventBody, GiveUpCause, GiveUpHook, JourneyAbort, JourneyFailure,
-    RequestSource, Source,
+    self, DecidingHook, Event, EventBody, GiveUpCause, GiveUpHook, HookSource, JourneyAbort,
+    JourneyFailure, RequestSource, Source,
 };
-use crate::instance::{Committed, Resolution, WorkflowInstance};
+use crate::instance::{Committed, WorkflowInstance};
 use crate::journey::{
-    Abort, Contribution, Contributions, Contributor, Failure, JourneyResult, JourneyStatus,
-    MissingData, Requester,
+    Abort, Contribution, Contributions, Contributor, DataBag, Failure, JourneyId, JourneyResult,
+    JourneyStatus, MissingData, Requester,
 };
 use crate::policy::{
     BuiltStepPolicy, FailWorkflow, OnSuccess, PolicyName, RetryCause, StepFailureCause, StepHook,
@@ -24,7 +24,7 @@ use crate::step::{
     StepDescriptor, StepName,
 };
 use crate::value::AnyValue;
-use crate::workflow::WorkflowDescriptor;
+use crate::workflow::{AdapterName, InputAdapterDescriptor, WorkflowDescriptor};
 
 #[cfg(feature = "async")]
 mod asynchronous;
@@ -252,10 +252,15 @@ impl<D: Delivery> Journey<D> {
         })
         .await?;
         let policies = build_policies(step)?;
+        let sources = Sources {
+            adapter: instance.descriptor().adapter(step.name()),
+            workflow: instance.workflow(),
+            journey_id: instance.journey_id(),
+            data_bag: instance.data_bag(),
+        };
         let mut inputs = Vec::new();
         for input in step.needs().inputs() {
-            let resolution = instance.data_for_step(step.name(), input.key());
-            let value = self.resolve(attempt, input, resolution).await?;
+            let value = self.input(&sources, attempt, input).await?;
             inputs.push((input.key(), value));
         }
         let mut contributed = Contributions::default();
@@ -275,6 +280,27 @@ impl<D: Delivery> Journey<D> {
         match ran {
             Ok(outcome) => self.conclude(instance, &attempting, outcome.into()).await,
             Err(error) => self.terminate(instance, &attempting, error).await,
+        }
+    }
+
+    /// Resolves one input of a step being built: from the step's input adapter, if it has one
+    /// that supplies the input, and otherwise from the data bag.
+    async fn input<W>(
+        &mut self,
+        sources: &Sources<'_, W>,
+        attempt: &StepAttempt,
+        input: &InputNeed,
+    ) -> Result<Option<AnyValue>, End> {
+        let adapted = match sources.adapter {
+            Some(adapter) => self.adapt(sources, adapter, attempt, input).await?,
+            None => None,
+        };
+        match adapted {
+            Some(value) => Ok(Some(value)),
+            None => {
+                let found = sources.data_bag.get(input.key()).cloned();
+                self.request(&Requesting::step(attempt), input, found).await
+            }
         }
     }
 
@@ -304,58 +330,20 @@ impl<D: Delivery> Journey<D> {
         }
     }
 
-    /// Turns what the instance answered for one input into its events and its value, or the
-    /// abort it causes.
-    async fn resolve(
+    /// Turns what was found for one request into its value, or the abort it causes.
+    async fn request(
         &mut self,
-        attempt: &StepAttempt,
-        input: &InputNeed,
-        resolution: Resolution,
+        requesting: &Requesting,
+        need: &InputNeed,
+        found: Option<AnyValue>,
     ) -> Result<Option<AnyValue>, End> {
-        let step = attempt.step;
-        let key = input.key();
-        match resolution {
-            Resolution::Supplied { adapter, value } => {
-                self.emit(EventBody::InputAdapterSupplied {
-                    step: attempt.clone(),
-                    key: key.to_owned(),
-                    adapter,
-                })
-                .await?;
-                if input.accepts(&value) {
-                    Ok(Some(value))
-                } else {
-                    Err(wrong_type(
-                        key,
-                        Requester::Adapter { adapter },
-                        event::Requester::Adapter { adapter, step },
-                    ))
-                }
-            }
-            Resolution::AdapterFailed { adapter, error } => {
-                self.emit(EventBody::InputAdapterFailed {
-                    step: attempt.clone(),
-                    key: key.to_owned(),
-                    adapter,
-                })
-                .await?;
-                Err(could_not_build(step, error))
-            }
-            Resolution::InDataBag(value) if input.accepts(&value) => Ok(Some(value)),
-            Resolution::InDataBag(_) => Err(wrong_type(
-                key,
-                Requester::Step,
-                event::Requester::Step { step },
-            )),
-            Resolution::Absent => match input.requirement() {
-                Requirement::Required => Err(missing(
-                    key,
-                    Requester::Step,
-                    event::Requester::Step { step },
-                )),
-                Requirement::Optional => {
-                    self.absent(key, RequestSource::Step(attempt.clone())).await
-                }
+        let key = need.key();
+        match found {
+            Some(value) if need.accepts(&value) => Ok(Some(value)),
+            Some(_) => Err(wrong_type(key, requesting)),
+            None => match need.requirement() {
+                Requirement::Required => Err(missing(key, requesting)),
+                Requirement::Optional => self.absent(key, requesting.source.clone()).await,
             },
         }
     }
@@ -721,33 +709,102 @@ fn could_not_build(step: StepName, error: Error) -> End {
     End::aborted(Abort::StepCouldNotBeBuilt(error), reported)
 }
 
+/// What a step's inputs are resolved from: its input adapter, if it has one, and the journey's
+/// data.
+struct Sources<'i, W> {
+    adapter: Option<&'i InputAdapterDescriptor<W>>,
+    workflow: &'i W,
+    journey_id: &'i JourneyId,
+    data_bag: &'i DataBag,
+}
+
+/// Who requests a value, as the result, the abort and the events name it.
+struct Requesting {
+    requester: Requester,
+    reported: event::Requester,
+    source: RequestSource,
+}
+
+impl Requesting {
+    /// A step, for one of its inputs during this attempt.
+    fn step(attempt: &StepAttempt) -> Self {
+        Self {
+            requester: Requester::Step,
+            reported: event::Requester::Step { step: attempt.step },
+            source: RequestSource::Step(attempt.clone()),
+        }
+    }
+
+    /// An input adapter, for an input of the step it is building in this attempt.
+    fn adapter(adapter: AdapterName, attempt: &StepAttempt) -> Self {
+        Self {
+            requester: Requester::Adapter { adapter },
+            reported: event::Requester::Adapter {
+                adapter,
+                step: attempt.step,
+            },
+            source: RequestSource::Adapter {
+                adapter,
+                step: attempt.clone(),
+            },
+        }
+    }
+
+    /// A hook of a policy.
+    fn hook(hook: &HookSource) -> Self {
+        let (requester, reported) = match *hook {
+            HookSource::Step {
+                policy,
+                hook,
+                ref step,
+            } => (
+                Requester::StepHook { policy, hook },
+                event::Requester::StepHook {
+                    policy,
+                    hook,
+                    step: step.step,
+                },
+            ),
+            HookSource::Workflow { policy, hook } => (
+                Requester::WorkflowHook { policy, hook },
+                event::Requester::WorkflowHook { policy, hook },
+            ),
+        };
+        Self {
+            requester,
+            reported,
+            source: RequestSource::Hook(hook.clone()),
+        }
+    }
+}
+
 /// The abort for a required request without a value, naming who requested it.
-fn missing(key: &str, requester: Requester, reported: event::Requester) -> End {
+fn missing(key: &str, requesting: &Requesting) -> End {
     End::aborted(
         Abort::RequiredDataMissing(MissingData::Key {
             key: key.to_owned(),
-            requester,
+            requester: requesting.requester.clone(),
         }),
         JourneyAbort::RequiredDataMissing {
             missing: event::MissingData::Key {
                 key: key.to_owned(),
-                requester: reported,
+                requester: requesting.reported.clone(),
             },
         },
     )
 }
 
 /// The abort for a value of the wrong type, naming who requested it: the input adapter that
-/// supplied it, or the step or hook that read it.
-fn wrong_type(key: &str, requester: Requester, reported: event::Requester) -> End {
+/// supplied it, or the step, input adapter or hook that read it.
+fn wrong_type(key: &str, requesting: &Requesting) -> End {
     End::aborted(
         Abort::WrongType {
             key: key.to_owned(),
-            requester,
+            requester: requesting.requester.clone(),
         },
         JourneyAbort::WrongType {
             key: key.to_owned(),
-            requester: reported,
+            requester: requesting.reported.clone(),
         },
     )
 }
@@ -792,8 +849,9 @@ pub(crate) mod tests {
     use crate::instance::InstanceBuilder;
     use crate::journey::{FailureCause, LastFailure};
     use crate::policy::{
-        Lifecycle, OnStepAbnormalTermination, OnStepFailure, OnStepRetry, OnStepSuccess, Requested,
-        StepAbnormalTermination, StepFailure, StepPolicyDescriptor, StepRetry, StepSuccess,
+        HookNeeds, InputAdapter, Lifecycle, OnStepAbnormalTermination, OnStepFailure, OnStepRetry,
+        OnStepSuccess, Requested, StepAbnormalTermination, StepFailure, StepPolicyDescriptor,
+        StepRetry, StepSuccess,
     };
     use crate::report::{DefaultDispatcher, Reporter};
     use crate::step::{
@@ -801,7 +859,7 @@ pub(crate) mod tests {
         StepNeeds, StepReporter,
     };
     use crate::workflow::{
-        AdapterName, InputAdapter, WorkflowBuilder, WorkflowDescriptor, WorkflowName,
+        AdapterName, InputAdapterDescriptor, WorkflowBuilder, WorkflowDescriptor, WorkflowName,
     };
 
     pub(super) struct Orders;
@@ -1062,8 +1120,11 @@ pub(crate) mod tests {
     }
 
     /// Supplies an amount of 7, and nothing else.
-    fn pricing(_: &Orders, _: StepName, key: &str) -> Result<Option<AnyValue>, Error> {
-        Ok((key == "amount").then(|| AnyValue::new(7_i64)))
+    fn pricing(
+        _: &Orders,
+        got: Requested<'_, Orders, InputAdapter>,
+    ) -> Result<Option<AnyValue>, Error> {
+        Ok((got.key() == "amount").then(|| AnyValue::new(7_i64)))
     }
 
     #[test]
@@ -1213,7 +1274,8 @@ pub(crate) mod tests {
     #[test]
     fn an_input_adapter_supplies_an_input_before_the_data_bag_is_read() {
         let read = Read::default();
-        let workflow = charged(&read).input_adapter(InputAdapter::new("pricing", CHARGE, pricing));
+        let workflow =
+            charged(&read).input_adapter(InputAdapterDescriptor::new("pricing", CHARGE, pricing));
 
         let (_, events) = travel_with_amount(workflow);
 
@@ -1234,7 +1296,7 @@ pub(crate) mod tests {
     #[test]
     fn an_input_adapter_that_fails_aborts_the_journey_as_its_step_could_not_be_built() {
         let read = Read::default();
-        let failing = InputAdapter::new("pricing", CHARGE, |_: &Orders, _, _| {
+        let failing = InputAdapterDescriptor::new("pricing", CHARGE, |_: &Orders, _| {
             Err(Error::msg("no price list"))
         });
 
@@ -1258,7 +1320,7 @@ pub(crate) mod tests {
     #[test]
     fn a_value_of_another_type_from_an_input_adapter_aborts_the_journey_with_wrong_type() {
         let read = Read::default();
-        let wrong = InputAdapter::new("pricing", CHARGE, |_: &Orders, _, _| {
+        let wrong = InputAdapterDescriptor::new("pricing", CHARGE, |_: &Orders, _| {
             Ok(Some(AnyValue::new("seven".to_string())))
         });
 
@@ -1311,7 +1373,7 @@ pub(crate) mod tests {
         #[case] aborted: fn(&JourneyStatus) -> bool,
     ) {
         let read = Read::default();
-        let silent = InputAdapter::new("pricing", CHARGE, |_: &Orders, _, _| Ok(None));
+        let silent = InputAdapterDescriptor::new("pricing", CHARGE, |_: &Orders, _| Ok(None));
         let workflow = charged(&read).input_adapter(silent);
 
         let (status, events) = travel(data(instance(workflow)).create().unwrap());
@@ -1321,6 +1383,231 @@ pub(crate) mod tests {
         assert_eq!(
             kinds(&events),
             ["journey_started", "attempt_started", "journey_aborted"]
+        );
+    }
+
+    const PRICE: Input<i64> = Input::new("price");
+    const QUANTITY: OptionalInput<i64> = OptionalInput::new("quantity");
+
+    /// Supplies the amount: the price from the workflow, times the quantity when there is one.
+    fn priced(
+        _: &Orders,
+        mut got: Requested<'_, Orders, InputAdapter>,
+    ) -> Result<Option<AnyValue>, Error> {
+        let price = got.from_workflow(&PRICE)?;
+        let amount = price * got.optional_from_workflow(&QUANTITY)?.unwrap_or(1);
+        Ok((got.key() == "amount").then(|| AnyValue::new(amount)))
+    }
+
+    /// The charge step, adapted by `priced`.
+    fn charged_at_the_price(read: &Read) -> WorkflowBuilder<Orders> {
+        let pricing = InputAdapterDescriptor::new("pricing", CHARGE, priced).needing(
+            HookNeeds::new()
+                .from_workflow(&PRICE)
+                .optional_from_workflow(&QUANTITY),
+        );
+        charged(read).input_adapter(pricing)
+    }
+
+    #[test]
+    fn an_input_adapter_receives_the_data_from_the_workflow_it_requests() {
+        let read = Read::default();
+
+        let journey = instance(charged_at_the_price(&read))
+            .data("price", 6_i64)
+            .data("quantity", 2_i64);
+        let (_, events) = travel(journey.create().unwrap());
+
+        assert_eq!(reads(&read), [(12, None)]);
+        assert_eq!(
+            kinds(&events),
+            [
+                "journey_started",
+                "attempt_started",
+                "input_adapter_supplied",
+                "optional_input_absent",
+                "step_succeeded",
+                "journey_succeeded"
+            ]
+        );
+    }
+
+    #[test]
+    fn an_input_adapters_absent_optional_data_is_reported_before_what_it_supplied() {
+        let read = Read::default();
+
+        let journey = instance(charged_at_the_price(&read)).data("price", 7_i64);
+        let (_, events) = travel(journey.create().unwrap());
+
+        assert_eq!(reads(&read), [(7, None)]);
+        let Some(Event {
+            body: EventBody::OptionalInputAbsent { key, requester },
+            ..
+        }) = events.get(2)
+        else {
+            panic!("no optional_input_absent after attempt_started: {events:?}");
+        };
+        assert_eq!(key, "quantity");
+        assert_eq!(
+            *requester,
+            RequestSource::Adapter {
+                adapter: AdapterName::from("pricing"),
+                step: StepAttempt::first(CHARGE),
+            }
+        );
+        assert_eq!(
+            kinds(&events),
+            [
+                "journey_started",
+                "attempt_started",
+                "optional_input_absent",
+                "input_adapter_supplied",
+                "optional_input_absent",
+                "optional_input_absent",
+                "step_succeeded",
+                "journey_succeeded"
+            ]
+        );
+    }
+
+    fn price_as_text(journey: InstanceBuilder<Orders>) -> InstanceBuilder<Orders> {
+        journey.data("price", "six".to_string())
+    }
+
+    fn wrong_type_naming_the_adapter(status: &JourneyStatus) -> bool {
+        matches!(
+            status,
+            JourneyStatus::Aborted(Abort::WrongType { key, requester: Requester::Adapter { adapter } })
+                if key == "price" && *adapter == AdapterName::from("pricing")
+        )
+    }
+
+    fn missing_data_naming_the_adapter(status: &JourneyStatus) -> bool {
+        matches!(
+            status,
+            JourneyStatus::Aborted(Abort::RequiredDataMissing(MissingData::Key {
+                key,
+                requester: Requester::Adapter { adapter }
+            })) if key == "price" && *adapter == AdapterName::from("pricing")
+        )
+    }
+
+    #[rstest]
+    #[case::a_value_of_another_type_in_the_data_bag(price_as_text, wrong_type_naming_the_adapter)]
+    #[case::no_value_in_the_data_bag(std::convert::identity, missing_data_naming_the_adapter)]
+    fn an_input_adapters_required_data_from_the_workflow_aborts_the_journey_before_it_runs(
+        #[case] data: Data,
+        #[case] aborted: fn(&JourneyStatus) -> bool,
+    ) {
+        let read = Read::default();
+
+        let (status, events) = travel(
+            data(instance(charged_at_the_price(&read)))
+                .create()
+                .unwrap(),
+        );
+
+        assert!(aborted(&status), "{status:?}");
+        assert!(reads(&read).is_empty());
+        assert_eq!(
+            kinds(&events),
+            ["journey_started", "attempt_started", "journey_aborted"]
+        );
+        assert_eq!(
+            events.last().and_then(aborting_requester),
+            Some(&event::Requester::Adapter {
+                adapter: AdapterName::from("pricing"),
+                step: CHARGE,
+            })
+        );
+    }
+
+    /// Who made the request that aborted the journey, as `journey_aborted` names it.
+    fn aborting_requester(event: &Event) -> Option<&event::Requester> {
+        match &event.body {
+            EventBody::JourneyAborted {
+                abort:
+                    JourneyAbort::RequiredDataMissing {
+                        missing: event::MissingData::Key { requester, .. },
+                    }
+                    | JourneyAbort::WrongType { requester, .. },
+            } => Some(requester),
+            _ => None,
+        }
+    }
+
+    /// The names of the steps an input adapter was told it supplies, in order.
+    type Names = Arc<Mutex<Vec<StepName>>>;
+
+    /// Records the name of the step it supplies an input to, and supplies nothing.
+    fn naming(
+        names: &Names,
+    ) -> impl for<'a> Fn(
+        &'a Orders,
+        Requested<'a, Orders, InputAdapter>,
+    ) -> Result<Option<AnyValue>, Error>
+    + Send
+    + Sync
+    + 'static {
+        let names = Arc::clone(names);
+        move |_, got| {
+            names.lock().unwrap().push(got.step_name());
+            Ok(None)
+        }
+    }
+
+    #[test]
+    fn an_input_adapter_is_told_the_step_it_supplies_for_each_of_its_inputs() {
+        let names = Names::default();
+        let read = Read::default();
+        let ship = Charge {
+            read: Arc::clone(&read),
+        };
+        let workflow = charged(&read)
+            .step(StepDescriptor::new(SHIP, ship))
+            .input_adapter(
+                InputAdapterDescriptor::new("naming", CHARGE, naming(&names)).step(SHIP),
+            );
+
+        travel(instance(workflow).data("amount", 42_i64).create().unwrap());
+
+        assert_eq!(*names.lock().unwrap(), [CHARGE, CHARGE, SHIP, SHIP]);
+    }
+
+    /// Supplies the amount as twice the base the data bag holds, read directly.
+    fn doubled(
+        _: &Orders,
+        got: Requested<'_, Orders, InputAdapter>,
+    ) -> Result<Option<AnyValue>, Error> {
+        let base = got
+            .data_bag()
+            .get("base")
+            .and_then(AnyValue::downcast_ref::<i64>);
+        match (got.key(), base) {
+            ("amount", Some(base)) => Ok(Some(AnyValue::new(base * 2))),
+            _ => Ok(None),
+        }
+    }
+
+    #[test]
+    fn an_input_adapter_reads_the_data_bag_without_events() {
+        let read = Read::default();
+        let workflow =
+            charged(&read).input_adapter(InputAdapterDescriptor::new("pricing", CHARGE, doubled));
+
+        let (_, events) = travel(instance(workflow).data("base", 5_i64).create().unwrap());
+
+        assert_eq!(reads(&read), [(10, None)]);
+        assert_eq!(
+            kinds(&events),
+            [
+                "journey_started",
+                "attempt_started",
+                "input_adapter_supplied",
+                "optional_input_absent",
+                "step_succeeded",
+                "journey_succeeded"
+            ]
         );
     }
 

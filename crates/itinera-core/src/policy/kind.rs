@@ -3,7 +3,7 @@
 use std::fmt;
 
 use super::{RetryCause, StepFailureCause};
-use crate::step::StepAttempt;
+use crate::step::{StepAttempt, StepName};
 
 pub(crate) mod sealed {
     pub trait Sealed {}
@@ -12,7 +12,8 @@ pub(crate) mod sealed {
 /// A kind of hook. [`HookNeeds`] and [`Requested`] offer a hook only the requests its kind may
 /// make, so a request it may not make does not compile.
 ///
-/// Only itinera's own kinds implement it: one for each of the six hooks.
+/// Only itinera's own kinds implement it: one for each of the six hooks of policies, and one for
+/// input adapters.
 ///
 /// [`HookNeeds`]: super::HookNeeds
 /// [`Requested`]: super::Requested
@@ -177,12 +178,30 @@ pub enum WorkflowSuccess {}
 #[derive(Clone, Copy, Debug)]
 pub enum WorkflowFailure {}
 
+/// `input adapter`, a hook of the workflow itself, called for each input of a step it is
+/// attached to while the step is built. It may request data from the workflow, and nothing a
+/// policy's hook may request beyond that.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::policy::{HookNeeds, InputAdapter};
+/// use itinera::step::Input;
+///
+/// const PRICE: Input<i64> = Input::new("price");
+///
+/// let needs = HookNeeds::<InputAdapter>::new().from_workflow(&PRICE);
+/// ```
+#[derive(Clone, Copy, Debug)]
+pub enum InputAdapter {}
+
 impl sealed::Sealed for StepSuccess {}
 impl sealed::Sealed for StepFailure {}
 impl sealed::Sealed for StepRetry {}
 impl sealed::Sealed for StepAbnormalTermination {}
 impl sealed::Sealed for WorkflowSuccess {}
 impl sealed::Sealed for WorkflowFailure {}
+impl sealed::Sealed for InputAdapter {}
 
 impl HookKind for StepSuccess {
     type Context = StepAttempt;
@@ -206,6 +225,11 @@ impl HookKind for WorkflowSuccess {
 
 impl HookKind for WorkflowFailure {
     type Context = ();
+}
+
+impl HookKind for InputAdapter {
+    /// The step being built, and the key of the input being resolved.
+    type Context = (StepName, &'static str);
 }
 
 impl StepHookKind for StepSuccess {

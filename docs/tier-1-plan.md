@@ -156,7 +156,8 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Synchronous>> = LazyLock::new
   }
   ```
 
-  It is called for each input of an adapted step. A value is used; `None` means "not mine", and the input is read from the data bag; `Err` emits `input_adapter_failed` and aborts with `step could not be built`. Its value is untyped and checked against the step's declared type. It may request the step's name, the key, data from the workflow and the journey ID, never roles, a contributor or a reporter. The macro generates the builder call that registers it: `InputAdapter::new(name, step, adapt)`, where `adapt` is a function of the workflow's own value, the step's name and the key, and `.step(other)` attaches it to another step. Stage 7 adds its requests for data from the workflow and the journey ID.
+  It is called for each input of an adapted step. A value is used; `None` means "not mine", and the input is read from the data bag; `Err` emits `input_adapter_failed` and aborts with `step could not be built`. Its value is untyped and checked against the step's declared type. It may request the step's name, the key, data from the workflow and the journey ID, never roles, a contributor or a reporter. The macro generates the builder call that registers it: `InputAdapterDescriptor::new(name, step, adapt)`, where `adapt` is a function of the workflow's own value and a `Requested<'_, W, InputAdapter>`, the same as a policy's hook receives, of the hook kind `InputAdapter`. `.needing(needs)` declares its requests for data from the workflow, which the engine resolves from the data bag before each call, with the same events and aborts as a hook's, naming the adapter. `.step(other)` attaches it to another step.
+- **An input adapter may also read the data bag directly**, through `got.data_bag()`, behind the `unstable` feature until spec#91 is accepted. Reading emits nothing and aborts nothing, and the adapter can never change the data bag, since it receives it only as a shared reference.
 
 ### 7. The workflow instance
 
@@ -172,13 +173,11 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     fn take_reporters(&mut self) -> Vec<<Self::Mode as Mode>::Reporter>;
     fn data_bag(&self) -> &DataBag;
     fn into_data_bag(self) -> DataBag;
-    fn data_for_step(&self, step: StepName, key: &str) -> Resolution;
-    fn data_for_workflow(&self, request: &DataRequest) -> Resolution;
     fn commit(&mut self, key: String, value: AnyValue) -> Committed;
 }
 ```
 
-- **The workflow's own type `W`** holds what its code needs, such as services, and implements its roles. Roles and input adapters see it; no hook ever sees the data bag.
+- **The workflow's own type `W`** holds what its code needs, such as services, and implements its roles. Roles and input adapters see it; no policy's hook ever sees the data bag.
 - **itinera provides `Instance<W>`**, created through a builder that the macros also use:
 
   ```rust
@@ -189,8 +188,8 @@ pub trait WorkflowInstance: Send + Sized + 'static {
 
   `create()` produces the journey ID first, with the descriptor's generator (a closure returning a `Result<String, Error>`, which may read the initial data) or the default UUID version 4, then builds each reporter, then the instance. A failure of the generator or of a reporter's `init` is an `InstanceError`, outside any journey.
 - **Reporters are listed on the workflow by type.** Each implements `WorkflowReporter<W>`, whose `init(&W, &JourneyId, &DataBag) -> Result<Self, Error>` builds a new reporter for every instance; an asynchronous one implements `AsyncWorkflowReporter<W>`, and only an `Asynchronous` workflow lists one. A mode says how its workflows hold reporters: a `Synchronous` one as `Box<dyn Reporter>`, an `Asynchronous` one as `BoxedReporter`.
-- **The three data operations** are provided by itinera for `Instance<W>`. `data_for_step` applies the step's input adapter, then the data bag; `data_for_workflow` reads only the data bag; `commit` writes and says whether a value was replaced, `Committed::Added` or `Committed::Overwritten`. Each answer carries an ordered report of what happened, which the engine turns into events and aborts.
-- **A hand-written instance** implements the trait itself, points at a descriptor that only `build()` can produce, and may reuse itinera's data operations.
+- **The instance holds the data; the engine resolves requests.** The engine reads the data bag through `data_bag()` and resolves every request from it: a step's inputs after its input adapter, and the requests of hooks and input adapters. `commit` writes and says whether a value was replaced, `Committed::Added` or `Committed::Overwritten`, which the engine turns into events.
+- **A hand-written instance** implements the trait itself, and points at a descriptor that only `build()` can produce.
 - **An instance runs once**: `run` takes it by value, and `into_data_bag` gives up the instance for the data bag the result carries.
 
 ### 8. Executors

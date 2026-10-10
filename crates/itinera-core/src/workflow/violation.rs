@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use super::{AdapterName, InputAdapter};
+use super::{AdapterName, InputAdapterDescriptor};
 use crate::policy::{PolicyName, StepHook, StepPolicyEntry, WorkflowHook, WorkflowPolicyEntry};
 use crate::step::{StepDescriptor, StepName};
 
@@ -162,7 +162,7 @@ pub enum ViolationKind {
 pub(super) fn check<M, W>(
     steps: &[StepDescriptor<W, M>],
     policies: &[Box<dyn WorkflowPolicyEntry<W, M>>],
-    adapters: &[InputAdapter<W>],
+    adapters: &[InputAdapterDescriptor<W>],
 ) -> Result<(), Violations> {
     let violations: Vec<Violation> = duplicate_step_names(steps)
         .chain(steps.iter().flat_map(step_hooks_defined_twice))
@@ -253,7 +253,7 @@ fn defined_by<H>(hook: H, policy: PolicyName) -> (H, PolicyName) {
 
 fn adapters_for_unknown_steps<'a, M, W>(
     steps: &'a [StepDescriptor<W, M>],
-    adapters: &'a [InputAdapter<W>],
+    adapters: &'a [InputAdapterDescriptor<W>],
 ) -> impl Iterator<Item = Violation> + 'a {
     adapters
         .iter()
@@ -268,7 +268,7 @@ fn adapter_for_unknown_step((adapter, step): (AdapterName, StepName)) -> Violati
 
 fn steps_adapted_twice<M, W>(
     steps: &[StepDescriptor<W, M>],
-    adapters: &[InputAdapter<W>],
+    adapters: &[InputAdapterDescriptor<W>],
 ) -> impl Iterator<Item = Violation> {
     let known = adapters
         .iter()
@@ -286,7 +286,9 @@ fn step_adapted_twice((step, adapters): (StepName, Vec<AdapterName>)) -> Violati
 }
 
 /// Each step the adapter is attached to, with the adapter's name.
-fn attachments<W>(adapter: &InputAdapter<W>) -> impl Iterator<Item = (AdapterName, StepName)> + '_ {
+fn attachments<W>(
+    adapter: &InputAdapterDescriptor<W>,
+) -> impl Iterator<Item = (AdapterName, StepName)> + '_ {
     let name = adapter.name();
     adapter
         .steps()
@@ -365,8 +367,8 @@ mod tests {
         StepDescriptor::new(StepName::new(name), || Ok(Outcome::success()))
     }
 
-    fn adapter(name: &'static str, step: &'static str) -> InputAdapter<Orders> {
-        InputAdapter::new(name, StepName::new(step), |_, _, _| Ok(None))
+    fn adapter(name: &'static str, step: &'static str) -> InputAdapterDescriptor<Orders> {
+        InputAdapterDescriptor::new(name, StepName::new(step), |_, _| Ok(None))
     }
 
     fn orders() -> WorkflowBuilder<Orders> {

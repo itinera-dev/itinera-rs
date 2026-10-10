@@ -5,11 +5,11 @@ use std::marker::PhantomData;
 use std::num::NonZeroU32;
 
 use super::{
-    ErrorHookKind, FailureHookKind, HookKind, HookReporter, PolicyHookKind, Provides, RetryCause,
-    StepFailure, StepFailureCause, StepHookKind, StepRetry,
+    ErrorHookKind, FailureHookKind, HookKind, HookReporter, InputAdapter, PolicyHookKind, Provides,
+    RetryCause, StepFailure, StepFailureCause, StepHookKind, StepRetry,
 };
 use crate::error::Error;
-use crate::journey::{Contributor, JourneyId};
+use crate::journey::{Contributor, DataBag, JourneyId};
 use crate::mode::Synchronous;
 use crate::step::{
     Input, InputNeed, OptionalInput, Reason, Reporting, Requirement, Slots, StepName,
@@ -22,7 +22,8 @@ use crate::value::{AnyValue, Value};
 ///
 /// Its kind `H` decides what it may declare: data from the step only for step hooks, the reason
 /// only for `on step failure` and `on step retry`, the error only for those and
-/// `on step abnormal termination`, a contributor and a reporter only for hooks of policies.
+/// `on step abnormal termination`, a contributor and a reporter only for hooks of policies. An
+/// input adapter may declare only data from the workflow.
 ///
 /// The requests are resolved in the order they are declared, and the first required one without
 /// a value aborts the journey before the hook runs. Declaring the reason or the error again
@@ -345,6 +346,8 @@ pub struct Requested<'a, W, H: HookKind, M = Synchronous> {
     #[debug(skip)]
     workflow: &'a W,
     journey_id: &'a JourneyId,
+    #[debug(skip)]
+    data_bag: &'a DataBag,
     context: H::Context,
     answers: Answers<'a>,
     #[debug(skip)]
@@ -368,12 +371,14 @@ impl<'a, W, H: HookKind, M> Requested<'a, W, H, M> {
     pub(crate) fn new(
         workflow: &'a W,
         journey_id: &'a JourneyId,
+        data_bag: &'a DataBag,
         context: H::Context,
         answers: Answers<'a>,
     ) -> Self {
         Self {
             workflow,
             journey_id,
+            data_bag,
             context,
             answers,
             mode: PhantomData,
@@ -947,6 +952,83 @@ impl<'a, W, H: PolicyHookKind> Requested<'a, W, H, Synchronous> {
     /// ```
     pub fn reporter(&mut self) -> Result<HookReporter<'a>, Error> {
         self.take_reporting().map(HookReporter::from)
+    }
+}
+
+impl<'a, W> Requested<'a, W, InputAdapter> {
+    /// The name of the step being built.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::policy::{InputAdapter, Requested};
+    /// use itinera::value::AnyValue;
+    ///
+    /// struct Orders;
+    ///
+    /// impl Orders {
+    ///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
+    ///         println!("building {}", got.step_name());
+    ///         Ok(None)
+    ///     }
+    /// }
+    /// ```
+    pub fn step_name(&self) -> StepName {
+        let (step, _) = self.context;
+        step
+    }
+
+    /// The key of the input being resolved.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::policy::{InputAdapter, Requested};
+    /// use itinera::value::AnyValue;
+    ///
+    /// struct Orders {
+    ///     price: i64,
+    /// }
+    ///
+    /// impl Orders {
+    ///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
+    ///         Ok((got.key() == "amount").then(|| AnyValue::new(self.price)))
+    ///     }
+    /// }
+    /// ```
+    pub fn key(&self) -> &'static str {
+        let (_, key) = self.context;
+        key
+    }
+
+    /// The journey's data bag, to read: an input adapter can never change it. Reading it emits
+    /// no event, and a key it does not hold aborts nothing.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::policy::{InputAdapter, Requested};
+    /// use itinera::value::AnyValue;
+    ///
+    /// struct Orders {
+    ///     price: i64,
+    /// }
+    ///
+    /// impl Orders {
+    ///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
+    ///         let quantity = got.data_bag().get("quantity").and_then(AnyValue::downcast_ref::<i64>);
+    ///         match quantity {
+    ///             Some(quantity) => Ok(Some(AnyValue::new(self.price * quantity))),
+    ///             None => Ok(None),
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn data_bag(&self) -> &'a DataBag {
+        self.data_bag
     }
 }
 

@@ -25,8 +25,9 @@ pub use hook::{
     OnWorkflowSuccess,
 };
 pub use kind::{
-    ErrorHookKind, FailureHookKind, HookKind, PolicyHookKind, StepAbnormalTermination, StepFailure,
-    StepHookKind, StepRetry, StepSuccess, WorkflowFailure, WorkflowSuccess,
+    ErrorHookKind, FailureHookKind, HookKind, InputAdapter, PolicyHookKind,
+    StepAbnormalTermination, StepFailure, StepHookKind, StepRetry, StepSuccess, WorkflowFailure,
+    WorkflowSuccess,
 };
 pub(crate) use needs::{Answers, Needs, Request};
 pub use needs::{HookNeeds, Requested};

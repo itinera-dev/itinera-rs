@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0062](https://github.com/itinera-dev/spec/blob/main/proposals/0062-workflow-descriptors.md), implemented in [#29](https://github.com/itinera-dev/itinera-rs/issues/29). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: done in stage 4. Stage 3 added the workflow descriptor with its name, its reporters and its journey ID generator, and the instance trait executors rely on. Stage 4 added step and policy descriptors, input adapters, admission and the listing. Stage 5 replaced the step's closure with a factory that builds the step for each attempt, and made input adapters supply values. Stage 6 added the step's retry budget and `abnormal termination retriable`. Stage 7 gave policy descriptors their factories and their hooks, with what each hook requests. Some of what the proposal asks is met only by the stand-in described below, until stage 7 replaces it.
+Status: done in stage 4. Stage 3 added the workflow descriptor with its name, its reporters and its journey ID generator, and the instance trait executors rely on. Stage 4 added step and policy descriptors, input adapters, admission and the listing. Stage 5 replaced the step's closure with a factory that builds the step for each attempt, and made input adapters supply values. Stage 6 added the step's retry budget and `abnormal termination retriable`. Stage 7 gave policy descriptors their factories and their hooks, with what each hook requests, and made input adapters hooks of the workflow, with their own requests.
 
 ## API
 
@@ -10,18 +10,14 @@ Status: done in stage 4. Stage 3 added the workflow descriptor with its name, it
 - **`WorkflowDescriptor::builder(name)`** returns a `WorkflowBuilder`. Its `step`, `policy` and `input_adapter` add the workflow's step descriptors in order, its workflow policy descriptors in order, and its input adapters. Only its `build()` makes a descriptor, and it returns `Result<WorkflowDescriptor<W, M>, Violations>`.
 - **`itinera::step::StepDescriptor<W, M>`** holds a step's name, what it needs, its factory, its retry budget, whether an abnormal termination may be retried, and the step policies attached to it in order, with `StepDescriptor::new(name, factory)` for a `StepFactory`, `StepDescriptor::new_async(name, factory)` for an `AsyncStepFactory`, `.retry_budget(n)` with a `u16`, `.abnormal_termination_retriable()` and `.policy(descriptor)`. The budget is 0, and an abnormal termination is not retried, unless set.
 - **`itinera::policy::StepPolicyDescriptor`** and **`itinera::policy::WorkflowPolicyDescriptor`** describe one policy each: its name, the factory the executor builds it with, and the hooks it defines, of its own kind only, each with what it requests. Their constructors return a `Hookless` descriptor, and naming a hook, with `.on_step_success()` or `.on_step_success_needing(needs)` and the like, makes it `Hooked`; only a `Hooked` descriptor can be attached, so every attached policy defines at least one hook.
-- **`itinera::workflow::InputAdapter<W>`** declares an input adapter: its name, the steps it is attached to, at least one, and its function of the workflow's own value, the step's name and the key.
+- **`itinera::workflow::InputAdapterDescriptor<W>`** declares an input adapter: its name, the steps it is attached to, at least one, what it needs, and its function of the workflow's own value and what it requested.
 - **Names** are `itinera::workflow::WorkflowName`, `itinera::step::StepName`, `itinera::policy::PolicyName` and `itinera::workflow::AdapterName`, each over a `&'static str`, so they are `Copy`. `StepName::new` panics on an empty name, and `itinera::step::step_name!` calls it in a `const` block, so an empty literal does not compile.
 - **`WorkflowDescriptor::listing()`** returns a `ListedStep` per step, in order: its name, its position from 1 as a `NonZeroUsize`, its policies' names in order, and its input adapter's name, if any.
 - **`itinera::workflow::Violations`** holds every `Violation` found by `build()`, at least one, and implements `std::error::Error`. `Violation::kind()` gives the plain `ViolationKind`, which displays as the specification names it.
-- **`itinera::instance::WorkflowInstance`** is the only thing an executor relies on, so an executor runs an `Instance<W, M>` and a hand-written instance alike. Its data operation `data_for_step(step, key)` answers with a `Resolution`: the value the step's input adapter supplied, the adapter's failure, the value in the data bag, or nothing. Its default is itinera's own, which asks the adapter first and falls back to the data bag. Its `commit(key, value)` writes a successful attempt's contribution to the data bag and answers `Committed::Added` or `Committed::Overwritten`, from which the engine emits `data_overwritten`.
+- **`itinera::instance::WorkflowInstance`** is the only thing an executor relies on, so an executor runs an `Instance<W, M>` and a hand-written instance alike. It gives the engine the workflow's own value, the journey ID and the data bag, from which the engine resolves a step's inputs, asking the step's input adapter first and falling back to the data bag. Its `commit(key, value)` writes a successful attempt's contribution to the data bag and answers `Committed::Added` or `Committed::Overwritten`, from which the engine emits `data_overwritten`.
 - **`itinera::mode::Mode`** is sealed: `Synchronous` and `Asynchronous` are the only modes.
 
-### Stand-in until stage 7
-
-- An input adapter is a function of the workflow's own value, the step's name and the key, and requests nothing. Stage 7 makes it a hook of the workflow, with its requests.
-
-While this stand-in remains, or while the API names that of proposals not yet listed, such as the events of 0011 and the policies of 0010, it stays behind the `unstable` feature, though 62 is listed in `conformance.json`.
+While the API names that of proposals not yet listed, such as the events of 0011 and the policies of 0010, it stays behind the `unstable` feature, though 62 is listed in `conformance.json`.
 
 ## How the rules are enforced
 

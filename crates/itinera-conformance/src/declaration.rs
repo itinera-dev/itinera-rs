@@ -5,12 +5,13 @@ use itinera::error::Error;
 use itinera::journey::DataBag;
 use itinera::mode::{Asynchronous, Mode, Synchronous};
 use itinera::policy::{
-    Hooked, Hookless, StepHook, StepPolicyDescriptor, WorkflowHook, WorkflowPolicyDescriptor,
+    Hooked, Hookless, InputAdapter, Requested, StepHook, StepPolicyDescriptor, WorkflowHook,
+    WorkflowPolicyDescriptor,
 };
 use itinera::step::{StepDescriptor, StepName};
 use itinera::value::AnyValue;
 use itinera::workflow::{
-    InputAdapter, ListedStep, Violations, WorkflowBuilder, WorkflowDescriptor,
+    InputAdapterDescriptor, ListedStep, Violations, WorkflowBuilder, WorkflowDescriptor,
 };
 
 use crate::model::{
@@ -289,7 +290,9 @@ fn hook_of<H: Copy>((hook, _): &(H, HookScript)) -> H {
     *hook
 }
 
-fn input_adapter(adapter: &Adapter) -> Result<InputAdapter<ScriptedWorkflow>, ModelError> {
+fn input_adapter(
+    adapter: &Adapter,
+) -> Result<InputAdapterDescriptor<ScriptedWorkflow>, ModelError> {
     let steps = adapter
         .steps
         .iter()
@@ -305,10 +308,10 @@ fn input_adapter(adapter: &Adapter) -> Result<InputAdapter<ScriptedWorkflow>, Mo
         .map(Answering::of)
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rest.iter().copied().fold(
-        InputAdapter::new(leaked(&adapter.name), *first, move |_, _, key| {
-            answer(&answers, key)
+        InputAdapterDescriptor::new(leaked(&adapter.name), *first, move |_, got| {
+            answer(&answers, &got)
         }),
-        InputAdapter::step,
+        InputAdapterDescriptor::step,
     ))
 }
 
@@ -344,8 +347,13 @@ impl Answering {
     }
 }
 
-/// What the adapter answers for the key: nothing for a key its script does not mention.
-fn answer(answers: &[Answering], key: &str) -> Result<Option<AnyValue>, Error> {
+/// What the adapter answers for the key it is called for: nothing for a key its script does not
+/// mention.
+fn answer(
+    answers: &[Answering],
+    got: &Requested<'_, ScriptedWorkflow, InputAdapter>,
+) -> Result<Option<AnyValue>, Error> {
+    let key = got.key();
     let answered = answers
         .iter()
         .find(|answering| answering.is_for(key))
