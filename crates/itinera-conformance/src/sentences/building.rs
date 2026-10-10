@@ -146,7 +146,7 @@ fn abnormal_termination_is_retriable(
 fn step_allows_retries(
     world: &mut World,
     step_name: String,
-    retries: u32,
+    retries: u16,
 ) -> Result<(), ModelError> {
     world.model.step_mut(&step_name)?.retries = retries;
     Ok(())

@@ -1,49 +1,81 @@
-//! The scenario's workflow, declared with itinera's builder from the scenario model.
-
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+//! The scenario's workflow, declared with itinera's builder from the scenario model, in the
+//! mode of the executor that runs it.
 
 use itinera::error::Error;
+use itinera::journey::DataBag;
+use itinera::mode::{Asynchronous, Mode, Synchronous};
 use itinera::policy::{StepPolicyDescriptor, WorkflowPolicyDescriptor};
-use itinera::step::{Outcome, StepDescriptor, StepName};
-use itinera::workflow::{InputAdapter, Violations, WorkflowBuilder, WorkflowDescriptor};
+use itinera::step::{StepDescriptor, StepName};
+use itinera::value::AnyValue;
+use itinera::workflow::{
+    InputAdapter, ListedStep, Violations, WorkflowBuilder, WorkflowDescriptor,
+};
 
-use crate::model::{Adapter, HookScript, Hooks, Model, ModelError, Policy, Workflow};
+use crate::model::{
+    Adapter, Answer, HookScript, Hooks, IdGenerator, Model, ModelError, Policy, Workflow,
+};
+use crate::record::{ListedReporter, Recorder};
+use crate::step::{Scripted, StepsRun};
+use crate::value::Typed;
 
-/// The workflow's own type.
+/// The workflow's own value: the recorders of the reporters it lists, in order, which its
+/// instance hands its reporters as it makes them.
 #[derive(Debug)]
-pub(crate) struct ScriptedWorkflow;
+pub(crate) struct ScriptedWorkflow {
+    reporters: Vec<Recorder>,
+}
+
+impl ScriptedWorkflow {
+    pub(crate) fn with_reporters(reporters: Vec<Recorder>) -> Self {
+        Self { reporters }
+    }
+
+    /// The recorder of the reporter listed at this position, counted from 0.
+    pub(crate) fn reporter(&self, position: usize) -> Option<&Recorder> {
+        self.reporters.get(position)
+    }
+}
 
 /// What building the scenario's workflow gave.
 #[derive(Debug)]
 pub(crate) enum Admission {
-    Admitted(WorkflowDescriptor<ScriptedWorkflow>),
+    /// The workflow was admitted, with this listing.
+    Admitted(Vec<ListedStep>),
     Refused(Violations),
 }
 
-/// How many times the scenario's steps ran, whatever step it was.
-#[derive(Clone, Debug, Default)]
-pub(crate) struct StepsRun {
-    count: Arc<AtomicUsize>,
+/// An execution mode the scenario's workflow can be declared in.
+pub(crate) trait Declares: Mode + Sized {
+    fn builder(name: &'static str) -> WorkflowBuilder<ScriptedWorkflow, Self>;
+
+    fn step(name: StepName, factory: Scripted) -> StepDescriptor<Self>;
 }
 
-impl StepsRun {
-    pub(crate) fn none(&self) -> bool {
-        self.count.load(Ordering::SeqCst) == 0
+impl Declares for Synchronous {
+    fn builder(name: &'static str) -> WorkflowBuilder<ScriptedWorkflow, Self> {
+        WorkflowDescriptor::builder(name)
     }
 
-    /// Counts one more run of a step, which succeeds.
-    fn run(&self) -> Result<Outcome, Error> {
-        self.count.fetch_add(1, Ordering::SeqCst);
-        Ok(Outcome::success())
+    fn step(name: StepName, factory: Scripted) -> StepDescriptor<Self> {
+        StepDescriptor::new(name, factory)
+    }
+}
+
+impl Declares for Asynchronous {
+    fn builder(name: &'static str) -> WorkflowBuilder<ScriptedWorkflow, Self> {
+        WorkflowDescriptor::async_builder(name)
+    }
+
+    fn step(name: StepName, factory: Scripted) -> StepDescriptor<Self> {
+        StepDescriptor::new_async(name, factory)
     }
 }
 
 /// Declares the scenario's workflow, whose steps count their runs in `steps_run`.
-pub(crate) fn declared(
+pub(crate) fn declared<M: Declares>(
     model: &Model,
     steps_run: &StepsRun,
-) -> Result<WorkflowBuilder<ScriptedWorkflow>, ModelError> {
+) -> Result<WorkflowBuilder<ScriptedWorkflow, M>, ModelError> {
     let workflow = model.workflow()?;
     let steps = workflow
         .steps
@@ -60,22 +92,48 @@ pub(crate) fn declared(
         .iter()
         .map(input_adapter)
         .collect::<Result<Vec<_>, _>>()?;
-    let builder = WorkflowDescriptor::builder(leaked(&workflow.name));
+    let lists = reporter_lists::<M>();
+    if workflow.reporters.len() > lists.len() {
+        return Err(ModelError::TooManyReporters(lists.len()));
+    }
+    let builder = M::builder(leaked(&workflow.name));
     let builder = steps.into_iter().fold(builder, WorkflowBuilder::step);
     let builder = policies.into_iter().fold(builder, WorkflowBuilder::policy);
-    Ok(adapters
+    let builder = adapters
         .into_iter()
-        .fold(builder, WorkflowBuilder::input_adapter))
+        .fold(builder, WorkflowBuilder::input_adapter);
+    let builder = lists
+        .into_iter()
+        .take(workflow.reporters.len())
+        .fold(builder, |builder, list| list(builder));
+    Ok(match &workflow.id_generator {
+        IdGenerator::Default => builder,
+        IdGenerator::Returns(id) => builder.id_generator(returning(id.clone())),
+    })
 }
 
-fn step_descriptor(
+/// An ID generator that always returns this ID.
+fn returning(id: String) -> impl Fn(&ScriptedWorkflow, &DataBag) -> Result<String, Error> {
+    move |_, _| Ok(id.clone())
+}
+
+fn step_descriptor<M: Declares>(
     model: &Model,
     workflow: &Workflow,
     step: &str,
     steps_run: &StepsRun,
-) -> Result<StepDescriptor, ModelError> {
-    let runs = steps_run.clone();
-    let descriptor = StepDescriptor::new(step_name(step)?, move || runs.run());
+) -> Result<StepDescriptor<M>, ModelError> {
+    let script = workflow
+        .scripts
+        .get(step)
+        .ok_or_else(|| ModelError::UnknownStep(step.to_owned()))?;
+    let descriptor = M::step(step_name(step)?, Scripted::new(script, steps_run.clone())?)
+        .retry_budget(script.retries);
+    let descriptor = if script.abnormal_termination_retriable {
+        descriptor.abnormal_termination_retriable()
+    } else {
+        descriptor
+    };
     let policies = workflow
         .step_policies
         .get(step)
@@ -139,10 +197,77 @@ fn input_adapter(adapter: &Adapter) -> Result<InputAdapter<ScriptedWorkflow>, Mo
     let (first, rest) = steps
         .split_first()
         .ok_or_else(|| ModelError::AdapterWithoutSteps(adapter.name.clone()))?;
+    let answers = adapter
+        .answers
+        .iter()
+        .map(Answering::of)
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(rest.iter().copied().fold(
-        InputAdapter::new(leaked(&adapter.name), *first, |_, _, _| Ok(None)),
+        InputAdapter::new(leaked(&adapter.name), *first, move |_, _, key| {
+            answer(&answers, key)
+        }),
         InputAdapter::step,
     ))
+}
+
+/// A scripted adapter's answer for one key, with its value typed.
+#[derive(Debug)]
+struct Answering {
+    key: String,
+    answer: Answered,
+}
+
+#[derive(Debug)]
+enum Answered {
+    Value(Typed),
+    Nothing,
+    Fails(String),
+}
+
+impl Answering {
+    fn of((key, answer): &(String, Answer)) -> Result<Self, ModelError> {
+        let answer = match answer {
+            Answer::Value(value) => Answered::Value(Typed::of(value)?),
+            Answer::Nothing => Answered::Nothing,
+            Answer::Fails(message) => Answered::Fails(message.clone()),
+        };
+        Ok(Self {
+            key: key.clone(),
+            answer,
+        })
+    }
+
+    fn is_for(&self, key: &str) -> bool {
+        self.key == key
+    }
+}
+
+/// What the adapter answers for the key: nothing for a key its script does not mention.
+fn answer(answers: &[Answering], key: &str) -> Result<Option<AnyValue>, Error> {
+    let answered = answers
+        .iter()
+        .find(|answering| answering.is_for(key))
+        .map(|answering| &answering.answer);
+    match answered {
+        Some(Answered::Value(value)) => Ok(Some(value.clone().erased())),
+        Some(Answered::Fails(message)) => Err(Error::msg(message.clone())),
+        Some(Answered::Nothing) | None => Ok(None),
+    }
+}
+
+/// A builder step that lists one more reporter.
+type Lists<M> = fn(WorkflowBuilder<ScriptedWorkflow, M>) -> WorkflowBuilder<ScriptedWorkflow, M>;
+
+/// Lists the reporter at each position, up to as many as the runner can list: each position is
+/// a type of its own, since the builder lists a reporter by its type.
+fn reporter_lists<M: Mode>() -> [Lists<M>; 4] {
+    [list::<0, M>, list::<1, M>, list::<2, M>, list::<3, M>]
+}
+
+fn list<const POSITION: usize, M: Mode>(
+    builder: WorkflowBuilder<ScriptedWorkflow, M>,
+) -> WorkflowBuilder<ScriptedWorkflow, M> {
+    builder.reporter::<ListedReporter<POSITION>>()
 }
 
 /// A step name, which may not be empty.
@@ -154,11 +279,11 @@ fn step_name(name: &str) -> Result<StepName, ModelError> {
     }
 }
 
-/// The name, for as long as the runner runs.
+/// The name or key, for as long as the runner runs.
 ///
-/// Applications name their workflow's parts with constants. The runner reads the names from the
-/// cases, so it leaks each one, a few short strings for each scenario.
-fn leaked(name: &str) -> &'static str {
+/// Applications name their workflow's parts and their steps' inputs with constants. The runner
+/// reads them from the cases, so it leaks each one, a few short strings for each scenario.
+pub(crate) fn leaked(name: &str) -> &'static str {
     Box::leak(Box::from(name))
 }
 
@@ -204,7 +329,7 @@ mod tests {
             requests: Vec::new(),
         });
 
-        let descriptor = declared(&model, &StepsRun::default())
+        let descriptor = declared::<Synchronous>(&model, &StepsRun::default())
             .unwrap()
             .build()
             .unwrap();
@@ -233,7 +358,7 @@ mod tests {
             vec!["audit".to_owned(), "audit".to_owned()],
         );
 
-        let violations = declared(&model, &StepsRun::default())
+        let violations = declared::<Synchronous>(&model, &StepsRun::default())
             .unwrap()
             .build()
             .unwrap_err();
@@ -245,7 +370,10 @@ mod tests {
     #[test]
     fn declaring_the_workflow_runs_no_step() {
         let steps_run = StepsRun::default();
-        let _ = declared(&model(), &steps_run).unwrap().build().unwrap();
+        let _ = declared::<Synchronous>(&model(), &steps_run)
+            .unwrap()
+            .build()
+            .unwrap();
         assert!(steps_run.none());
     }
 
@@ -256,7 +384,7 @@ mod tests {
             .declare("orders".to_owned(), vec![String::new()])
             .unwrap();
 
-        let declared = declared(&model, &StepsRun::default());
+        let declared = declared::<Synchronous>(&model, &StepsRun::default());
 
         assert_eq!(declared.err(), Some(ModelError::EmptyStepName));
     }

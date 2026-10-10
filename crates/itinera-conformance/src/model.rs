@@ -18,7 +18,7 @@ pub(crate) use policy::{
     Hook, HookAction, HookRequest, HookReturn, HookScript, Hooks, Policy, Role,
 };
 pub(crate) use report::{Dispatching, EventKind, Holding, ReporterFailure};
-pub(crate) use step::{Attempt, Input, Step, StepAction, attempts};
+pub(crate) use step::{Attempt, AttemptOutcome, Input, Reason, Step, StepAction, attempts};
 pub(crate) use table::{Row, rows};
 pub(crate) use value::{ValueType, json};
 
@@ -260,6 +260,8 @@ pub(crate) enum ModelError {
     UnknownEmit(String),
     #[error("\"{0}\" is not a type of the vocabulary")]
     UnknownType(String),
+    #[error("{0} has no type of the vocabulary")]
+    Untyped(String),
     #[error("policy \"{0}\" cannot define \"{1}\", a hook of the other kind")]
     HookOfOtherKind(String, Hook),
     #[error("policy \"{0}\" already defines \"{1}\"")]
@@ -296,6 +298,8 @@ pub(crate) enum ModelError {
     AdapterWithoutSteps(String),
     #[error("an input adapter \"{0}\" is already declared")]
     AdapterDeclaredTwice(String),
+    #[error("the runner lists at most {0} reporters")]
+    TooManyReporters(usize),
 }
 
 /// A step that does nothing yet, under its name.

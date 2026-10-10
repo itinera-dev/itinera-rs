@@ -6,15 +6,14 @@ mod cases;
 mod declaration;
 mod environment;
 mod executor;
+mod journey;
 #[expect(dead_code, reason = "the sentences that act on the model read it")]
 mod model;
-#[expect(
-    dead_code,
-    reason = "the sentence that runs the workflow makes the recorders"
-)]
 mod record;
 mod sentences;
+mod step;
 mod trace;
+mod value;
 mod world;
 
 use std::error::Error;
@@ -27,9 +26,11 @@ use cucumber::gherkin::{Feature, Rule, Scenario};
 use cucumber::tag::Ext as _;
 use cucumber::writer::{self, Stats as _};
 use cucumber::{World as _, WriterExt as _};
+use futures::future::{self, LocalBoxFuture};
 
 use crate::cases::Cases;
 use crate::environment::Environment;
+use crate::executor::Executor;
 use crate::world::World;
 
 fn main() -> ExitCode {
@@ -58,6 +59,7 @@ fn run() -> Result<bool, Box<dyn Error>> {
     let writer = runtime.block_on(
         World::cucumber::<std::path::PathBuf>()
             .with_parser(Cases)
+            .before(under_its_executor)
             .with_writer(
                 writer::Basic::raw(io::stdout(), writer::Coloring::Never, 0)
                     .summarized()
@@ -68,6 +70,17 @@ fn run() -> Result<bool, Box<dyn Error>> {
             .filter_run(cases, selected),
     );
     Ok(!writer.execution_has_failed())
+}
+
+/// Sets the executor the copy of the scenario runs under, from the tag the runner gave it.
+fn under_its_executor<'a>(
+    _: &'a Feature,
+    _: Option<&'a Rule>,
+    scenario: &'a Scenario,
+    world: &'a mut World,
+) -> LocalBoxFuture<'a, ()> {
+    world.executor = Executor::tagged(&scenario.tags);
+    Box::pin(future::ready(()))
 }
 
 /// Whether the tag expression selects the scenario, from its own tags and those it inherits.
