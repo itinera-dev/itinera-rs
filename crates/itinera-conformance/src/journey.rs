@@ -15,6 +15,7 @@ use crate::declaration::{Admission, Declares, ScriptedWorkflow, declared};
 use crate::executor::Executor;
 use crate::model::{Dispatching, Holding, Model, ModelError};
 use crate::record::{Behaviour, Recorder, Recorders, RecordingFactory};
+use crate::role::ProvidedRoles;
 use crate::value::{Takes, Typed};
 use crate::world::World;
 
@@ -136,7 +137,7 @@ async fn journey<M: Declares, E: Runs<M>>(
     world: &mut World,
     executor: &mut E,
 ) -> Result<Option<Journey>, Unrunnable> {
-    let descriptor = match declared::<M>(&world.model, &world.steps_run)?.build() {
+    let descriptor = match declared::<M>(&world.model, &world.steps_run, &world.witness)?.build() {
         Ok(descriptor) => descriptor,
         Err(violations) => {
             world.admission = Some(Admission::Refused(violations));
@@ -144,7 +145,8 @@ async fn journey<M: Declares, E: Runs<M>>(
         }
     };
     world.admission = Some(Admission::Admitted(descriptor.listing()));
-    let names = &world.model.workflow()?.reporters;
+    let workflow = world.model.workflow()?;
+    let names = &workflow.reporters;
     let recorders: Vec<Recorder> = names
         .iter()
         .map(|name| world.recorders.renewed(name, &world.model))
@@ -154,7 +156,10 @@ async fn journey<M: Declares, E: Runs<M>>(
         .cloned()
         .zip(recorders.iter().cloned())
         .collect();
-    let instance = descriptor.instance(ScriptedWorkflow::with_reporters(recorders));
+    let instance = descriptor.instance(ScriptedWorkflow::new(
+        recorders,
+        ProvidedRoles::new(workflow.roles.clone(), world.witness.clone()),
+    ));
     let instance = world
         .model
         .initial_data

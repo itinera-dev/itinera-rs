@@ -14,10 +14,11 @@ use itinera::step::{
     Resolved, Step, StepFactory, StepNeeds, StepReporter,
 };
 use itinera::value::Value as Storable;
+use serde_json::Value;
 
-use crate::declaration::leaked;
-use crate::model::{self, AttemptOutcome, Level, ModelError, StepAction, ValueType};
-use crate::value::{ForType, Takes, Typed, for_type};
+use crate::model::{self, AttemptOutcome, Level, ModelError, StepAction};
+use crate::value::{Data, ForType, Takes, Typed, for_type, json};
+use crate::witness::{Build, Witness};
 
 /// How many times the scenario's steps ran, whatever step it was.
 #[derive(Clone, Debug, Default)]
@@ -39,10 +40,12 @@ impl StepsRun {
 /// counts its runs in the scenario's `StepsRun`.
 #[derive(Debug)]
 pub(crate) struct Scripted {
+    name: String,
     script: Script,
     /// How many attempts it was built for, in this journey.
     attempts: AtomicUsize,
     runs: StepsRun,
+    witness: Witness,
 }
 
 /// What a step's script says, with its values typed.
@@ -52,7 +55,7 @@ pub(crate) struct Scripted {
 /// leaves those changes out.
 #[derive(Debug)]
 struct Script {
-    inputs: Vec<Need>,
+    inputs: Vec<Data>,
     /// What every attempt does before it ends, in order.
     actions: Vec<Action>,
     /// How the attempts before the last stated one end, in order.
@@ -61,13 +64,6 @@ struct Script {
     last: Ending,
     construction_failure: Option<String>,
     ignores_failed_emits: bool,
-}
-
-#[derive(Debug)]
-struct Need {
-    key: &'static str,
-    value_type: ValueType,
-    optional: bool,
 }
 
 #[derive(Debug)]
@@ -98,12 +94,20 @@ enum End {
 }
 
 impl Scripted {
-    /// The factory of a step with this script, whose runs count in `runs`.
-    pub(crate) fn new(step: &model::Step, runs: StepsRun) -> Result<Self, ModelError> {
+    /// The factory of the step `name` with this script, whose runs count in `runs` and whose
+    /// builds the witness records.
+    pub(crate) fn new(
+        name: &str,
+        step: &model::Step,
+        runs: StepsRun,
+        witness: Witness,
+    ) -> Result<Self, ModelError> {
         Ok(Self {
+            name: name.to_owned(),
             script: Script::of(step)?,
             attempts: AtomicUsize::new(0),
             runs,
+            witness,
         })
     }
 
@@ -117,6 +121,16 @@ impl Scripted {
         if let Some(message) = &self.script.construction_failure {
             return Err(Error::msg(message.clone()));
         }
+        let inputs = self
+            .script
+            .inputs
+            .iter()
+            .map(|input| taken(got, input))
+            .collect::<Result<_, _>>()?;
+        self.witness.built(Build {
+            step: self.name.clone(),
+            inputs,
+        });
         Ok(Attempting {
             script: &self.script,
             ending: self.script.ending(attempt),
@@ -161,7 +175,7 @@ impl Script {
             None => (Vec::new(), Ending::success()),
         };
         Ok(Self {
-            inputs: step.inputs.iter().map(Need::of).collect(),
+            inputs: step.inputs.iter().map(requested).collect(),
             actions: step
                 .actions
                 .iter()
@@ -187,24 +201,45 @@ impl Script {
     }
 }
 
-impl Need {
-    fn of(input: &model::Input) -> Self {
-        Self {
-            key: leaked(&input.key),
-            value_type: input.value_type,
-            optional: input.optional,
+/// What the step requests for the input.
+fn requested(input: &model::Input) -> Data {
+    Data::of(&input.key, input.value_type, input.optional)
+}
+
+/// The input's key and its value as JSON, or `None` when it was absent.
+fn taken<M>(got: &mut Resolved<'_, M>, input: &Data) -> Result<(String, Option<Value>), Error> {
+    let value = for_type(input.value_type, Taking { got, input })?;
+    Ok((input.key.to_owned(), value))
+}
+
+struct Taking<'g, 'a, 'n, M> {
+    got: &'g mut Resolved<'a, M>,
+    input: &'n Data,
+}
+
+impl<M> ForType for Taking<'_, '_, '_, M> {
+    type Output = Result<Option<Value>, Error>;
+
+    fn of<T: Storable>(self) -> Self::Output {
+        if self.input.optional {
+            self.got
+                .optional_input(&OptionalInput::<T>::new(self.input.key))?
+                .map(json)
+                .transpose()
+        } else {
+            json(self.got.input(&Input::<T>::new(self.input.key))?).map(Some)
         }
     }
 }
 
 /// Declares the input, with the Rust type of its type.
-fn needing(needs: StepNeeds, input: &Need) -> StepNeeds {
+fn needing(needs: StepNeeds, input: &Data) -> StepNeeds {
     for_type(input.value_type, Needing { needs, input })
 }
 
 struct Needing<'n> {
     needs: StepNeeds,
-    input: &'n Need,
+    input: &'n Data,
 }
 
 impl ForType for Needing<'_> {
@@ -393,7 +428,7 @@ impl AsyncStep for Attempting<'_, AsyncStepReporter<'_>> {
     }
 }
 
-fn contribute(contributor: &mut Contributor<'_>, key: &str, value: &Typed) {
+pub(crate) fn contribute(contributor: &mut Contributor<'_>, key: &str, value: &Typed) {
     value.clone().given_to(Contributing { contributor, key });
 }
 

@@ -106,7 +106,7 @@ pub(crate) enum AttemptOutcome {
 }
 
 /// The reason a step reports with a failure or a skip.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Reason {
     pub(crate) code: String,
     pub(crate) message: Option<String>,

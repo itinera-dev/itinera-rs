@@ -15,7 +15,7 @@ use serde_json::Value;
 
 pub(crate) use adapter::{Adapter, Answer, answer_for};
 pub(crate) use policy::{
-    Hook, HookAction, HookRequest, HookReturn, HookScript, Hooks, Policy, Role,
+    Hook, HookAction, HookRequest, HookReturn, HookScript, Hooks, Lifecycle, Policy, Role,
 };
 pub(crate) use report::{Dispatching, EventKind, Holding, ReporterFailure};
 pub(crate) use step::{Attempt, AttemptOutcome, Input, Reason, Step, StepAction, attempts};
@@ -300,6 +300,10 @@ pub(crate) enum ModelError {
     AdapterDeclaredTwice(String),
     #[error("the runner lists at most {0} reporters")]
     TooManyReporters(usize),
+    #[error("the hook \"{0}\" cannot request {1}")]
+    RequestNotAllowed(Hook, String),
+    #[error("the hook \"{0}\" cannot return {1}")]
+    LifecycleNotAllowed(Hook, Lifecycle),
 }
 
 /// A step that does nothing yet, under its name.

@@ -81,7 +81,7 @@ impl Line {
     }
 
     /// Whether the event has this text in this column.
-    fn has_cell(&self, column: &str, cell: &str) -> bool {
+    pub(crate) fn has_cell(&self, column: &str, cell: &str) -> bool {
         self.cells.get(column).map(String::as_str) == Some(cell)
     }
 

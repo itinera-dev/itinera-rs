@@ -185,6 +185,13 @@ impl HookAction {
     }
 }
 
+/// A lifecycle a hook returns, as an error names it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_more::Display)]
+pub(crate) enum Lifecycle {
+    FinishWorkflow,
+    FailWorkflow,
+}
+
 /// How a hook ends.
 #[derive(Debug, Default, PartialEq)]
 pub(crate) enum HookReturn {
@@ -200,7 +207,7 @@ pub(crate) enum HookReturn {
 }
 
 /// A role the workflow provides: its operations, and the ones that fail when called.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct Role {
     pub(crate) operations: BTreeSet<String>,
     pub(crate) failing: BTreeSet<String>,

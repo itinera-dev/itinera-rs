@@ -11,10 +11,12 @@ mod journey;
 mod model;
 mod policy;
 mod record;
+mod role;
 mod sentences;
 mod step;
 mod trace;
 mod value;
+mod witness;
 mod world;
 
 use std::error::Error;

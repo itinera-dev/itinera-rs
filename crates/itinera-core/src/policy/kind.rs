@@ -29,7 +29,7 @@ pub(crate) mod sealed {
 ///
 /// let needs: HookNeeds<WorkflowSuccess> = nothing();
 /// ```
-pub trait HookKind: sealed::Sealed + Send + Sync + 'static {
+pub trait HookKind: sealed::Sealed + Copy + Send + Sync + 'static {
     /// What the executor tells a hook of this kind about its call.
     #[doc(hidden)]
     type Context: Clone + fmt::Debug + Send + Sync;

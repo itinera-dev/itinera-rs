@@ -6,6 +6,7 @@ use crate::journey::Journey;
 use crate::model::Model;
 use crate::record::Recorders;
 use crate::step::StepsRun;
+use crate::witness::Witness;
 
 /// The state of one scenario, made new for each.
 #[derive(Debug, Default, cucumber::World)]
@@ -17,6 +18,8 @@ pub(crate) struct World {
     pub(crate) recorders: Recorders,
     /// How many times the scenario's steps ran.
     pub(crate) steps_run: StepsRun,
+    /// What the scenario's steps, hooks and roles received and did.
+    pub(crate) witness: Witness,
     /// What building the scenario's workflow gave, once it was admitted or listed.
     pub(crate) admission: Option<Admission>,
     /// The journeys the scenario ran, in order.

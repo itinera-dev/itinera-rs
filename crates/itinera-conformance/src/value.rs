@@ -1,9 +1,11 @@
 //! Values the cases write as JSON, given to itinera as the Rust types the neutral vocabulary maps
 //! them to.
 
+use itinera::error::Error;
 use itinera::value::{AnyValue, Value as Storable};
 use serde_json::{Map, Value};
 
+use crate::declaration::leaked;
 use crate::model::{ModelError, ValueType};
 
 /// A value of one of the vocabulary's types, held as the Rust type that type maps to: `string`
@@ -17,6 +19,29 @@ pub(crate) enum Typed {
     Boolean(bool),
     List(Vec<Value>),
     Object(Map<String, Value>),
+}
+
+/// Data a step or a hook requests under a key, of a type of the vocabulary, required or optional.
+#[derive(Debug)]
+pub(crate) struct Data {
+    pub(crate) key: &'static str,
+    pub(crate) value_type: ValueType,
+    pub(crate) optional: bool,
+}
+
+impl Data {
+    pub(crate) fn of(key: &str, value_type: ValueType, optional: bool) -> Self {
+        Self {
+            key: leaked(key),
+            value_type,
+            optional,
+        }
+    }
+}
+
+/// A value, as the cases write it.
+pub(crate) fn json<T: Storable>(value: T) -> Result<Value, Error> {
+    Ok(serde_json::to_value(value)?)
 }
 
 /// What takes a value of whichever type it is, such as a contributor, and what that gives.
