@@ -31,7 +31,7 @@ impl Roles for ProvidedRoles {
         let provided = self
             .roles
             .get(role)
-            .filter(|provided| provided.operations.contains(operation))
+            .filter(|provided| provides(provided, operation))
             .ok_or_else(|| no_operation(role, operation))?;
         self.witness.operated(Operation {
             role: role.to_owned(),
@@ -47,6 +47,10 @@ impl Roles for ProvidedRoles {
     }
 }
 
+fn provides(role: &Role, operation: &str) -> bool {
+    role.operations.contains(operation)
+}
+
 /// The error of a call to an operation the workflow does not provide.
 fn no_operation(role: &str, operation: &str) -> Error {
     Error::msg(format!("the role {role} has no operation {operation}"))
@@ -55,6 +59,8 @@ fn no_operation(role: &str, operation: &str) -> Error {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
+
+    use rstest::rstest;
 
     use super::*;
 
@@ -89,12 +95,15 @@ mod tests {
         assert_eq!(witness.operations(), [notify()]);
     }
 
-    #[test]
-    fn a_call_of_an_operation_the_workflow_does_not_provide_fails_unrecorded() {
+    #[rstest]
+    #[case::an_operation_the_role_lacks("notifier", "page")]
+    #[case::a_role_not_provided("pager", "notify")]
+    fn a_call_of_an_operation_the_workflow_does_not_provide_fails_unrecorded(
+        #[case] role: &str,
+        #[case] operation: &str,
+    ) {
         let witness = Witness::default();
-        let roles = notifier(&[], &witness);
-        assert!(roles.call("notifier", "page").is_err());
-        assert!(roles.call("pager", "notify").is_err());
+        assert!(notifier(&[], &witness).call(role, operation).is_err());
         assert!(witness.operations().is_empty());
     }
 }

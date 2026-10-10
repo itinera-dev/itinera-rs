@@ -1,6 +1,8 @@
 //! Outcomes: what each step was built with, and what each hook received, as the witness of the
 //! scenario recorded them.
 
+use std::num::NonZeroU32;
+
 use cucumber::then;
 use serde_json::Value;
 
@@ -138,7 +140,7 @@ fn the_hook_received_the_attempt_number(
     world: &mut World,
     hook: String,
     policy: String,
-    attempt: u32,
+    attempt: NonZeroU32,
 ) -> Result<(), Unmet> {
     received(world, &policy, &hook, Expected::Attempt(attempt))
 }
@@ -218,7 +220,7 @@ enum Expected {
     /// Data from the workflow under this key, `None` when absent.
     WorkflowData(String, Option<Value>),
     StepName(String),
-    Attempt(u32),
+    Attempt(NonZeroU32),
     JourneyId(String),
     Cause(String),
     /// The failure reason, `None` when it was absent.

@@ -185,6 +185,13 @@ impl HookAction {
     }
 }
 
+/// A lifecycle a hook returns, as an error names it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_more::Display)]
+pub(crate) enum Lifecycle {
+    FinishWorkflow,
+    FailWorkflow,
+}
+
 /// How a hook ends.
 #[derive(Debug, Default, PartialEq)]
 pub(crate) enum HookReturn {

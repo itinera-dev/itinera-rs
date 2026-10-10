@@ -437,6 +437,13 @@ mod tests {
 
     use super::*;
 
+    /// The scenario's workflow, declared synchronous, with nothing counting its steps' runs.
+    fn declared_synchronously(
+        model: &Model,
+    ) -> Result<WorkflowBuilder<ScriptedWorkflow, Synchronous>, ModelError> {
+        declared(model, &StepsRun::default(), &Witness::default())
+    }
+
     fn model() -> Model {
         let mut model = Model::default();
         model
@@ -473,10 +480,7 @@ mod tests {
             requests: Vec::new(),
         });
 
-        let descriptor = declared::<Synchronous>(&model, &StepsRun::default(), &Witness::default())
-            .unwrap()
-            .build()
-            .unwrap();
+        let descriptor = declared_synchronously(&model).unwrap().build().unwrap();
 
         let listing = descriptor.listing();
         assert_eq!(listing[0].step, StepName::new("charge"));
@@ -502,10 +506,7 @@ mod tests {
             vec!["audit".to_owned(), "audit".to_owned()],
         );
 
-        let violations = declared::<Synchronous>(&model, &StepsRun::default(), &Witness::default())
-            .unwrap()
-            .build()
-            .unwrap_err();
+        let violations = declared_synchronously(&model).unwrap().build().unwrap_err();
 
         let kinds: Vec<ViolationKind> = violations.iter().map(Violation::kind).collect();
         assert_eq!(kinds, [ViolationKind::HookDefinedTwice]);
@@ -528,7 +529,7 @@ mod tests {
             .declare("orders".to_owned(), vec![String::new()])
             .unwrap();
 
-        let declared = declared::<Synchronous>(&model, &StepsRun::default(), &Witness::default());
+        let declared = declared_synchronously(&model);
 
         assert_eq!(declared.err(), Some(ModelError::EmptyStepName));
     }

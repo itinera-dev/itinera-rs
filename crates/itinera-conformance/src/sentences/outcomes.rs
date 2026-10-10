@@ -163,10 +163,7 @@ fn is_the_id(found: &JourneyId, id: &str) -> Result<(), Unmet> {
 
 #[then(expr = "the result's failure reason has the code {string}")]
 fn the_results_failure_reason_has_the_code(world: &mut World, code: String) -> Result<(), Unmet> {
-    let found = match &result(world)?.status {
-        JourneyStatus::Failed { failure, .. } => reason_of(failure).map(Reason::code),
-        _ => None,
-    };
+    let found = failure(world)?.and_then(reason_of).map(Reason::code);
     holds(
         found == Some(code.as_str()),
         format_args!("a failure whose reason has the code \"{code}\""),
@@ -462,7 +459,7 @@ fn the_journey_started_event_lists_the_initial_keys(
     let (events, _) = stream(world)?;
     let found = events.iter().find_map(initial_keys);
     expect(
-        found == Some(expected.clone()),
+        found.as_ref() == Some(&expected),
         format_args!("journey_started to list {expected:?}"),
         &events,
     )

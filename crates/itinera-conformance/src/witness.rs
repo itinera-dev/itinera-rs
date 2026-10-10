@@ -2,6 +2,7 @@
 //! Then sentences read.
 
 use std::collections::BTreeMap;
+use std::num::NonZeroU32;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use serde_json::Value;
@@ -46,7 +47,7 @@ pub(crate) struct Received {
     /// Data from the workflow, by key, `None` when it was absent.
     pub(crate) workflow_data: BTreeMap<String, Option<Value>>,
     pub(crate) step_name: Option<String>,
-    pub(crate) attempt: Option<u32>,
+    pub(crate) attempt: Option<NonZeroU32>,
     /// The failure cause or the retry cause, as the specification writes it.
     pub(crate) cause: Option<String>,
     /// The failure reason, present or absent.

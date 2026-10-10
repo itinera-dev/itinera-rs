@@ -16,10 +16,8 @@ use itinera::step::{
 use itinera::value::Value as Storable;
 use serde_json::Value;
 
-use crate::declaration::leaked;
-use crate::model::{self, AttemptOutcome, Level, ModelError, StepAction, ValueType};
-use crate::policy::json;
-use crate::value::{ForType, Takes, Typed, for_type};
+use crate::model::{self, AttemptOutcome, Level, ModelError, StepAction};
+use crate::value::{Data, ForType, Takes, Typed, for_type, json};
 use crate::witness::{Build, Witness};
 
 /// How many times the scenario's steps ran, whatever step it was.
@@ -57,7 +55,7 @@ pub(crate) struct Scripted {
 /// leaves those changes out.
 #[derive(Debug)]
 struct Script {
-    inputs: Vec<Need>,
+    inputs: Vec<Data>,
     /// What every attempt does before it ends, in order.
     actions: Vec<Action>,
     /// How the attempts before the last stated one end, in order.
@@ -66,13 +64,6 @@ struct Script {
     last: Ending,
     construction_failure: Option<String>,
     ignores_failed_emits: bool,
-}
-
-#[derive(Debug)]
-struct Need {
-    key: &'static str,
-    value_type: ValueType,
-    optional: bool,
 }
 
 #[derive(Debug)]
@@ -184,7 +175,7 @@ impl Script {
             None => (Vec::new(), Ending::success()),
         };
         Ok(Self {
-            inputs: step.inputs.iter().map(Need::of).collect(),
+            inputs: step.inputs.iter().map(requested).collect(),
             actions: step
                 .actions
                 .iter()
@@ -210,25 +201,20 @@ impl Script {
     }
 }
 
-impl Need {
-    fn of(input: &model::Input) -> Self {
-        Self {
-            key: leaked(&input.key),
-            value_type: input.value_type,
-            optional: input.optional,
-        }
-    }
+/// What the step requests for the input.
+fn requested(input: &model::Input) -> Data {
+    Data::of(&input.key, input.value_type, input.optional)
 }
 
 /// The input's key and its value as JSON, or `None` when it was absent.
-fn taken<M>(got: &mut Resolved<'_, M>, input: &Need) -> Result<(String, Option<Value>), Error> {
+fn taken<M>(got: &mut Resolved<'_, M>, input: &Data) -> Result<(String, Option<Value>), Error> {
     let value = for_type(input.value_type, Taking { got, input })?;
     Ok((input.key.to_owned(), value))
 }
 
 struct Taking<'g, 'a, 'n, M> {
     got: &'g mut Resolved<'a, M>,
-    input: &'n Need,
+    input: &'n Data,
 }
 
 impl<M> ForType for Taking<'_, '_, '_, M> {
@@ -247,13 +233,13 @@ impl<M> ForType for Taking<'_, '_, '_, M> {
 }
 
 /// Declares the input, with the Rust type of its type.
-fn needing(needs: StepNeeds, input: &Need) -> StepNeeds {
+fn needing(needs: StepNeeds, input: &Data) -> StepNeeds {
     for_type(input.value_type, Needing { needs, input })
 }
 
 struct Needing<'n> {
     needs: StepNeeds,
-    input: &'n Need,
+    input: &'n Data,
 }
 
 impl ForType for Needing<'_> {

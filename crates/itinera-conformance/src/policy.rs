@@ -11,11 +11,11 @@ use itinera::journey::Contributor;
 use itinera::mode::{Asynchronous, Synchronous};
 use itinera::policy::{
     AsyncHookReporter, AsyncOnStepAbnormalTermination, AsyncOnStepFailure, AsyncOnStepRetry,
-    AsyncOnStepSuccess, AsyncOnWorkflowFailure, AsyncOnWorkflowSuccess, FailWorkflow, HookKind,
-    HookNeeds, HookReporter, OnStepAbnormalTermination, OnStepFailure, OnStepRetry, OnStepSuccess,
-    OnSuccess, OnWorkflowFailure, OnWorkflowSuccess, PolicyHookKind, Requested,
-    StepAbnormalTermination, StepFailure, StepHook, StepHookKind, StepRetry, StepSuccess,
-    WorkflowFailure, WorkflowHook, WorkflowSuccess,
+    AsyncOnStepSuccess, AsyncOnWorkflowFailure, AsyncOnWorkflowSuccess, ErrorHookKind,
+    FailWorkflow, FailureHookKind, HookKind, HookNeeds, HookReporter, OnStepAbnormalTermination,
+    OnStepFailure, OnStepRetry, OnStepSuccess, OnSuccess, OnWorkflowFailure, OnWorkflowSuccess,
+    PolicyHookKind, Requested, StepAbnormalTermination, StepFailure, StepHook, StepHookKind,
+    StepRetry, StepSuccess, WorkflowFailure, WorkflowHook, WorkflowSuccess,
 };
 use itinera::step::{Input, OptionalInput, Reason};
 use itinera::value::Value as Storable;
@@ -23,12 +23,12 @@ use serde_json::Value;
 
 use crate::declaration::{ScriptedWorkflow, leaked};
 use crate::model::{
-    self, Hook, HookAction, HookRequest, HookReturn, HookScript, Hooks, Level, ModelError,
-    ValueType,
+    self, Hook, HookAction, HookRequest, HookReturn, HookScript, Hooks, Level, Lifecycle,
+    ModelError, ValueType,
 };
 use crate::role::Roles;
 use crate::step::{Emitted, contribute};
-use crate::value::{ForType, Typed, for_type};
+use crate::value::{Data, ForType, Typed, for_type, json};
 use crate::witness::{Call, Received, Witness};
 
 /// An instance of one of the scenario's policies, of either kind, built for an attempt or a
@@ -53,14 +53,12 @@ impl ScriptedPolicy {
     }
 
     /// Takes what the hook requested, then does what its script says and returns what it says.
-    async fn run<'a, H: Scripting, M, R: Emitting>(
+    async fn run<'a, H: Scripting, M, R: Emits>(
         &self,
         mut got: Requested<'a, ScriptedWorkflow, H, M>,
         reporter: fn(&mut Requested<'a, ScriptedWorkflow, H, M>) -> Result<R, Error>,
     ) -> Result<H::Returns, Error> {
-        let Some(script) = H::script(&self.scripts) else {
-            return Ok(H::Returns::default());
-        };
+        let script = H::script(&self.scripts).ok_or_else(unscripted::<H>)?;
         let mut received = Received::default();
         script
             .requests
@@ -78,10 +76,10 @@ impl ScriptedPolicy {
             self.perform(action, roles, &mut contributor, &mut reporter)
                 .await?;
         }
-        script.returns.returned()
+        script.returns.clone().map_err(Error::msg)
     }
 
-    async fn perform<R: Emitting>(
+    async fn perform<R: Emits>(
         &self,
         action: &Action,
         roles: &dyn Roles,
@@ -101,9 +99,15 @@ impl ScriptedPolicy {
     }
 }
 
+/// The error of a hook called without a script, which only a hook the policy does not define
+/// lacks, and such a hook is never declared.
+fn unscripted<H: Scripting>() -> Error {
+    Error::msg(format!("the hook {} has no script", H::HOOK))
+}
+
 /// How one of the scenario's policies is built: what its hooks do, and whether building it
 /// fails, with this message.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(crate) struct Building {
     name: &'static str,
     scripts: Arc<Scripts>,
@@ -152,7 +156,7 @@ fn failure_message(message: Option<String>) -> String {
 
 /// What the scripts of a policy's hooks say, each typed for its hook, and the name of the
 /// policy; a hook it does not define has no script.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct Scripts {
     policy: String,
     on_step_success: Option<Script<StepSuccess>>,
@@ -168,12 +172,7 @@ impl Scripts {
     pub(crate) fn of(name: &str, policy: &model::Policy) -> Result<Self, ModelError> {
         let none = Self {
             policy: name.to_owned(),
-            on_step_success: None,
-            on_step_failure: None,
-            on_step_retry: None,
-            on_step_abnormal_termination: None,
-            on_workflow_success: None,
-            on_workflow_failure: None,
+            ..Self::default()
         };
         match &policy.hooks {
             Hooks::Step(hooks) => hooks.iter().try_fold(none, Self::with_step_hook),
@@ -262,34 +261,35 @@ impl<H: Scripting> Script<H> {
 }
 
 /// A request a hook of kind `H` cannot make.
-fn not_allowed<H: Scripting>(request: &'static str) -> ModelError {
+fn not_allowed<H: Scripting>(request: String) -> ModelError {
     ModelError::RequestNotAllowed(H::HOOK, request)
 }
 
 /// What a hook requests, with its keys as itinera takes them. A role is not requested: a hook
 /// reaches it when it calls it.
-#[derive(Debug)]
+///
+/// It displays as an error names it.
+#[derive(Debug, derive_more::Display)]
 pub(crate) enum Request {
+    #[display("step data")]
     StepData(Data),
+    #[display("data from the workflow")]
     WorkflowData(Data),
+    #[display("the step name")]
     StepName,
+    #[display("the attempt number")]
     Attempt,
+    #[display("the failure cause")]
     FailureCause,
+    #[display("the retry cause")]
     RetryCause,
     /// The failure reason, optional or required.
-    Reason {
-        optional: bool,
-    },
+    #[display("the failure reason")]
+    Reason { optional: bool },
+    #[display("the error")]
     Error,
+    #[display("the journey ID")]
     JourneyId,
-}
-
-/// A request for data under a key.
-#[derive(Debug)]
-pub(crate) struct Data {
-    key: &'static str,
-    value_type: ValueType,
-    optional: bool,
 }
 
 impl Request {
@@ -316,31 +316,6 @@ impl Request {
             HookRequest::JourneyId => Self::JourneyId,
             HookRequest::Role(_) => return None,
         })
-    }
-
-    /// The request, as an error names it.
-    fn name(&self) -> &'static str {
-        match self {
-            Self::StepData(_) => "step data",
-            Self::WorkflowData(_) => "data from the workflow",
-            Self::StepName => "the step name",
-            Self::Attempt => "the attempt number",
-            Self::FailureCause => "the failure cause",
-            Self::RetryCause => "the retry cause",
-            Self::Reason { .. } => "the failure reason",
-            Self::Error => "the error",
-            Self::JourneyId => "the journey ID",
-        }
-    }
-}
-
-impl Data {
-    fn of(key: &str, value_type: ValueType, optional: bool) -> Self {
-        Self {
-            key: leaked(key),
-            value_type,
-            optional,
-        }
     }
 }
 
@@ -380,24 +355,11 @@ fn contribution(key: &str, value: &Value) -> Result<Action, ModelError> {
 }
 
 /// How a hook ends: with what it returns, or failing with this message.
-#[derive(Debug)]
-pub(crate) enum Returning<R> {
-    Value(R),
-    Fails(String),
-}
-
-impl<R: Clone> Returning<R> {
-    fn returned(&self) -> Result<R, Error> {
-        match self {
-            Self::Value(value) => Ok(value.clone()),
-            Self::Fails(message) => Err(Error::msg(message.clone())),
-        }
-    }
-}
+pub(crate) type Returning<R> = Result<R, String>;
 
 /// A hook that fails, with the message the scenario gives, if any.
-fn fails<R>(message: Option<&String>) -> Returning<R> {
-    Returning::Fails(message.map_or_else(|| "the scripted hook fails".to_owned(), String::clone))
+fn fails<R>(message: Option<&str>) -> Returning<R> {
+    Err(message.map_or_else(|| "the scripted hook fails".to_owned(), str::to_owned))
 }
 
 /// A kind of hook, as the scripts declare what it requests, read what it received and say what
@@ -406,7 +368,7 @@ pub(crate) trait Scripting: PolicyHookKind + Sized {
     const HOOK: Hook;
 
     /// What a hook of this kind returns when it does not fail.
-    type Returns: Clone + Default + std::fmt::Debug + Send + Sync;
+    type Returns: Clone + std::fmt::Debug + Send + Sync;
 
     fn script(scripts: &Scripts) -> Option<&Script<Self>>;
 
@@ -414,7 +376,7 @@ pub(crate) trait Scripting: PolicyHookKind + Sized {
     fn returning(returned: &HookReturn) -> Result<Returning<Self::Returns>, ModelError>;
 
     /// Declares one request, or names it when this kind may not make it.
-    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, &'static str>;
+    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, String>;
 
     /// Takes what the hook received for one request.
     fn receive<M>(
@@ -435,16 +397,16 @@ impl Scripting for StepSuccess {
 
     fn returning(returned: &HookReturn) -> Result<Returning<Self::Returns>, ModelError> {
         Ok(match returned {
-            HookReturn::Nothing => Returning::Value(None),
-            HookReturn::FinishWorkflow => Returning::Value(Some(OnSuccess::FinishWorkflow)),
+            HookReturn::Nothing => Ok(None),
+            HookReturn::FinishWorkflow => Ok(Some(OnSuccess::FinishWorkflow)),
             HookReturn::FailWorkflow { code } => {
-                Returning::Value(Some(OnSuccess::FailWorkflow(Reason::new(code.clone()))))
+                Ok(Some(OnSuccess::FailWorkflow(Reason::new(code.clone()))))
             }
-            HookReturn::Fails(message) => fails(message.as_ref()),
+            HookReturn::Fails(message) => fails(message.as_deref()),
         })
     }
 
-    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, &'static str> {
+    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, String> {
         declare_for_step(needs, request)
     }
 
@@ -470,13 +432,10 @@ impl Scripting for StepFailure {
         failing_returning(Self::HOOK, returned)
     }
 
-    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, &'static str> {
+    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, String> {
         match request {
             Request::FailureCause => Ok(needs),
-            Request::Reason { optional: false } => Ok(needs.reason()),
-            Request::Reason { optional: true } => Ok(needs.optional_reason()),
-            Request::Error => Ok(needs.error()),
-            _ => declare_for_step(needs, request),
+            _ => declare_for_failure(needs, request),
         }
     }
 
@@ -487,9 +446,7 @@ impl Scripting for StepFailure {
     ) -> Result<(), Error> {
         match request {
             Request::FailureCause => received.cause = Some(got.cause().to_string()),
-            Request::Reason { optional } => received.reason = Some(reason(got, *optional)?),
-            Request::Error => received.error = Some(got.error()?.to_string()),
-            _ => return receive_for_step(got, request, received),
+            _ => return receive_for_failure(got, request, received),
         }
         Ok(())
     }
@@ -508,13 +465,10 @@ impl Scripting for StepRetry {
         failing_returning(Self::HOOK, returned)
     }
 
-    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, &'static str> {
+    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, String> {
         match request {
             Request::RetryCause => Ok(needs),
-            Request::Reason { optional: false } => Ok(needs.reason()),
-            Request::Reason { optional: true } => Ok(needs.optional_reason()),
-            Request::Error => Ok(needs.error()),
-            _ => declare_for_step(needs, request),
+            _ => declare_for_failure(needs, request),
         }
     }
 
@@ -525,9 +479,7 @@ impl Scripting for StepRetry {
     ) -> Result<(), Error> {
         match request {
             Request::RetryCause => received.cause = Some(got.cause().to_string()),
-            Request::Reason { optional } => received.reason = Some(reason(got, *optional)?),
-            Request::Error => received.error = Some(got.error()?.to_string()),
-            _ => return receive_for_step(got, request, received),
+            _ => return receive_for_failure(got, request, received),
         }
         Ok(())
     }
@@ -546,11 +498,8 @@ impl Scripting for StepAbnormalTermination {
         failing_returning(Self::HOOK, returned)
     }
 
-    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, &'static str> {
-        match request {
-            Request::Error => Ok(needs.error()),
-            _ => declare_for_step(needs, request),
-        }
+    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, String> {
+        declare_for_error(needs, request)
     }
 
     fn receive<M>(
@@ -558,11 +507,7 @@ impl Scripting for StepAbnormalTermination {
         request: &Request,
         received: &mut Received,
     ) -> Result<(), Error> {
-        match request {
-            Request::Error => received.error = Some(got.error()?.to_string()),
-            _ => return receive_for_step(got, request, received),
-        }
-        Ok(())
+        receive_for_error(got, request, received)
     }
 }
 
@@ -579,7 +524,7 @@ impl Scripting for WorkflowSuccess {
         workflow_returning(Self::HOOK, returned)
     }
 
-    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, &'static str> {
+    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, String> {
         declare_for_any(needs, request)
     }
 
@@ -605,7 +550,7 @@ impl Scripting for WorkflowFailure {
         workflow_returning(Self::HOOK, returned)
     }
 
-    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, &'static str> {
+    fn declare(needs: HookNeeds<Self>, request: &Request) -> Result<HookNeeds<Self>, String> {
         declare_for_any(needs, request)
     }
 
@@ -624,26 +569,56 @@ fn failing_returning(
     returned: &HookReturn,
 ) -> Result<Returning<Option<FailWorkflow>>, ModelError> {
     Ok(match returned {
-        HookReturn::Nothing => Returning::Value(None),
+        HookReturn::Nothing => Ok(None),
         HookReturn::FailWorkflow { code } => {
-            Returning::Value(Some(FailWorkflow::from(Reason::new(code.clone()))))
+            Ok(Some(FailWorkflow::from(Reason::new(code.clone()))))
         }
         HookReturn::FinishWorkflow => {
-            return Err(ModelError::LifecycleNotAllowed(hook, "FinishWorkflow"));
+            return Err(ModelError::LifecycleNotAllowed(
+                hook,
+                Lifecycle::FinishWorkflow,
+            ));
         }
-        HookReturn::Fails(message) => fails(message.as_ref()),
+        HookReturn::Fails(message) => fails(message.as_deref()),
     })
 }
 
 /// What a workflow hook returns, which is never a lifecycle.
 fn workflow_returning(hook: Hook, returned: &HookReturn) -> Result<Returning<()>, ModelError> {
     match returned {
-        HookReturn::Nothing => Ok(Returning::Value(())),
-        HookReturn::FinishWorkflow => Err(ModelError::LifecycleNotAllowed(hook, "FinishWorkflow")),
-        HookReturn::FailWorkflow { .. } => {
-            Err(ModelError::LifecycleNotAllowed(hook, "FailWorkflow"))
-        }
-        HookReturn::Fails(message) => Ok(fails(message.as_ref())),
+        HookReturn::Nothing => Ok(Ok(())),
+        HookReturn::FinishWorkflow => Err(ModelError::LifecycleNotAllowed(
+            hook,
+            Lifecycle::FinishWorkflow,
+        )),
+        HookReturn::FailWorkflow { .. } => Err(ModelError::LifecycleNotAllowed(
+            hook,
+            Lifecycle::FailWorkflow,
+        )),
+        HookReturn::Fails(message) => Ok(fails(message.as_deref())),
+    }
+}
+
+/// Declares a request every hook called because an attempt did not succeed may make.
+fn declare_for_failure<H: FailureHookKind + ErrorHookKind>(
+    needs: HookNeeds<H>,
+    request: &Request,
+) -> Result<HookNeeds<H>, String> {
+    match request {
+        Request::Reason { optional: false } => Ok(needs.reason()),
+        Request::Reason { optional: true } => Ok(needs.optional_reason()),
+        _ => declare_for_error(needs, request),
+    }
+}
+
+/// Declares a request every hook that may request the error may make.
+fn declare_for_error<H: ErrorHookKind>(
+    needs: HookNeeds<H>,
+    request: &Request,
+) -> Result<HookNeeds<H>, String> {
+    match request {
+        Request::Error => Ok(needs.error()),
+        _ => declare_for_step(needs, request),
     }
 }
 
@@ -651,9 +626,9 @@ fn workflow_returning(hook: Hook, returned: &HookReturn) -> Result<Returning<()>
 fn declare_for_step<H: StepHookKind>(
     needs: HookNeeds<H>,
     request: &Request,
-) -> Result<HookNeeds<H>, &'static str> {
+) -> Result<HookNeeds<H>, String> {
     match request {
-        Request::StepData(data) => Ok(for_type(data.value_type, FromStep { needs, data })),
+        Request::StepData(data) => Ok(for_type(data.value_type, NeedingFromStep { needs, data })),
         Request::StepName | Request::Attempt => Ok(needs),
         _ => declare_for_any(needs, request),
     }
@@ -663,12 +638,43 @@ fn declare_for_step<H: StepHookKind>(
 fn declare_for_any<H: HookKind>(
     needs: HookNeeds<H>,
     request: &Request,
-) -> Result<HookNeeds<H>, &'static str> {
+) -> Result<HookNeeds<H>, String> {
     match request {
-        Request::WorkflowData(data) => Ok(for_type(data.value_type, FromWorkflow { needs, data })),
+        Request::WorkflowData(data) => Ok(for_type(
+            data.value_type,
+            NeedingFromWorkflow { needs, data },
+        )),
         Request::JourneyId => Ok(needs),
-        _ => Err(request.name()),
+        _ => Err(request.to_string()),
     }
+}
+
+/// Takes what a hook called because an attempt did not succeed received for a request every
+/// such hook may make.
+fn receive_for_failure<H: FailureHookKind + ErrorHookKind, M>(
+    got: &mut Requested<'_, ScriptedWorkflow, H, M>,
+    request: &Request,
+    received: &mut Received,
+) -> Result<(), Error> {
+    match request {
+        Request::Reason { optional } => received.reason = Some(reason(got, *optional)?),
+        _ => return receive_for_error(got, request, received),
+    }
+    Ok(())
+}
+
+/// Takes what a hook that may request the error received for a request every such hook may
+/// make.
+fn receive_for_error<H: ErrorHookKind, M>(
+    got: &mut Requested<'_, ScriptedWorkflow, H, M>,
+    request: &Request,
+    received: &mut Received,
+) -> Result<(), Error> {
+    match request {
+        Request::Error => received.error = Some(got.error()?.to_string()),
+        _ => return receive_for_step(got, request, received),
+    }
+    Ok(())
 }
 
 /// Takes what a step hook received for a request every step hook may make.
@@ -679,11 +685,11 @@ fn receive_for_step<H: StepHookKind, M>(
 ) -> Result<(), Error> {
     match request {
         Request::StepData(data) => {
-            let value = for_type(data.value_type, TakeFromStep { got, data })?;
+            let value = for_type(data.value_type, TakingFromStep { got, data })?;
             received.step_data.insert(data.key.to_owned(), value);
         }
         Request::StepName => received.step_name = Some(got.step_name().to_string()),
-        Request::Attempt => received.attempt = Some(got.attempt().get()),
+        Request::Attempt => received.attempt = Some(got.attempt()),
         _ => return receive_for_any(got, request, received),
     }
     Ok(())
@@ -697,7 +703,7 @@ fn receive_for_any<H: HookKind, M>(
 ) -> Result<(), Error> {
     match request {
         Request::WorkflowData(data) => {
-            let value = for_type(data.value_type, TakeFromWorkflow { got, data })?;
+            let value = for_type(data.value_type, TakingFromWorkflow { got, data })?;
             received.workflow_data.insert(data.key.to_owned(), value);
         }
         Request::JourneyId => received.journey_id = Some(got.journey_id().to_string()),
@@ -707,7 +713,7 @@ fn receive_for_any<H: HookKind, M>(
 }
 
 /// The failure reason the hook received, as the scenario writes one.
-fn reason<H: itinera::policy::FailureHookKind, M>(
+fn reason<H: FailureHookKind, M>(
     got: &mut Requested<'_, ScriptedWorkflow, H, M>,
     optional: bool,
 ) -> Result<Option<model::Reason>, Error> {
@@ -728,12 +734,12 @@ fn written(reason: &Reason) -> Result<model::Reason, Error> {
 }
 
 /// Declares data from the step, of the Rust type of its type.
-struct FromStep<'d, H> {
+struct NeedingFromStep<'d, H> {
     needs: HookNeeds<H>,
     data: &'d Data,
 }
 
-impl<H: StepHookKind> ForType for FromStep<'_, H> {
+impl<H: StepHookKind> ForType for NeedingFromStep<'_, H> {
     type Output = HookNeeds<H>;
 
     fn of<T: Storable>(self) -> HookNeeds<H> {
@@ -747,12 +753,12 @@ impl<H: StepHookKind> ForType for FromStep<'_, H> {
 }
 
 /// Declares data from the workflow, of the Rust type of its type.
-struct FromWorkflow<'d, H> {
+struct NeedingFromWorkflow<'d, H> {
     needs: HookNeeds<H>,
     data: &'d Data,
 }
 
-impl<H: HookKind> ForType for FromWorkflow<'_, H> {
+impl<H: HookKind> ForType for NeedingFromWorkflow<'_, H> {
     type Output = HookNeeds<H>;
 
     fn of<T: Storable>(self) -> HookNeeds<H> {
@@ -771,16 +777,16 @@ pub(crate) fn requiring_from_workflow<H: HookKind>(
     (key, value_type): &(String, ValueType),
 ) -> HookNeeds<H> {
     let data = Data::of(key, *value_type, false);
-    for_type(*value_type, FromWorkflow { needs, data: &data })
+    for_type(*value_type, NeedingFromWorkflow { needs, data: &data })
 }
 
 /// Takes data from the step, as JSON, or `None` when it was absent.
-struct TakeFromStep<'g, 'a, 'd, H: HookKind, M> {
+struct TakingFromStep<'g, 'a, 'd, H: HookKind, M> {
     got: &'g mut Requested<'a, ScriptedWorkflow, H, M>,
     data: &'d Data,
 }
 
-impl<H: StepHookKind, M> ForType for TakeFromStep<'_, '_, '_, H, M> {
+impl<H: StepHookKind, M> ForType for TakingFromStep<'_, '_, '_, H, M> {
     type Output = Result<Option<Value>, Error>;
 
     fn of<T: Storable>(self) -> Self::Output {
@@ -796,12 +802,12 @@ impl<H: StepHookKind, M> ForType for TakeFromStep<'_, '_, '_, H, M> {
 }
 
 /// Takes data from the workflow, as JSON, or `None` when it was absent.
-struct TakeFromWorkflow<'g, 'a, 'd, H: HookKind, M> {
+struct TakingFromWorkflow<'g, 'a, 'd, H: HookKind, M> {
     got: &'g mut Requested<'a, ScriptedWorkflow, H, M>,
     data: &'d Data,
 }
 
-impl<H: HookKind, M> ForType for TakeFromWorkflow<'_, '_, '_, H, M> {
+impl<H: HookKind, M> ForType for TakingFromWorkflow<'_, '_, '_, H, M> {
     type Output = Result<Option<Value>, Error>;
 
     fn of<T: Storable>(self) -> Self::Output {
@@ -816,17 +822,12 @@ impl<H: HookKind, M> ForType for TakeFromWorkflow<'_, '_, '_, H, M> {
     }
 }
 
-/// A value, as the cases write it.
-pub(crate) fn json<T: Storable>(value: T) -> Result<Value, Error> {
-    Ok(serde_json::to_value(value)?)
-}
-
 /// A hook's reporter, of either mode, as the scripts use it.
-pub(crate) trait Emitting: Send {
+trait Emits: Send {
     fn emit(&mut self, level: Level, message: String) -> Emitted<'_>;
 }
 
-impl Emitting for HookReporter<'_> {
+impl Emits for HookReporter<'_> {
     fn emit(&mut self, level: Level, message: String) -> Emitted<'_> {
         let emitted = match level {
             Level::Info => self.info(message),
@@ -837,7 +838,7 @@ impl Emitting for HookReporter<'_> {
     }
 }
 
-impl Emitting for AsyncHookReporter<'_> {
+impl Emits for AsyncHookReporter<'_> {
     fn emit(&mut self, level: Level, message: String) -> Emitted<'_> {
         match level {
             Level::Info => Box::pin(self.info(message)),
@@ -957,7 +958,6 @@ impl AsyncOnWorkflowFailure<ScriptedWorkflow> for ScriptedPolicy {
 
 #[cfg(test)]
 mod tests {
-    use itinera::policy::{StepHook, WorkflowHook};
     use rstest::rstest;
 
     use super::*;
@@ -968,26 +968,63 @@ mod tests {
         Scripts::of("policy", &policy)
     }
 
+    fn requesting(hook: Hook, request: HookRequest) -> Result<Scripts, ModelError> {
+        let mut policy = model::Policy::new(hook);
+        policy.hook_mut(hook).unwrap().requests.push(request);
+        Scripts::of("policy", &policy)
+    }
+
+    #[rstest]
+    #[case::step_data_from_a_workflow_hook(
+        Hook::Workflow(WorkflowHook::OnWorkflowSuccess),
+        HookRequest::StepData {
+            key: "receipt".to_owned(),
+            value_type: ValueType::String,
+            optional: false,
+        },
+        "step data"
+    )]
+    #[case::the_retry_cause_from_on_step_failure(
+        Hook::Step(StepHook::OnStepFailure),
+        HookRequest::RetryCause,
+        "the retry cause"
+    )]
+    #[case::the_failure_reason_from_on_step_abnormal_termination(
+        Hook::Step(StepHook::OnStepAbnormalTermination),
+        HookRequest::FailureReason { optional: false },
+        "the failure reason"
+    )]
+    fn a_request_a_hook_cannot_make_is_a_case_error(
+        #[case] hook: Hook,
+        #[case] request: HookRequest,
+        #[case] named: &str,
+    ) {
+        assert_eq!(
+            requesting(hook, request).unwrap_err(),
+            ModelError::RequestNotAllowed(hook, named.to_owned())
+        );
+    }
+
     #[rstest]
     #[case::finish_workflow_from_a_workflow_hook(
         Hook::Workflow(WorkflowHook::OnWorkflowSuccess),
         HookReturn::FinishWorkflow,
-        "FinishWorkflow"
+        Lifecycle::FinishWorkflow
     )]
     #[case::fail_workflow_from_a_workflow_hook(
         Hook::Workflow(WorkflowHook::OnWorkflowFailure),
         HookReturn::FailWorkflow { code: "late".to_owned() },
-        "FailWorkflow"
+        Lifecycle::FailWorkflow
     )]
     #[case::finish_workflow_from_a_failure_hook(
         Hook::Step(StepHook::OnStepFailure),
         HookReturn::FinishWorkflow,
-        "FinishWorkflow"
+        Lifecycle::FinishWorkflow
     )]
     fn a_lifecycle_a_hook_cannot_return_is_a_case_error(
         #[case] hook: Hook,
         #[case] returned: HookReturn,
-        #[case] lifecycle: &'static str,
+        #[case] lifecycle: Lifecycle,
     ) {
         assert_eq!(
             returning(hook, returned).unwrap_err(),
