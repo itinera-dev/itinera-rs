@@ -347,6 +347,13 @@ pub struct Requested<'a, W, H: HookKind, M = Synchronous> {
     workflow: &'a W,
     journey_id: &'a JourneyId,
     #[debug(skip)]
+    #[cfg_attr(
+        not(feature = "unstable"),
+        expect(
+            dead_code,
+            reason = "only an input adapter's read of the data bag reads it"
+        )
+    )]
     data_bag: &'a DataBag,
     context: H::Context,
     answers: Answers<'a>,
@@ -1027,6 +1034,7 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     ///     }
     /// }
     /// ```
+    #[cfg(feature = "unstable")]
     pub fn data_bag(&self) -> &'a DataBag {
         self.data_bag
     }

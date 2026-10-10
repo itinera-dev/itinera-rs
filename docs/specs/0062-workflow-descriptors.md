@@ -17,8 +17,6 @@ Status: done in stage 4. Stage 3 added the workflow descriptor with its name, it
 - **`itinera::instance::WorkflowInstance`** is the only thing an executor relies on, so an executor runs an `Instance<W, M>` and a hand-written instance alike. It gives the engine the workflow's own value, the journey ID and the data bag, from which the engine resolves a step's inputs, asking the step's input adapter first and falling back to the data bag. Its `commit(key, value)` writes a successful attempt's contribution to the data bag and answers `Committed::Added` or `Committed::Overwritten`, from which the engine emits `data_overwritten`.
 - **`itinera::mode::Mode`** is sealed: `Synchronous` and `Asynchronous` are the only modes.
 
-While the API names that of proposals not yet listed, such as the events of 0011 and the policies of 0010, it stays behind the `unstable` feature, though 62 is listed in `conformance.json`.
-
 ## How the rules are enforced
 
 | Rule | Enforced by |

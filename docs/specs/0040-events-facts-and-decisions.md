@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0040](https://github.com/itinera-dev/spec/blob/main/proposals/0040-events-facts-and-decisions.md), implemented in [#18](https://github.com/itinera-dev/itinera-rs/issues/18). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: in progress. Stage 1 adds the events; the engine that emits them in the right order arrives in stages 3 to 7. Stage 6 emits every decision, after the hook points that could change it.
+Status: done in stage 7. Stage 1 added the events, and stages 3 to 6 the engine that emits them in order. Stage 6 emitted every decision after the hook points that could change it, and stage 7 calls the hooks there, whose lifecycles the decisions name.
 
 ## API
 
@@ -25,9 +25,9 @@ Status: in progress. Stage 1 adds the events; the engine that emits them in the 
 
 ## Tests
 
-- Unit tests in `itinera-core/src/event.rs`: a step given up by `FailWorkflow` names `FailWorkflow` as its cause. Who decided needs no further test: the types hold it.
-- Unit tests in `itinera-core/src/engine.rs`: exactly one decision follows each failed attempt, `step_given_up` comes before `on step failure`, and a lifecycle a scripted hook returns names its policy and hook in the decision it takes.
+- Unit tests in `itinera-core/src/event.rs`: `a_step_given_up_by_fail_workflow_names_fail_workflow_as_its_cause`. Who decided needs no further test: the types hold it.
+- Unit tests in `itinera-core/src/engine.rs`: `step_hooks_are_called_after_each_attempt_in_order_around_the_step_decision`, where exactly one decision follows each failed attempt and `step_given_up` comes before `on step failure`; and the tests of the lifecycles a policy's hook returns, which name its policy and hook in the decision they take: `finish_workflow_from_on_step_success_succeeds_the_journey_without_the_steps_left`, `fail_workflow_from_on_step_success_fails_the_journey_after_committing_the_contributions`, `fail_workflow_from_a_hook_before_the_decision_gives_the_step_up_without_on_step_failure` and `fail_workflow_from_on_step_failure_gives_the_journey_its_reason_after_the_step_is_given_up`.
 
 ## Done when
 
-Every scenario tagged `@proposal-0040` passes, and 40 is listed in `conformance.json`. Planned for stage 7.
+Every scenario tagged `@proposal-0040` passes, and 40 is listed in `conformance.json`. Done in stage 7.

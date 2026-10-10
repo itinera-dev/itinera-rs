@@ -1,0 +1,35 @@
+error[E0277]: the trait bound `StepSuccess: FailureHookKind` is not satisfied
+  --> tests/ui/request_the_reason_on_step_success.rs:10:26
+   |
+10 |         HookNeeds::new().reason()
+   |                          ^^^^^^ the trait `FailureHookKind` is not implemented for `StepSuccess`
+   |
+help: the following other types implement trait `FailureHookKind`
+  --> $WORKSPACE/crates/itinera-core/src/policy/kind.rs
+   |
+   | impl FailureHookKind for StepFailure {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `StepFailure`
+   | impl FailureHookKind for StepRetry {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `StepRetry`
+note: required by a bound in `HookNeeds::<H>::reason`
+  --> $WORKSPACE/crates/itinera-core/src/policy/needs.rs
+   |
+   | impl<H: FailureHookKind> HookNeeds<H> {
+   |         ^^^^^^^^^^^^^^^ required by this bound in `HookNeeds::<H>::reason`
+...
+   |     pub fn reason(mut self) -> Self {
+   |            ------ required by a bound in this associated function
+
+error[E0599]: the method `reason` exists for struct `Requested<'_, Orders, StepSuccess>`, but its trait bounds were not satisfied
+  --> tests/ui/request_the_reason_on_step_success.rs:17:13
+   |
+17 |         got.reason()?;
+   |             ^^^^^^ method cannot be called on `Requested<'_, Orders, StepSuccess>` due to unsatisfied trait bounds
+   |
+  ::: $WORKSPACE/crates/itinera-core/src/policy/kind.rs
+   |
+   | pub enum StepSuccess {}
+   | -------------------- doesn't satisfy `StepSuccess: FailureHookKind`
+   |
+   = note: the following trait bounds were not satisfied:
+           `StepSuccess: FailureHookKind`

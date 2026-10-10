@@ -4,5 +4,4 @@
 
 #![forbid(unsafe_code)]
 
-#[cfg(feature = "unstable")]
 pub use itinera_core::*;

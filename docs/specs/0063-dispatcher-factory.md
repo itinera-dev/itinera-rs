@@ -13,8 +13,6 @@ Status: done in stage 6. Stage 1 added dispatchers and their factories, and stag
 - Every operation returns `Result<_, Error>`.
 - `run` returns `Refusal::DispatcherFactory` when the factory fails, and `Refusal::Dispatcher` when the dispatcher fails while the instance's reporters are added. Both carry the error.
 
-Its API stays behind the `unstable` feature, since it names API of proposals not yet listed, such as the events of 0011 and the policies of 0010, until stage 7 lists them.
-
 ## How the rules are enforced
 
 | Rule | Enforced by |

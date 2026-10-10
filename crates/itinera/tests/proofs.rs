@@ -2,8 +2,6 @@
 //! written with itinera: each program breaking the rule fails to compile, and its twin, which
 //! keeps the rule, compiles.
 
-#![cfg(feature = "unstable")]
-
 fn proves(broken: &str, kept: &str) {
     let cases = trybuild::TestCases::new();
     cases.compile_fail(broken);
@@ -47,6 +45,22 @@ fn a_step_event_cannot_carry_a_non_value() {
     proves(
         "tests/proofs/non-value/event_data.rs",
         "tests/proofs/non-value/event_data_value.rs",
+    );
+}
+
+#[test]
+fn a_failure_hook_cannot_finish_the_workflow() {
+    proves(
+        "tests/proofs/invalid-lifecycle/finish_workflow_on_step_failure.rs",
+        "tests/proofs/invalid-lifecycle/fail_workflow_on_step_failure.rs",
+    );
+}
+
+#[test]
+fn a_policy_cannot_be_attached_to_a_workflow_that_does_not_provide_its_role() {
+    proves(
+        "tests/proofs/role-not-provided/role_not_provided.rs",
+        "tests/proofs/role-not-provided/role_provided.rs",
     );
 }
 
