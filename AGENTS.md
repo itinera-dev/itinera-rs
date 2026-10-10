@@ -68,6 +68,8 @@ Each of these is a required CI check, and every one must pass before pushing:
 - `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`
 - `cargo deny check`
 
+`cargo xtask check` runs them all, in this order, and stops at the first that fails. A test in the `xtask` crate keeps its list the same as this one.
+
 ## Running the conformance runner
 
 Run `cargo run -p itinera-conformance --release` with:
