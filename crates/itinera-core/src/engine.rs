@@ -968,6 +968,45 @@ mod tests {
         );
     }
 
+    fn wrong_type_naming_the_step(status: &JourneyStatus) -> bool {
+        matches!(
+            status,
+            JourneyStatus::Aborted(Abort::WrongType { key, requester: Requester::Step })
+                if key == "amount"
+        )
+    }
+
+    fn missing_data_naming_the_step(status: &JourneyStatus) -> bool {
+        matches!(
+            status,
+            JourneyStatus::Aborted(Abort::RequiredDataMissing(MissingData::Key {
+                key,
+                requester: Requester::Step
+            })) if key == "amount"
+        )
+    }
+
+    #[rstest]
+    #[case::a_value_of_another_type_in_the_data_bag(amount_as_i32, wrong_type_naming_the_step)]
+    #[case::no_value_in_the_data_bag(std::convert::identity, missing_data_naming_the_step)]
+    fn an_input_adapter_that_returned_nothing_is_not_named_in_the_abort(
+        #[case] data: Data,
+        #[case] aborted: fn(&JourneyStatus) -> bool,
+    ) {
+        let read = Read::default();
+        let silent = InputAdapter::new("pricing", CHARGE, |_: &Orders, _, _| Ok(None));
+        let workflow = charged(&read).input_adapter(silent);
+
+        let (status, events) = travel(data(instance(workflow)).create().unwrap());
+
+        assert!(aborted(&status), "{status:?}");
+        assert!(reads(&read).is_empty());
+        assert_eq!(
+            kinds(&events),
+            ["journey_started", "attempt_started", "journey_aborted"]
+        );
+    }
+
     #[test]
     fn a_step_whose_factory_fails_aborts_the_journey_as_it_could_not_be_built() {
         let workflow = orders().step(StepDescriptor::new(CHARGE, Unbuildable));
