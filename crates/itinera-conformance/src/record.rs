@@ -5,11 +5,13 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use itinera::error::Error;
 use itinera::event::Event;
+use itinera::journey::{DataBag, JourneyId};
 use itinera::report::{
     AsyncDispatcher, AsyncDispatcherFactory, BoxedReporter, DefaultDispatcher, Dispatcher,
-    DispatcherFactory, Reporter,
+    DispatcherFactory, Reporter, WorkflowReporter,
 };
 
+use crate::declaration::ScriptedWorkflow;
 use crate::model::{Dispatching, Holding, Model, ReporterFailure};
 
 /// A scripted reporter that records every event it receives, then fails as its script says.
@@ -23,6 +25,8 @@ pub(crate) struct Recorder {
 
 #[derive(Debug, Default)]
 struct Received {
+    /// The journey ID a workflow instance made the reporter with.
+    made_with: Option<JourneyId>,
     events: Vec<Event>,
     failure: Option<ReporterFailure>,
     failed: bool,
@@ -45,6 +49,16 @@ impl Recorder {
 
     fn received(&self) -> MutexGuard<'_, Received> {
         self.shared.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Records the journey ID the workflow instance made the reporter with.
+    fn made_with(&self, journey_id: &JourneyId) {
+        self.received().made_with = Some(journey_id.clone());
+    }
+
+    /// The journey ID a workflow instance made the reporter with, if one made it.
+    pub(crate) fn journey_id(&self) -> Option<JourneyId> {
+        self.received().made_with.clone()
     }
 
     /// The events it received, in order, including those it failed on.
@@ -74,6 +88,36 @@ impl Reporter for Recorder {
                 Err(Error::msg(message.unwrap_or_else(|| failure(event))))
             }
         }
+    }
+}
+
+/// The reporter the workflow lists at this position, which records with the recorder the
+/// instance was given for it.
+#[derive(Debug)]
+pub(crate) struct ListedReporter<const POSITION: usize> {
+    recorder: Recorder,
+}
+
+impl<const POSITION: usize> Reporter for ListedReporter<POSITION> {
+    fn report(&mut self, event: &Event) -> Result<(), Error> {
+        self.recorder.report(event)
+    }
+}
+
+impl<const POSITION: usize> WorkflowReporter<ScriptedWorkflow> for ListedReporter<POSITION> {
+    fn init(
+        workflow: &ScriptedWorkflow,
+        journey_id: &JourneyId,
+        _: &DataBag,
+    ) -> Result<Self, Error> {
+        let recorder = workflow
+            .reporter(POSITION)
+            .ok_or_else(|| {
+                Error::msg("the runner gave the instance no recorder for this reporter")
+            })?
+            .clone();
+        recorder.made_with(journey_id);
+        Ok(Self { recorder })
     }
 }
 
@@ -108,6 +152,14 @@ impl Recorders {
             .entry(name.to_owned())
             .or_insert_with(|| Recorder::scripted(model, name))
             .clone()
+    }
+
+    /// A new recorder for the scripted reporter of this name, made with its script, which
+    /// replaces the one made before, since each workflow instance makes its own reporters.
+    pub(crate) fn renewed(&mut self, name: &str, model: &Model) -> Recorder {
+        let recorder = Recorder::scripted(model, name);
+        self.named.insert(name.to_owned(), recorder.clone());
+        recorder
     }
 
     /// The runner's own recorder, held by its dispatchers when the scenario names none.

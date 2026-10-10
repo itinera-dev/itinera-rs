@@ -1,14 +1,16 @@
-//! Admission and the listing: what the workflow's declaration gives before any journey.
+//! The actions: admitting, listing and running the workflow, and what admission and the listing
+//! give.
 
-use std::fmt;
 use std::num::NonZeroUsize;
 
 use cucumber::gherkin::Step as Sentence;
 use cucumber::{then, when};
+use itinera::mode::Synchronous;
 use itinera::workflow::{ListedStep, Violation};
 
-use super::Unmet;
+use super::{Unmet, holds};
 use crate::declaration::{Admission, declared};
+use crate::journey::{self, Unrunnable};
 use crate::model::{ModelError, Row, rows};
 use crate::world::World;
 
@@ -17,15 +19,22 @@ fn the_workflow_is_admitted(world: &mut World) -> Result<(), ModelError> {
     admit(world)
 }
 
+#[when(expr = "the workflow runs")]
+async fn the_workflow_runs(world: &mut World) -> Result<(), Unrunnable> {
+    journey::run(world, 1).await
+}
+
 #[when(expr = "the workflow is listed")]
 fn the_workflow_is_listed(world: &mut World) -> Result<(), ModelError> {
     admit(world)
 }
 
-/// Builds the scenario's workflow, which checks its declaration and runs nothing.
+/// Builds the scenario's workflow, which checks its declaration and runs nothing. Neither
+/// admission nor the listing depends on the execution mode, so the workflow is declared
+/// synchronous.
 fn admit(world: &mut World) -> Result<(), ModelError> {
-    let admission = match declared(&world.model, &world.steps_run)?.build() {
-        Ok(descriptor) => Admission::Admitted(descriptor),
+    let admission = match declared::<Synchronous>(&world.model, &world.steps_run)?.build() {
+        Ok(descriptor) => Admission::Admitted(descriptor.listing()),
         Err(violations) => Admission::Refused(violations),
     };
     world.admission = Some(admission);
@@ -73,7 +82,7 @@ fn the_listing_is(world: &mut World, #[step] sentence: &Sentence) -> Result<(), 
         .map(Listed::expected)
         .collect::<Result<Vec<_>, _>>()?;
     let found: Vec<Listed> = match admission(world)? {
-        Admission::Admitted(descriptor) => descriptor.listing().iter().map(Listed::from).collect(),
+        Admission::Admitted(listing) => listing.iter().map(Listed::from).collect(),
         Admission::Refused(violations) => {
             return Err(Unmet::Expected(format!(
                 "a listing, but admission was refused: {violations}"
@@ -142,19 +151,4 @@ impl From<&ListedStep> for Listed {
 /// The text of a cell, empty when the row leaves it empty.
 fn cell(row: &Row, column: &'static str) -> String {
     row.optional(column).unwrap_or_default().to_owned()
-}
-
-/// Holds when the condition does, and otherwise says what was expected and what was found.
-fn holds(
-    condition: bool,
-    expected: impl fmt::Display,
-    found: impl fmt::Display,
-) -> Result<(), Unmet> {
-    if condition {
-        Ok(())
-    } else {
-        Err(Unmet::Expected(format!(
-            "expected {expected}; found {found}"
-        )))
-    }
 }

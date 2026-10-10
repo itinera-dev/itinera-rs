@@ -5,7 +5,7 @@ use std::num::NonZeroU64;
 use cucumber::{given, then};
 use itinera::event::Event;
 
-use super::{Names, Unmet, expect, stream};
+use super::{Names, Unmet, expect, numbered, stream};
 use crate::model::{
     Dispatching, EventKind, Holding, HookAction, Level, ModelError, ReporterFailure, StepAction,
     json,
@@ -190,11 +190,6 @@ fn received_by<'a>(world: &World, name: &'a str) -> Result<Received<'a>, Unmet> 
 }
 
 type Received<'a> = (&'a str, Vec<Event>, Vec<(NonZeroU64, Line)>);
-
-/// The event's sequence number and its line, so that two reporters' streams compare whole.
-fn numbered(event: &Event) -> (NonZeroU64, Line) {
-    (event.sequence, Line::from(event))
-}
 
 #[then(expr = "the reporter {string} received the event {string}")]
 fn the_reporter_received_the_event(

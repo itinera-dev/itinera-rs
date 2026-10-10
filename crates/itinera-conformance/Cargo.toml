@@ -12,13 +12,12 @@ publish = false
 itinera = { path = "../itinera", default-features = false, features = ["unstable", "async"] }
 cucumber.workspace = true
 derive_more = { workspace = true, features = ["into_iterator"] }
-futures.workspace = true
+futures = { workspace = true, features = ["executor"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
 thiserror.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
-futures = { workspace = true, features = ["executor"] }
 rstest.workspace = true
 
 [lints]
