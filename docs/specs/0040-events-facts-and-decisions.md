@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0040](https://github.com/itinera-dev/spec/blob/main/proposals/0040-events-facts-and-decisions.md), implemented in [#18](https://github.com/itinera-dev/itinera-rs/issues/18). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: in progress. Stage 1 adds the events; the engine that emits them in the right order arrives in stages 3 to 7.
+Status: in progress. Stage 1 adds the events; the engine that emits them in the right order arrives in stages 3 to 7. Stage 6 emits every decision, after the hook points that could change it.
 
 ## API
 
@@ -26,6 +26,7 @@ Status: in progress. Stage 1 adds the events; the engine that emits them in the 
 ## Tests
 
 - Unit tests in `itinera-core/src/event.rs`: a step given up by `FailWorkflow` names `FailWorkflow` as its cause. Who decided needs no further test: the types hold it.
+- Unit tests in `itinera-core/src/engine.rs`: exactly one decision follows each failed attempt, `step_given_up` comes before `on step failure`, and a lifecycle a scripted hook returns names its policy and hook in the decision it takes.
 
 ## Done when
 

@@ -6,32 +6,38 @@ use std::pin::Pin;
 
 use crate::error::{Error, Interrupted};
 use crate::event::{
-    self, Event, EventBody, GiveUpCause, JourneyAbort, JourneyFailure, RequestSource, Source,
+    self, DecidingHook, Event, EventBody, GiveUpCause, GiveUpHook, JourneyAbort, JourneyFailure,
+    RequestSource, RetryCause, Source,
 };
 use crate::instance::{Committed, Resolution, WorkflowInstance};
 use crate::journey::{
     Abort, Contribution, Contributions, Contributor, Failure, JourneyResult, JourneyStatus,
-    LastFailure, MissingData, Requester,
+    MissingData, Requester,
 };
+use crate::policy::{PolicyName, StepHook};
 use crate::report::Dispatcher;
 use crate::step::{
-    Got, InputNeed, Outcome, OutcomeKind, Reporting, Requirement, StepAttempt, StepDescriptor,
-    StepName,
+    Got, InputNeed, Outcome, OutcomeKind, Reason, Reporting, Requirement, StepAttempt,
+    StepDescriptor, StepName,
 };
 use crate::value::AnyValue;
 use crate::workflow::WorkflowDescriptor;
 
 #[cfg(feature = "async")]
 mod asynchronous;
+mod decision;
 mod emitter;
 mod guard;
+mod hooks;
 
 #[cfg(feature = "async")]
 pub(crate) use asynchronous::Awaited;
 pub(crate) use emitter::Clock;
 pub(crate) use guard::Failures;
 
+use decision::{Decision, Failed, GivenUp, decide};
 use emitter::Emitter;
+use hooks::{Decided, Defaults, OnSuccess, StepHooks};
 
 /// Delivers the journey's events through its dispatcher, whichever kind it is.
 pub(crate) trait Delivery: Send {
@@ -62,10 +68,21 @@ pub(crate) trait Emitting: Send {
 /// Runs one journey of the instance, delivering its events through the dispatcher, whose
 /// reporters were guarded by `failures`.
 pub(crate) async fn run<I: WorkflowInstance>(
+    instance: I,
+    delivery: impl Delivery,
+    failures: Failures,
+    clock: Clock,
+) -> JourneyResult {
+    run_with(instance, delivery, failures, clock, Defaults).await
+}
+
+/// Runs one journey, whose step hooks answer as `hooks` says.
+async fn run_with<I: WorkflowInstance>(
     mut instance: I,
     delivery: impl Delivery,
     failures: Failures,
     clock: Clock,
+    hooks: impl StepHooks,
 ) -> JourneyResult {
     let journey_id = instance.journey_id().clone();
     let descriptor = instance.descriptor().clone();
@@ -74,6 +91,7 @@ pub(crate) async fn run<I: WorkflowInstance>(
         emitter,
         delivery,
         failures,
+        hooks,
         step: None,
         interrupted: None,
     };
@@ -109,11 +127,23 @@ impl End {
     }
 }
 
+/// What the scan does after an attempt, when the journey goes on.
+#[derive(Debug)]
+enum Next {
+    /// The step is done: it succeeded or skipped itself.
+    Step,
+    /// The step is attempted again.
+    Attempt,
+    /// A hook of the step returned `FinishWorkflow`: the journey succeeds without the steps left.
+    Finish(PolicyName),
+}
+
 /// One journey while it runs.
-struct Journey<D> {
+struct Journey<D, H> {
     emitter: Emitter,
     delivery: D,
     failures: Failures,
+    hooks: H,
     /// The step being run, if any.
     step: Option<StepName>,
     /// The abort recorded when a reporter failed on an event a step emitted, while it was built
@@ -121,8 +151,8 @@ struct Journey<D> {
     interrupted: Option<Box<Aborted>>,
 }
 
-impl<D: Delivery> Journey<D> {
-    /// Runs the journey's steps in order, until one ends it or none is left.
+impl<D: Delivery, H: StepHooks> Journey<D, H> {
+    /// Runs the journey's steps, then reports that it succeeded.
     ///
     /// It holds the instance only mutably across an await, so that the journey's future is
     /// `Send` whenever the instance is.
@@ -134,23 +164,53 @@ impl<D: Delivery> Journey<D> {
         let initial_keys = instance.data_bag().keys().map(str::to_owned).collect();
         self.emit(EventBody::JourneyStarted { initial_keys })
             .await?;
-        for step in descriptor.steps() {
-            self.step = Some(step.name());
-            self.attempt(instance, step).await?;
-            self.step = None;
-        }
-        self.emit(EventBody::JourneySucceeded { decided_by: None })
+        let decided_by = self.scan(instance, descriptor).await?;
+        self.step = None;
+        self.emit(EventBody::JourneySucceeded { decided_by })
             .await?;
         Ok(())
     }
 
-    /// Builds and runs the one attempt a step has until retries exist, and acts on its outcome.
+    /// Runs each step in its order until none is left, or one ends the journey. Returns the
+    /// policy whose hook finished the journey early, if one did.
+    async fn scan<I: WorkflowInstance>(
+        &mut self,
+        instance: &mut I,
+        descriptor: &WorkflowDescriptor<I::Workflow, I::Mode>,
+    ) -> Result<Option<PolicyName>, End> {
+        for step in descriptor.steps() {
+            self.step = Some(step.name());
+            if let Some(policy) = self.run_step(instance, step).await? {
+                return Ok(Some(policy));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Attempts a step until it is done, or the journey ends. Returns the policy whose hook
+    /// finished the journey, if one did.
+    async fn run_step<I: WorkflowInstance>(
+        &mut self,
+        instance: &mut I,
+        step: &StepDescriptor<I::Mode>,
+    ) -> Result<Option<PolicyName>, End> {
+        let mut attempt = StepAttempt::first(step.name());
+        loop {
+            match self.attempt(instance, step, &attempt).await? {
+                Next::Attempt => attempt = attempt.next(),
+                Next::Step => return Ok(None),
+                Next::Finish(policy) => return Ok(Some(policy)),
+            }
+        }
+    }
+
+    /// Builds and runs one attempt of a step, and acts on how it ended.
     async fn attempt<I: WorkflowInstance>(
         &mut self,
         instance: &mut I,
         step: &StepDescriptor<I::Mode>,
-    ) -> Result<(), End> {
-        let attempt = StepAttempt::first(step.name());
+        attempt: &StepAttempt,
+    ) -> Result<Next, End> {
         self.emit(EventBody::AttemptStarted {
             step: attempt.clone(),
         })
@@ -158,22 +218,22 @@ impl<D: Delivery> Journey<D> {
         let mut inputs = Vec::new();
         for input in step.needs().inputs() {
             let resolution = instance.data_for_step(step.name(), input.key());
-            let value = self.resolve(&attempt, input, resolution).await?;
+            let value = self.resolve(attempt, input, resolution).await?;
             inputs.push((input.key(), value));
         }
         let mut contributions = Contributions::default();
         let ran = self
-            .build_and_run(step, &attempt, inputs, &mut contributions)
+            .build_and_run(step, attempt, inputs, &mut contributions)
             .await;
         if let Some(aborted) = self.interrupted.take() {
             return Err(End::Aborted(aborted));
         }
         match ran? {
             Ok(outcome) => {
-                self.conclude(instance, attempt, outcome.into(), contributions)
+                self.conclude(instance, step, attempt, outcome.into(), contributions)
                     .await
             }
-            Err(error) => self.terminate(attempt, error).await,
+            Err(error) => self.terminate(step, attempt, error).await,
         }
     }
 
@@ -263,22 +323,23 @@ impl<D: Delivery> Journey<D> {
         Ok(None)
     }
 
-    /// Acts on the outcome a step reported, and on its contributions. Until retries exist, a
-    /// failure is the step's last.
+    /// Acts on the outcome a step reported, and on its contributions.
     async fn conclude<I: WorkflowInstance>(
         &mut self,
         instance: &mut I,
-        attempt: StepAttempt,
+        step: &StepDescriptor<I::Mode>,
+        attempt: &StepAttempt,
         outcome: OutcomeKind,
         contributions: Contributions,
-    ) -> Result<(), End> {
+    ) -> Result<Next, End> {
         match outcome {
             OutcomeKind::Success => {
                 self.emit(EventBody::StepSucceeded {
                     step: attempt.clone(),
                 })
                 .await?;
-                self.commit(instance, &attempt, contributions).await
+                self.commit(instance, attempt, contributions).await?;
+                self.succeeded(attempt).await
             }
             OutcomeKind::Skipped(reason) => {
                 self.emit(EventBody::StepSkipped {
@@ -286,9 +347,11 @@ impl<D: Delivery> Journey<D> {
                     reason,
                 })
                 .await?;
-                self.emit(EventBody::ContributionsDiscarded { step: attempt })
-                    .await?;
-                Ok(())
+                self.emit(EventBody::ContributionsDiscarded {
+                    step: attempt.clone(),
+                })
+                .await?;
+                Ok(Next::Step)
             }
             OutcomeKind::Failure(reason) => {
                 self.emit(EventBody::StepFailed {
@@ -297,13 +360,7 @@ impl<D: Delivery> Journey<D> {
                     reason: reason.clone(),
                 })
                 .await?;
-                self.give_up(
-                    attempt,
-                    GiveUpCause::Failure,
-                    JourneyFailure::Failure(reason.clone()),
-                    Failure::Failure(reason),
-                )
-                .await
+                self.failed(step, attempt, Failed::Failure(reason)).await
             }
             OutcomeKind::RetriableFailure(reason) => {
                 self.emit(EventBody::StepFailed {
@@ -312,13 +369,8 @@ impl<D: Delivery> Journey<D> {
                     reason: reason.clone(),
                 })
                 .await?;
-                self.give_up(
-                    attempt,
-                    GiveUpCause::RetriesExhausted,
-                    JourneyFailure::RetriesExhausted(LastFailure::Reason(reason.clone())),
-                    Failure::RetriesExhausted(LastFailure::Reason(reason)),
-                )
-                .await
+                self.failed(step, attempt, Failed::RetriableFailure(reason))
+                    .await
             }
         }
     }
@@ -346,38 +398,145 @@ impl<D: Delivery> Journey<D> {
         Ok(())
     }
 
-    /// Acts on an error that escaped a running step: an abnormal termination, which is not
-    /// retried by default.
-    async fn terminate(&mut self, attempt: StepAttempt, error: Error) -> Result<(), End> {
-        let message = error.to_string();
-        self.emit(EventBody::StepAbnormalTermination {
-            step: attempt.clone(),
-            message: message.clone(),
-        })
-        .await?;
-        self.give_up(
-            attempt,
-            GiveUpCause::AbnormalTermination,
-            JourneyFailure::AbnormalTermination(message),
-            Failure::AbnormalTermination(error),
-        )
-        .await
+    /// Acts on what `on step success` returned: the next step by default.
+    async fn succeeded(&mut self, attempt: &StepAttempt) -> Result<Next, End> {
+        match self.hooks.on_step_success(attempt) {
+            None => Ok(Next::Step),
+            Some(Decided {
+                policy,
+                lifecycle: OnSuccess::FinishWorkflow,
+            }) => Ok(Next::Finish(policy)),
+            Some(Decided {
+                policy,
+                lifecycle: OnSuccess::FailWorkflow(reason),
+            }) => {
+                self.fail_workflow(attempt.step, policy, StepHook::OnStepSuccess, reason)
+                    .await
+            }
+        }
     }
 
-    /// Decides by default that the step will not be attempted again, and that the journey fails.
-    async fn give_up(
+    /// Acts on an error that escaped a running step: an abnormal termination, after which
+    /// `on step abnormal termination` may give the step up.
+    async fn terminate<M>(
         &mut self,
-        attempt: StepAttempt,
-        cause: GiveUpCause,
-        reported: JourneyFailure,
-        failure: Failure,
-    ) -> Result<(), End> {
-        let step = attempt.step;
-        self.emit(EventBody::StepGivenUp {
-            step: attempt,
-            cause,
+        step: &StepDescriptor<M>,
+        attempt: &StepAttempt,
+        error: Error,
+    ) -> Result<Next, End> {
+        self.emit(EventBody::StepAbnormalTermination {
+            step: attempt.clone(),
+            message: error.to_string(),
         })
         .await?;
+        let hook = GiveUpHook::OnStepAbnormalTermination;
+        match self.hooks.may_give_up(hook, attempt) {
+            Some(decided) => self.given_up_by(attempt, hook, decided).await,
+            None => {
+                self.failed(step, attempt, Failed::AbnormalTermination(error))
+                    .await
+            }
+        }
+    }
+
+    /// Acts on an attempt that did not succeed, as the step's own rule decides.
+    async fn failed<M>(
+        &mut self,
+        step: &StepDescriptor<M>,
+        attempt: &StepAttempt,
+        failed: Failed,
+    ) -> Result<Next, End> {
+        match decide(failed, attempt.attempt, step) {
+            Decision::Retry(cause) => self.retry(attempt, cause).await,
+            Decision::GiveUp(given_up) => self.give_up(attempt, given_up).await,
+        }
+    }
+
+    /// Attempts the step again, unless `on step retry` gives it up.
+    async fn retry(&mut self, attempt: &StepAttempt, cause: RetryCause) -> Result<Next, End> {
+        let hook = GiveUpHook::OnStepRetry;
+        match self.hooks.may_give_up(hook, attempt) {
+            Some(decided) => self.given_up_by(attempt, hook, decided).await,
+            None => {
+                self.emit(EventBody::StepRetrying {
+                    step: attempt.clone(),
+                    cause,
+                })
+                .await?;
+                Ok(Next::Attempt)
+            }
+        }
+    }
+
+    /// Gives the step up as its own rule decided, then fails the journey as
+    /// `on step failure` decides.
+    async fn give_up(&mut self, attempt: &StepAttempt, given_up: GivenUp) -> Result<Next, End> {
+        self.emit(EventBody::StepGivenUp {
+            step: attempt.clone(),
+            cause: given_up.cause(),
+        })
+        .await?;
+        match self.hooks.on_step_failure(attempt) {
+            Some(Decided {
+                policy,
+                lifecycle: reason,
+            }) => {
+                self.fail_workflow(attempt.step, policy, StepHook::OnStepFailure, reason)
+                    .await
+            }
+            None => {
+                let (reported, failure) = given_up.into_failure();
+                self.fail(attempt.step, reported, failure).await
+            }
+        }
+    }
+
+    /// Gives the step up because `hook` returned `FailWorkflow`, and fails the journey with its
+    /// reason. `on step failure` is not called.
+    async fn given_up_by(
+        &mut self,
+        attempt: &StepAttempt,
+        hook: GiveUpHook,
+        Decided {
+            policy,
+            lifecycle: reason,
+        }: Decided<Reason>,
+    ) -> Result<Next, End> {
+        self.emit(EventBody::StepGivenUp {
+            step: attempt.clone(),
+            cause: GiveUpCause::FailWorkflow {
+                decided_by: DecidingHook { policy, hook },
+                reason: reason.clone(),
+            },
+        })
+        .await?;
+        self.fail_workflow(attempt.step, policy, hook.step_hook(), reason)
+            .await
+    }
+
+    /// Fails the journey because a hook of the step returned `FailWorkflow`.
+    async fn fail_workflow(
+        &mut self,
+        step: StepName,
+        policy: PolicyName,
+        hook: StepHook,
+        reason: Reason,
+    ) -> Result<Next, End> {
+        let reported = JourneyFailure::FailWorkflow {
+            decided_by: DecidingHook { policy, hook },
+            reason: reason.clone(),
+        };
+        self.fail(step, reported, Failure::FailWorkflow(reason))
+            .await
+    }
+
+    /// Reports that the journey fails because of the step, and ends it.
+    async fn fail(
+        &mut self,
+        step: StepName,
+        reported: JourneyFailure,
+        failure: Failure,
+    ) -> Result<Next, End> {
         self.emit(EventBody::JourneyFailed {
             step,
             failure: reported,
@@ -423,7 +582,7 @@ impl<D: Delivery> Journey<D> {
     }
 }
 
-impl<D: Delivery> Emitting for Journey<D> {
+impl<D: Delivery, H: StepHooks> Emitting for Journey<D, H> {
     fn relay(&mut self, body: EventBody) -> Emitted<'_> {
         Box::pin(self.relay_interruptibly(body))
     }
@@ -495,6 +654,7 @@ pub(crate) fn finish<T>(future: impl Future<Output = T>) -> T {
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU64;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -503,7 +663,8 @@ mod tests {
     use super::*;
     use crate::event::{Event, Timestamp};
     use crate::instance::InstanceBuilder;
-    use crate::journey::FailureCause;
+    use crate::journey::{FailureCause, LastFailure};
+    use crate::policy::Lifecycle;
     use crate::report::{DefaultDispatcher, Reporter};
     use crate::step::{
         Input, OptionalInput, Outcome, Reason, Resolved, Step, StepDescriptor, StepFactory,
@@ -682,14 +843,32 @@ mod tests {
     ) -> (JourneyStatus, Vec<Event>) {
         let recording = Recording::default();
         let events = Arc::clone(&recording.events);
+        let status = travel_recorded(instance, recording, after, Defaults);
+        let events = events.lock().unwrap().clone();
+        (status, events)
+    }
+
+    /// Runs a journey of the instance with these step hooks, delivering its events to the
+    /// recording, then to `after` if given.
+    fn travel_recorded<I: WorkflowInstance>(
+        instance: I,
+        recording: Recording,
+        after: Option<Recording>,
+        hooks: impl StepHooks,
+    ) -> JourneyStatus {
         let failures = Failures::default();
         let mut dispatcher = DefaultDispatcher::new();
         for reporter in [recording].into_iter().chain(after) {
             dispatcher.add(failures.guard(Box::new(reporter))).unwrap();
         }
-        let result = finish(run(instance, Inline::from(dispatcher), failures, noon));
-        let events = events.lock().unwrap().clone();
-        (result.status, events)
+        finish(run_with(
+            instance,
+            Inline::from(dispatcher),
+            failures,
+            noon,
+            hooks,
+        ))
+        .status
     }
 
     fn orders() -> WorkflowBuilder<Orders> {
@@ -1043,7 +1222,7 @@ mod tests {
         "step_abnormal_termination",
         FailureCause::AbnormalTermination
     )]
-    fn a_failed_attempt_is_the_steps_last_and_fails_the_journey(
+    fn without_a_retry_budget_a_failed_attempt_is_the_steps_last_and_fails_the_journey(
         #[case] ends: fn() -> Result<Outcome, Error>,
         #[case] fact: &str,
         #[case] cause: FailureCause,
@@ -1096,6 +1275,405 @@ mod tests {
                 "journey_succeeded"
             ]
         );
+    }
+
+    /// A step that ends each attempt as the next of `ends` says, and succeeds once none is left.
+    /// Each attempt contributes its own number as "attempt".
+    fn attempting(ends: &'static [fn() -> Result<Outcome, Error>]) -> StepDescriptor {
+        let made = AtomicUsize::new(0);
+        scripted(move |contributor, _| {
+            let attempt = made.fetch_add(1, Ordering::SeqCst);
+            contributor.contribute("attempt", i64::try_from(attempt + 1).unwrap());
+            ends.get(attempt).map_or_else(succeed, call)
+        })
+    }
+
+    fn call(end: &fn() -> Result<Outcome, Error>) -> Result<Outcome, Error> {
+        end()
+    }
+
+    fn attempt_of(event: &Event) -> Option<u32> {
+        match &event.body {
+            EventBody::AttemptStarted { step } => Some(step.attempt.get()),
+            _ => None,
+        }
+    }
+
+    fn retry_cause(event: &Event) -> Option<RetryCause> {
+        match &event.body {
+            EventBody::StepRetrying { cause, .. } => Some(*cause),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn a_retriable_failure_is_attempted_again_while_the_budget_allows() {
+        let workflow = orders().step(attempting(&[timed_out, timed_out]).retry_budget(2));
+
+        let (status, events) = travel_workflow(workflow);
+
+        assert_eq!(data_of(&status), [("attempt".to_string(), 3)]);
+        assert_eq!(
+            kinds(&events),
+            [
+                "journey_started",
+                "attempt_started",
+                "step_failed",
+                "step_retrying",
+                "attempt_started",
+                "step_failed",
+                "step_retrying",
+                "attempt_started",
+                "step_succeeded",
+                "contribution_committed",
+                "journey_succeeded"
+            ]
+        );
+        let attempts: Vec<_> = events.iter().filter_map(attempt_of).collect();
+        assert_eq!(attempts, [1, 2, 3]);
+        let causes: Vec<_> = events.iter().filter_map(retry_cause).collect();
+        assert_eq!(causes, [RetryCause::RetriableFailure; 2]);
+    }
+
+    #[test]
+    fn a_step_whose_budget_is_spent_is_given_up_with_its_last_failure() {
+        let workflow = orders()
+            .step(attempting(&[timed_out, timed_out, succeed]).retry_budget(1))
+            .step(StepDescriptor::new(SHIP, succeed));
+
+        let (status, events) = travel_workflow(workflow);
+
+        let JourneyStatus::Failed { failure, data } = status else {
+            panic!("the journey did not fail: {status:?}");
+        };
+        assert!(matches!(
+            failure,
+            Failure::RetriesExhausted(LastFailure::Reason(reason)) if reason.code() == "timeout"
+        ));
+        assert!(data.get("attempt").is_none());
+        assert_eq!(
+            kinds(&events),
+            [
+                "journey_started",
+                "attempt_started",
+                "step_failed",
+                "step_retrying",
+                "attempt_started",
+                "step_failed",
+                "step_given_up",
+                "journey_failed"
+            ]
+        );
+        assert!(matches!(
+            events.get(6).map(|e| &e.body),
+            Some(EventBody::StepGivenUp { cause: GiveUpCause::RetriesExhausted, step })
+                if step.attempt.get() == 2
+        ));
+    }
+
+    #[rstest]
+    #[case::when_the_step_allows_it(
+        attempting(&[crashed]).retry_budget(1).abnormal_termination_retriable(),
+        "step_retrying"
+    )]
+    #[case::not_when_the_step_does_not(attempting(&[crashed]).retry_budget(1), "step_given_up")]
+    fn an_abnormal_termination_is_retried_only_when_the_step_allows_it(
+        #[case] step: StepDescriptor,
+        #[case] decision: &str,
+    ) {
+        let (_, events) = travel_workflow(orders().step(step));
+
+        assert_eq!(
+            kinds(&events).get(..4),
+            Some(
+                &[
+                    "journey_started",
+                    "attempt_started",
+                    "step_abnormal_termination",
+                    decision
+                ][..]
+            )
+        );
+    }
+
+    #[test]
+    fn an_abnormal_termination_is_retried_with_its_own_cause() {
+        let step = attempting(&[crashed])
+            .retry_budget(1)
+            .abnormal_termination_retriable();
+
+        let (status, events) = travel_workflow(orders().step(step));
+
+        assert!(matches!(status, JourneyStatus::Succeeded { .. }));
+        let causes: Vec<_> = events.iter().filter_map(retry_cause).collect();
+        assert_eq!(causes, [RetryCause::AbnormalTermination]);
+    }
+
+    /// The step hooks a test scripts: one hook returns a lifecycle, as the policy "audit", and
+    /// every call is recorded with how many events had been delivered when it was made.
+    struct Answering {
+        hook: StepHook,
+        lifecycle: Lifecycle,
+        events: Arc<Mutex<Vec<Event>>>,
+        calls: Arc<Mutex<Vec<(StepHook, usize)>>>,
+    }
+
+    fn audit() -> PolicyName {
+        PolicyName::from("audit")
+    }
+
+    impl Answering {
+        fn called(&self, hook: StepHook) -> Option<Lifecycle> {
+            let delivered = self.events.lock().unwrap().len();
+            self.calls.lock().unwrap().push((hook, delivered));
+            (hook == self.hook).then(|| self.lifecycle.clone())
+        }
+    }
+
+    impl StepHooks for Answering {
+        fn on_step_success(&mut self, _: &StepAttempt) -> Option<Decided<OnSuccess>> {
+            let lifecycle = match self.called(StepHook::OnStepSuccess)? {
+                Lifecycle::FinishWorkflow => OnSuccess::FinishWorkflow,
+                Lifecycle::FailWorkflow(reason) => OnSuccess::FailWorkflow(reason),
+            };
+            Some(Decided {
+                policy: audit(),
+                lifecycle,
+            })
+        }
+
+        fn may_give_up(&mut self, hook: GiveUpHook, _: &StepAttempt) -> Option<Decided<Reason>> {
+            failing(self.called(hook.step_hook()))
+        }
+
+        fn on_step_failure(&mut self, _: &StepAttempt) -> Option<Decided<Reason>> {
+            failing(self.called(StepHook::OnStepFailure))
+        }
+    }
+
+    fn failing(lifecycle: Option<Lifecycle>) -> Option<Decided<Reason>> {
+        match lifecycle? {
+            Lifecycle::FailWorkflow(reason) => Some(Decided {
+                policy: audit(),
+                lifecycle: reason,
+            }),
+            _ => None,
+        }
+    }
+
+    /// What a journey whose hooks were scripted gave: its status, its events, and the hooks
+    /// called, each with how many events had been delivered before it.
+    struct Hooked {
+        status: JourneyStatus,
+        events: Vec<Event>,
+        calls: Vec<(StepHook, usize)>,
+    }
+
+    /// Runs a journey of the workflow, whose hook `hook` returns `lifecycle`.
+    fn travel_hooked(
+        builder: WorkflowBuilder<Orders>,
+        hook: StepHook,
+        lifecycle: Lifecycle,
+    ) -> Hooked {
+        let recording = Recording::default();
+        let events = Arc::clone(&recording.events);
+        let calls = Arc::default();
+        let hooks = Answering {
+            hook,
+            lifecycle,
+            events: Arc::clone(&events),
+            calls: Arc::clone(&calls),
+        };
+        let instance = instance(builder).create().unwrap();
+        let status = travel_recorded(instance, recording, None, hooks);
+        let events = events.lock().unwrap().clone();
+        let calls = calls.lock().unwrap().clone();
+        Hooked {
+            status,
+            events,
+            calls,
+        }
+    }
+
+    fn fail_workflow() -> Lifecycle {
+        Lifecycle::FailWorkflow(Reason::new("fraud"))
+    }
+
+    fn decided_by(event: &Event) -> Option<(PolicyName, StepHook)> {
+        match &event.body {
+            EventBody::JourneyFailed {
+                failure: JourneyFailure::FailWorkflow { decided_by, .. },
+                ..
+            } => Some((decided_by.policy, decided_by.hook)),
+            _ => None,
+        }
+    }
+
+    fn failed_by_the_hook(hooked: &Hooked, hook: StepHook) {
+        let JourneyStatus::Failed { failure, .. } = &hooked.status else {
+            panic!("the journey did not fail: {:?}", hooked.status);
+        };
+        assert!(matches!(failure, Failure::FailWorkflow(reason) if reason.code() == "fraud"));
+        assert_eq!(
+            hooked.events.last().and_then(decided_by),
+            Some((audit(), hook))
+        );
+    }
+
+    #[test]
+    fn finish_workflow_from_on_step_success_succeeds_the_journey_without_the_steps_left() {
+        let workflow = orders()
+            .step(attempting(&[]))
+            .step(StepDescriptor::new(SHIP, crashed));
+
+        let hooked = travel_hooked(workflow, StepHook::OnStepSuccess, Lifecycle::FinishWorkflow);
+
+        assert_eq!(data_of(&hooked.status), [("attempt".to_string(), 1)]);
+        assert_eq!(
+            kinds(&hooked.events),
+            [
+                "journey_started",
+                "attempt_started",
+                "step_succeeded",
+                "contribution_committed",
+                "journey_succeeded"
+            ]
+        );
+        assert!(matches!(
+            hooked.events.last().map(|e| &e.body),
+            Some(EventBody::JourneySucceeded { decided_by: Some(policy) }) if *policy == audit()
+        ));
+    }
+
+    #[test]
+    fn fail_workflow_from_on_step_success_fails_the_journey_after_committing_the_contributions() {
+        let workflow = orders()
+            .step(attempting(&[]))
+            .step(StepDescriptor::new(SHIP, succeed));
+
+        let hooked = travel_hooked(workflow, StepHook::OnStepSuccess, fail_workflow());
+
+        failed_by_the_hook(&hooked, StepHook::OnStepSuccess);
+        assert_eq!(data_of(&hooked.status), [("attempt".to_string(), 1)]);
+        assert_eq!(
+            kinds(&hooked.events),
+            [
+                "journey_started",
+                "attempt_started",
+                "step_succeeded",
+                "contribution_committed",
+                "journey_failed"
+            ]
+        );
+    }
+
+    #[rstest]
+    #[case::on_step_retry(
+        attempting(&[timed_out]).retry_budget(1),
+        StepHook::OnStepRetry,
+        "step_failed"
+    )]
+    #[case::on_step_abnormal_termination(
+        attempting(&[crashed]).retry_budget(1).abnormal_termination_retriable(),
+        StepHook::OnStepAbnormalTermination,
+        "step_abnormal_termination"
+    )]
+    fn fail_workflow_from_a_hook_before_the_decision_gives_the_step_up_without_on_step_failure(
+        #[case] step: StepDescriptor,
+        #[case] hook: StepHook,
+        #[case] fact: &str,
+    ) {
+        let hooked = travel_hooked(orders().step(step), hook, fail_workflow());
+
+        failed_by_the_hook(&hooked, hook);
+        assert_eq!(
+            kinds(&hooked.events),
+            [
+                "journey_started",
+                "attempt_started",
+                fact,
+                "step_given_up",
+                "journey_failed"
+            ]
+        );
+        assert!(matches!(
+            hooked.events.get(3).map(|e| &e.body),
+            Some(EventBody::StepGivenUp {
+                cause: GiveUpCause::FailWorkflow { decided_by, .. },
+                ..
+            }) if decided_by.policy == audit() && decided_by.hook.step_hook() == hook
+        ));
+        assert_eq!(hooked.calls, [(hook, 3)]);
+    }
+
+    #[test]
+    fn fail_workflow_from_on_step_failure_gives_the_journey_its_reason_after_the_step_is_given_up()
+    {
+        let hooked = travel_hooked(
+            orders().step(attempting(&[declined])),
+            StepHook::OnStepFailure,
+            fail_workflow(),
+        );
+
+        failed_by_the_hook(&hooked, StepHook::OnStepFailure);
+        assert_eq!(
+            kinds(&hooked.events),
+            [
+                "journey_started",
+                "attempt_started",
+                "step_failed",
+                "step_given_up",
+                "journey_failed"
+            ]
+        );
+        assert!(matches!(
+            hooked.events.get(3).map(|e| &e.body),
+            Some(EventBody::StepGivenUp {
+                cause: GiveUpCause::Failure,
+                ..
+            })
+        ));
+        assert_eq!(hooked.calls, [(StepHook::OnStepFailure, 4)]);
+    }
+
+    #[rstest]
+    #[case::a_retriable_failure_with_budget_left(
+        attempting(&[timed_out]).retry_budget(1),
+        &[(StepHook::OnStepRetry, 3), (StepHook::OnStepSuccess, 7)]
+    )]
+    #[case::a_retriable_failure_with_the_budget_spent(
+        attempting(&[timed_out]),
+        &[(StepHook::OnStepFailure, 4)]
+    )]
+    #[case::a_failure(attempting(&[declined]).retry_budget(1), &[(StepHook::OnStepFailure, 4)])]
+    #[case::an_abnormal_termination_the_step_does_not_retry(
+        attempting(&[crashed]).retry_budget(1),
+        &[(StepHook::OnStepAbnormalTermination, 3), (StepHook::OnStepFailure, 4)]
+    )]
+    #[case::an_abnormal_termination_the_step_retries(
+        attempting(&[crashed]).retry_budget(1).abnormal_termination_retriable(),
+        &[
+            (StepHook::OnStepAbnormalTermination, 3),
+            (StepHook::OnStepRetry, 3),
+            (StepHook::OnStepSuccess, 7)
+        ]
+    )]
+    #[case::an_abnormal_termination_with_the_budget_spent(
+        attempting(&[crashed]).abnormal_termination_retriable(),
+        &[(StepHook::OnStepAbnormalTermination, 3), (StepHook::OnStepFailure, 4)]
+    )]
+    #[case::a_skip(attempting(&[skips]), &[])]
+    fn step_hooks_are_called_after_each_attempt_in_order_around_the_step_decision(
+        #[case] step: StepDescriptor,
+        #[case] calls: &[(StepHook, usize)],
+    ) {
+        let hooked = travel_hooked(
+            orders().step(step),
+            StepHook::OnStepSuccess,
+            Lifecycle::FinishWorkflow,
+        );
+
+        assert_eq!(hooked.calls, calls);
     }
 
     fn data_of(status: &JourneyStatus) -> Vec<(String, i64)> {

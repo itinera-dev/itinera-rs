@@ -2,13 +2,13 @@
 
 Tech spec for [proposal 0062](https://github.com/itinera-dev/spec/blob/main/proposals/0062-workflow-descriptors.md), implemented in [#29](https://github.com/itinera-dev/itinera-rs/issues/29). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: done in stage 4. Stage 3 added the workflow descriptor with its name, its reporters and its journey ID generator, and the instance trait executors rely on. Stage 4 added step and policy descriptors, input adapters, admission and the listing. Stage 5 replaced the step's closure with a factory that builds the step for each attempt, and made input adapters supply values. Some of what the proposal asks is met only by the stand-ins described below, until stage 7 replaces them; the table of rules says which.
+Status: done in stage 4. Stage 3 added the workflow descriptor with its name, its reporters and its journey ID generator, and the instance trait executors rely on. Stage 4 added step and policy descriptors, input adapters, admission and the listing. Stage 5 replaced the step's closure with a factory that builds the step for each attempt, and made input adapters supply values. Stage 6 added the step's retry budget and `abnormal termination retriable`. Some of what the proposal asks is met only by the stand-ins described below, until stage 7 replaces them; the table of rules says which.
 
 ## API
 
 - **`itinera::workflow::WorkflowDescriptor<W, M>`** is the workflow's declaration. `W` is the workflow's own type and `M` its execution mode, `itinera::mode::Synchronous` when it is declared with `WorkflowDescriptor::builder`, and `itinera::mode::Asynchronous` with `WorkflowDescriptor::async_builder`. It is cheap to clone, since clones share one declaration behind an `Arc`.
 - **`WorkflowDescriptor::builder(name)`** returns a `WorkflowBuilder`. Its `step`, `policy` and `input_adapter` add the workflow's step descriptors in order, its workflow policy descriptors in order, and its input adapters. Only its `build()` makes a descriptor, and it returns `Result<WorkflowDescriptor<W, M>, Violations>`.
-- **`itinera::step::StepDescriptor<M>`** holds a step's name, what it needs, its factory, and the step policies attached to it in order, with `StepDescriptor::new(name, factory)` for a `StepFactory`, `StepDescriptor::new_async(name, factory)` for an `AsyncStepFactory`, and `.policy(descriptor)`.
+- **`itinera::step::StepDescriptor<M>`** holds a step's name, what it needs, its factory, its retry budget, whether an abnormal termination may be retried, and the step policies attached to it in order, with `StepDescriptor::new(name, factory)` for a `StepFactory`, `StepDescriptor::new_async(name, factory)` for an `AsyncStepFactory`, `.retry_budget(n)` with a `u16`, `.abnormal_termination_retriable()` and `.policy(descriptor)`. The budget is 0, and an abnormal termination is not retried, unless set.
 - **`itinera::policy::StepPolicyDescriptor`** and **`itinera::policy::WorkflowPolicyDescriptor`** describe one policy each: its name and the hooks it defines, of its own kind only, at least one. They are cloned to be attached to several steps or workflows.
 - **`itinera::workflow::InputAdapter<W>`** declares an input adapter: its name, the steps it is attached to, at least one, and its function of the workflow's own value, the step's name and the key.
 - **Names** are `itinera::workflow::WorkflowName`, `itinera::step::StepName`, `itinera::policy::PolicyName` and `itinera::workflow::AdapterName`, each over a `&'static str`, so they are `Copy`. `StepName::new` panics on an empty name, and `itinera::step::step_name!` calls it in a `const` block, so an empty literal does not compile.
@@ -21,7 +21,6 @@ Status: done in stage 4. Stage 3 added the workflow descriptor with its name, it
 
 - A policy descriptor names the hooks it defines, with `StepHook` or `WorkflowHook` values, and they keep their default behaviour. Stage 7 replaces the names with the policies' hooks and a factory.
 - An input adapter is a function of the workflow's own value, the step's name and the key, and requests nothing. Stage 7 makes it a hook of the workflow, with its requests.
-- A step's retry budget and `abnormal termination retriable` arrive with stage 6, which uses them.
 
 While these stand-ins remain, or while the API names reporters, instances and executors of proposals not yet listed, it stays behind the `unstable` feature, though 62 is listed in `conformance.json`.
 

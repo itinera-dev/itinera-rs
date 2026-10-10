@@ -286,7 +286,11 @@ impl<F: StepFactory> Attempts for Synchronously<F> {
 }
 
 /// What a workflow holds for one step: its name, what it needs, how to build it for each
-/// attempt, and the step policies attached to it, in the order they were attached.
+/// attempt, its retry budget, whether an abnormal termination may be retried, and the step
+/// policies attached to it, in the order they were attached.
+///
+/// The retry budget is 0, and an abnormal termination is not retried, unless the descriptor
+/// says otherwise.
 ///
 /// `M` is the mode of the workflows that may hold it: a step of a synchronous workflow comes from
 /// a [`StepFactory`].
@@ -298,7 +302,10 @@ impl<F: StepFactory> Attempts for Synchronously<F> {
 /// use itinera::step::{Outcome, StepDescriptor, step_name};
 ///
 /// let audit = StepPolicyDescriptor::new("audit", StepHook::OnStepSuccess);
-/// let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())).policy(audit);
+/// let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()))
+///     .retry_budget(2)
+///     .abnormal_termination_retriable()
+///     .policy(audit);
 /// assert_eq!(charge.name().to_string(), "charge");
 /// ```
 #[derive(derive_more::Debug)]
@@ -307,6 +314,9 @@ pub struct StepDescriptor<M = Synchronous> {
     needs: StepNeeds,
     #[debug(skip)]
     factory: Box<dyn Attempts>,
+    /// How many retries the step allows after its first attempt.
+    retry_budget: u16,
+    abnormal_termination_retriable: bool,
     policies: Vec<StepPolicyDescriptor>,
     #[debug(skip)]
     mode: PhantomData<M>,
@@ -334,9 +344,46 @@ impl<M> StepDescriptor<M> {
             name,
             needs,
             factory,
+            retry_budget: 0,
+            abnormal_termination_retriable: false,
             policies: Vec::new(),
             mode: PhantomData,
         }
+    }
+
+    /// Sets how many retries the step allows after its first attempt: a step with a budget of
+    /// `n` is attempted at most `n + 1` times. A retriable failure, and an abnormal termination
+    /// when the step allows retrying it, spend the same budget.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
+    ///
+    /// let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()))
+    ///     .retry_budget(3);
+    /// ```
+    pub fn retry_budget(mut self, retries: u16) -> Self {
+        self.retry_budget = retries;
+        self
+    }
+
+    /// Lets an abnormal termination of the step be retried, within its retry budget, as a
+    /// retriable failure is. Without it, an abnormal termination gives the step up at once,
+    /// since an error the step did not anticipate may already have had side effects.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
+    ///
+    /// let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()))
+    ///     .retry_budget(1)
+    ///     .abnormal_termination_retriable();
+    /// ```
+    pub fn abnormal_termination_retriable(mut self) -> Self {
+        self.abnormal_termination_retriable = true;
+        self
     }
 
     /// Attaches a step policy, after those already attached.
@@ -374,6 +421,15 @@ impl<M> StepDescriptor<M> {
 
     pub(crate) fn needs(&self) -> &StepNeeds {
         &self.needs
+    }
+
+    /// Whether the retry budget allows another attempt after this one.
+    pub(crate) fn budget_allows_after(&self, attempt: NonZeroU32) -> bool {
+        attempt.get() <= u32::from(self.retry_budget)
+    }
+
+    pub(crate) fn retries_abnormal_termination(&self) -> bool {
+        self.abnormal_termination_retriable
     }
 
     pub(crate) fn policies(&self) -> &[StepPolicyDescriptor] {
@@ -416,6 +472,15 @@ impl StepAttempt {
         Self {
             step,
             attempt: NonZeroU32::MIN,
+        }
+    }
+
+    /// The attempt after this one.
+    pub(crate) fn next(&self) -> Self {
+        Self {
+            step: self.step,
+            // A retry budget is a `u16`, so attempts never come near `u32::MAX`.
+            attempt: self.attempt.saturating_add(1),
         }
     }
 }

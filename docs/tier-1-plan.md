@@ -125,7 +125,7 @@ The rules types cannot reach are checked when the descriptor is built (decision 
 static ORDERS: LazyLock<WorkflowDescriptor<Orders, Synchronous>> = LazyLock::new(|| {
     WorkflowDescriptor::builder("orders")
         .step(StepDescriptor::new(step_name!("charge"), ChargeFactory)
-            .retries(2)
+            .retry_budget(2)
             .abnormal_termination_retriable()
             .policy(|| Audit::default()))
         .step(StepDescriptor::new(step_name!("ship"), ShipFactory))
@@ -140,7 +140,7 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Synchronous>> = LazyLock::new
 - **A workflow descriptor** is the workflow's declaration: its name, its step descriptors, its policy descriptors, its input adapters, its reporters and its ID generator. It is immutable, `Send + Sync`, cheap to clone, shared by every instance, and only `build()` can produce one.
 - **Names are newtypes fixed at compile time**: `WorkflowName`, `StepName`, `PolicyName` and `AdapterName`, each over a `&'static str`, so they are `Copy` and every event carries them without copying text. A workflow is declared before any journey, and the macros name its parts from the code itself, so a name never needs to be made at run time. `StepName::new` panics on an empty name, and `step_name!("charge")` calls it in a `const` block, which makes an empty literal a compile error. `JourneyId`, made for each instance at run time, holds an `Arc<str>`. Events, aborts and the result hold these types instead of `String`.
 - **Adapter names are unique**: the builder panics when an input adapter is given a name the workflow already uses. The macros cannot produce one, since an adapter is a method of the workflow's own type.
-- **Each step descriptor states everything**: the retry budget (0 unless set), `abnormal termination retriable` (false unless set), and its policies in the order attached.
+- **Each step descriptor states everything**: the retry budget, a `u16` (0 unless set), `abnormal termination retriable` (false unless set), and its policies in the order attached. A `u16` budget allows at most 65,536 attempts, so every attempt number fits the `NonZeroU32` events carry, and counting attempts can never overflow while a journey runs.
 - **`build()` checks what types cannot**, and returns every violation at once in `Violations`: `duplicate step name`, `hook defined twice`, `input adapter for unknown step` and `step adapted twice`.
 - **`listing()`** gives each step's name, its position from 1, its policy names in order, and its input adapter's name.
 - **Input adapters are hooks of the workflow**, written as its own annotated methods and attached to whole steps, at most one per step:
@@ -328,7 +328,8 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | 8. Macros | `#[step]`, `#[step_policy]`, `#[workflow_policy]`, `#[workflow]`, their equivalence and compile-fail tests | none |
 | 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
 
-- **The decision logic is pure**: a function of the outcome, the retry budget left, `abnormal termination retriable` and the hooks' answers, which touches nothing. The code around it builds, runs, emits and commits.
+- **The decision logic is pure**: what the step's own rule decides after a failed attempt is a function of how the attempt ended, its number, the retry budget and `abnormal termination retriable`, which touches nothing. The engine calls the step hooks around it, in the order of chapter 6, and a hook's lifecycle overrides the default. Until stage 7, every hook point answers nothing; the engine's tests script their answers. The code around it builds, runs, emits and commits.
+- **Step statuses are not public.** The engine's scan keeps them to itself, as its position in the steps and attempts, and the conformance runner derives each step's status and attempt count from the event stream, as the specification allows.
 - **Proofs land with their feature**, together with their tag's entries under `impossible` in `conformance.json`. A proposal is listed in `conformance.json` only when each of its scenarios that runs once it is listed passes, or is proven.
 - **A later cases candidate** is adopted by a pull request that moves `cases` in `conformance.json` and fixes whatever its changed cases need.
 
