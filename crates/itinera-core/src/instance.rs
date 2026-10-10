@@ -3,9 +3,8 @@
 use crate::error::Error;
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::{Mode, Synchronous};
-use crate::step::StepName;
 use crate::value::{AnyValue, Value};
-use crate::workflow::{AdapterName, WorkflowDescriptor};
+use crate::workflow::WorkflowDescriptor;
 
 /// What an executor runs: the instance of a workflow for one journey, holding everything that
 /// belongs to that journey.
@@ -135,35 +134,6 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     /// ```
     fn into_data_bag(self) -> DataBag;
 
-    /// The value of one input of a step being built, and where it came from: the step's input
-    /// adapter, if it has one that supplies the input, and otherwise the data bag. The value is a
-    /// copy, which the step then owns.
-    ///
-    /// The executor calls it for each input the step declares, in order, and turns the answer
-    /// into events and aborts. Itinera's own implementation is the default.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::instance::{Resolution, WorkflowInstance};
-    /// use itinera::step::step_name;
-    /// use itinera::workflow::WorkflowDescriptor;
-    ///
-    /// struct Orders;
-    ///
-    /// let orders = WorkflowDescriptor::builder("orders").build()?;
-    /// let instance = orders.instance(Orders).data("amount", 42_i64).create()?;
-    /// let amount = instance.data_for_step(step_name!("charge"), "amount");
-    /// assert!(matches!(amount, Resolution::InDataBag(_)));
-    /// let discount = instance.data_for_step(step_name!("charge"), "discount");
-    /// assert!(matches!(discount, Resolution::Absent));
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
-    /// ```
-    fn data_for_step(&self, step: StepName, key: &str) -> Resolution {
-        self.descriptor()
-            .data_for_step(self.workflow(), self.data_bag(), step, key)
-    }
-
     /// Commits a contribution to the data bag, replacing any value under its key, and says
     /// which it did.
     ///
@@ -207,40 +177,6 @@ pub enum Committed {
     Added,
     /// The value replaced the one the data bag had under the key.
     Overwritten,
-}
-
-/// Where the value of a step's input came from, as the instance answers the executor.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::instance::Resolution;
-///
-/// fn found(resolution: &Resolution) -> bool {
-///     matches!(resolution, Resolution::Supplied { .. } | Resolution::InDataBag(_))
-/// }
-/// ```
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum Resolution {
-    /// The step's input adapter supplied this value, of a type not yet checked.
-    Supplied {
-        /// The adapter that supplied it.
-        adapter: AdapterName,
-        /// The value it supplied.
-        value: AnyValue,
-    },
-    /// The step's input adapter failed.
-    AdapterFailed {
-        /// The adapter that failed.
-        adapter: AdapterName,
-        /// Its error.
-        error: Error,
-    },
-    /// The data bag holds this value under the key, of a type not yet checked.
-    InDataBag(AnyValue),
-    /// There is no value: no adapter supplied one, and the data bag has none under the key.
-    Absent,
 }
 
 /// The workflow instance itinera makes, with [`WorkflowDescriptor::instance`].
