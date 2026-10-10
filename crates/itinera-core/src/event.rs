@@ -94,6 +94,16 @@ pub enum GiveUpHook {
     OnStepAbnormalTermination,
 }
 
+impl GiveUpHook {
+    /// The step hook this is.
+    pub(crate) fn step_hook(self) -> StepHook {
+        match self {
+            Self::OnStepRetry => StepHook::OnStepRetry,
+            Self::OnStepAbnormalTermination => StepHook::OnStepAbnormalTermination,
+        }
+    }
+}
+
 /// Why a step will be attempted again.
 ///
 /// It displays as the cause is named, for example `retriable failure`.
