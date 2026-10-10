@@ -9,8 +9,10 @@ use crate::step::Reason;
 use crate::value::AnyValue;
 use crate::workflow::AdapterName;
 
+mod access;
 mod contributor;
 
+pub use access::{DataBagAccess, Read};
 pub use contributor::Contributor;
 pub(crate) use contributor::{Contribution, Contributions};
 

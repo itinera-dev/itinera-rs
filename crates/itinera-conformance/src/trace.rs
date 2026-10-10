@@ -366,10 +366,16 @@ impl Line {
                 }
                 MissingData::Reason {
                     policy, hook, step, ..
+                } => {
+                    self.set("key", "failure reason");
+                    self.set("policy", policy);
+                    self.set("hook", hook);
+                    self.set("step", step);
                 }
-                | MissingData::Error {
+                MissingData::Error {
                     policy, hook, step, ..
                 } => {
+                    self.set("key", "error");
                     self.set("policy", policy);
                     self.set("hook", hook);
                     self.set("step", step);

@@ -13,6 +13,8 @@ pub(crate) struct Adapter {
     pub(crate) answers: Vec<(String, Answer)>,
     /// Data from the workflow it requests, all required.
     pub(crate) requests: Vec<(String, ValueType)>,
+    /// Whether it requests read access to the data bag.
+    pub(crate) data_bag: bool,
 }
 
 impl Adapter {
@@ -27,6 +29,9 @@ pub(crate) enum Answer {
     /// The input is read from the data bag.
     Nothing,
     Fails(String),
+    /// The value under this key of the data bag, read through its access, when it has this type;
+    /// nothing otherwise.
+    ReadFromDataBag(String, ValueType),
 }
 
 /// The value an adapter supplies for this key, when its answer is for it and is a value.
@@ -39,7 +44,7 @@ impl Answer {
     pub(crate) fn value(&self) -> Option<&Value> {
         match self {
             Self::Value(value) => Some(value),
-            Self::Nothing | Self::Fails(_) => None,
+            Self::Nothing | Self::Fails(_) | Self::ReadFromDataBag(..) => None,
         }
     }
 }

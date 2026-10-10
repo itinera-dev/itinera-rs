@@ -80,3 +80,19 @@ fn a_steps_handles_cannot_outlive_its_attempt() {
     cases.compile_fail("tests/proofs/late-handle/moved_into_a_thread.rs");
     cases.pass("tests/proofs/late-handle/used_by_a_thread_during_the_attempt.rs");
 }
+
+#[test]
+fn an_adapters_access_to_the_data_bag_cannot_outlive_its_call() {
+    proves(
+        "tests/proofs/late-handle/kept_by_an_input_adapter.rs",
+        "tests/proofs/late-handle/read_by_an_input_adapter_during_its_call.rs",
+    );
+}
+
+#[test]
+fn an_adapter_cannot_write_through_its_access_to_the_data_bag() {
+    proves(
+        "tests/proofs/bag-write/write_through_the_access.rs",
+        "tests/proofs/bag-write/read_through_the_access.rs",
+    );
+}

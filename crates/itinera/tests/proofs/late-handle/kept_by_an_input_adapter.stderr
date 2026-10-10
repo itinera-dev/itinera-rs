@@ -1,0 +1,18 @@
+error[E0521]: borrowed data escapes outside of method
+  --> tests/proofs/late-handle/kept_by_an_input_adapter.rs:17:10
+   |
+15 |     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
+   |                       -------
+   |                       |
+   |                       `got` is a reference that is only valid in the method body
+   |                       has type `Requested<'1, Orders, InputAdapter>`
+16 |         let access = got.data_bag()?;
+17 |         *self.kept.lock().unwrap() = Some(access);
+   |          ^^^^^^^^^^^^^^^^
+   |          |
+   |          `got` escapes the method body here
+   |          argument requires that `'1` must outlive `'static`
+   |
+   = note: requirement occurs because of the type `std::sync::Mutex<Option<DataBagAccess<'_>>>`, which makes the generic argument `Option<DataBagAccess<'_>>` invariant
+   = note: the struct `std::sync::Mutex<T>` is invariant over the parameter `T`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance

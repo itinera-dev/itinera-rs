@@ -7,7 +7,7 @@ use super::{Attempting, Delivery, End, Journey, Requesting, Sources, could_not_b
 use crate::error::Error;
 use crate::event::{self, EventBody, HookSource, JourneyAbort, Source};
 use crate::instance::WorkflowInstance;
-use crate::journey::{Abort, Contributions, Contributor, DataBag, MissingData};
+use crate::journey::{Abort, Contributions, Contributor, DataBag, DataBagAccess, MissingData};
 use crate::policy::{
     Answers, BuiltStepPolicy, BuiltWorkflowPolicy, Call, FailWorkflow, HookKind, Lifecycle, Needs,
     OnSuccess, PolicyName, Request, Requested, RetryCause, StepAbnormalTermination, StepFailure,
@@ -335,13 +335,7 @@ impl<D: Delivery> Journey<D> {
             };
             answers.contributor = contributor;
             answers.reporting = reporting;
-            let got = Requested::new(
-                instance.workflow(),
-                instance.journey_id(),
-                data_bag,
-                context,
-                answers,
-            );
+            let got = Requested::new(instance.workflow(), instance.journey_id(), context, answers);
             call(policy, got).await
         };
         if let Some(aborted) = self.interrupted.take() {
@@ -408,14 +402,17 @@ impl<D: Delivery> Journey<D> {
         let requesting = Requesting::adapter(name, attempt);
         let data_bag = sources.data_bag;
         let mut answers = Answers::default();
-        for request in adapter.needs().requests() {
+        let needs = adapter.needs();
+        for request in needs.requests() {
             self.answer(&mut answers, &requesting, request, data_bag, None)
                 .await?;
+        }
+        if needs.wants_data_bag() {
+            answers.data_bag = Some(DataBagAccess::new(data_bag));
         }
         let got = Requested::new(
             sources.workflow,
             sources.journey_id,
-            data_bag,
             (attempt.step, key),
             answers,
         );

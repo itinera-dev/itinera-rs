@@ -9,7 +9,7 @@ use super::{
     RetryCause, StepFailure, StepFailureCause, StepHookKind, StepRetry,
 };
 use crate::error::Error;
-use crate::journey::{Contributor, DataBag, JourneyId};
+use crate::journey::{Contributor, DataBagAccess, JourneyId};
 use crate::mode::Synchronous;
 use crate::step::{
     Input, InputNeed, OptionalInput, Reason, Reporting, Requirement, Slots, StepName,
@@ -22,8 +22,8 @@ use crate::value::{AnyValue, Value};
 ///
 /// Its kind `H` decides what it may declare: data from the step only for step hooks, the reason
 /// only for `on step failure` and `on step retry`, the error only for those and
-/// `on step abnormal termination`, a contributor and a reporter only for hooks of policies. An
-/// input adapter may declare only data from the workflow.
+/// `on step abnormal termination`, a contributor and a reporter only for hooks of policies, and
+/// read access to the data bag only for input adapters.
 ///
 /// The requests are resolved in the order they are declared, and the first required one without
 /// a value aborts the journey before the hook runs. Declaring the reason or the error again
@@ -56,6 +56,7 @@ pub struct HookNeeds<H> {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Needs {
     requests: Vec<Request>,
+    data_bag: bool,
     contributor: bool,
     reporter: bool,
 }
@@ -73,6 +74,10 @@ impl Needs {
     /// What the hook requests, in the order it declared it.
     pub(crate) fn requests(&self) -> &[Request] {
         &self.requests
+    }
+
+    pub(crate) fn wants_data_bag(&self) -> bool {
+        self.data_bag
     }
 
     pub(crate) fn wants_contributor(&self) -> bool {
@@ -277,6 +282,22 @@ impl<H: ErrorHookKind> HookNeeds<H> {
     }
 }
 
+impl HookNeeds<InputAdapter> {
+    /// Needs read access to the data bag, to read keys the adapter only knows when it is called.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::policy::{HookNeeds, InputAdapter};
+    ///
+    /// let needs = HookNeeds::<InputAdapter>::new().data_bag();
+    /// ```
+    pub fn data_bag(mut self) -> Self {
+        self.needs.data_bag = true;
+        self
+    }
+}
+
 impl<H: PolicyHookKind> HookNeeds<H> {
     /// Needs a contributor, to add data to the data bag. What the hook contributes is committed
     /// once it returns without failing.
@@ -346,15 +367,6 @@ pub struct Requested<'a, W, H: HookKind, M = Synchronous> {
     #[debug(skip)]
     workflow: &'a W,
     journey_id: &'a JourneyId,
-    #[debug(skip)]
-    #[cfg_attr(
-        not(feature = "unstable"),
-        expect(
-            dead_code,
-            reason = "only an input adapter's read of the data bag reads it"
-        )
-    )]
-    data_bag: &'a DataBag,
     context: H::Context,
     answers: Answers<'a>,
     #[debug(skip)]
@@ -370,6 +382,7 @@ pub(crate) struct Answers<'a> {
     pub(crate) reason: Option<Option<Reason>>,
     /// The error, if declared: present or absent.
     pub(crate) error: Option<Option<&'a Error>>,
+    pub(crate) data_bag: Option<DataBagAccess<'a>>,
     pub(crate) contributor: Option<Contributor<'a>>,
     pub(crate) reporting: Option<Reporting<'a>>,
 }
@@ -378,14 +391,12 @@ impl<'a, W, H: HookKind, M> Requested<'a, W, H, M> {
     pub(crate) fn new(
         workflow: &'a W,
         journey_id: &'a JourneyId,
-        data_bag: &'a DataBag,
         context: H::Context,
         answers: Answers<'a>,
     ) -> Self {
         Self {
             workflow,
             journey_id,
-            data_bag,
             context,
             answers,
             mode: PhantomData,
@@ -1010,13 +1021,17 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
         key
     }
 
-    /// The journey's data bag, to read: an input adapter can never change it. Reading it emits
-    /// no event, and a key it does not hold aborts nothing.
+    /// Takes the read access to the data bag the adapter declared, valid for this call only.
+    ///
+    /// # Errors
+    ///
+    /// When the adapter did not declare it, or took it already.
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::error::Error;
+    /// use itinera::journey::Read;
     /// use itinera::policy::{InputAdapter, Requested};
     /// use itinera::value::AnyValue;
     ///
@@ -1025,18 +1040,16 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     /// }
     ///
     /// impl Orders {
-    ///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
-    ///         let quantity = got.data_bag().get("quantity").and_then(AnyValue::downcast_ref::<i64>);
-    ///         match quantity {
-    ///             Some(quantity) => Ok(Some(AnyValue::new(self.price * quantity))),
-    ///             None => Ok(None),
+    ///     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
+    ///         match got.data_bag()?.read::<i64>("quantity") {
+    ///             Read::Present(quantity) => Ok(Some(AnyValue::new(self.price * quantity))),
+    ///             Read::Absent | Read::OtherType => Ok(None),
     ///         }
     ///     }
     /// }
     /// ```
-    #[cfg(feature = "unstable")]
-    pub fn data_bag(&self) -> &'a DataBag {
-        self.data_bag
+    pub fn data_bag(&mut self) -> Result<DataBagAccess<'a>, Error> {
+        self.answers.data_bag.take().ok_or_else(undeclared_data_bag)
     }
 }
 
@@ -1061,6 +1074,10 @@ fn undeclared<T>(what: &str, key: &str) -> Error {
         "the hook does not declare {what} \"{key}\" of type {}, or took it already",
         any::type_name::<T>()
     ))
+}
+
+fn undeclared_data_bag() -> Error {
+    Error::msg("the input adapter does not declare read access to the data bag, or took it already")
 }
 
 fn undeclared_handle(what: &str) -> Error {

@@ -1,6 +1,6 @@
 {
-  "cases": "v0.1.0-rc.7",
-  "proposals": [2, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85],
+  "cases": "v0.1.0-rc.8",
+  "proposals": [2, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85, 91],
   "capabilities": ["sync", "async"],
   "impossible": {
     "invalid-lifecycle": [
@@ -56,6 +56,18 @@
         "feature": "cases/tier-1/0057-handles-valid-during-their-attempt/late-handles.feature",
         "scenario": "A step's contributor and reporter used after its attempt change nothing",
         "proof": { "test": "a_steps_handles_cannot_outlive_its_attempt", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0060-input-adapters-attached-to-steps/data-bag-access.feature",
+        "scenario": "An adapter's access kept from an earlier call shows nothing later",
+        "proof": { "test": "an_adapters_access_to_the_data_bag_cannot_outlive_its_call", "file": "crates/itinera/tests/proofs.rs" }
+      }
+    ],
+    "bag-write": [
+      {
+        "feature": "cases/tier-1/0060-input-adapters-attached-to-steps/data-bag-access.feature",
+        "scenario": "An adapter that writes through its access leaves the data bag unchanged",
+        "proof": { "test": "an_adapter_cannot_write_through_its_access_to_the_data_bag", "file": "crates/itinera/tests/proofs.rs" }
       }
     ]
   }

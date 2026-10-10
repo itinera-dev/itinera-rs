@@ -2,26 +2,26 @@
 //! mode of the executor that runs it.
 
 use itinera::error::Error;
-use itinera::journey::DataBag;
+use itinera::journey::{DataBag, DataBagAccess, Read};
 use itinera::mode::{Asynchronous, Mode, Synchronous};
 use itinera::policy::{
     HookNeeds, Hooked, Hookless, InputAdapter, Provides, Requested, StepHook, StepPolicyDescriptor,
     WorkflowHook, WorkflowPolicyDescriptor,
 };
 use itinera::step::{StepDescriptor, StepName};
-use itinera::value::AnyValue;
+use itinera::value::{AnyValue, Value as Storable};
 use itinera::workflow::{
     InputAdapterDescriptor, ListedStep, Violations, WorkflowBuilder, WorkflowDescriptor,
 };
 
 use crate::model::{
-    Adapter, Answer, HookScript, Hooks, IdGenerator, Model, ModelError, Policy, Workflow,
+    Adapter, Answer, HookScript, Hooks, IdGenerator, Model, ModelError, Policy, ValueType, Workflow,
 };
 use crate::policy::{Building, ScriptedPolicy, Scripts, requiring_from_workflow};
 use crate::record::{ListedReporter, Recorder};
 use crate::role::{ProvidedRoles, Roles};
 use crate::step::{Scripted, StepsRun};
-use crate::value::Typed;
+use crate::value::{ForType, Typed, for_type};
 use crate::witness::Witness;
 
 /// The workflow's own value: the recorders of the reporters it lists, in order, which its
@@ -340,9 +340,14 @@ fn input_adapter(
         .requests
         .iter()
         .fold(HookNeeds::new(), requiring_from_workflow);
+    let needs = if adapter.data_bag {
+        needs.data_bag()
+    } else {
+        needs
+    };
     Ok(rest.iter().copied().fold(
-        InputAdapterDescriptor::new(leaked(&adapter.name), *first, move |_, got| {
-            answer(&answers, &got)
+        InputAdapterDescriptor::new(leaked(&adapter.name), *first, move |_, mut got| {
+            answer(&answers, &mut got)
         })
         .needing(needs),
         InputAdapterDescriptor::step,
@@ -361,6 +366,7 @@ enum Answered {
     Value(Typed),
     Nothing,
     Fails(String),
+    ReadFromDataBag(String, ValueType),
 }
 
 impl Answering {
@@ -369,6 +375,9 @@ impl Answering {
             Answer::Value(value) => Answered::Value(Typed::of(value)?),
             Answer::Nothing => Answered::Nothing,
             Answer::Fails(message) => Answered::Fails(message.clone()),
+            Answer::ReadFromDataBag(key, value_type) => {
+                Answered::ReadFromDataBag(key.clone(), *value_type)
+            }
         };
         Ok(Self {
             key: key.clone(),
@@ -385,7 +394,7 @@ impl Answering {
 /// mention.
 fn answer(
     answers: &[Answering],
-    got: &Requested<'_, ScriptedWorkflow, InputAdapter>,
+    got: &mut Requested<'_, ScriptedWorkflow, InputAdapter>,
 ) -> Result<Option<AnyValue>, Error> {
     let key = got.key();
     let answered = answers
@@ -395,7 +404,31 @@ fn answer(
     match answered {
         Some(Answered::Value(value)) => Ok(Some(value.clone().erased())),
         Some(Answered::Fails(message)) => Err(Error::msg(message.clone())),
+        Some(Answered::ReadFromDataBag(key, value_type)) => Ok(for_type(
+            *value_type,
+            Reading {
+                access: got.data_bag()?,
+                key,
+            },
+        )),
         Some(Answered::Nothing) | None => Ok(None),
+    }
+}
+
+/// Reads a key through an adapter's access to the data bag, as one type.
+struct Reading<'a, 'k> {
+    access: DataBagAccess<'a>,
+    key: &'k str,
+}
+
+impl ForType for Reading<'_, '_> {
+    type Output = Option<AnyValue>;
+
+    fn of<T: Storable>(self) -> Option<AnyValue> {
+        match self.access.read::<T>(self.key) {
+            Read::Present(value) => Some(AnyValue::new(value)),
+            Read::Absent | Read::OtherType => None,
+        }
     }
 }
 
@@ -478,6 +511,7 @@ mod tests {
             steps: vec!["ship".to_owned()],
             answers: Vec::new(),
             requests: Vec::new(),
+            data_bag: false,
         });
 
         let descriptor = declared_synchronously(&model).unwrap().build().unwrap();

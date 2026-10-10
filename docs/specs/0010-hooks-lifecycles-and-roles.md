@@ -52,7 +52,7 @@ Status: done in stage 7. Stage 4 added policy descriptors naming the hooks they 
 | The executor does not record role calls | the engine emits nothing for them |
 | Hooks are synchronous or asynchronous with their workflow | types: a `Synchronous` workflow's policy descriptors take the synchronous hook traits, and an `Asynchronous` one's the asynchronous traits |
 
-A hook's requests are resolved in the order they were declared, across kinds, and the first required one without a value aborts the journey with `required data missing`. The specification does not say yet in which order requests are resolved; [spec#92](https://github.com/itinera-dev/spec/issues/92) asks it to.
+A hook's requests, and an input adapter's, are resolved in the order they were declared, across kinds, and the first that aborts the journey stops the resolution, as the correction of spec defect [spec#92](https://github.com/itinera-dev/spec/issues/92) says. `HookNeeds` keeps them in that order. An abort on a request for the failure's reason or the error holds `MissingData::Reason` or `MissingData::Error`, which name what was requested in place of a key.
 
 ## Excluded scenarios
 
