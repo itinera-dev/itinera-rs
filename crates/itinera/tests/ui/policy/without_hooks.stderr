@@ -1,0 +1,5 @@
+error: a policy described by `#[step_policy]` defines at least one hook, marked such as `#[on_step_success]`
+  --> tests/ui/policy/without_hooks.rs:28:6
+   |
+28 | impl Audit {
+   |      ^^^^^

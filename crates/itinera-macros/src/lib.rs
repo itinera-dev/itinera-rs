@@ -9,6 +9,7 @@ mod block;
 mod datum;
 mod described;
 mod marker;
+mod policy;
 mod step;
 
 use proc_macro::TokenStream;
@@ -19,6 +20,20 @@ use syn::{DeriveInput, ItemImpl, parse_macro_input};
 pub fn step(arguments: TokenStream, block: TokenStream) -> TokenStream {
     let block = parse_macro_input!(block as ItemImpl);
     step::expand(arguments.into(), block).into()
+}
+
+#[doc = include_str!("../docs/step_policy.md")]
+#[proc_macro_attribute]
+pub fn step_policy(arguments: TokenStream, block: TokenStream) -> TokenStream {
+    let block = parse_macro_input!(block as ItemImpl);
+    policy::expand(policy::Kind::Step, arguments.into(), block).into()
+}
+
+#[doc = include_str!("../docs/workflow_policy.md")]
+#[proc_macro_attribute]
+pub fn workflow_policy(arguments: TokenStream, block: TokenStream) -> TokenStream {
+    let block = parse_macro_input!(block as ItemImpl);
+    policy::expand(policy::Kind::Workflow, arguments.into(), block).into()
 }
 
 #[doc = include_str!("../docs/derive_step.md")]

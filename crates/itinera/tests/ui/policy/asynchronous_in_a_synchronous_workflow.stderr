@@ -1,0 +1,15 @@
+error[E0308]: mismatched types
+  --> tests/ui/policy/asynchronous_in_a_synchronous_workflow.rs:26:17
+   |
+26 |         .policy(Audit::descriptor());
+   |          ------ ^^^^^^^^^^^^^^^^^^^ expected `StepPolicyDescriptor<_, _>`, found `StepPolicyDescriptor<Audit, _, ...>`
+   |          |
+   |          arguments to this method are incorrect
+   |
+   = note: expected struct `StepPolicyDescriptor<_, _, Synchronous>`
+              found struct `StepPolicyDescriptor<Audit, _, Asynchronous>`
+note: method defined here
+  --> $WORKSPACE/crates/itinera-core/src/step/descriptor.rs
+   |
+   |     pub fn policy<P: Send + Sync + 'static>(mut self, policy: StepPolicyDescriptor<P, W, M>) -> Self
+   |            ^^^^^^

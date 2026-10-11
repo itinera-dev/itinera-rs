@@ -81,6 +81,12 @@ impl From<OnSuccess> for Lifecycle {
     }
 }
 
+impl From<FailWorkflow> for OnSuccess {
+    fn from(returned: FailWorkflow) -> Self {
+        Self::FailWorkflow(returned.into())
+    }
+}
+
 impl From<FailWorkflow> for Lifecycle {
     fn from(returned: FailWorkflow) -> Self {
         Self::FailWorkflow(returned.into())
@@ -94,5 +100,11 @@ mod tests {
     #[test]
     fn lifecycles_display_as_the_specification_writes_them() {
         assert_eq!(Lifecycle::FinishWorkflow.to_string(), "FinishWorkflow");
+    }
+
+    #[test]
+    fn failing_the_workflow_on_step_success_keeps_the_reason() {
+        let returned = OnSuccess::from(FailWorkflow::from(Reason::new("fraud")));
+        assert!(matches!(returned, OnSuccess::FailWorkflow(reason) if reason.code() == "fraud"));
     }
 }

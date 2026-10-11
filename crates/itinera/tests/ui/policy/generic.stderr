@@ -1,0 +1,5 @@
+error: a generic policy is described with the builder, not with the macros
+  --> tests/ui/policy/generic.rs:29:6
+   |
+29 | impl<T: Default + Send + Sync + 'static> Audit<T> {
+   |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

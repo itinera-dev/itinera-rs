@@ -6,8 +6,13 @@
 // Marked as test code, where the workspace's lints allow `unwrap`.
 #[cfg(test)]
 #[cfg(feature = "async")]
+mod async_policy;
+#[cfg(test)]
+#[cfg(feature = "async")]
 mod async_step;
 #[cfg(test)]
 mod fixtures;
+#[cfg(test)]
+mod policy;
 #[cfg(test)]
 mod step;

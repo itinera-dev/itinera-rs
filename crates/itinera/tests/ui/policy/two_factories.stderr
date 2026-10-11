@@ -1,0 +1,5 @@
+error: a policy has one factory
+  --> tests/ui/policy/two_factories.rs:34:5
+   |
+34 |     #[factory]
+   |     ^^^^^^^^^^

@@ -1,0 +1,5 @@
+error: `#[step_policy]` takes nothing, or a name such as `name = "audit"`
+  --> tests/ui/policy/an_unknown_argument.rs:28:15
+   |
+28 | #[step_policy(title = "audit")]
+   |               ^^^^^

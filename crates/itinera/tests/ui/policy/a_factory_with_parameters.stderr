@@ -1,0 +1,5 @@
+error: a policy's factory builds it from nothing: it takes no parameters
+  --> tests/ui/policy/a_factory_with_parameters.rs:30:15
+   |
+30 |     fn opened(_desk: &str) -> Self {
+   |               ^^^^^^^^^^^

@@ -1,0 +1,5 @@
+error: `on step success` is not a hook of a policy described by `#[workflow_policy]`
+  --> tests/ui/policy/a_step_hook_in_a_workflow_policy.rs:36:5
+   |
+36 |     #[on_step_success]
+   |     ^^^^^^^^^^^^^^^^^^

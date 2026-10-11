@@ -1,0 +1,5 @@
+error: `#[step_policy]` goes on the policy's own `impl` block, not on a trait implementation
+  --> tests/ui/policy/on_a_trait_implementation.rs:33:6
+   |
+33 | impl Checks for Audit {
+   |      ^^^^^^

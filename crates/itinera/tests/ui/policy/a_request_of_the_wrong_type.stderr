@@ -1,0 +1,17 @@
+error[E0308]: mismatched types
+  --> tests/ui/policy/a_request_of_the_wrong_type.rs:41:27
+   |
+41 |         #[reason] reason: String,
+   |                           ^^^^^^ expected `String`, found `Reason`
+42 |         #[role] desk: &dyn Desk,
+43 |     ) -> Result<Option<FailWorkflow>, Error> {
+   |          ------ arguments to this function are incorrect
+   |
+note: method defined here
+  --> tests/ui/policy/a_request_of_the_wrong_type.rs:39:8
+   |
+39 |     fn reported(
+   |        ^^^^^^^^
+40 |         &self,
+41 |         #[reason] reason: String,
+   |                   --------------

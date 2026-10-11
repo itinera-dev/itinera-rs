@@ -1,0 +1,5 @@
+error: a policy's hooks are all synchronous, or all asynchronous
+  --> tests/ui/policy/synchronous_and_asynchronous_hooks.rs:24:8
+   |
+24 |     fn reported(&self) -> Result<Option<itinera::policy::FailWorkflow>, Error> {
+   |        ^^^^^^^^

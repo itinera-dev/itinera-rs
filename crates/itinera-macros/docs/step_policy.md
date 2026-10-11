@@ -1,0 +1,92 @@
+Describes a step policy from the block that holds its hooks, so that a step can attach the policy by its type, with `Audit::descriptor()`.
+
+Each hook is a method marked with its name, taking `&self`, then the parameters it requests:
+
+| Marker | Returns |
+| --- | --- |
+| `#[on_step_success]` | `Result<Option<OnSuccess>, Error>` |
+| `#[on_step_failure]` | `Result<Option<FailWorkflow>, Error>` |
+| `#[on_step_retry]` | `Result<Option<FailWorkflow>, Error>` |
+| `#[on_step_abnormal_termination]` | `Result<Option<FailWorkflow>, Error>` |
+
+The method's own name is free. A block defines at least one hook, and each at most once. An `async fn` hook makes the policy asynchronous: it needs the `async` feature, every hook of the block is then asynchronous, and the policy is attached only to an asynchronous workflow's steps. Every function of the block may use the shorthands for what a hook returns, which `DescribedPolicy` gives: `Self::carry_on()`, `Self::fail_workflow("fraud")`, and, on step success only, `Self::finish_workflow()`.
+
+Each parameter after `&self` carries one attribute saying what it requests:
+
+| Attribute | Parameter type | Hooks |
+| --- | --- | --- |
+| `#[from_step]` or `#[from_step("key")]` | `T` or `Option<T>`, `T` a value | all |
+| `#[from_workflow]` or `#[from_workflow("key")]` | `T` or `Option<T>`, `T` a value | all |
+| `#[step_name]` | `StepName` | all |
+| `#[attempt]` | `NonZeroU32` | all |
+| `#[reason]` | `Reason` or `Option<Reason>` | on step failure, on step retry |
+| `#[cause]` | `StepFailureCause` on step failure, `RetryCause` on step retry | on step failure, on step retry |
+| `#[error]` | `&Error` or `Option<&Error>` | on step failure, on step retry, on step abnormal termination |
+| `#[journey_id]` | `&JourneyId` | all |
+| `#[role]` | `&dyn R`, a role of the workflow | all |
+| `#[contributor]` | `Contributor<'_>` | all |
+| `#[reporter]` | `HookReporter<'_>`, or `AsyncHookReporter<'_>` in an asynchronous hook | all |
+
+A key is the parameter's name unless the attribute names it. As with a step's inputs, an `Option` type makes a request optional, and `required`, as in `#[from_step("note", required)]`, makes the key required though its value is itself an `Option`. Requests resolve in the order of the parameters. A role requested makes the policy one that only a workflow providing that role, with `Provides`, can attach. An asynchronous hook holds its parameters across its awaits, so a role it requests is `Sync`, as a role trait declared `trait Notifier: Sync` is.
+
+The policy is named after its type as written, unless the attribute names it: `#[step_policy(name = "audit")]`. It is built for each journey with `Default`, unless one function of the block, marked `#[factory]`, takes no parameters and returns `Self`, or a `Result` whose error means the policy could not be built. A generic policy is described with the builder instead.
+
+The attribute implements `DescribedPolicy`, `StepPolicy` for every workflow providing the roles requested, and the trait of each hook it defines.
+
+# Examples
+
+```
+use itinera::error::Error;
+use itinera::executor::LocalExecutor;
+use itinera::journey::JourneyStatus;
+use itinera::policy::{FailWorkflow, OnSuccess, Provides, StepPolicy, step_policy};
+use itinera::step::{Outcome, Reason, StepDescriptor, step_name};
+use itinera::workflow::WorkflowDescriptor;
+
+trait Notifier {
+    fn notify(&self, message: &str);
+}
+
+struct Orders;
+
+impl Notifier for Orders {
+    fn notify(&self, _message: &str) {}
+}
+
+impl Provides<dyn Notifier> for Orders {
+    fn role(&self) -> &(dyn Notifier + 'static) {
+        self
+    }
+}
+
+#[derive(Default)]
+struct Audit;
+
+#[step_policy(name = "audit")]
+impl Audit {
+    #[on_step_success]
+    fn checked(&self, #[from_step] receipt: Option<String>) -> Result<Option<OnSuccess>, Error> {
+        match receipt {
+            Some(_) => Self::carry_on(),
+            None => Self::fail_workflow("no-receipt"),
+        }
+    }
+
+    #[on_step_failure]
+    fn reported(
+        &self,
+        #[reason] reason: Reason,
+        #[role] notifier: &dyn Notifier,
+    ) -> Result<Option<FailWorkflow>, Error> {
+        notifier.notify(reason.code());
+        Self::carry_on()
+    }
+}
+
+let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()))
+    .policy(Audit::descriptor());
+let orders = WorkflowDescriptor::builder("orders").step(charge).build()?;
+let result = LocalExecutor::new().run(orders.instance(Orders).create()?)?;
+assert!(matches!(result.status, JourneyStatus::Failed { .. }));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```

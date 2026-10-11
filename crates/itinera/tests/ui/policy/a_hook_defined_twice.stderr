@@ -1,0 +1,5 @@
+error: `on step success` is defined once, and another function of the block defines it
+  --> tests/ui/policy/a_hook_defined_twice.rs:38:5
+   |
+38 |     #[on_step_success]
+   |     ^^^^^^^^^^^^^^^^^^

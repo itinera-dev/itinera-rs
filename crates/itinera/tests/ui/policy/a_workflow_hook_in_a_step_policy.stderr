@@ -1,0 +1,5 @@
+error: `on workflow failure` is not a hook of a policy described by `#[step_policy]`
+  --> tests/ui/policy/a_workflow_hook_in_a_step_policy.rs:38:5
+   |
+38 |     #[on_workflow_failure]
+   |     ^^^^^^^^^^^^^^^^^^^^^^

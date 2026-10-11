@@ -13,12 +13,31 @@ use itinera::journey::{DataBag, JourneyResult};
 #[cfg(feature = "async")]
 use itinera::mode::Asynchronous;
 use itinera::mode::Mode;
+use itinera::policy::Provides;
 use itinera::report::Reporter;
 use itinera::value::AnyValue;
 use itinera::workflow::{WorkflowBuilder, WorkflowDescriptor};
 
 /// The workflow the tests run, which holds nothing of its own.
 pub(crate) struct Orders;
+
+/// A role of the workflow: the desk that handles its orders. It is `Sync`, since an asynchronous
+/// hook holds it across its awaits.
+pub(crate) trait Desk: Sync {
+    fn desk(&self) -> &'static str;
+}
+
+impl Desk for Orders {
+    fn desk(&self) -> &'static str {
+        "orders desk"
+    }
+}
+
+impl Provides<dyn Desk> for Orders {
+    fn role(&self) -> &(dyn Desk + 'static) {
+        self
+    }
+}
 
 /// The workflow's builder, with a journey ID that every journey shares, so that two journeys can
 /// be compared.
@@ -98,18 +117,29 @@ pub(crate) struct Order {
     amount: Option<i64>,
     coupon: Option<&'static str>,
     gift_note: Option<Option<&'static str>>,
+    outcome: Option<&'static str>,
+    decision: Option<&'static str>,
 }
+
+const NOTHING: Order = Order {
+    amount: None,
+    coupon: None,
+    gift_note: None,
+    outcome: None,
+    decision: None,
+};
 
 pub(crate) const A_GIFT: Order = Order {
     amount: Some(40),
-    coupon: None,
     gift_note: Some(Some("happy birthday")),
+    ..NOTHING
 };
 
 pub(crate) const NO_GIFT_WITH_A_COUPON: Order = Order {
     amount: Some(40),
     coupon: Some("spring"),
     gift_note: Some(None),
+    ..NOTHING
 };
 
 pub(crate) const NOTHING_TO_CHARGE: Order = Order {
@@ -132,6 +162,51 @@ pub(crate) const AN_EMPTY_GIFT_NOTE: Order = Order {
     ..A_GIFT
 };
 
+pub(crate) const SETTLED: Order = Order {
+    outcome: Some("success"),
+    ..NOTHING
+};
+
+pub(crate) const SETTLED_THEN_FINISHED: Order = Order {
+    decision: Some("finish"),
+    ..SETTLED
+};
+
+pub(crate) const SETTLED_THEN_REFUSED: Order = Order {
+    decision: Some("fail"),
+    ..SETTLED
+};
+
+pub(crate) const SETTLED_THEN_BROKEN: Order = Order {
+    decision: Some("break"),
+    ..SETTLED
+};
+
+pub(crate) const SETTLED_QUIETLY: Order = Order {
+    outcome: Some("quiet"),
+    ..NOTHING
+};
+
+pub(crate) const DECLINED: Order = Order {
+    outcome: Some("failure"),
+    ..NOTHING
+};
+
+pub(crate) const DECLINED_UNTIL_RETRIES_RAN_OUT: Order = Order {
+    outcome: Some("retriable"),
+    ..NOTHING
+};
+
+pub(crate) const CRASHED: Order = Order {
+    outcome: Some("abnormal"),
+    ..NOTHING
+};
+
+pub(crate) const CRASHED_THEN_REFUSED: Order = Order {
+    decision: Some("fail"),
+    ..CRASHED
+};
+
 impl Order {
     fn given_to<M: Mode>(self, builder: InstanceBuilder<Orders, M>) -> InstanceBuilder<Orders, M> {
         let builder = match self.amount {
@@ -142,8 +217,16 @@ impl Order {
             Some(coupon) => builder.data("coupon", coupon.to_owned()),
             None => builder,
         };
-        match self.gift_note {
+        let builder = match self.gift_note {
             Some(note) => builder.data("gift_note", note.map(str::to_owned)),
+            None => builder,
+        };
+        let builder = match self.outcome {
+            Some(outcome) => builder.data("outcome", outcome.to_owned()),
+            None => builder,
+        };
+        match self.decision {
+            Some(decision) => builder.data("decision", decision.to_owned()),
             None => builder,
         }
     }
