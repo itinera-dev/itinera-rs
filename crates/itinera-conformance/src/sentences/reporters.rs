@@ -1,86 +1,22 @@
 //! Events and reporters.
 
+mod carried;
+mod dispatchers;
+mod emitted;
+
 use std::num::NonZeroU64;
 
 use cucumber::{given, then};
 use itinera::event::Event;
 
-use super::{Names, Unmet, expect, numbered, stream};
-use crate::model::{
-    Dispatching, EventKind, Holding, HookAction, Level, ModelError, ReporterFailure, StepAction,
-    json,
-};
+use super::{Names, Unmet, expect, numbered};
+use crate::model::{EventKind, ModelError, ReporterFailure};
 use crate::trace::Line;
 use crate::world::World;
 
 #[given(expr = "the workflow lists the reporters {names}")]
 fn the_workflow_lists_the_reporters(world: &mut World, reporters: Names) -> Result<(), ModelError> {
     world.model.workflow_mut()?.reporters.extend(reporters);
-    Ok(())
-}
-
-#[given(expr = "the executor uses its default dispatcher")]
-fn the_executor_uses_its_default_dispatcher(world: &mut World) -> Result<(), ModelError> {
-    dispatches(world, Dispatching::Default)
-}
-
-#[given(expr = "the executor is given a dispatcher holding the reporter {string}")]
-fn given_a_dispatcher_holding(world: &mut World, reporter: String) -> Result<(), ModelError> {
-    holding(world, reporter, Holding::AddsReporters)
-}
-
-#[given(
-    expr = "the executor is given a dispatcher holding the reporter {string} that ignores added reporters"
-)]
-fn given_a_dispatcher_that_ignores_added_reporters(
-    world: &mut World,
-    reporter: String,
-) -> Result<(), ModelError> {
-    holding(world, reporter, Holding::IgnoresAddedReporters)
-}
-
-#[given(
-    expr = "the executor is given a dispatcher holding the reporter {string} that throws when a reporter is added"
-)]
-fn given_a_dispatcher_that_fails_when_adding(
-    world: &mut World,
-    reporter: String,
-) -> Result<(), ModelError> {
-    holding(world, reporter, Holding::FailsWhenAdding)
-}
-
-#[given(
-    expr = "the executor is given a dispatcher holding the reporter {string} that throws when dispatching {string}"
-)]
-fn given_a_dispatcher_that_fails_dispatching(
-    world: &mut World,
-    reporter: String,
-    event: String,
-) -> Result<(), ModelError> {
-    let behaviour = Holding::FailsDispatching(EventKind::named(&event)?);
-    holding(world, reporter, behaviour)
-}
-
-#[given(expr = "the executor is given a dispatcher factory that fails")]
-fn given_a_dispatcher_factory_that_fails(world: &mut World) -> Result<(), ModelError> {
-    dispatches(world, Dispatching::FailingFactory)
-}
-
-fn holding(world: &mut World, reporter: String, behaviour: Holding) -> Result<(), ModelError> {
-    dispatches(
-        world,
-        Dispatching::Holding {
-            reporter,
-            behaviour,
-        },
-    )
-}
-
-fn dispatches(world: &mut World, dispatching: Dispatching) -> Result<(), ModelError> {
-    if world.model.dispatching != Dispatching::Unstated {
-        return Err(ModelError::StatedTwice("the dispatcher"));
-    }
-    world.model.dispatching = dispatching;
     Ok(())
 }
 
@@ -115,42 +51,6 @@ fn fails(world: &mut World, reporter: String, failure: ReporterFailure) -> Resul
         return Err(ModelError::StatedTwice("how the reporter fails"));
     }
     world.model.reporter_failures.insert(reporter, failure);
-    Ok(())
-}
-
-/// The "emits" sentences of a step with no data or with data written as JSON.
-#[given(
-    regex = r#"^step "([^"]*)" emits (\w+) "([^"]*)"(?: with data ([\[{"0-9-].*|true|false|null))?$"#
-)]
-fn step_emits(
-    world: &mut World,
-    step_name: String,
-    kind: String,
-    message: String,
-    data: String,
-) -> Result<(), ModelError> {
-    let action = StepAction::Emit {
-        level: Level::of("step", &kind)?,
-        message,
-        data: (!data.is_empty()).then(|| json(&data)).transpose()?,
-    };
-    world.model.step_mut(&step_name)?.actions.push(action);
-    Ok(())
-}
-
-#[given(regex = r#"^the hook "([^"]*)" of policy "([^"]*)" emits (\w+) "([^"]*)"$"#)]
-fn the_hook_emits(
-    world: &mut World,
-    hook: String,
-    policy: String,
-    kind: String,
-    message: String,
-) -> Result<(), ModelError> {
-    let action = HookAction::Emit {
-        level: Level::of("journey", &kind)?,
-        message,
-    };
-    world.model.hook_mut(&policy, &hook)?.actions.push(action);
     Ok(())
 }
 
@@ -260,73 +160,6 @@ fn the_reporter_received_no_event(world: &mut World, reporter: String) -> Result
     expect(
         events.is_empty(),
         format_args!("\"{reporter}\" to receive no event"),
-        &events,
-    )
-}
-
-#[then(
-    expr = "every event carries the journey ID {string} and the workflow name {string}, with increasing sequence numbers"
-)]
-fn every_event_carries_the_journey_id_and_workflow_name(
-    world: &mut World,
-    id: String,
-    workflow: String,
-) -> Result<(), Unmet> {
-    let (events, _) = stream(world)?;
-    let carried = events.iter().all(|event| belongs_to(event, &id, &workflow));
-    let increasing = events.windows(2).all(in_sequence);
-    expect(
-        !events.is_empty() && carried && increasing,
-        format_args!("every event of \"{workflow}\" for \"{id}\", in increasing sequence"),
-        &events,
-    )
-}
-
-/// Whether the event is of this journey of this workflow.
-fn belongs_to(event: &Event, id: &str, workflow: &str) -> bool {
-    let journey_id: &str = event.journey_id.as_ref();
-    let name: &str = event.workflow.as_ref();
-    journey_id == id && name == workflow
-}
-
-/// Whether two consecutive events have increasing sequence numbers.
-fn in_sequence(pair: &[Event]) -> bool {
-    matches!(pair, [earlier, later] if earlier.sequence < later.sequence)
-}
-
-#[then(expr = "no engine event carries the value of {string}")]
-fn no_engine_event_carries_the_value_of(world: &mut World, key: String) -> Result<(), Unmet> {
-    let values = world.model.values_of(&key);
-    if values.is_empty() {
-        return Err(Unmet::Case(format!(
-            "the scenario gives \"{key}\" no value"
-        )));
-    }
-    let (events, lines) = stream(world)?;
-    let carrying = events
-        .iter()
-        .zip(&lines)
-        .filter(|(event, _)| is_engine_event(event))
-        .any(|(_, line)| line.carries_any(&values));
-    expect(
-        !carrying,
-        format_args!("no engine event to carry the value of \"{key}\""),
-        &events,
-    )
-}
-
-/// Whether the engine emitted the event, rather than a step or a hook emitting it.
-fn is_engine_event(event: &Event) -> bool {
-    !Level::is_emitted(event.kind())
-}
-
-#[then(expr = "no event carries the message {string}")]
-fn no_event_carries_the_message(world: &mut World, message: String) -> Result<(), Unmet> {
-    let (events, lines) = stream(world)?;
-    let carrying = lines.iter().any(|line| line.carries_message(&message));
-    expect(
-        !carrying,
-        format_args!("no event to carry \"{message}\""),
         &events,
     )
 }
