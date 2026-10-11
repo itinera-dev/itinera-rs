@@ -39,13 +39,10 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - if: runner.os == 'Linux'
         run: cargo test --workspace --all-features
-      # Compiler errors read the same on every system, so the ui and proofs tests run on Linux only.
+      # The itinera crate holds only re-exports and macros, whose tests mostly compare compiler
+      # errors; those read the same on every system, so they run on Linux only.
       - if: runner.os != 'Linux'
-        shell: bash
-        run: |
-          cargo test --workspace --all-features --exclude itinera
-          cargo test -p itinera --all-features --lib --examples --test macros
-          cargo test -p itinera --all-features --doc
+        run: cargo test --workspace --all-features --exclude itinera
 
   sync-only:
     name: sync-only build

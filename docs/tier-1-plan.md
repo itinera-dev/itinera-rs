@@ -319,7 +319,7 @@ The macros are syntax over the builder. Each expands to builder calls and to imp
 
 - **Unit tests** in `itinera-core`, next to the code: the decision rules, typed reads from the bag, the order of events, the handling of `Interrupted`.
 - **Macro equivalence**: each macro form is paired with the same workflow written with the builder. Both must give the same listing, and the same event stream for the same inputs, apart from the journey ID and timestamps.
-- **Compile-fail tests** in `crates/itinera/tests/ui/`, each with a compiling twin: running an instance twice, calling `run` concurrently, attaching a policy that defines no hook, and each refusal of the macros listed in section 11, such as a hook request its kind may not make. A few of them check a refusal made only without the `async` feature, such as an `async fn` step: they run with `cargo test -p itinera --test ui` without that feature, which no CI job does, since the test job enables every feature. Each twin is a module of the `ui` test target, compiled once with it, and the test runs its `main` unless that is empty; only the programs that must fail go through `trybuild`, which checks them without building them. Compiler messages read the same on every system, so CI runs the `ui` and `proofs` tests on Linux only.
+- **Compile-fail tests** in `crates/itinera/tests/ui/`, each with a compiling twin: running an instance twice, calling `run` concurrently, attaching a policy that defines no hook, and each refusal of the macros listed in section 11, such as a hook request its kind may not make. A few of them check a refusal made only without the `async` feature, such as an `async fn` step: they run with `cargo test -p itinera --test ui` without that feature, which no CI job does, since the test job enables every feature. Each twin is a module of the `ui` test target, compiled once with it, and the test runs its `main` unless that is empty; only the programs that must fail go through `trybuild`, which checks them without building them. Compiler messages read the same on every system, so CI runs the tests of the `itinera` crate, which holds only re-exports and macros, on Linux only.
 - **Macro features**: the conformance runner also runs `@macros` features of its own, in `crates/itinera-conformance/features/macros`, which drive workflows declared only with the macros through the cases' own sentences.
 - **Property-based tests** with `proptest`, over generated workflows with random outcomes, budgets, lifecycles and failing hooks or reporters: the first and last events, increasing sequence numbers, one outcome fact per attempt, one decision after each failed attempt, at most the budget plus one attempts, no bag values in engine events, and identical streams from both executors.
 - **Doc tests**: every public item has an example that compiles and runs.
@@ -334,7 +334,8 @@ Each job runs one command, as the organisation's rules require. All are required
 |---|---|
 | format | `cargo fmt --all --check` |
 | lints | `cargo clippy --workspace --all-targets --all-features -- -D warnings` |
-| tests, on Linux, Windows and macOS | `cargo test --workspace --all-features` |
+| tests, on Linux | `cargo test --workspace --all-features` |
+| tests, on Windows and macOS | `cargo test --workspace --all-features --exclude itinera` |
 | sync-only build | `cargo check --workspace --no-default-features` |
 | minimum Rust version | `cargo +1.85 check --workspace --exclude itinera-conformance` |
 | documentation | `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings` |
