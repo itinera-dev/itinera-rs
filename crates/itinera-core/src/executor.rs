@@ -203,7 +203,7 @@ mod tests {
     use crate::executor::fixtures::{FailingFactory, Shop, entries, run, run_with, shop_builder};
     use crate::journey::JourneyStatus;
     use crate::policy::WorkflowPolicyDescriptor;
-    use crate::policy::tests::Quiet;
+    use crate::policy::fixtures::Quiet;
     use crate::report::DefaultDispatcher;
     use crate::step::{Outcome, StepDescriptor, StepName};
 

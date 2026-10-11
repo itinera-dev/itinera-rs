@@ -4,6 +4,8 @@
 #[cfg(feature = "async")]
 mod asynchronous;
 mod descriptor;
+#[cfg(test)]
+pub(crate) mod fixtures;
 mod hook;
 mod kind;
 mod lifecycle;
@@ -164,59 +166,12 @@ pub enum RetryCause {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
     use std::fmt;
 
     use rstest::rstest;
 
     use super::*;
-    use crate::error::Error;
-    use crate::step::Input;
-
-    const RECEIPT: Input<String> = Input::new("receipt");
-
-    /// A policy whose hooks change nothing.
-    pub(crate) struct Quiet;
-
-    impl<W: Send + Sync + 'static> OnStepSuccess<W> for Quiet {
-        fn on_step_success(
-            &self,
-            _: Requested<'_, W, StepSuccess>,
-        ) -> Result<Option<OnSuccess>, Error> {
-            Ok(None)
-        }
-    }
-
-    impl<W: Send + Sync + 'static> OnStepFailure<W> for Quiet {
-        fn on_step_failure(
-            &self,
-            _: Requested<'_, W, StepFailure>,
-        ) -> Result<Option<FailWorkflow>, Error> {
-            Ok(None)
-        }
-    }
-
-    impl<W: Send + Sync + 'static> OnWorkflowSuccess<W> for Quiet {
-        fn on_workflow_success(&self, _: Requested<'_, W, WorkflowSuccess>) -> Result<(), Error> {
-            Ok(())
-        }
-    }
-
-    impl<W: Send + Sync + 'static> OnWorkflowFailure<W> for Quiet {
-        fn on_workflow_failure(&self, _: Requested<'_, W, WorkflowFailure>) -> Result<(), Error> {
-            Ok(())
-        }
-    }
-
-    #[cfg(feature = "async")]
-    impl<W: Send + Sync + 'static> AsyncOnWorkflowSuccess<W> for Quiet {
-        async fn on_workflow_success(
-            &self,
-            _: Requested<'_, W, WorkflowSuccess, crate::mode::Asynchronous>,
-        ) -> Result<(), Error> {
-            Ok(())
-        }
-    }
 
     #[rstest]
     #[case::on_step_success(&StepHook::OnStepSuccess, "on step success")]
@@ -228,7 +183,6 @@ pub(crate) mod tests {
     )]
     #[case::on_workflow_success(&WorkflowHook::OnWorkflowSuccess, "on workflow success")]
     #[case::on_workflow_failure(&WorkflowHook::OnWorkflowFailure, "on workflow failure")]
-    #[case::finish_workflow(&Lifecycle::FinishWorkflow, "FinishWorkflow")]
     #[case::failure(&StepFailureCause::Failure, "failure")]
     #[case::abnormal_termination(&StepFailureCause::AbnormalTermination, "abnormal termination")]
     #[case::retries_exhausted(&StepFailureCause::RetriesExhausted, "retries exhausted")]
@@ -237,43 +191,10 @@ pub(crate) mod tests {
         &RetryCause::AbnormalTermination,
         "abnormal termination"
     )]
-    fn hooks_lifecycles_and_causes_display_as_the_specification_writes_them(
+    fn hooks_and_causes_display_as_the_specification_writes_them(
         #[case] name: &dyn fmt::Display,
         #[case] written: &str,
     ) {
         assert_eq!(name.to_string(), written);
-    }
-
-    /// The keys of the data a hook needs, from the step or from the workflow.
-    fn keys(needs: &Needs) -> Vec<&'static str> {
-        needs.requests().iter().filter_map(key).collect()
-    }
-
-    fn key(request: &Request) -> Option<&'static str> {
-        match request {
-            Request::FromStep(need) | Request::FromWorkflow(need) => Some(need.key()),
-            Request::Reason(_) | Request::Error(_) => None,
-        }
-    }
-
-    #[test]
-    fn a_step_hook_named_twice_is_defined_once_with_the_needs_named_last() {
-        let audit: StepPolicyDescriptor<Quiet, ()> = StepPolicyDescriptor::new("audit", || Quiet)
-            .on_step_success()
-            .on_step_success_needing(HookNeeds::new().from_step(&RECEIPT));
-
-        assert_eq!(audit.hooks(), [StepHook::OnStepSuccess]);
-        assert_eq!(keys(audit.needs(StepHook::OnStepSuccess)), ["receipt"]);
-    }
-
-    #[test]
-    fn a_workflow_hook_named_twice_is_defined_once_with_the_needs_named_last() {
-        let notify: WorkflowPolicyDescriptor<Quiet, ()> =
-            WorkflowPolicyDescriptor::new("notify", || Quiet)
-                .on_workflow_success_needing(HookNeeds::new().from_workflow(&RECEIPT))
-                .on_workflow_success();
-
-        assert_eq!(notify.hooks(), [WorkflowHook::OnWorkflowSuccess]);
-        assert!(keys(notify.needs(WorkflowHook::OnWorkflowSuccess)).is_empty());
     }
 }

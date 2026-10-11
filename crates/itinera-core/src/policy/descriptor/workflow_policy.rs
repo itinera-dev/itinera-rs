@@ -393,3 +393,21 @@ where
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::policy::fixtures::{Quiet, RECEIPT, keys};
+    use crate::policy::{HookNeeds, WorkflowHook};
+
+    #[test]
+    fn a_workflow_hook_named_twice_is_defined_once_with_the_needs_named_last() {
+        let notify: WorkflowPolicyDescriptor<Quiet, ()> =
+            WorkflowPolicyDescriptor::new("notify", || Quiet)
+                .on_workflow_success_needing(HookNeeds::new().from_workflow(&RECEIPT))
+                .on_workflow_success();
+
+        assert_eq!(notify.hooks(), [WorkflowHook::OnWorkflowSuccess]);
+        assert!(keys(notify.needs(WorkflowHook::OnWorkflowSuccess)).is_empty());
+    }
+}

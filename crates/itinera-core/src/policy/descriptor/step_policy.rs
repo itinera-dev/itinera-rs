@@ -579,3 +579,20 @@ where
         }))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::policy::fixtures::{Quiet, RECEIPT, keys};
+    use crate::policy::{HookNeeds, StepHook};
+
+    #[test]
+    fn a_step_hook_named_twice_is_defined_once_with_the_needs_named_last() {
+        let audit: StepPolicyDescriptor<Quiet, ()> = StepPolicyDescriptor::new("audit", || Quiet)
+            .on_step_success()
+            .on_step_success_needing(HookNeeds::new().from_step(&RECEIPT));
+
+        assert_eq!(audit.hooks(), [StepHook::OnStepSuccess]);
+        assert_eq!(keys(audit.needs(StepHook::OnStepSuccess)), ["receipt"]);
+    }
+}

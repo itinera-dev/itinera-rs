@@ -173,7 +173,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::policy::tests::Quiet;
+    use crate::policy::fixtures::Quiet;
     use crate::policy::{StepPolicyDescriptor, WorkflowPolicyDescriptor};
     use crate::step::{Outcome, StepDescriptor};
     use crate::workflow::{InputAdapterDescriptor, WorkflowBuilder, WorkflowDescriptor};

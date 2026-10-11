@@ -86,3 +86,21 @@ impl From<FailWorkflow> for Lifecycle {
         Self::FailWorkflow(returned.into())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fmt;
+
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::finish_workflow(&Lifecycle::FinishWorkflow, "FinishWorkflow")]
+    fn lifecycles_display_as_the_specification_writes_them(
+        #[case] name: &dyn fmt::Display,
+        #[case] written: &str,
+    ) {
+        assert_eq!(name.to_string(), written);
+    }
+}

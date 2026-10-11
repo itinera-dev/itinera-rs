@@ -7,7 +7,7 @@ use crate::error::Error;
 use crate::event::Event;
 use crate::executor::fixtures::{Recorder, Shop, entries, mixed_instance};
 use crate::journey::JourneyStatus;
-use crate::policy::tests::Quiet;
+use crate::policy::fixtures::Quiet;
 use crate::policy::{PolicyName, WorkflowPolicyDescriptor};
 use crate::report::{BoxedReporter, DefaultDispatcher};
 use crate::step::{Outcome, StepDescriptor, StepName};

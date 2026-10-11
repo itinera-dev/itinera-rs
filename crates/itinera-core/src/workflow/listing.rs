@@ -120,7 +120,7 @@ mod tests {
 
     use super::*;
     use crate::policy::StepPolicyDescriptor;
-    use crate::policy::tests::Quiet;
+    use crate::policy::fixtures::Quiet;
     use crate::step::Outcome;
 
     struct Orders;
