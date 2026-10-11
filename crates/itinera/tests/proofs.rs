@@ -4,13 +4,12 @@
 
 use std::error::Error;
 
-#[cfg(all(feature = "async", feature = "unstable"))]
+#[cfg(feature = "async")]
 #[path = "proofs/mode-not-accepted/asynchronous_provider_async_workflow.rs"]
 mod asynchronous_provider_async_workflow;
 #[cfg(feature = "async")]
 #[path = "proofs/mode-not-accepted/asynchronous_step_async_executor.rs"]
 mod asynchronous_step_async_executor;
-#[cfg(feature = "unstable")]
 #[path = "proofs/journey-scope-request/attempt_scoped_provider_asks_for_the_attempt.rs"]
 mod attempt_scoped_provider_asks_for_the_attempt;
 #[path = "proofs/non-value/contribution_value.rs"]
@@ -25,10 +24,8 @@ mod fail_workflow_on_step_failure;
 mod initial_data_value;
 #[path = "proofs/non-value/input_adapter_value.rs"]
 mod input_adapter_value;
-#[cfg(feature = "unstable")]
 #[path = "proofs/non-value/provider_event_data_value.rs"]
 mod provider_event_data_value;
-#[cfg(feature = "unstable")]
 #[path = "proofs/no-instance/provider_returning_an_instance.rs"]
 mod provider_returning_an_instance;
 #[path = "proofs/late-handle/read_by_an_input_adapter_during_its_call.rs"]
@@ -123,7 +120,6 @@ fn an_adapter_cannot_write_through_its_access_to_the_data_bag() {
 }
 
 #[test]
-#[cfg(feature = "unstable")]
 fn a_journey_scoped_provider_cannot_request_the_attempt() {
     fails_to_compile(
         "tests/proofs/journey-scope-request/journey_scoped_provider_asks_for_the_attempt.rs",
@@ -132,21 +128,19 @@ fn a_journey_scoped_provider_cannot_request_the_attempt() {
 }
 
 #[test]
-#[cfg(feature = "unstable")]
 fn a_provider_cannot_return_nothing() {
     fails_to_compile("tests/proofs/no-instance/provider_returning_nothing.rs");
     provider_returning_an_instance::main();
 }
 
 #[test]
-#[cfg(feature = "unstable")]
 fn a_providers_event_cannot_carry_a_non_value() {
     fails_to_compile("tests/proofs/non-value/provider_event_data.rs");
     provider_event_data_value::main();
 }
 
 #[test]
-#[cfg(all(feature = "async", feature = "unstable"))]
+#[cfg(feature = "async")]
 fn a_synchronous_workflow_cannot_have_an_asynchronous_provider() {
     fails_to_compile("tests/proofs/mode-not-accepted/asynchronous_provider.rs");
     asynchronous_provider_async_workflow::main();

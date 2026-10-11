@@ -51,7 +51,7 @@ mod step {
     mod asynchronous;
     mod built_by_a_new_that_may_fail;
     mod built_by_its_new;
-    pub(super) mod described;
+    mod described;
 
     #[test]
     fn every_field_of_a_derived_step_is_an_input_or_a_default() -> Result<(), Box<dyn Error>> {
@@ -457,7 +457,7 @@ mod workflow {
     use super::fails_to_compile;
     use std::error::Error;
 
-    pub(super) mod described;
+    mod described;
     #[cfg(feature = "async")]
     mod described_asynchronous;
     mod described_courier;
@@ -647,7 +647,7 @@ mod workflow {
 
 /// What the macros refuse in the services steps request and workflows provide, each with the
 /// macro's own error or the check it generates.
-#[cfg(all(feature = "macros", feature = "unstable"))]
+#[cfg(feature = "macros")]
 #[path = "ui/service"]
 mod service {
     use super::fails_to_compile;
@@ -834,24 +834,5 @@ mod service {
             "tests/ui/service/a_synchronous_provider_reporting_in_an_asynchronous_workflow.rs",
         );
         described_asynchronous::main()
-    }
-}
-
-/// Services, which only the `unstable` feature offers.
-#[cfg(all(feature = "macros", not(feature = "unstable")))]
-mod without_services {
-    use super::fails_to_compile;
-    use std::error::Error;
-
-    #[test]
-    fn a_service_needs_the_unstable_feature() -> Result<(), Box<dyn Error>> {
-        fails_to_compile("tests/ui/service/a_service_without_the_unstable_feature.rs");
-        super::step::described::main()
-    }
-
-    #[test]
-    fn a_service_provider_needs_the_unstable_feature() -> Result<(), Box<dyn Error>> {
-        fails_to_compile("tests/ui/service/a_provider_without_the_unstable_feature.rs");
-        super::workflow::described::main()
     }
 }

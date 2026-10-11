@@ -14,11 +14,11 @@ Applications depend on one crate, `itinera`. Its features are:
 |---|---|---|
 | `macros` | on | The macros for declaring steps, policies and workflows, which are syntax over the builder |
 | `async` | off | The asynchronous executor, and asynchronous steps, hooks, reporters and dispatchers |
-| `unstable` | off | API of a proposal not yet listed in `conformance.json`, which may change or go: now services, of proposal 0095 |
+| `unstable` | off | API the specification has not settled yet, which may change or go; empty for now |
 
 `itinera` brings in `itinera-core`, which holds the implementation, and, with `macros`, `itinera-macros`. Neither needs to be added directly. The minimum supported Rust version is 1.85.
 
-The crate's documentation opens with a first complete workflow. [crates/itinera/examples](https://github.com/itinera-dev/itinera-rs/tree/main/crates/itinera/examples) holds three runnable ones: `orders`, a synchronous workflow declared with the macros; `orders_async`, the same on the asynchronous executor, which needs the `async` feature; and `orders_by_hand`, the same declared with the builder alone. Each charges through a payment service, so it needs the `unstable` feature too: run one with `cargo run -p itinera --example orders --features unstable`.
+The crate's documentation opens with a first complete workflow. [crates/itinera/examples](https://github.com/itinera-dev/itinera-rs/tree/main/crates/itinera/examples) holds three runnable ones: `orders`, a synchronous workflow declared with the macros; `orders_async`, the same on the asynchronous executor, which needs the `async` feature; and `orders_by_hand`, the same declared with the builder alone. Each charges through a payment service. Run one with `cargo run -p itinera --example orders`.
 
 ## Rules made impossible to express
 
@@ -26,7 +26,9 @@ The specification lets an implementation make some rules impossible to express r
 
 - a hook returning a lifecycle it may not return;
 - a policy needing a role the workflow does not provide;
-- an asynchronous part run by the synchronous executor;
+- an asynchronous part run by the synchronous executor, or an asynchronous service provider in a synchronous workflow;
+- a rescue step that skips;
+- a service provider of journey scope requesting the attempt, or a service provider returning nothing instead of an instance or an error;
 - something that is not a value entering the data bag, event data or a reason's details;
 - a contributor or reporter used after its attempt or hook has ended, or an input adapter's access to the data bag used after its call;
 - an input adapter writing to the data bag through its access.

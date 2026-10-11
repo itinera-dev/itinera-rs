@@ -1,24 +1,20 @@
 //! What a step declares it needs, which the executor resolves before the step is built.
 
 use super::{Input, OptionalInput};
-#[cfg(feature = "unstable")]
 use crate::service::Service;
 use crate::value::Value;
 
 mod input_need;
 mod request;
-#[cfg(feature = "unstable")]
 mod service_need;
 
 pub(crate) use input_need::{InputNeed, Requirement};
 pub(crate) use request::{RescueRequest, StepRequest};
 use request::{other_than_error, other_than_reason};
-#[cfg(feature = "unstable")]
 pub(crate) use service_need::ServiceNeed;
 
 /// Everything a step declares it needs, which the executor resolves before the step is built:
-/// its inputs, whether it needs a contributor and a step reporter, and, with the `unstable`
-/// feature, its services.
+/// its inputs, whether it needs a contributor and a step reporter, and its services.
 ///
 /// Its inputs are resolved in the order they are declared, then its services, in the order they
 /// are declared.
@@ -40,7 +36,6 @@ pub(crate) use service_need::ServiceNeed;
 #[derive(Clone, Debug, Default)]
 pub struct StepNeeds {
     requests: Vec<StepRequest>,
-    #[cfg(feature = "unstable")]
     services: Vec<ServiceNeed>,
     contributor: bool,
     reporter: bool,
@@ -129,7 +124,6 @@ impl StepNeeds {
     ///
     /// let needs = StepNeeds::new().service(&PAYMENTS);
     /// ```
-    #[cfg(feature = "unstable")]
     pub fn service<T: ?Sized + Send + Sync + 'static>(mut self, service: &Service<T>) -> Self {
         self.services.push(ServiceNeed::of(service));
         self
@@ -158,7 +152,6 @@ impl StepNeeds {
         self.request(StepRequest::Rescued(RescueRequest::Error(requirement)))
     }
 
-    #[cfg(feature = "unstable")]
     pub(crate) fn services(&self) -> &[ServiceNeed] {
         &self.services
     }

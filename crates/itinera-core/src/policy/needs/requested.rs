@@ -8,13 +8,11 @@ use super::Answers;
 use crate::error::Error;
 use crate::journey::{Contributor, DataBagAccess, JourneyId};
 use crate::mode::Synchronous;
-#[cfg(feature = "unstable")]
 use crate::policy::Provider;
 use crate::policy::{
     ErrorHookKind, FailureHookKind, HookKind, HookReporter, InputAdapter, PolicyHookKind, Provides,
     ReportingHookKind, RetryCause, StepFailure, StepFailureCause, StepHookKind, StepRetry,
 };
-#[cfg(feature = "unstable")]
 use crate::service::PerAttempt;
 use crate::step::{Input, OptionalInput, Reason, Reporting, StepName};
 use crate::value::{AnyValue, Value};
@@ -731,7 +729,6 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     }
 }
 
-#[cfg(feature = "unstable")]
 impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     /// The name of the step being built.
     ///

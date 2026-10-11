@@ -200,7 +200,6 @@ fn no_workflow_hook_runs_when_the_journey_is_aborted() {
     assert!(seen(&saw).is_empty());
 }
 
-#[cfg(feature = "unstable")]
 mod services {
     use super::*;
     use crate::service::ServiceProviderDescriptor;

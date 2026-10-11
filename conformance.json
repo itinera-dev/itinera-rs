@@ -1,6 +1,6 @@
 {
-  "cases": "v0.1.0-rc.9",
-  "proposals": [2, 3, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85, 91],
+  "cases": "v0.1.0-rc.10",
+  "proposals": [2, 3, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85, 91, 95],
   "capabilities": ["sync", "async"],
   "impossible": {
     "invalid-lifecycle": [
@@ -15,6 +15,20 @@
         "feature": "cases/tier-1/0003-rescue-steps/failing-rescue.feature",
         "scenario": "A rescue step that skips aborts the journey",
         "proof": { "test": "a_rescue_step_cannot_skip", "file": "crates/itinera/tests/proofs.rs" }
+      }
+    ],
+    "journey-scope-request": [
+      {
+        "feature": "cases/tier-1/0095-services-provided-to-steps/admission.feature",
+        "scenario": "A provider of journey scope requesting the attempt number is refused",
+        "proof": { "test": "a_journey_scoped_provider_cannot_request_the_attempt", "file": "crates/itinera/tests/proofs.rs" }
+      }
+    ],
+    "no-instance": [
+      {
+        "feature": "cases/tier-1/0095-services-provided-to-steps/failures.feature",
+        "scenario": "A provider that returns nothing aborts the journey, with no error",
+        "proof": { "test": "a_provider_cannot_return_nothing", "file": "crates/itinera/tests/proofs.rs" }
       }
     ],
     "role-not-provided": [
@@ -49,6 +63,11 @@
         "feature": "cases/tier-1/0011-events/emitted-by-steps-and-hooks.feature",
         "scenario": "Data that is not a value aborts the journey, and the event is not delivered",
         "proof": { "test": "a_step_event_cannot_carry_a_non_value", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0095-services-provided-to-steps/failures.feature",
+        "scenario": "A provider's event data that is not a value aborts the journey, and the event is not delivered",
+        "proof": { "test": "a_providers_event_cannot_carry_a_non_value", "file": "crates/itinera/tests/proofs.rs" }
       }
     ],
     "mode-not-accepted": [
@@ -56,6 +75,11 @@
         "feature": "cases/tier-1/0012-local-executor/local-executor.feature",
         "scenario": "A synchronous-only executor refuses an asynchronous step before the journey starts",
         "proof": { "test": "a_synchronous_executor_cannot_run_an_asynchronous_step", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0095-services-provided-to-steps/admission.feature",
+        "scenario": "A synchronous-only executor refuses an asynchronous provider before the journey starts",
+        "proof": { "test": "a_synchronous_workflow_cannot_have_an_asynchronous_provider", "file": "crates/itinera/tests/proofs.rs" }
       }
     ],
     "late-handle": [

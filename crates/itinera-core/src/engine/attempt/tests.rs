@@ -184,7 +184,6 @@ impl StepFactory for Preparing {
     }
 }
 
-#[cfg(feature = "unstable")]
 mod services {
     use std::sync::Mutex;
 

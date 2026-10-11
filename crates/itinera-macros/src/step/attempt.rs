@@ -174,12 +174,11 @@ fn by_value(receiver: &Receiver) -> bool {
     matches!(receiver.kind, ReceiverKind::Value)
 }
 
-/// The keys of the step's services, as the implementation that describes it lists them, with
-/// the `unstable` feature.
-fn listed<'a>(keys: impl Iterator<Item = &'a syn::LitStr>) -> Option<TokenStream> {
-    cfg!(feature = "unstable").then_some(quote! {
+/// The keys of the step's services, as the implementation that describes it lists them.
+fn listed<'a>(keys: impl Iterator<Item = &'a syn::LitStr>) -> TokenStream {
+    quote! {
         const SERVICES: &'static [&'static str] = &[#(#keys),*];
-    })
+    }
 }
 
 /// Whether one of these services shares the service's key.

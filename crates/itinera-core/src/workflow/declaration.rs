@@ -5,10 +5,8 @@ use crate::error::Error;
 use crate::journey::DataBag;
 use crate::mode::Mode;
 use crate::policy::WorkflowPolicyEntry;
-#[cfg(feature = "unstable")]
 use crate::service::{ProviderEntry, Served};
 use crate::step::StepDescriptor;
-#[cfg(feature = "unstable")]
 use crate::step::StepName;
 
 #[derive(derive_more::Debug)]
@@ -17,7 +15,6 @@ pub(super) struct Declaration<W, M: Mode> {
     pub(super) steps: Vec<StepDescriptor<W, M>>,
     pub(super) policies: Vec<Box<dyn WorkflowPolicyEntry<W, M>>>,
     pub(super) adapters: Vec<InputAdapterDescriptor<W>>,
-    #[cfg(feature = "unstable")]
     pub(super) providers: Vec<Box<dyn ProviderEntry<W, M>>>,
     #[debug("{}", reporters.len())]
     pub(super) reporters: Vec<MakeReporter<M>>,
@@ -25,7 +22,6 @@ pub(super) struct Declaration<W, M: Mode> {
     pub(super) id_generator: Option<GenerateId<W>>,
 }
 
-#[cfg(feature = "unstable")]
 impl<W, M: Mode> Declaration<W, M> {
     /// How a provider serves the step: as a step of the workflow, or, under a name the workflow
     /// declares no step under, as a rescue step.

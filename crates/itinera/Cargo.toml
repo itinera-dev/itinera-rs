@@ -25,15 +25,11 @@ trybuild.workspace = true
 
 [[example]]
 name = "orders"
-required-features = ["macros", "unstable"]
+required-features = ["macros"]
 
 [[example]]
 name = "orders_async"
-required-features = ["macros", "async", "unstable"]
-
-[[example]]
-name = "orders_by_hand"
-required-features = ["unstable"]
+required-features = ["macros", "async"]
 
 [lints]
 workspace = true

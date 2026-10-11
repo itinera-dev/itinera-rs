@@ -35,7 +35,7 @@ Status: done in stage 7. Stage 4 declared input adapters attached to steps, with
 
 - Unit tests in `itinera-core/src/engine.rs`: `an_input_adapter_supplies_an_input_before_the_data_bag_is_read`; `an_input_adapter_that_fails_aborts_the_journey_as_its_step_could_not_be_built`; `a_value_of_another_type_from_an_input_adapter_aborts_the_journey_with_wrong_type`; `an_input_adapter_that_returned_nothing_is_not_named_in_the_abort`; `an_input_adapter_receives_the_data_from_the_workflow_it_requests`; `an_input_adapters_absent_optional_data_is_reported_before_what_it_supplied`; `an_input_adapters_required_data_from_the_workflow_aborts_the_journey_before_it_runs`; `an_input_adapter_is_told_the_step_it_supplies_for_each_of_its_inputs`. The tests of its read access to the data bag belong to the tech spec of [0091](0091-adapters-read-the-data-bag.md).
 - Unit tests in `itinera-core/src/workflow/violation/admission/adapters.rs`: the cases `two_adapters_on_one_step` and `an_adapter_on_a_step_the_workflow_does_not_have` of `a_workflow_adapting_steps_wrongly_is_refused_with_its_violation`; and in `itinera-core/src/workflow/builder.rs`, `two_input_adapters_with_one_name_cannot_be_declared`.
-- Unit tests in `itinera-core/src/workflow/listing.rs`: `a_workflow_is_listed_in_order_with_its_policies_and_adapters_without_running_anything`.
+- Unit tests in `itinera-core/src/workflow/listing.rs`: `a_workflow_is_listed_in_order_without_running_anything`.
 - A proof in `itinera/tests/proofs.rs`, `an_input_adapter_cannot_supply_a_non_value`, belongs to the tech spec of [0056](0056-data-bag-values.md).
 
 ## Done when

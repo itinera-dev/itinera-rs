@@ -10,7 +10,6 @@ use crate::journey::DataBag;
 use crate::mode::{Mode, Synchronous};
 use crate::policy::WorkflowPolicyDescriptor;
 use crate::report::{self, Reporter};
-#[cfg(feature = "unstable")]
 use crate::service::{ProviderScope, ServiceProviderDescriptor};
 use crate::step::StepDescriptor;
 
@@ -50,7 +49,6 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
                 steps: Vec::new(),
                 policies: Vec::new(),
                 adapters: Vec::new(),
-                #[cfg(feature = "unstable")]
                 providers: Vec::new(),
                 reporters: Vec::new(),
                 id_generator: None,
@@ -216,7 +214,6 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     ///     .build()?;
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
-    #[cfg(feature = "unstable")]
     pub fn provider<S: ProviderScope>(
         mut self,
         provider: ServiceProviderDescriptor<W, S, M>,
@@ -298,7 +295,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// Checks the declaration and builds the workflow descriptor, or returns every violation
     /// found: steps with the same name, a hook defined twice for one step or for the workflow,
     /// input adapters attached to a step the workflow does not have, or to a step another adapter
-    /// is attached to, and, with the `unstable` feature, services wrongly requested or provided.
+    /// is attached to, and services wrongly requested or provided.
     ///
     /// # Examples
     ///

@@ -64,7 +64,7 @@ pub(in crate::workflow::parts) fn declared(
 /// struct take every service as provided, of whatever type. A block that cannot name the
 /// workflow says nothing.
 pub(in crate::workflow::parts) fn unknown(block: &ItemImpl) -> Option<TokenStream> {
-    if !cfg!(feature = "unstable") || block.trait_.is_some() || !block.generics.params.is_empty() {
+    if block.trait_.is_some() || !block.generics.params.is_empty() {
         return None;
     }
     let workflow = &block.self_ty;

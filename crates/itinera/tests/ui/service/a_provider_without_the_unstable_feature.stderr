@@ -1,5 +1,0 @@
-error: a service provider needs the `unstable` feature of `itinera`
-  --> tests/ui/service/a_provider_without_the_unstable_feature.rs:33:5
-   |
-33 |     #[provider]
-   |     ^^^^^^^^^^^

@@ -154,7 +154,6 @@ impl<D: Delivery> Journey<D> {
 fn hook_failed(hook: &HookSource, error: Error) -> End {
     let step = match hook {
         HookSource::Step { step, .. } => Some(step.step),
-        #[cfg(feature = "unstable")]
         HookSource::Provider { step, .. } => Some(step.step),
         HookSource::Workflow { .. } => None,
     };

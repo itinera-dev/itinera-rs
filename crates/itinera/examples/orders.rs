@@ -1,6 +1,6 @@
 //! A synchronous workflow declared with the macros: it charges an order, less its discount,
 //! through the shop's card terminal, then ships it, and tells the customer once the order is paid
-//! and shipped. Run it with `cargo run -p itinera --example orders --features unstable`.
+//! and shipped. Run it with `cargo run -p itinera --example orders`.
 
 use std::num::NonZeroU32;
 

@@ -12,7 +12,6 @@ proc-macro = true
 
 [features]
 async = []
-unstable = []
 
 [dependencies]
 derive_more.workspace = true
@@ -21,7 +20,7 @@ quote.workspace = true
 syn.workspace = true
 
 [dev-dependencies]
-itinera = { path = "../itinera", features = ["async", "unstable"] }
+itinera = { path = "../itinera", features = ["async"] }
 rstest.workspace = true
 
 [lints]

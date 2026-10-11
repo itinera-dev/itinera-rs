@@ -126,7 +126,6 @@ pub trait DescribedStep {
     ///
     /// assert_eq!(Charged::SERVICES, ["payments"]);
     /// ```
-    #[cfg(feature = "unstable")]
     const SERVICES: &'static [&'static str] = &[];
 
     /// Describes the step under the name the workflow gives it, with no retries and no policies,

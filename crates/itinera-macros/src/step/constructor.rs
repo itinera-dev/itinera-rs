@@ -101,8 +101,7 @@ fn parameter(argument: &mut FnArg) -> syn::Result<Parameter> {
     let mark = marker::single(
         marker::take(&mut parameter.attrs, &["input", "service"]),
         &parameter.pat,
-        "every parameter of a step's `new` is an `#[input]` or, with the `unstable` feature, a \
-         `#[service]`",
+        "every parameter of a step's `new` is an `#[input]` or a `#[service]`",
     )?;
     if marker::name(&mark) == "service" {
         return Service::read(&mark, parameter).map(Parameter::Service);

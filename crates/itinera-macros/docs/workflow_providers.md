@@ -1,7 +1,7 @@
 
 # Service providers
 
-With the `unstable` feature of `itinera`, a method of the workflow's `impl` block marked `#[provider]` is one of its service providers, which supplies the steps and rescue steps the service they request with `#[service]`. It takes `&self` and returns `Result<Box<T>, Error>`, where `T` is the type the service is lent as, such as `dyn PaymentGateway`. Its attribute takes, each optional:
+A method of the workflow's `impl` block marked `#[provider]` is one of its service providers, which supplies the steps and rescue steps the service they request with `#[service]`. It takes `&self` and returns `Result<Box<T>, Error>`, where `T` is the type the service is lent as, such as `dyn PaymentGateway`. Its attribute takes, each optional:
 
 1. `per_attempt`: the provider is called for every attempt of every step it serves, and its instance is dropped when the attempt ends. Without it, it is of journey scope: called the first time a step it serves needs the service, and its instance is lent to every later attempt until the journey ends;
 2. `steps = ["a", "b"]`: the steps it is attached to, which it serves for its service. Without it, it is attached to no step, and serves every step that requests the service and has no provider of its own for it, and every rescue step that requests it: a rescue step is served only by a provider attached to no step, never by one attached to the step it rescues;

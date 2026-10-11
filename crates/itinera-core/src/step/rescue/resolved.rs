@@ -5,7 +5,6 @@ use std::any;
 use crate::error::Error;
 use crate::journey::Contributor;
 use crate::mode::Synchronous;
-#[cfg(feature = "unstable")]
 use crate::service::Service;
 use crate::step::{Got, Input, OptionalInput, Reason, Resolved, StepReporter};
 use crate::value::{AnyValue, Value};
@@ -302,7 +301,6 @@ impl<'a, M> RescueResolved<'a, M> {
     ///     got.service(&PAYMENTS)
     /// }
     /// ```
-    #[cfg(feature = "unstable")]
     pub fn service<T: ?Sized + 'static>(&self, service: &Service<T>) -> Result<&'a T, Error> {
         self.resolved.service(service)
     }
