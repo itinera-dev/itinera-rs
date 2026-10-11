@@ -5,16 +5,13 @@ use std::fmt;
 use crate::step::StepAttempt;
 
 mod input_adapter;
+pub(crate) mod sealed;
 mod step_hook;
 mod workflow_hook;
 
 pub use input_adapter::InputAdapter;
 pub use step_hook::{StepAbnormalTermination, StepFailure, StepRetry, StepSuccess};
 pub use workflow_hook::{WorkflowFailure, WorkflowSuccess};
-
-pub(crate) mod sealed {
-    pub trait Sealed {}
-}
 
 /// A kind of hook. [`HookNeeds`] and [`Requested`] offer a hook only the requests its kind may
 /// make, so a request it may not make does not compile.
