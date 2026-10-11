@@ -200,11 +200,12 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::*;
-    use crate::executor::fixtures::{FailingFactory, Shop, entries, run, run_with, shop_builder};
+    use crate::executor::fixtures::{FailingFactory, Shop, run, run_with, shop_builder};
     use crate::journey::JourneyStatus;
     use crate::policy::WorkflowPolicyDescriptor;
     use crate::policy::fixtures::Quiet;
     use crate::report::DefaultDispatcher;
+    use crate::report::fixtures::entries;
     use crate::step::{Outcome, StepDescriptor, StepName};
 
     #[test]

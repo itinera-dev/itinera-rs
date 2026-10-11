@@ -8,9 +8,10 @@ use crate::engine::fixtures::{
 use crate::event::JourneyAbort;
 use crate::executor::LocalExecutor;
 use crate::executor::fixtures::{
-    FailingFactory, Shop, entries, run, run_shop_with, run_with, shop_workflow,
+    FailingFactory, Shop, run, run_shop_with, run_with, shop_workflow,
 };
 use crate::journey::DataBag;
+use crate::report::fixtures::entries;
 use crate::report::{DefaultDispatcher, DispatcherFactory, Reporter, WorkflowReporter};
 use crate::step::{
     Outcome, Resolved, StepAttempt, StepDescriptor, StepFactory, StepNeeds, StepReporter,

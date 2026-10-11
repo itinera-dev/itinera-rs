@@ -1,7 +1,7 @@
 //! The shop the executors' tests run: a workflow whose reporters log what they receive and fail
 //! as it says, and dispatchers that fail.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use super::{LocalExecutor, Refusal};
 use crate::error::Error;
@@ -10,6 +10,7 @@ use crate::instance::Instance;
 use crate::journey::{DataBag, JourneyId, JourneyResult};
 #[cfg(feature = "async")]
 use crate::mode::Asynchronous;
+use crate::report::fixtures::Log;
 #[cfg(feature = "async")]
 use crate::report::{AsyncReporter, AsyncWorkflowReporter};
 use crate::report::{
@@ -18,9 +19,6 @@ use crate::report::{
 };
 use crate::step::{Outcome, StepDescriptor, StepName};
 use crate::workflow::{WorkflowBuilder, WorkflowDescriptor};
-
-/// What the journey's reporters received, in order, as "reporter kind" lines.
-pub(crate) type Log = Arc<Mutex<Vec<String>>>;
 
 /// The workflow of these tests: it shares a log with its reporters and its step, and says
 /// on which event each reporter fails.
@@ -100,10 +98,6 @@ fn kind_failed_on(
     name: &str,
 ) -> Option<&'static str> {
     (reporter == name).then_some(kind)
-}
-
-pub(crate) fn entries(log: &Log) -> Vec<String> {
-    log.lock().unwrap().clone()
 }
 
 pub(crate) fn shop_builder() -> WorkflowBuilder<Shop> {

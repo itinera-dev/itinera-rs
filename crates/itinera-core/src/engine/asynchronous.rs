@@ -48,8 +48,9 @@ mod tests {
     use futures::executor::block_on;
 
     use crate::executor::AsyncLocalExecutor;
-    use crate::executor::fixtures::{Shop, entries, mixed_instance};
+    use crate::executor::fixtures::{Shop, mixed_instance};
     use crate::journey::{Abort, JourneyStatus};
+    use crate::report::fixtures::entries;
 
     #[test]
     fn an_asynchronous_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others()

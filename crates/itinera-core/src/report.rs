@@ -9,7 +9,7 @@ mod asynchronous;
 mod default_dispatcher;
 mod dispatcher;
 #[cfg(test)]
-mod fixtures;
+pub(crate) mod fixtures;
 mod sealed;
 
 #[cfg(feature = "async")]

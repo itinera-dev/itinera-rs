@@ -125,8 +125,9 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::executor::fixtures::{Execute, Shop, entries, on, run_on};
+    use crate::executor::fixtures::{Execute, Shop, on, run_on};
     use crate::journey::{Abort, JourneyStatus};
+    use crate::report::fixtures::entries;
     use crate::report::{DefaultDispatcherFactory, Dispatcher, DispatcherFactory};
 
     #[rstest]

@@ -10,11 +10,12 @@ use crate::engine::fixtures::{
 use crate::error::Error;
 use crate::event::Event;
 use crate::executor::LocalExecutor;
-use crate::executor::fixtures::{Recorder, Shop, entries, shop_builder};
+use crate::executor::fixtures::{Recorder, Shop, shop_builder};
 use crate::policy::{
     HookNeeds, OnWorkflowFailure, OnWorkflowSuccess, Provides, Requested, WorkflowFailure,
     WorkflowPolicyDescriptor, WorkflowSuccess,
 };
+use crate::report::fixtures::entries;
 use crate::step::Outcome;
 use crate::workflow::WorkflowBuilder;
 

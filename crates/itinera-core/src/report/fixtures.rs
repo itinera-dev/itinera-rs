@@ -8,7 +8,8 @@ use crate::event::fixtures::event;
 use crate::event::{Event, EventBody, JourneyAbort};
 use crate::report::Reporter;
 
-pub(super) type Log = Arc<Mutex<Vec<String>>>;
+/// What the journey's reporters received, in order, as "reporter kind" lines.
+pub(crate) type Log = Arc<Mutex<Vec<String>>>;
 
 pub(super) struct Recording {
     name: &'static str,
@@ -71,6 +72,6 @@ pub(super) fn aborted() -> Event {
     )
 }
 
-pub(super) fn entries(log: &Log) -> Vec<String> {
+pub(crate) fn entries(log: &Log) -> Vec<String> {
     log.lock().unwrap().clone()
 }
