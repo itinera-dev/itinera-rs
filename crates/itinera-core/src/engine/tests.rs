@@ -78,10 +78,11 @@ fn the_step_runs_once() {
 fn a_journey_without_a_step_succeeds() {
     let shop = Shop::new();
     let log = Arc::clone(&shop.log);
-    let workflow = shop_builder().reporter::<Recorder<0>>().build().unwrap();
+    let audit = Recorder::new(&shop, "audit");
+    let workflow = shop_builder().build().unwrap();
 
     let result = LocalExecutor::new()
-        .run(workflow.instance(shop).create().unwrap())
+        .run(workflow.instance(shop).reporter(audit).create().unwrap())
         .unwrap();
 
     assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));

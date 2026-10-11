@@ -7,13 +7,12 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use itinera::error::Error;
 use itinera::event::Event;
-use itinera::journey::{DataBag, JourneyId};
-use itinera::report::{Reporter, WorkflowReporter};
+use itinera::journey::JourneyId;
+use itinera::report::Reporter;
 
 pub(crate) use dispatcher::{Behaviour, RecordingFactory};
 pub(crate) use recorders::{NoStream, Recorders};
 
-use crate::declaration::ScriptedWorkflow;
 use crate::model::{Model, ReporterFailure};
 
 /// A scripted reporter that records every event it receives, then fails as its script says.
@@ -27,8 +26,8 @@ pub(crate) struct Recorder {
 
 #[derive(Debug, Default)]
 struct Received {
-    /// The journey ID a workflow instance made the reporter with.
-    made_with: Option<JourneyId>,
+    /// The journey ID the reporter was given as its workflow instance was created.
+    journey_id: Option<JourneyId>,
     events: Vec<Event>,
     failure: Option<ReporterFailure>,
     failed: bool,
@@ -53,14 +52,9 @@ impl Recorder {
         self.shared.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// Records the journey ID the workflow instance made the reporter with.
-    fn made_with(&self, journey_id: &JourneyId) {
-        self.received().made_with = Some(journey_id.clone());
-    }
-
-    /// The journey ID a workflow instance made the reporter with, if one made it.
+    /// The journey ID the reporter was given, if a workflow instance gave it one.
     pub(crate) fn journey_id(&self) -> Option<JourneyId> {
-        self.received().made_with.clone()
+        self.received().journey_id.clone()
     }
 
     /// The events it received, in order, including those it failed on.
@@ -75,6 +69,11 @@ impl Recorder {
 }
 
 impl Reporter for Recorder {
+    fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
+        self.received().journey_id = Some(journey_id.clone());
+        Ok(())
+    }
+
     fn report(&mut self, event: &Event) -> Result<(), Error> {
         let mut received = self.received();
         received.events.push(event.clone());
@@ -90,36 +89,6 @@ impl Reporter for Recorder {
                 Err(Error::msg(message.unwrap_or_else(|| failure(event))))
             }
         }
-    }
-}
-
-/// The reporter the workflow lists at this position, which records with the recorder the
-/// instance was given for it.
-#[derive(Debug)]
-pub(crate) struct ListedReporter<const POSITION: usize> {
-    recorder: Recorder,
-}
-
-impl<const POSITION: usize> Reporter for ListedReporter<POSITION> {
-    fn report(&mut self, event: &Event) -> Result<(), Error> {
-        self.recorder.report(event)
-    }
-}
-
-impl<const POSITION: usize> WorkflowReporter<ScriptedWorkflow> for ListedReporter<POSITION> {
-    fn init(
-        workflow: &ScriptedWorkflow,
-        journey_id: &JourneyId,
-        _: &DataBag,
-    ) -> Result<Self, Error> {
-        let recorder = workflow
-            .reporter(POSITION)
-            .ok_or_else(|| {
-                Error::msg("the runner gave the instance no recorder for this reporter")
-            })?
-            .clone();
-        recorder.made_with(journey_id);
-        Ok(Self { recorder })
     }
 }
 

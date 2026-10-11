@@ -2,7 +2,7 @@ use std::future::Future;
 
 use crate::error::Error;
 use crate::event::Event;
-use crate::journey::{DataBag, JourneyId};
+use crate::journey::JourneyId;
 
 mod boxed_reporter;
 mod dispatcher;
@@ -12,7 +12,7 @@ pub use dispatcher::{AsyncDispatcher, AsyncDispatcherFactory};
 
 /// A [`Reporter`] whose `report` is asynchronous. A workflow with one is asynchronous.
 ///
-/// What [`Reporter`] says about failing applies to it too.
+/// What [`Reporter`] says about the reporters of a journey and about failing applies to it too.
 ///
 /// [`Reporter`]: super::Reporter
 ///
@@ -32,6 +32,49 @@ pub use dispatcher::{AsyncDispatcher, AsyncDispatcherFactory};
 /// }
 /// ```
 pub trait AsyncReporter: Send + 'static {
+    /// Receives the ID of the journey the reporter is for, once, as the workflow instance is
+    /// created and before the journey starts. It does nothing unless the reporter says otherwise.
+    /// It is synchronous, since creating an instance is.
+    ///
+    /// # Errors
+    ///
+    /// An error makes creating the instance fail, with
+    /// [`InstanceError::Reporter`](crate::instance::InstanceError::Reporter).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::event::Event;
+    /// use itinera::journey::JourneyId;
+    /// use itinera::report::AsyncReporter;
+    /// use itinera::workflow::WorkflowDescriptor;
+    ///
+    /// #[derive(Default)]
+    /// struct Forward {
+    ///     journey: Option<JourneyId>,
+    /// }
+    ///
+    /// impl AsyncReporter for Forward {
+    ///     fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
+    ///         self.journey = Some(journey_id.clone());
+    ///         Ok(())
+    ///     }
+    ///
+    ///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
+    ///         Ok(())
+    ///     }
+    /// }
+    ///
+    /// struct Orders;
+    ///
+    /// let orders = WorkflowDescriptor::<Orders, _>::async_builder("orders")
+    ///     .async_reporter::<Forward>();
+    /// ```
+    fn set_journey_id(&mut self, _journey_id: &JourneyId) -> Result<(), Error> {
+        Ok(())
+    }
+
     /// Receives one event.
     ///
     /// # Examples
@@ -50,69 +93,4 @@ pub trait AsyncReporter: Send + 'static {
     /// }
     /// ```
     fn report(&mut self, event: &Event) -> impl Future<Output = Result<(), Error>> + Send;
-}
-
-/// An [`AsyncReporter`] that a workflow lists, which every instance of the workflow makes for
-/// itself. Only an asynchronous workflow lists one.
-///
-/// What [`WorkflowReporter`](super::WorkflowReporter) says about making reporters applies to it
-/// too; making it is synchronous.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::error::Error;
-/// use itinera::event::Event;
-/// use itinera::journey::{DataBag, JourneyId};
-/// use itinera::report::{AsyncReporter, AsyncWorkflowReporter};
-///
-/// struct Orders;
-///
-/// struct Forward;
-///
-/// impl AsyncReporter for Forward {
-///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
-///         Ok(())
-///     }
-/// }
-///
-/// impl AsyncWorkflowReporter<Orders> for Forward {
-///     fn init(_: &Orders, _: &JourneyId, _: &DataBag) -> Result<Self, Error> {
-///         Ok(Forward)
-///     }
-/// }
-/// ```
-pub trait AsyncWorkflowReporter<W>: AsyncReporter + Sized {
-    /// Makes the reporter for one journey, from the workflow's own value, the journey ID and the
-    /// initial data. Failing makes creating the instance fail.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::error::Error;
-    /// use itinera::event::Event;
-    /// use itinera::journey::{DataBag, JourneyId};
-    /// use itinera::report::{AsyncReporter, AsyncWorkflowReporter};
-    ///
-    /// struct Orders;
-    ///
-    /// struct Forward {
-    ///     journey: JourneyId,
-    /// }
-    ///
-    /// impl AsyncReporter for Forward {
-    ///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
-    ///         Ok(())
-    ///     }
-    /// }
-    ///
-    /// impl AsyncWorkflowReporter<Orders> for Forward {
-    ///     fn init(_: &Orders, journey_id: &JourneyId, _: &DataBag) -> Result<Self, Error> {
-    ///         Ok(Forward {
-    ///             journey: journey_id.clone(),
-    ///         })
-    ///     }
-    /// }
-    /// ```
-    fn init(workflow: &W, journey_id: &JourneyId, data: &DataBag) -> Result<Self, Error>;
 }

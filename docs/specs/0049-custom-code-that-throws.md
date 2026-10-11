@@ -6,10 +6,10 @@ Status: done in stage 7. Stage 3 added the executors, with their refusals and th
 
 ## API
 
-- **Every call into custom code returns `Result<_, itinera::error::Error>`**: the journey ID generator, reporters' `init`, dispatcher factories, dispatchers, reporters, step factories and steps, input adapters, policy factories given to `fallible` or `fallible_async`, hooks, and role operations that can fail, which the hook propagates. A factory that cannot fail is given to `new` or `new_async` instead.
+- **Every call into custom code returns `Result<_, itinera::error::Error>`**: the journey ID generator, reporters' `set_journey_id`, dispatcher factories, dispatchers, reporters, step factories and steps, input adapters, policy factories given to `fallible` or `fallible_async`, hooks, and role operations that can fail, which the hook propagates. A factory that cannot fail is given to `new` or `new_async` instead.
 - **`LocalExecutor::run`** and **`AsyncLocalExecutor::run`** return `Result<JourneyResult, Refusal>`: whatever custom code returns inside the journey becomes the result, and never escapes `run`.
 - **`itinera::executor::Refusal`** has a variant for each refusal: `WorkflowPolicy`, with the policy's name and its error, `DispatcherFactory` and `Dispatcher`.
-- **`itinera::instance::InstanceError`** is what `create()` returns when the journey ID generator or a reporter's `init` fails, before any executor is involved: `JourneyId(Error)` or `Reporter(Error)`.
+- **`itinera::instance::InstanceError`** is what `create()` returns when the journey ID generator or a reporter's `set_journey_id` fails, before any executor is involved: `JourneyId(Error)` or `Reporter(Error)`.
 
 ## How the rules are enforced
 

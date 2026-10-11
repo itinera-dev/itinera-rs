@@ -90,7 +90,7 @@ mod tests {
             .create()
             .unwrap();
 
-        assert!(instance.workflow().made().is_empty());
+        assert_eq!(instance.workflow().shop, "north");
         let amount = instance.into_data_bag().get("amount").cloned();
         assert_eq!(
             amount

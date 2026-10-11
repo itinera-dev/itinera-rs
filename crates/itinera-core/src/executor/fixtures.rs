@@ -6,16 +6,15 @@ use std::sync::Arc;
 use super::{LocalExecutor, Refusal};
 use crate::error::Error;
 use crate::event::Event;
-use crate::instance::Instance;
-use crate::journey::{DataBag, JourneyId, JourneyResult};
+use crate::instance::{Instance, InstanceBuilder};
+use crate::journey::JourneyResult;
 #[cfg(feature = "async")]
 use crate::mode::Asynchronous;
-use crate::report::fixtures::Log;
 #[cfg(feature = "async")]
-use crate::report::{AsyncReporter, AsyncWorkflowReporter};
+use crate::report::AsyncReporter;
+use crate::report::fixtures::Log;
 use crate::report::{
     DefaultDispatcher, DefaultDispatcherFactory, Dispatcher, DispatcherFactory, Reporter,
-    WorkflowReporter,
 };
 use crate::step::{Outcome, StepDescriptor, StepName};
 use crate::workflow::{WorkflowBuilder, WorkflowDescriptor};
@@ -43,17 +42,16 @@ impl Shop {
     }
 }
 
-const NAMES: [&str; 3] = ["audit", "fragile", "metrics"];
-
 /// A reporter that logs what it receives, and fails as its workflow says.
-pub(crate) struct Recorder<const N: usize> {
+pub(crate) struct Recorder {
+    name: &'static str,
     log: Log,
     fails_on: Vec<&'static str>,
 }
 
-impl<const N: usize> Recorder<N> {
+impl Recorder {
     fn record(&mut self, event: &Event) -> Result<(), Error> {
-        let name = NAMES[N];
+        let name = self.name;
         self.log
             .lock()
             .unwrap()
@@ -65,27 +63,22 @@ impl<const N: usize> Recorder<N> {
     }
 }
 
-impl<const N: usize> Reporter for Recorder<N> {
+impl Reporter for Recorder {
     fn report(&mut self, event: &Event) -> Result<(), Error> {
         self.record(event)
     }
 }
 
-impl<const N: usize> WorkflowReporter<Shop> for Recorder<N> {
-    fn init(shop: &Shop, _: &JourneyId, _: &DataBag) -> Result<Self, Error> {
-        Ok(Self::new(shop))
-    }
-}
-
-impl<const N: usize> Recorder<N> {
-    fn new(shop: &Shop) -> Self {
-        let name = NAMES[N];
+impl Recorder {
+    /// The recorder of this name for one journey of this shop.
+    pub(crate) fn new(shop: &Shop, name: &'static str) -> Self {
         let fails_on = shop
             .fails_on
             .iter()
             .filter_map(|failure| kind_failed_on(failure, name))
             .collect();
         Self {
+            name,
             log: Arc::clone(&shop.log),
             fails_on,
         }
@@ -104,17 +97,26 @@ pub(crate) fn shop_builder() -> WorkflowBuilder<Shop> {
     WorkflowDescriptor::builder("shop")
 }
 
-pub(crate) fn shop_workflow() -> WorkflowDescriptor<Shop> {
+fn shop_workflow() -> WorkflowDescriptor<Shop> {
     shop_builder()
         .step(StepDescriptor::new(StepName::new("charge"), || {
             Ok(Outcome::success())
         }))
-        .reporter::<Recorder<0>>()
-        .reporter::<Recorder<1>>()
-        .reporter::<Recorder<2>>()
         .id_generator(|_: &Shop, _| Ok("order-7".to_string()))
         .build()
         .unwrap()
+}
+
+/// An instance of the shop's workflow, with its three recorders, in order.
+pub(crate) fn recorded(shop: Shop) -> InstanceBuilder<Shop> {
+    let audit = Recorder::new(&shop, "audit");
+    let fragile = Recorder::new(&shop, "fragile");
+    let metrics = Recorder::new(&shop, "metrics");
+    shop_workflow()
+        .instance(shop)
+        .reporter(audit)
+        .reporter(fragile)
+        .reporter(metrics)
 }
 
 pub(crate) type Execute = fn(Instance<Shop>) -> Result<JourneyResult, Refusal>;
@@ -127,11 +129,7 @@ pub(crate) fn on<F: DispatcherFactory + Default>(
 
 pub(crate) fn run_on(execute: Execute, shop: Shop) -> (JourneyResult, Log) {
     let log = Arc::clone(&shop.log);
-    let instance = shop_workflow()
-        .instance(shop)
-        .data("amount", 42_i64)
-        .create()
-        .unwrap();
+    let instance = recorded(shop).data("amount", 42_i64).create().unwrap();
     (execute(instance).unwrap(), log)
 }
 
@@ -191,7 +189,7 @@ pub(crate) fn run_shop_with(
     factory: FailingFactory,
 ) -> (Result<JourneyResult, Refusal>, Log) {
     let log = Arc::clone(&shop.log);
-    let instance = shop_workflow().instance(shop).create().unwrap();
+    let instance = recorded(shop).create().unwrap();
     (
         LocalExecutor::with_dispatcher_factory(factory).run(instance),
         log,
@@ -200,23 +198,14 @@ pub(crate) fn run_shop_with(
 
 /// An asynchronous reporter that logs and fails like the synchronous one it wraps.
 #[cfg(feature = "async")]
-struct AsyncRecorder<const N: usize> {
-    recorder: Recorder<N>,
+struct AsyncRecorder {
+    recorder: Recorder,
 }
 
 #[cfg(feature = "async")]
-impl<const N: usize> AsyncReporter for AsyncRecorder<N> {
+impl AsyncReporter for AsyncRecorder {
     async fn report(&mut self, event: &Event) -> Result<(), Error> {
         self.recorder.record(event)
-    }
-}
-
-#[cfg(feature = "async")]
-impl<const N: usize> AsyncWorkflowReporter<Shop> for AsyncRecorder<N> {
-    fn init(shop: &Shop, _: &JourneyId, _: &DataBag) -> Result<Self, Error> {
-        Ok(Self {
-            recorder: Recorder::new(shop),
-        })
     }
 }
 
@@ -227,15 +216,25 @@ fn mixed_workflow() -> WorkflowDescriptor<Shop, Asynchronous> {
             StepName::new("charge"),
             async || Ok(Outcome::success()),
         ))
-        .reporter::<Recorder<0>>()
-        .async_reporter::<AsyncRecorder<1>>()
-        .reporter::<Recorder<2>>()
         .build()
         .unwrap()
 }
 
+/// An instance of the asynchronous shop, whose second recorder is asynchronous.
 #[cfg(feature = "async")]
 pub(crate) fn mixed_instance(shop: Shop) -> (Instance<Shop, Asynchronous>, Log) {
     let log = Arc::clone(&shop.log);
-    (mixed_workflow().instance(shop).create().unwrap(), log)
+    let audit = Recorder::new(&shop, "audit");
+    let fragile = AsyncRecorder {
+        recorder: Recorder::new(&shop, "fragile"),
+    };
+    let metrics = Recorder::new(&shop, "metrics");
+    let instance = mixed_workflow()
+        .instance(shop)
+        .reporter(audit)
+        .async_reporter(fragile)
+        .reporter(metrics)
+        .create()
+        .unwrap();
+    (instance, log)
 }

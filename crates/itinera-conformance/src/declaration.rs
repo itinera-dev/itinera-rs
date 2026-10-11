@@ -7,7 +7,6 @@ mod policy;
 
 use itinera::error::Error;
 use itinera::journey::DataBag;
-use itinera::mode::Mode;
 use itinera::policy::Provides;
 use itinera::step::{StepDescriptor, StepName};
 use itinera::workflow::{ListedStep, Violations, WorkflowBuilder};
@@ -18,16 +17,13 @@ use input_adapter::input_adapter;
 use policy::{step_policy, workflow_policy};
 
 use crate::model::{IdGenerator, Model, ModelError, Workflow};
-use crate::record::{ListedReporter, Recorder};
 use crate::role::{ProvidedRoles, Roles};
 use crate::step::{Scripted, StepsRun};
 use crate::witness::Witness;
 
-/// The workflow's own value: the recorders of the reporters it lists, in order, which its
-/// instance hands its reporters as it makes them, and the roles it provides.
+/// The workflow's own value: the roles it provides.
 #[derive(Debug)]
 pub(crate) struct ScriptedWorkflow {
-    reporters: Vec<Recorder>,
     roles: ProvidedRoles,
 }
 
@@ -38,13 +34,8 @@ impl Provides<dyn Roles> for ScriptedWorkflow {
 }
 
 impl ScriptedWorkflow {
-    pub(crate) fn new(reporters: Vec<Recorder>, roles: ProvidedRoles) -> Self {
-        Self { reporters, roles }
-    }
-
-    /// The recorder of the reporter listed at this position, counted from 0.
-    pub(crate) fn reporter(&self, position: usize) -> Option<&Recorder> {
-        self.reporters.get(position)
+    pub(crate) fn new(roles: ProvidedRoles) -> Self {
+        Self { roles }
     }
 }
 
@@ -79,20 +70,12 @@ pub(crate) fn declared<M: Declares>(
         .iter()
         .map(input_adapter)
         .collect::<Result<Vec<_>, _>>()?;
-    let lists = reporter_lists::<M>();
-    if workflow.reporters.len() > lists.len() {
-        return Err(ModelError::TooManyReporters(lists.len()));
-    }
     let builder = M::builder(leaked(&workflow.name));
     let builder = steps.into_iter().fold(builder, WorkflowBuilder::step);
     let builder = policies.into_iter().fold(builder, WorkflowBuilder::policy);
     let builder = adapters
         .into_iter()
         .fold(builder, WorkflowBuilder::input_adapter);
-    let builder = lists
-        .into_iter()
-        .take(workflow.reporters.len())
-        .fold(builder, |builder, list| list(builder));
     Ok(match &workflow.id_generator {
         IdGenerator::Default => builder,
         IdGenerator::Returns(id) => builder.id_generator(returning(id.clone())),
@@ -132,21 +115,6 @@ fn step_descriptor<M: Declares>(
     Ok(policies
         .into_iter()
         .fold(descriptor, StepDescriptor::policy))
-}
-
-/// A builder step that lists one more reporter.
-type Lists<M> = fn(WorkflowBuilder<ScriptedWorkflow, M>) -> WorkflowBuilder<ScriptedWorkflow, M>;
-
-/// Lists the reporter at each position, up to as many as the runner can list: each position is
-/// a type of its own, since the builder lists a reporter by its type.
-fn reporter_lists<M: Mode>() -> [Lists<M>; 4] {
-    [list::<0, M>, list::<1, M>, list::<2, M>, list::<3, M>]
-}
-
-fn list<const POSITION: usize, M: Mode>(
-    builder: WorkflowBuilder<ScriptedWorkflow, M>,
-) -> WorkflowBuilder<ScriptedWorkflow, M> {
-    builder.reporter::<ListedReporter<POSITION>>()
 }
 
 /// A step name, which may not be empty.

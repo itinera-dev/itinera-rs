@@ -11,24 +11,18 @@ use crate::report::BoxedReporter;
 /// ```
 /// use itinera::error::Error;
 /// use itinera::event::Event;
-/// use itinera::journey::{DataBag, JourneyId};
 /// use itinera::mode::Asynchronous;
-/// use itinera::report::{AsyncReporter, AsyncWorkflowReporter};
+/// use itinera::report::AsyncReporter;
 /// use itinera::workflow::WorkflowDescriptor;
 ///
 /// struct Orders;
 ///
+/// #[derive(Default)]
 /// struct Forward;
 ///
 /// impl AsyncReporter for Forward {
 ///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
 ///         Ok(())
-///     }
-/// }
-///
-/// impl AsyncWorkflowReporter<Orders> for Forward {
-///     fn init(_: &Orders, _: &JourneyId, _: &DataBag) -> Result<Self, Error> {
-///         Ok(Forward)
 ///     }
 /// }
 ///

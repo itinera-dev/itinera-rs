@@ -6,10 +6,10 @@ use super::{
     Declaration, InputAdapterDescriptor, Violations, WorkflowDescriptor, WorkflowName, violation,
 };
 use crate::error::Error;
-use crate::journey::{DataBag, JourneyId};
+use crate::journey::DataBag;
 use crate::mode::{Mode, Synchronous};
 use crate::policy::WorkflowPolicyDescriptor;
-use crate::report::{Reporter, WorkflowReporter};
+use crate::report::{self, Reporter};
 use crate::step::StepDescriptor;
 
 /// Declares a workflow, one part at a time, and builds its [`WorkflowDescriptor`].
@@ -153,20 +153,21 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
         self
     }
 
-    /// Lists a reporter, which each instance makes for its journey. Reporters receive events in
-    /// the order they are listed.
+    /// Lists a reporter, which each instance makes for its journey with `Default`. Reporters
+    /// receive events in the order they are listed, before those added as an instance is created
+    /// with [`InstanceBuilder::reporter`](crate::instance::InstanceBuilder::reporter).
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::error::Error;
     /// use itinera::event::Event;
-    /// use itinera::journey::{DataBag, JourneyId};
-    /// use itinera::report::{Reporter, WorkflowReporter};
+    /// use itinera::report::Reporter;
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// struct Orders;
     ///
+    /// #[derive(Default)]
     /// struct Audit;
     ///
     /// impl Reporter for Audit {
@@ -175,19 +176,13 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     ///     }
     /// }
     ///
-    /// impl WorkflowReporter<Orders> for Audit {
-    ///     fn init(_: &Orders, _: &JourneyId, _: &DataBag) -> Result<Self, Error> {
-    ///         Ok(Audit)
-    ///     }
-    /// }
-    ///
-    /// let orders = WorkflowDescriptor::builder("orders").reporter::<Audit>().build()?;
+    /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
+    ///     .reporter::<Audit>()
+    ///     .build()?;
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
-    pub fn reporter<R: WorkflowReporter<W>>(mut self) -> Self {
-        self.declaration
-            .reporters
-            .push(Box::new(make_reporter::<W, R, M>));
+    pub fn reporter<R: Reporter + Default>(mut self) -> Self {
+        self.declaration.reporters.push(made::<R, M>);
         self
     }
 
@@ -266,18 +261,8 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     }
 }
 
-fn make_reporter<W, R: WorkflowReporter<W>, M: Mode>(
-    workflow: &W,
-    journey_id: &JourneyId,
-    data: &DataBag,
-) -> Result<M::Reporter, Error> {
-    R::init(workflow, journey_id, data).map(held::<R, M>)
-}
-
-/// A reporter as a workflow in mode `M` holds it.
-fn held<R: Reporter, M: Mode>(reporter: R) -> M::Reporter {
-    let reporter: Box<dyn Reporter> = Box::new(reporter);
-    M::Reporter::from(reporter)
+fn made<R: Reporter + Default, M: Mode>() -> M::Reporter {
+    report::held::<M>(R::default())
 }
 
 #[cfg(test)]

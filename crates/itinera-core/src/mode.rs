@@ -1,6 +1,6 @@
 //! Execution modes: whether a workflow is synchronous or asynchronous.
 
-use crate::report::Reporter;
+use crate::report::{self, Reporter};
 
 #[cfg(feature = "async")]
 mod asynchronous;
@@ -27,7 +27,7 @@ pub use asynchronous::Asynchronous;
 /// ```
 pub trait Mode: sealed::Sealed + Send + Sync + 'static {
     /// How a workflow in this mode holds each of its reporters.
-    type Reporter: From<Box<dyn Reporter>> + Send + 'static;
+    type Reporter: From<Box<dyn Reporter>> + report::sealed::Held + Send + 'static;
 }
 
 /// The mode of a workflow whose parts are all synchronous, which only the synchronous executor
