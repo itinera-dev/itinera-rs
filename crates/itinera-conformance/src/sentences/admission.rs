@@ -10,6 +10,7 @@ use itinera::workflow::{ListedStep, Violation};
 
 use super::{Unmet, holds};
 use crate::declaration::{Admission, declared};
+use crate::fixture;
 use crate::journey::{self, Unrunnable};
 use crate::model::{ModelError, Row, rows};
 use crate::world::World;
@@ -31,8 +32,12 @@ fn the_workflow_is_listed(world: &mut World) -> Result<(), ModelError> {
 
 /// Builds the scenario's workflow, which checks its declaration and runs nothing. Neither
 /// admission nor the listing depends on the execution mode, so the workflow is declared
-/// synchronous.
+/// synchronous. A workflow the macros declare is built already, by its descriptor.
 fn admit(world: &mut World) -> Result<(), ModelError> {
+    if let Some(fixture) = fixture::named(world)? {
+        world.admission = Some(Admission::Admitted(fixture.listing()));
+        return Ok(());
+    }
     let admission =
         match declared::<Synchronous>(&world.model, &world.steps_run, &world.witness)?.build() {
             Ok(descriptor) => Admission::Admitted(descriptor.listing()),
@@ -99,7 +104,7 @@ fn the_listing_is(world: &mut World, #[step] sentence: &Sentence) -> Result<(), 
 
 #[then(expr = "no step ran")]
 fn no_step_ran(world: &mut World) -> Result<(), Unmet> {
-    holds(world.steps_run.none(), "no step to run", "a step ran")
+    holds(world.steps_run()?.none(), "no step to run", "a step ran")
 }
 
 fn admission(world: &World) -> Result<&Admission, Unmet> {

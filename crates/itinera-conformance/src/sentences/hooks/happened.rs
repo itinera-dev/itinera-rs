@@ -46,7 +46,7 @@ fn the_hooks_were_called_in_this_order(
         .iter()
         .map(policy_and_hook)
         .collect::<Result<Vec<_>, _>>()?;
-    let found: Vec<(String, Hook)> = world.witness.calls().into_iter().map(named).collect();
+    let found: Vec<(String, Hook)> = world.witnessed()?.calls().into_iter().map(named).collect();
     holds(
         found == expected,
         format_args!("the calls {expected:?}"),

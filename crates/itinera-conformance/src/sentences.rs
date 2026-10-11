@@ -6,6 +6,7 @@ mod building;
 mod data;
 mod events;
 mod executor;
+mod fixtures;
 mod hooks;
 mod input_adapters;
 mod journey_ids;

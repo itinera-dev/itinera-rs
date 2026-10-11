@@ -6,6 +6,7 @@ mod cases;
 mod declaration;
 mod environment;
 mod executor;
+mod fixture;
 mod journey;
 #[expect(dead_code, reason = "the sentences that act on the model read it")]
 mod model;

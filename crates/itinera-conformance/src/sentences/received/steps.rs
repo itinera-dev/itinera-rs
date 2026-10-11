@@ -6,7 +6,7 @@ use std::num::NonZeroU32;
 use cucumber::then;
 use serde_json::Value;
 
-use crate::model::json;
+use crate::model::{ModelError, json};
 use crate::sentences::{Unmet, holds};
 use crate::witness::Build;
 use crate::world::World;
@@ -38,7 +38,7 @@ fn step_was_built_for_attempt_with_input(
     key: String,
     value: String,
 ) -> Result<(), Unmet> {
-    let builds: Vec<Build> = builds_of(world, &step_name)
+    let builds: Vec<Build> = builds_of(world, &step_name)?
         .into_iter()
         .filter(|build| is_of_attempt(build, attempt))
         .collect();
@@ -57,7 +57,7 @@ fn is_of_attempt(build: &Build, attempt: NonZeroU32) -> bool {
 /// Holds when a build of the step received this value for the input, or received it absent.
 fn built_with(world: &World, step: &str, key: &str, value: Option<Value>) -> Result<(), Unmet> {
     received_input(
-        &builds_of(world, step),
+        &builds_of(world, step)?,
         key,
         value,
         format_args!("\"{step}\" built"),
@@ -92,7 +92,7 @@ fn written(value: Option<&Value>) -> String {
 /// builds counts new instances.
 #[then(expr = "step {string} was built {int} times, each time as a new instance")]
 fn step_was_built_times(world: &mut World, step_name: String, times: usize) -> Result<(), Unmet> {
-    let found = builds_of(world, &step_name).len();
+    let found = builds_of(world, &step_name)?.len();
     holds(
         found == times,
         format_args!("\"{step_name}\" built {times} times"),
@@ -104,11 +104,11 @@ fn is_of_step(build: &Build, step: &str) -> bool {
     build.step == step
 }
 
-fn builds_of(world: &World, step: &str) -> Vec<Build> {
-    world
-        .witness
+fn builds_of(world: &World, step: &str) -> Result<Vec<Build>, ModelError> {
+    Ok(world
+        .witnessed()?
         .builds()
         .into_iter()
         .filter(|build| is_of_step(build, step))
-        .collect()
+        .collect())
 }
