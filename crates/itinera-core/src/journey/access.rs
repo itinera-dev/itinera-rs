@@ -1,7 +1,7 @@
 //! An input adapter's read access to the data bag.
 
 use super::DataBag;
-use crate::value::{AnyValue, Value};
+use crate::value::Value;
 
 /// Read access to the data bag, which an input adapter declares and takes for one call. It
 /// shows everything committed before the attempt being built, and lives no longer than that
@@ -56,15 +56,8 @@ impl<'a> DataBagAccess<'a> {
     /// }
     /// ```
     pub fn read<T: Value>(&self, key: &str) -> Read<T> {
-        self.data_bag.get(key).map_or(Read::Absent, as_read)
+        self.data_bag.read(key)
     }
-}
-
-fn as_read<T: Value>(value: &AnyValue) -> Read<T> {
-    value
-        .downcast_ref::<T>()
-        .cloned()
-        .map_or(Read::OtherType, Read::Present)
 }
 
 /// What a read through a [`DataBagAccess`] found under a key.
@@ -89,32 +82,4 @@ pub enum Read<T> {
     Absent,
     /// The data bag holds a value of another type under the key.
     OtherType,
-}
-
-#[cfg(test)]
-mod tests {
-    use rstest::rstest;
-
-    use super::*;
-
-    fn priced() -> DataBag {
-        let mut data_bag = DataBag::new();
-        data_bag.insert("price".to_owned(), AnyValue::new(7_i64));
-        data_bag
-    }
-
-    #[rstest]
-    #[case::a_value_of_the_type_asked_for("price", Read::Present(7))]
-    #[case::a_key_the_data_bag_does_not_hold("discount", Read::Absent)]
-    fn a_read_reports_what_the_data_bag_holds(#[case] key: &str, #[case] expected: Read<i64>) {
-        assert_eq!(DataBagAccess::new(&priced()).read::<i64>(key), expected);
-    }
-
-    #[test]
-    fn a_read_as_another_type_reports_it() {
-        assert_eq!(
-            DataBagAccess::new(&priced()).read::<String>("price"),
-            Read::OtherType
-        );
-    }
 }

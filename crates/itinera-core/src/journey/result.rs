@@ -1,6 +1,6 @@
 //! What running a journey returns: its ID and how it ended.
 
-use super::{Abort, DataBag, Failure, JourneyId};
+use super::{Abort, DataBag, Failure, JourneyId, Output, OutputError};
 
 /// What running a journey returns: a business outcome, with the journey's ID and how it ended.
 ///
@@ -29,6 +29,43 @@ pub struct JourneyResult {
     pub journey_id: JourneyId,
     /// How the journey ended, with what explains it.
     pub status: JourneyStatus,
+}
+
+impl JourneyResult {
+    /// The journey's output, read from its data bag as a type of the application's own.
+    ///
+    /// # Errors
+    ///
+    /// [`OutputError::Aborted`] when the journey was aborted, since it has no data bag, and
+    /// whatever error the type's [`Output::from_data`] returns.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::journey::{DataBag, JourneyResult, Output, OutputError};
+    ///
+    /// struct Receipt {
+    ///     receipt: String,
+    /// }
+    ///
+    /// impl Output for Receipt {
+    ///     fn from_data(data: &DataBag) -> Result<Self, OutputError> {
+    ///         Ok(Self {
+    ///             receipt: data.required("receipt")?,
+    ///         })
+    ///     }
+    /// }
+    ///
+    /// fn receipt(result: &JourneyResult) -> Result<String, OutputError> {
+    ///     Ok(result.output::<Receipt>()?.receipt)
+    /// }
+    /// ```
+    pub fn output<T: Output>(&self) -> Result<T, OutputError> {
+        self.status
+            .data()
+            .ok_or(OutputError::Aborted)
+            .and_then(T::from_data)
+    }
 }
 
 /// How a journey ended, with what explains it, and its data bag when it has an output.

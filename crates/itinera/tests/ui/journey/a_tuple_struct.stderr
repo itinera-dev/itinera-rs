@@ -1,0 +1,11 @@
+error: a struct deriving `InitialData` has named fields, each naming its key, or none
+ --> tests/ui/journey/a_tuple_struct.rs:8:8
+  |
+8 | struct Order(i64);
+  |        ^^^^^
+
+error: a struct deriving `Output` has named fields, each naming its key, or none
+ --> tests/ui/journey/a_tuple_struct.rs:8:8
+  |
+8 | struct Order(i64);
+  |        ^^^^^

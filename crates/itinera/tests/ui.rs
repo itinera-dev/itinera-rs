@@ -371,3 +371,73 @@ mod policy {
         );
     }
 }
+
+/// What the journey data derives refuse, each with the derive's own error.
+#[cfg(feature = "macros")]
+mod journey {
+    use super::enforced;
+
+    #[test]
+    fn only_a_key_whose_value_is_an_option_is_marked_required() {
+        enforced(
+            "tests/ui/journey/required_on_a_value_that_is_not_an_option.rs",
+            "tests/ui/journey/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_field_names_its_key_once() {
+        enforced(
+            "tests/ui/journey/a_key_named_twice.rs",
+            "tests/ui/journey/described.rs",
+        );
+    }
+
+    #[test]
+    fn two_fields_never_give_the_same_key() {
+        enforced(
+            "tests/ui/journey/a_key_given_by_two_fields.rs",
+            "tests/ui/journey/described.rs",
+        );
+    }
+
+    #[test]
+    fn required_takes_no_argument() {
+        enforced(
+            "tests/ui/journey/an_argument_to_required.rs",
+            "tests/ui/journey/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_key_is_named_as_a_string() {
+        enforced(
+            "tests/ui/journey/a_key_that_is_not_a_string.rs",
+            "tests/ui/journey/described.rs",
+        );
+    }
+
+    #[test]
+    fn every_field_of_journey_data_is_a_value() {
+        enforced(
+            "tests/ui/journey/a_field_that_is_not_a_value.rs",
+            "tests/ui/journey/described.rs",
+        );
+    }
+
+    #[test]
+    fn journey_data_is_a_struct_with_named_fields() {
+        enforced(
+            "tests/ui/journey/a_tuple_struct.rs",
+            "tests/ui/journey/described.rs",
+        );
+    }
+
+    #[test]
+    fn generic_journey_data_implements_its_traits_by_hand() {
+        enforced(
+            "tests/ui/journey/generic.rs",
+            "tests/ui/journey/described.rs",
+        );
+    }
+}

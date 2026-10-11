@@ -6,11 +6,13 @@ use crate::value::AnyValue;
 use crate::workflow::WorkflowDescriptor;
 
 mod builder;
+mod error;
 #[cfg(test)]
 mod fixtures;
 mod workflow_instance;
 
-pub use builder::{InstanceBuilder, InstanceError};
+pub use builder::InstanceBuilder;
+pub use error::InstanceError;
 pub use workflow_instance::{Committed, WorkflowInstance};
 
 /// The workflow instance itinera makes, with [`WorkflowDescriptor::instance`].

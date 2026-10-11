@@ -8,6 +8,7 @@
 mod block;
 mod datum;
 mod described;
+mod journey;
 mod marker;
 mod policy;
 mod step;
@@ -41,4 +42,18 @@ pub fn workflow_policy(arguments: TokenStream, block: TokenStream) -> TokenStrea
 pub fn derive_step(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     step::expand_derive(input).into()
+}
+
+#[doc = include_str!("../docs/derive_initial_data.md")]
+#[proc_macro_derive(InitialData, attributes(key, required))]
+pub fn derive_initial_data(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    journey::expand_initial_data(input).into()
+}
+
+#[doc = include_str!("../docs/derive_output.md")]
+#[proc_macro_derive(Output, attributes(key, required))]
+pub fn derive_output(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    journey::expand_output(input).into()
 }

@@ -1,7 +1,7 @@
-//! Data requested by key: a step's inputs, and the data a hook requests from its step or its
-//! workflow. Whether a datum is optional is read from its type.
+//! Data requested by key: a step's inputs, the data a hook requests from its step or its
+//! workflow, and the fields of journey data. Whether a datum is optional is read from its type.
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::ext::IdentExt as _;
 use syn::parse::{Parse, ParseStream};
@@ -18,7 +18,7 @@ pub(crate) struct Datum {
 }
 
 /// How a datum is requested, which its type decides.
-enum Request {
+pub(crate) enum Request {
     /// The key must be present, and its value has this type.
     Required(Type),
     /// The key may be absent: the parameter or field is an `Option` of this type.
@@ -52,6 +52,15 @@ impl Parse for Arguments {
 }
 
 impl Arguments {
+    /// The arguments of a datum named by separate attributes, such as `#[key("note")]` and
+    /// `#[required]`, where `required` is the span of the mark that makes it required.
+    pub(crate) fn new(key: Option<LitStr>, required: Option<Span>) -> Self {
+        Self {
+            key,
+            required: required.map(self::required),
+        }
+    }
+
     /// What an attribute naming a datum says, written as `#[input]` or with arguments, such as
     /// `#[input("amount", required)]`.
     pub(crate) fn of(mark: &Attribute) -> syn::Result<Self> {
@@ -102,6 +111,16 @@ fn misread(error: &syn::Error, mark: &Attribute) -> syn::Error {
 }
 
 impl Datum {
+    /// The datum's key.
+    pub(crate) fn key(&self) -> &LitStr {
+        &self.key
+    }
+
+    /// How the datum is requested.
+    pub(crate) fn request(&self) -> &Request {
+        &self.request
+    }
+
     /// The token naming the datum, such as `Input::<i64>::new("amount")`.
     fn token(&self) -> TokenStream {
         let key = &self.key;

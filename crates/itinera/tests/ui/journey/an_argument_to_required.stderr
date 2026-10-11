@@ -1,0 +1,5 @@
+error: `#[required]` takes no arguments
+  --> tests/ui/journey/an_argument_to_required.rs:12:15
+   |
+12 |     #[required(always)]
+   |               ^

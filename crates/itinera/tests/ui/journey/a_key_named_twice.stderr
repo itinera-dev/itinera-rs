@@ -1,0 +1,5 @@
+error: a field is given one key
+  --> tests/ui/journey/a_key_named_twice.rs:11:5
+   |
+11 |     #[key("coupon")]
+   |     ^^^^^^^^^^^^^^^^

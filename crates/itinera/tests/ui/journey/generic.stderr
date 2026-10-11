@@ -1,0 +1,11 @@
+error: a generic type implements `InitialData` by hand, not with the derive
+ --> tests/ui/journey/generic.rs:8:14
+  |
+8 | struct Order<T> {
+  |              ^
+
+error: a generic type implements `Output` by hand, not with the derive
+ --> tests/ui/journey/generic.rs:8:14
+  |
+8 | struct Order<T> {
+  |              ^
