@@ -24,7 +24,7 @@ Status: done in stage 7. Stage 1 added the error type, and stages 3 to 7 the exe
 
 ## Rules made impossible to express
 
-Rust makes all six rules of point 4, the sixth added by proposal 0091, impossible to express, and lists their tags under `impossible` in `conformance.json`. Each excluded scenario is proven by a test in `crates/itinera/tests/proofs.rs`, which compiles the code breaking the rule, expecting the compiler's error, and a twin keeping it, which compiles and runs:
+Rust makes all six rules of point 4, the sixth added by proposal 0091, impossible to express, and lists their tags under `impossible` in `conformance.json`. Each excluded scenario is proven by a test in `crates/itinera/tests/proofs.rs`, which compiles the code breaking the rule, expecting the compiler's error, and a twin keeping it, which compiles, and runs when it has something to run:
 
 | Tag | Scenario | Proof |
 |---|---|---|

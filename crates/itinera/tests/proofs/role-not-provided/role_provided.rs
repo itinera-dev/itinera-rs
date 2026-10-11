@@ -33,7 +33,7 @@ impl<W: Provides<dyn Notifier> + Send + Sync + 'static> OnStepSuccess<W> for Tel
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tell = StepPolicyDescriptor::new("tell", || Tell).on_step_success();
     let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())).policy(tell);
     WorkflowDescriptor::<Orders>::builder("orders")

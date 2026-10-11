@@ -305,7 +305,7 @@ The macros are syntax over the builder. Each expands to builder calls and to imp
 - **Both executors, as the rows of an Examples table.** As it reads the cases, the runner copies every scenario once for each executor that runs it, as if the scenario had an Examples table with one row per executor: one for `LocalExecutor`, tagged `@executor-local`, and one for `AsyncLocalExecutor`, tagged `@executor-async`. A scenario tagged `@capability-sync` gets only the first, and one tagged `@capability-async` only the second. Under `AsyncLocalExecutor`, the runner declares the scenario's workflow `Asynchronous`, with asynchronous scripted steps and hooks. Each copy is a scenario of its own, which must pass, and keeps the scenario's name. Like a row of a real Examples table, each has a line of its own, since the Cucumber JSON report tells scenarios apart by name and line: the first copy has the scenario's line, and the next is moved past every scenario sharing its name, such as the other rows of a Scenario Outline.
 - **The runner knows nothing of excluded scenarios.** It writes only the Cucumber JSON, holding the scenarios that ran.
 - **Exclusions are declared in `conformance.json`.** `impossible` maps each excluded tag to its scenarios, each with its feature file, its name, and its proof: the test that proves it and the file holding that test. Every scenario carrying the tag at the pinned cases must have an entry, so a tag is added, with all its entries, in the pull request that lands the proofs for all its scenarios. Until then its scenarios do not run anyway, since their proposals are not listed yet.
-- **Proofs are Rust tests, run by `cargo test`.** They live in `crates/itinera/tests/proofs.rs`, with their fixtures beside it in `crates/itinera/tests/proofs/<tag>/`, because they test the public API, not the runner. Each excluded scenario has its own `#[test]`, which runs `trybuild` on one fixture holding the forbidden code, compared with the compiler error it must produce, and on a twin that differs only in the forbidden line and must compile. The fixtures share a few support types. The proofs are:
+- **Proofs are Rust tests, run by `cargo test`.** They live in `crates/itinera/tests/proofs.rs`, with their fixtures beside it in `crates/itinera/tests/proofs/<tag>/`, because they test the public API, not the runner. Each excluded scenario has its own `#[test]`, which runs `trybuild` on one fixture holding the forbidden code, compared with the compiler error it must produce. Its twin, which keeps the rule, is a module of the `proofs` test target, so it compiles with the proofs, and the test runs the twin's `main` unless that is empty. The fixtures share a few support types. The proofs are:
   - `invalid-lifecycle`: `on step failure` returning `FinishWorkflow`; the twin returns `FailWorkflow`;
   - `role-not-provided`: a policy whose hook requests a role, attached to a workflow that does not implement `Provides` for it; the twin's workflow provides the role;
   - `mode-not-accepted`: an asynchronous step run by `LocalExecutor`;
@@ -320,7 +320,7 @@ The macros are syntax over the builder. Each expands to builder calls and to imp
 
 - **Unit tests** in `itinera-core`, next to the code: the decision rules, typed reads from the bag, the order of events, the handling of `Interrupted`.
 - **Macro equivalence**: each macro form is paired with the same workflow written with the builder. Both must give the same listing, and the same event stream for the same inputs, apart from the journey ID and timestamps.
-- **Compile-fail tests** in `crates/itinera/tests/ui/`, each with a compiling twin: running an instance twice, calling `run` concurrently, attaching a policy that defines no hook, and each refusal of the macros listed in section 11, such as a hook request its kind may not make. A few of them check a refusal made only without the `async` feature, such as an `async fn` step: they run with `cargo test -p itinera --test ui` without that feature, which no CI job does, since the test job enables every feature.
+- **Compile-fail tests** in `crates/itinera/tests/ui/`, each with a compiling twin: running an instance twice, calling `run` concurrently, attaching a policy that defines no hook, and each refusal of the macros listed in section 11, such as a hook request its kind may not make. A few of them check a refusal made only without the `async` feature, such as an `async fn` step: they run with `cargo test -p itinera --test ui` without that feature, which no CI job does, since the test job enables every feature. Each twin is a module of the `ui` test target, compiled once with it, and the test runs its `main` unless that is empty; only the programs that must fail go through `trybuild`, which checks them without building them.
 - **Macro features**: the conformance runner also runs `@macros` features of its own, in `crates/itinera-conformance/features/macros`, which drive workflows declared only with the macros through the cases' own sentences.
 - **Property-based tests** with `proptest`, over generated workflows with random outcomes, budgets, lifecycles and failing hooks or reporters: the first and last events, increasing sequence numbers, one outcome fact per attempt, one decision after each failed attempt, at most the budget plus one attempts, no bag values in engine events, and identical streams from both executors.
 - **Doc tests**: every public item has an example that compiles and runs.
@@ -335,7 +335,8 @@ Each job runs one command, as the organisation's rules require. All are required
 |---|---|
 | format | `cargo fmt --all --check` |
 | lints | `cargo clippy --workspace --all-targets --all-features -- -D warnings` |
-| tests, on Linux, Windows and macOS | `cargo test --workspace --all-features` |
+| tests, on Linux | `cargo test --workspace --all-features` |
+| tests, on Windows and macOS | `cargo test --workspace --all-features --exclude itinera` |
 | sync-only build | `cargo check --workspace --no-default-features` |
 | minimum Rust version | `cargo +1.85 check --workspace --exclude itinera-conformance` |
 | documentation | `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings` |
@@ -343,6 +344,8 @@ Each job runs one command, as the organisation's rules require. All are required
 | conformance, from stage 0 | `itinera-dev/actions/run-conformance@v1`, with `command: cargo run -p itinera-conformance --release`, after checking out and restoring the Rust cache |
 | pull request rules | `pr-has-issue` and `no-cross-repo-closing` |
 | weekly, not blocking | the tests on Rust beta |
+
+The tests of the `itinera` crate, which holds only re-exports, run on Linux only: most of them compare compiler messages, which read the same on every system.
 
 The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cache`; third-party actions are pinned to a commit.
 

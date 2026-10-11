@@ -41,8 +41,12 @@ impl Refresh {
 #[with_step(Charge, name = "charge again")]
 struct Orders;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let instance = Orders::builder().initial_data(Client { client: "C-1".to_owned() }).create()?;
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let instance = Orders::builder()
+        .initial_data(Client {
+            client: "C-1".to_owned(),
+        })
+        .create()?;
     let result = LocalExecutor::new().run(instance)?;
     assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
     Ok(())

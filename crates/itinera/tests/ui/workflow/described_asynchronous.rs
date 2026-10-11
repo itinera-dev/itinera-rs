@@ -18,7 +18,7 @@ impl Dispatch {
 #[with_step(Dispatch, name = "dispatch")]
 struct Delivery;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Delivery::builder().create()?;
     let result = futures::executor::block_on(AsyncLocalExecutor::new().run(instance))?;
     assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));

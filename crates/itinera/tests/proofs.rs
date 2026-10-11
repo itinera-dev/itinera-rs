@@ -2,107 +2,112 @@
 //! written with itinera: each program breaking the rule fails to compile, and its twin, which
 //! keeps the rule, compiles.
 
-fn proves(broken: &str, kept: &str) {
-    let cases = trybuild::TestCases::new();
-    cases.compile_fail(broken);
-    cases.pass(kept);
+use std::error::Error;
+
+#[cfg(feature = "async")]
+#[path = "proofs/mode-not-accepted/asynchronous_step_async_executor.rs"]
+mod asynchronous_step_async_executor;
+#[path = "proofs/non-value/contribution_value.rs"]
+#[expect(dead_code, reason = "this twin only has to compile")]
+mod contribution_value;
+#[path = "proofs/non-value/event_data_value.rs"]
+#[expect(dead_code, reason = "this twin only has to compile")]
+mod event_data_value;
+#[path = "proofs/invalid-lifecycle/fail_workflow_on_step_failure.rs"]
+mod fail_workflow_on_step_failure;
+#[path = "proofs/non-value/initial_data_value.rs"]
+mod initial_data_value;
+#[path = "proofs/non-value/input_adapter_value.rs"]
+mod input_adapter_value;
+#[path = "proofs/late-handle/read_by_an_input_adapter_during_its_call.rs"]
+mod read_by_an_input_adapter_during_its_call;
+#[path = "proofs/bag-write/read_through_the_access.rs"]
+mod read_through_the_access;
+#[path = "proofs/non-value/reason_details_value.rs"]
+mod reason_details_value;
+#[path = "proofs/role-not-provided/role_provided.rs"]
+mod role_provided;
+#[path = "proofs/rescue-skip/succeeding_rescue_step.rs"]
+mod succeeding_rescue_step;
+#[path = "proofs/late-handle/used_by_a_thread_during_the_attempt.rs"]
+#[expect(dead_code, reason = "this twin only has to compile")]
+mod used_by_a_thread_during_the_attempt;
+
+fn fails_to_compile(broken: &str) {
+    trybuild::TestCases::new().compile_fail(broken);
 }
 
 #[test]
 fn a_step_cannot_contribute_a_non_value() {
-    proves(
-        "tests/proofs/non-value/contribution.rs",
-        "tests/proofs/non-value/contribution_value.rs",
-    );
+    fails_to_compile("tests/proofs/non-value/contribution.rs");
 }
 
 #[test]
-fn initial_data_cannot_hold_a_non_value() {
-    proves(
-        "tests/proofs/non-value/initial_data.rs",
-        "tests/proofs/non-value/initial_data_value.rs",
-    );
+fn initial_data_cannot_hold_a_non_value() -> Result<(), Box<dyn Error>> {
+    fails_to_compile("tests/proofs/non-value/initial_data.rs");
+    initial_data_value::main()
 }
 
 #[test]
 fn an_input_adapter_cannot_supply_a_non_value() {
-    proves(
-        "tests/proofs/non-value/input_adapter.rs",
-        "tests/proofs/non-value/input_adapter_value.rs",
-    );
+    fails_to_compile("tests/proofs/non-value/input_adapter.rs");
+    input_adapter_value::main();
 }
 
 #[test]
 fn a_reasons_details_cannot_be_a_non_value() {
-    proves(
-        "tests/proofs/non-value/reason_details.rs",
-        "tests/proofs/non-value/reason_details_value.rs",
-    );
+    fails_to_compile("tests/proofs/non-value/reason_details.rs");
+    reason_details_value::main();
 }
 
 #[test]
 fn a_step_event_cannot_carry_a_non_value() {
-    proves(
-        "tests/proofs/non-value/event_data.rs",
-        "tests/proofs/non-value/event_data_value.rs",
-    );
+    fails_to_compile("tests/proofs/non-value/event_data.rs");
 }
 
 #[test]
-fn a_failure_hook_cannot_finish_the_workflow() {
-    proves(
-        "tests/proofs/invalid-lifecycle/finish_workflow_on_step_failure.rs",
-        "tests/proofs/invalid-lifecycle/fail_workflow_on_step_failure.rs",
-    );
+fn a_failure_hook_cannot_finish_the_workflow() -> Result<(), Box<dyn Error>> {
+    fails_to_compile("tests/proofs/invalid-lifecycle/finish_workflow_on_step_failure.rs");
+    fail_workflow_on_step_failure::main()
 }
 
 #[test]
-fn a_rescue_step_cannot_skip() {
-    proves(
-        "tests/proofs/rescue-skip/skipping_rescue_step.rs",
-        "tests/proofs/rescue-skip/succeeding_rescue_step.rs",
-    );
+fn a_rescue_step_cannot_skip() -> Result<(), Box<dyn Error>> {
+    fails_to_compile("tests/proofs/rescue-skip/skipping_rescue_step.rs");
+    succeeding_rescue_step::main()
 }
 
 #[test]
-fn a_policy_cannot_be_attached_to_a_workflow_that_does_not_provide_its_role() {
-    proves(
-        "tests/proofs/role-not-provided/role_not_provided.rs",
-        "tests/proofs/role-not-provided/role_provided.rs",
-    );
+fn a_policy_cannot_be_attached_to_a_workflow_that_does_not_provide_its_role()
+-> Result<(), Box<dyn Error>> {
+    fails_to_compile("tests/proofs/role-not-provided/role_not_provided.rs");
+    role_provided::main()
 }
 
 #[test]
 #[cfg(feature = "async")]
-fn a_synchronous_executor_cannot_run_an_asynchronous_step() {
-    proves(
-        "tests/proofs/mode-not-accepted/asynchronous_step.rs",
-        "tests/proofs/mode-not-accepted/asynchronous_step_async_executor.rs",
-    );
+fn a_synchronous_executor_cannot_run_an_asynchronous_step() -> Result<(), Box<dyn Error>> {
+    fails_to_compile("tests/proofs/mode-not-accepted/asynchronous_step.rs");
+    asynchronous_step_async_executor::main()
 }
 
 #[test]
 fn a_steps_handles_cannot_outlive_its_attempt() {
-    let cases = trybuild::TestCases::new();
-    cases.compile_fail("tests/proofs/late-handle/kept_by_the_factory.rs");
-    cases.compile_fail("tests/proofs/late-handle/moved_into_a_thread.rs");
-    cases.pass("tests/proofs/late-handle/used_by_a_thread_during_the_attempt.rs");
+    fails_to_compile("tests/proofs/late-handle/kept_by_the_factory.rs");
+    fails_to_compile("tests/proofs/late-handle/moved_into_a_thread.rs");
 }
 
 #[test]
 fn an_adapters_access_to_the_data_bag_cannot_outlive_its_call() {
-    let cases = trybuild::TestCases::new();
-    cases.compile_fail("tests/proofs/late-handle/kept_by_an_input_adapter.rs");
-    cases.compile_fail("tests/proofs/late-handle/kept_by_an_input_adapter_taking_a_static_call.rs");
-    cases.pass("tests/proofs/late-handle/read_by_an_input_adapter_during_its_call.rs");
+    fails_to_compile("tests/proofs/late-handle/kept_by_an_input_adapter.rs");
+    fails_to_compile("tests/proofs/late-handle/kept_by_an_input_adapter_taking_a_static_call.rs");
+    read_by_an_input_adapter_during_its_call::main();
 }
 
 #[test]
 fn an_adapter_cannot_write_through_its_access_to_the_data_bag() {
-    proves(
-        "tests/proofs/bag-write/write_through_the_access.rs",
-        "tests/proofs/bag-write/read_through_the_access.rs",
-    );
+    fails_to_compile("tests/proofs/bag-write/write_through_the_access.rs");
+    read_through_the_access::main();
 }
 
 #[test]

@@ -119,7 +119,7 @@ impl Shop {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Shop::builder()
         .till("front")
         .initial_data(Basket { amount: 40 })

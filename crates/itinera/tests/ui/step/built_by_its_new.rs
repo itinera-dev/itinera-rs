@@ -23,7 +23,7 @@ impl Ship {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let orders = WorkflowDescriptor::builder("orders")
         .step(Ship::descriptor(step_name!("ship")))
         .build()?;

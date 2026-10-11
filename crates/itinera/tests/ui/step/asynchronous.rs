@@ -19,7 +19,7 @@ impl Charge {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let orders = WorkflowDescriptor::async_builder("orders")
         .step(Charge::descriptor(step_name!("charge")))
         .build()?;
