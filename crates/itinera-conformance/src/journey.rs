@@ -1,6 +1,9 @@
 //! Running the scenario's workflow: its journeys, one after another, under the executor of the
 //! scenario's copy.
 
+#[cfg(test)]
+pub(crate) mod fixtures;
+
 use std::collections::BTreeMap;
 
 use itinera::executor::{AsyncLocalExecutor, LocalExecutor, Refusal};
@@ -198,49 +201,13 @@ impl<M: Mode> Takes for Entering<'_, M> {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
     use itinera::event::Event;
 
     use super::*;
-    use crate::model::{Attempt, AttemptOutcome, Reason};
+    use crate::journey::fixtures::{attempt, ran, timed_out};
+    use crate::model::{Attempt, AttemptOutcome};
     use crate::trace::Line;
-
-    /// The events the sentences about the whole stream read, from one journey of a workflow with
-    /// these steps, scripted by `script` and run under the executor, on a runtime like the
-    /// runner's own, whose steps may block on their script.
-    pub(crate) fn ran(executor: Executor, steps: &[&str], script: fn(&mut Model)) -> Vec<Event> {
-        let mut world = World {
-            executor: Some(executor),
-            ..World::default()
-        };
-        let steps = steps.iter().copied().map(str::to_owned).collect();
-        world.model.declare("orders".to_owned(), steps).unwrap();
-        script(&mut world.model);
-        tokio::runtime::Builder::new_current_thread()
-            .build()
-            .unwrap()
-            .block_on(run(&mut world, 1))
-            .unwrap();
-        world.recorders.stream(&world.model).unwrap().events()
-    }
-
-    pub(crate) fn attempt(outcome: AttemptOutcome) -> Attempt {
-        Attempt {
-            outcome,
-            contributes: Vec::new(),
-        }
-    }
-
-    pub(crate) fn timed_out() -> AttemptOutcome {
-        AttemptOutcome::Failure {
-            reason: Reason {
-                code: "timeout".to_owned(),
-                message: None,
-                details: None,
-            },
-            retriable: true,
-        }
-    }
 
     /// The charge step times out once, then succeeds, contributing a receipt.
     fn retried(model: &mut Model) {

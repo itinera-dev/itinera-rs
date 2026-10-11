@@ -152,7 +152,7 @@ mod tests {
 
     use super::*;
     use crate::executor::Executor;
-    use crate::journey::tests::{attempt, ran, timed_out};
+    use crate::journey::fixtures::{attempt, ran, timed_out};
     use crate::model::{Attempt, AttemptOutcome, Dispatching, EventKind, Model, ReporterFailure};
 
     fn ends(model: &mut Model, step: &str, outcome: AttemptOutcome) {

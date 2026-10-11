@@ -108,7 +108,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::journey::tests::{attempt, timed_out};
+    use crate::journey::fixtures::{attempt, timed_out};
     use crate::model::AttemptOutcome;
     use crate::step::ending::End;
 
