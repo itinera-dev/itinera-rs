@@ -13,6 +13,7 @@ mod needs;
 mod outcome;
 mod reason;
 mod reporter;
+mod reporting;
 mod resolved;
 mod slots;
 
@@ -29,7 +30,7 @@ pub use outcome::Outcome;
 pub(crate) use outcome::OutcomeKind;
 pub use reason::Reason;
 pub use reporter::StepReporter;
-pub(crate) use reporter::{Level, Reporting};
+pub(crate) use reporting::{Level, Reporting};
 pub(crate) use resolved::Got;
 pub use resolved::Resolved;
 pub(crate) use slots::Slots;
