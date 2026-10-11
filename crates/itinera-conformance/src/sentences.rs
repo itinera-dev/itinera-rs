@@ -15,6 +15,7 @@ mod policies;
 mod received;
 mod reporters;
 mod rescue_steps;
+mod services;
 
 use std::fmt;
 use std::num::NonZeroU64;

@@ -1,5 +1,5 @@
-//! The columns that name where an event comes from: the step and its attempt, the hook, the
-//! requester and the source of a contribution.
+//! The columns that name where an event comes from: the step and its attempt, the hook or the
+//! service provider, the requester and the source of a contribution.
 
 use itinera::event::{HookSource, Requester, Source};
 use itinera::step::StepAttempt;
@@ -25,6 +25,10 @@ impl Line {
                 self.set("policy", policy);
                 self.set("hook", hook);
             }
+            HookSource::Provider { provider, step, .. } => {
+                self.attempt(step);
+                self.set("provider", provider);
+            }
             _ => {}
         }
     }
@@ -46,6 +50,10 @@ impl Line {
             Requester::WorkflowHook { policy, hook, .. } => {
                 self.set("policy", policy);
                 self.set("hook", hook);
+            }
+            Requester::Provider { provider, step, .. } => {
+                self.set("provider", provider);
+                self.set("step", step);
             }
             _ => {}
         }

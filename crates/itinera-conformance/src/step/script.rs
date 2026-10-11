@@ -6,6 +6,7 @@ use super::building::Needs;
 use super::ending::Ending;
 use super::input::{needing, requested};
 use super::rescue::{RescueData, needing_rescued, requested_from_rescued};
+use super::service::{self, Token};
 use crate::model::{self, Level, ModelError, StepAction};
 use crate::value::{Data, Typed};
 
@@ -19,6 +20,8 @@ pub(super) struct Script {
     pub(super) inputs: Vec<Data>,
     /// What it requests from the step it rescues, in order, when it is a rescue step.
     pub(super) rescue_requests: Vec<RescueData>,
+    /// The services it requests, in order.
+    pub(super) services: Vec<Token>,
     /// What every attempt does before it ends, in order.
     pub(super) actions: Vec<Action>,
     /// How the attempts before the last stated one end, in order.
@@ -55,6 +58,7 @@ impl Script {
                 .iter()
                 .map(requested_from_rescued)
                 .collect(),
+            services: step.services.iter().map(Token::of).collect(),
             actions: step
                 .actions
                 .iter()
@@ -67,20 +71,22 @@ impl Script {
         })
     }
 
-    /// Its inputs, and both handles, which it takes whether it uses them or not.
+    /// Its inputs, its services, and both handles, which it takes whether it uses them or not.
     pub(super) fn needs(&self) -> StepNeeds {
-        self.needing_inputs(StepNeeds::new().contributor().reporter())
+        self.requesting(StepNeeds::new().contributor().reporter())
     }
 
-    /// As a rescue step: its inputs, both handles, and what it requests from the step it
-    /// rescues.
+    /// As a rescue step: its inputs, its services, both handles, and what it requests from the
+    /// step it rescues.
     pub(super) fn rescue_needs(&self) -> RescueNeeds {
-        let needs = self.needing_inputs(RescueNeeds::new().contributor().reporter());
+        let needs = self.requesting(RescueNeeds::new().contributor().reporter());
         self.rescue_requests.iter().fold(needs, needing_rescued)
     }
 
-    fn needing_inputs<N: Needs>(&self, needs: N) -> N {
-        self.inputs.iter().fold(needs, needing)
+    /// Declares its inputs, then its services.
+    fn requesting<N: Needs>(&self, needs: N) -> N {
+        let needs = self.inputs.iter().fold(needs, needing);
+        self.services.iter().fold(needs, service::needing)
     }
 
     /// Whether any of its attempts skips.

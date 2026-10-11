@@ -6,6 +6,7 @@ mod error;
 mod level;
 mod policy;
 mod report;
+mod service;
 mod step;
 mod table;
 mod value;
@@ -22,6 +23,7 @@ pub(crate) use policy::{
     Hook, HookAction, HookRequest, HookReturn, HookScript, Hooks, Lifecycle, Policy, Role,
 };
 pub(crate) use report::{Dispatching, EventKind, Holding, ReporterFailure};
+pub(crate) use service::{Provider, ProviderFailure, Scope, ServiceType};
 pub(crate) use step::{
     Attempt, AttemptOutcome, Input, Reason, RescueRequest, Step, StepAction, attempts, rescue_of,
 };
@@ -54,6 +56,7 @@ impl Model {
             step_policies: BTreeMap::new(),
             policies: Vec::new(),
             adapters: Vec::new(),
+            providers: Vec::new(),
             reporters: Vec::new(),
             id_generator: IdGenerator::Default,
             roles: BTreeMap::new(),
@@ -199,6 +202,16 @@ impl Model {
             .iter_mut()
             .find(|declared| declared.is_named(adapter))
             .ok_or_else(|| ModelError::UnknownAdapter(adapter.to_owned()))
+    }
+
+    /// The service provider of this name; when two have it, the one declared last.
+    pub(crate) fn provider_mut(&mut self, provider: &str) -> Result<&mut Provider, ModelError> {
+        self.workflow_mut()?
+            .providers
+            .iter_mut()
+            .rev()
+            .find(|declared| declared.is_named(provider))
+            .ok_or_else(|| ModelError::UnknownProvider(provider.to_owned()))
     }
 
     pub(crate) fn role_mut(&mut self, role: &str) -> Result<&mut Role, ModelError> {

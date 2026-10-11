@@ -19,6 +19,8 @@ pub(crate) enum ModelError {
     UnknownPolicy(String),
     #[error("no input adapter \"{0}\" is declared")]
     UnknownAdapter(String),
+    #[error("no service provider \"{0}\" is declared")]
+    UnknownProvider(String),
     #[error("the workflow provides no role \"{0}\"")]
     UnknownRole(String),
     #[error("\"{0}\" is not a hook")]
@@ -73,6 +75,8 @@ pub(crate) enum ModelError {
     NotRescueStep(String),
     #[error("rescue step \"{0}\" cannot skip")]
     RescueSkips(String),
+    #[error("the service provider \"{0}\" cannot request {1}")]
+    ProviderRequestNotAllowed(String, String),
     #[error("the hook \"{0}\" cannot return {1}")]
     LifecycleNotAllowed(Hook, Lifecycle),
 }

@@ -17,10 +17,12 @@ use itinera::error::Error;
 use itinera::journey::Contributor;
 use itinera::policy::Requested;
 
-pub(crate) use needs::requiring_from_workflow;
+pub(crate) use needs::{declare_for_any, requiring_from_workflow};
+pub(crate) use reporter::Emits;
+pub(crate) use request::Request;
+pub(crate) use requested::receive_for_any;
 pub(crate) use script::Scripts;
 
-use reporter::Emits;
 use script::Action;
 use scripting::Scripting;
 

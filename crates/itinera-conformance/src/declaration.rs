@@ -4,6 +4,7 @@
 mod input_adapter;
 mod mode;
 mod policy;
+mod provider;
 
 use itinera::error::Error;
 use itinera::journey::DataBag;
@@ -15,6 +16,7 @@ pub(crate) use mode::Declares;
 
 use input_adapter::input_adapter;
 use policy::{step_policy, workflow_policy};
+use provider::with_provider;
 
 use crate::model::{IdGenerator, Model, ModelError, Workflow, rescue_of};
 use crate::role::{ProvidedRoles, Roles};
@@ -70,6 +72,12 @@ pub(crate) fn declared<M: Declares>(
     let builder = adapters
         .into_iter()
         .fold(builder, WorkflowBuilder::input_adapter);
+    let builder = workflow
+        .providers
+        .iter()
+        .try_fold(builder, |builder, provider| {
+            with_provider(builder, provider, witness)
+        })?;
     Ok(match &workflow.id_generator {
         IdGenerator::Default => builder,
         IdGenerator::Returns(id) => builder.id_generator(returning(id.clone())),

@@ -44,7 +44,7 @@ pub(super) fn declare_for_step<H: StepHookKind>(
 }
 
 /// Declares a request every hook may make.
-pub(super) fn declare_for_any<H: HookKind>(
+pub(crate) fn declare_for_any<H: HookKind>(
     needs: HookNeeds<H>,
     request: &Request,
 ) -> Result<HookNeeds<H>, String> {

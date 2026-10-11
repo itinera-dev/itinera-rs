@@ -3,12 +3,10 @@
 use std::num::NonZeroU32;
 
 use cucumber::then;
-use serde_json::Value;
 
-use super::calls_of;
+use super::{Expected, calls_of};
 use crate::model::{Reason, json};
 use crate::sentences::{Unmet, holds};
-use crate::witness::Received;
 use crate::world::World;
 
 #[then(regex = r#"^the hook "([^"]*)" of policy "([^"]*)" received step data "([^"]*)" = (.+)$"#)]
@@ -144,40 +142,6 @@ fn the_hook_received_the_error_with_the_message(
     message: String,
 ) -> Result<(), Unmet> {
     received(world, &policy, &hook, Expected::Error(message))
-}
-
-/// What a sentence says a hook received, on at least one of its calls.
-#[derive(Debug)]
-enum Expected {
-    /// Data from the step under this key, `None` when absent.
-    StepData(String, Option<Value>),
-    /// Data from the workflow under this key, `None` when absent.
-    WorkflowData(String, Option<Value>),
-    StepName(String),
-    Attempt(NonZeroU32),
-    JourneyId(String),
-    Cause(String),
-    /// The failure reason, `None` when it was absent.
-    Reason(Option<Reason>),
-    AnError,
-    /// An error with this message.
-    Error(String),
-}
-
-impl Expected {
-    fn is_in(&self, got: &Received) -> bool {
-        match self {
-            Self::StepData(key, value) => got.step_data.get(key) == Some(value),
-            Self::WorkflowData(key, value) => got.workflow_data.get(key) == Some(value),
-            Self::StepName(step) => got.step_name.as_ref() == Some(step),
-            Self::Attempt(attempt) => got.attempt == Some(*attempt),
-            Self::JourneyId(id) => got.journey_id.as_ref() == Some(id),
-            Self::Cause(cause) => got.cause.as_ref() == Some(cause),
-            Self::Reason(reason) => got.reason.as_ref() == Some(reason),
-            Self::AnError => got.error.is_some(),
-            Self::Error(message) => got.error.as_ref() == Some(message),
-        }
-    }
 }
 
 /// Holds when a call of the policy's hook received what is expected.

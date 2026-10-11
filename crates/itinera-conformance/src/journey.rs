@@ -186,9 +186,8 @@ mod tests {
     use itinera::event::Event;
 
     use super::*;
-    use crate::journey::fixtures::{attempt, ran, timed_out};
+    use crate::journey::fixtures::{attempt, lines, ran, timed_out};
     use crate::model::{Attempt, AttemptOutcome};
-    use crate::trace::Line;
 
     /// The charge step times out once, then succeeds, contributing a receipt.
     fn retried(model: &mut Model) {
@@ -201,10 +200,6 @@ mod tests {
                 contributes: vec![("receipt".to_owned(), serde_json::json!("R-1"))],
             },
         ]);
-    }
-
-    fn lines(events: &[Event]) -> Vec<Line> {
-        events.iter().map(Line::from).collect()
     }
 
     #[test]

@@ -45,6 +45,10 @@ impl Line {
             self.set("error", error);
         }
         match abort {
+            JourneyAbort::StepCouldNotBeBuilt {
+                provider: Some(provider),
+                ..
+            } => self.set("provider", provider),
             JourneyAbort::PolicyCouldNotBeBuilt { policy, .. } => self.set("policy", policy),
             JourneyAbort::RequiredDataMissing { missing, .. } => match missing {
                 MissingData::Key { key, requester, .. } => {

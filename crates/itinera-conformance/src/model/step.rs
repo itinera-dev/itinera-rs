@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::table::Row;
 use super::value::{ValueType, entries, json};
-use super::{Level, ModelError};
+use super::{Level, ModelError, ServiceType};
 
 /// A scripted step: what it requests when it is built, what it does on every attempt, and how
 /// each attempt ends.
@@ -20,6 +20,8 @@ pub(crate) struct Step {
     pub(crate) rescues: bool,
     /// What it requests from the step it rescues, in order, when it is a rescue step.
     pub(crate) rescue_requests: Vec<RescueRequest>,
+    /// The services it requests, by key, in the order written.
+    pub(crate) services: Vec<(String, ServiceType)>,
     /// What every attempt does before it ends, in the order written.
     pub(crate) actions: Vec<StepAction>,
     /// How each attempt ends; attempts after the last repeat it. `None` until a sentence says.

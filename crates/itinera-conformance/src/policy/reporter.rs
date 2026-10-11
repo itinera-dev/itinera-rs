@@ -8,7 +8,7 @@ use crate::model::Level;
 use crate::step::Emitted;
 
 /// A hook's reporter, of either mode, as the scripts use it.
-pub(super) trait Emits: Send {
+pub(crate) trait Emits: Send {
     fn emit(&mut self, level: Level, message: String) -> Emitted<'_>;
 }
 
