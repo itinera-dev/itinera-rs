@@ -1,0 +1,5 @@
+error: only a datum of an `Option` type is marked `required`: any other type is required already
+  --> tests/ui/step/required_on_a_required_input.rs:11:13
+   |
+11 |     #[input(required)]
+   |             ^^^^^^^^

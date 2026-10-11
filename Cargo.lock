@@ -598,7 +598,8 @@ version = "0.0.0"
 dependencies = [
  "futures",
  "itinera-core",
- "itinera-macros",
+ "rstest",
+ "serde_json",
  "trybuild",
 ]
 
@@ -626,6 +627,7 @@ dependencies = [
  "futures",
  "getrandom",
  "itinera",
+ "itinera-macros",
  "rstest",
  "serde",
  "serde_json",
@@ -636,6 +638,13 @@ dependencies = [
 [[package]]
 name = "itinera-macros"
 version = "0.0.0"
+dependencies = [
+ "itinera",
+ "proc-macro2",
+ "quote",
+ "rstest",
+ "syn 3.0.6",
+]
 
 [[package]]
 name = "itoa"

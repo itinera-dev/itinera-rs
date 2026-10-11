@@ -24,6 +24,9 @@ getrandom = { version = "0.4", default-features = false, features = ["std"] }
 uuid = { version = "1", default-features = false }
 rstest = { version = "0.27", default-features = false }
 trybuild = { version = "1", default-features = false }
+syn = { version = "3", default-features = false, features = ["full", "derive", "parsing", "printing", "proc-macro", "clone-impls"] }
+quote = { version = "1", default-features = false }
+proc-macro2 = { version = "1", default-features = false }
 
 [workspace.lints.rust]
 missing_docs = "deny"

@@ -1,0 +1,5 @@
+error: every parameter of a step's `new` is an `#[input]`
+  --> tests/ui/step/unmarked_input_of_new.rs:14:12
+   |
+14 |     fn new(gift_note: Option<String>) -> Self {
+   |            ^^^^^^^^^

@@ -1,0 +1,22 @@
+error[E0308]: mismatched types
+  --> tests/ui/step/a_new_returning_an_alias_of_result.rs:16:51
+   |
+16 |     fn new(#[input] gift_note: Option<String>) -> Fallible<Self> {
+   |                                                   ^^^^^^^^
+   |                                                   |
+   |                                                   expected `Ship`, found `Result<Ship, Error>`
+   |                                                   arguments to this enum variant are incorrect
+   |
+   = note: expected struct `Ship`
+                found enum `Result<Ship, itinera::error::Error>`
+help: the type constructed contains `Result<Ship, itinera::error::Error>` due to the type of the argument passed
+  --> tests/ui/step/a_new_returning_an_alias_of_result.rs:16:51
+   |
+16 |     fn new(#[input] gift_note: Option<String>) -> Fallible<Self> {
+   |                                                   ^^^^^^^^ this argument influences the type of `Ok`
+note: tuple variant defined here
+  --> $RUST/core/src/result.rs
+help: use the `?` operator to extract the `Result<Ship, itinera::error::Error>` value, propagating a `Result::Err` value to the caller
+   |
+16 |     fn new(#[input] gift_note: Option<String>) -> Fallible?<Self> {
+   |                                                           +

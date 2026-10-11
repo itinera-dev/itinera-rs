@@ -1,0 +1,12 @@
+error[E0277]: the step `Charge` has no way to be built from its inputs
+  --> tests/ui/step/built_from_nothing.rs:14:6
+   |
+14 | impl Charge {
+   |      ^^^^^^ this step cannot be built
+   |
+help: the trait `FromInputs` is not implemented for `Charge`
+  --> tests/ui/step/built_from_nothing.rs:9:1
+   |
+ 9 | struct Charge {
+   | ^^^^^^^^^^^^^
+   = note: derive `Step` on it, or give its `#[step]` block a `new` function whose parameters are its inputs

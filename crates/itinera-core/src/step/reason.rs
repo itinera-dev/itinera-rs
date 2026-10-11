@@ -116,3 +116,35 @@ impl Reason {
         self.details.as_ref()
     }
 }
+
+/// A reason with this code, and no message or details.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::step::Reason;
+///
+/// let reason = Reason::from("out-of-stock");
+/// assert_eq!(reason.code(), "out-of-stock");
+/// ```
+impl From<&str> for Reason {
+    fn from(code: &str) -> Self {
+        Self::new(code)
+    }
+}
+
+/// A reason with this code, and no message or details.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::step::Reason;
+///
+/// let reason = Reason::from(format!("out-of-{}", "stock"));
+/// assert_eq!(reason.code(), "out-of-stock");
+/// ```
+impl From<String> for Reason {
+    fn from(code: String) -> Self {
+        Self::new(code)
+    }
+}

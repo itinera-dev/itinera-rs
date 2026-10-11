@@ -1,0 +1,5 @@
+error: a `#[step]` block holds the step's `run`
+  --> tests/ui/step/without_run.rs:14:6
+   |
+14 | impl Charge {
+   |      ^^^^^^

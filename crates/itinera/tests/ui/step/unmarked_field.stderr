@@ -1,0 +1,5 @@
+error: every field of a step deriving `Step` is an `#[input]` or a `#[default]`
+  --> tests/ui/step/unmarked_field.rs:13:5
+   |
+13 |     fees: Vec<i64>,
+   |     ^^^^^^^^^^^^^^
