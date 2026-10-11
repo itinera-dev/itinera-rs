@@ -41,7 +41,7 @@ impl Requesting {
         }
     }
 
-    /// A hook of a policy.
+    /// A hook of a policy, or a service provider.
     pub(super) fn hook(hook: &HookSource) -> Self {
         let (requester, reported) = match *hook {
             HookSource::Step {
@@ -59,6 +59,14 @@ impl Requesting {
             HookSource::Workflow { policy, hook } => (
                 Requester::WorkflowHook { policy, hook },
                 event::Requester::WorkflowHook { policy, hook },
+            ),
+            #[cfg(feature = "unstable")]
+            HookSource::Provider { provider, ref step } => (
+                Requester::Provider { provider },
+                event::Requester::Provider {
+                    provider,
+                    step: step.step,
+                },
             ),
         };
         Self {

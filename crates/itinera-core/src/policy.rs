@@ -20,7 +20,7 @@ pub use asynchronous::{
     AsyncOnStepSuccess, AsyncOnWorkflowFailure, AsyncOnWorkflowSuccess,
 };
 pub use described::{DescribedPolicy, StepPolicy, WorkflowPolicy};
-#[cfg(feature = "async")]
+#[cfg(any(feature = "async", feature = "unstable"))]
 pub(crate) use descriptor::HookCall;
 pub(crate) use descriptor::{
     BuiltStepPolicy, BuiltWorkflowPolicy, Call, StepPolicyEntry, WorkflowPolicyEntry,
@@ -32,11 +32,15 @@ pub use hook::{
 };
 #[cfg(feature = "macros")]
 pub use itinera_macros::{step_policy, workflow_policy};
+#[cfg(not(feature = "unstable"))]
+pub(crate) use kind::ReportingHookKind;
 pub use kind::{
     ErrorHookKind, FailureHookKind, HookKind, InputAdapter, PolicyHookKind,
     StepAbnormalTermination, StepFailure, StepHookKind, StepRetry, StepSuccess, WorkflowFailure,
     WorkflowSuccess,
 };
+#[cfg(feature = "unstable")]
+pub use kind::{Provider, ReportingHookKind};
 pub use lifecycle::{FailWorkflow, Lifecycle, OnSuccess};
 pub(crate) use needs::{Answers, Needs, Request};
 pub use needs::{HookNeeds, Requested};

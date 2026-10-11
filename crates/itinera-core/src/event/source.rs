@@ -2,11 +2,14 @@
 //! who made a contribution.
 
 use crate::policy::{PolicyName, StepHook, WorkflowHook};
+#[cfg(feature = "unstable")]
+use crate::service::ProviderName;
 use crate::step::StepAttempt;
 use crate::workflow::AdapterName;
 
 /// A hook that was called: a step hook, with the step and attempt that triggered it, or a
-/// workflow hook.
+/// workflow hook; or, with the `unstable` feature, a service provider, with the step and attempt
+/// it was building.
 ///
 /// # Examples
 ///
@@ -41,6 +44,15 @@ pub enum HookSource {
         policy: PolicyName,
         /// The hook.
         hook: WorkflowHook,
+    },
+    /// A service provider.
+    #[cfg(feature = "unstable")]
+    #[non_exhaustive]
+    Provider {
+        /// The provider's name.
+        provider: ProviderName,
+        /// The step and attempt it was building.
+        step: StepAttempt,
     },
 }
 

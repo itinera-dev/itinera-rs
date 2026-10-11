@@ -1,46 +1,16 @@
 use super::AdapterName;
 use crate::policy::{PolicyName, StepHook, WorkflowHook};
+#[cfg(feature = "unstable")]
+use crate::service::ProviderName;
 use crate::step::StepName;
 
 mod admission;
+mod kind;
+mod violations;
 
 pub(super) use admission::check;
-
-/// Every violation found in a workflow's declaration, at least one, which kept it from being
-/// built.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::workflow::Violations;
-///
-/// fn report(violations: &Violations) -> Vec<String> {
-///     violations.iter().map(ToString::to_string).collect()
-/// }
-/// ```
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error, derive_more::IntoIterator)]
-#[error("the workflow's declaration has violations: {}", listed(.violations))]
-#[into_iterator(owned, ref)]
-pub struct Violations {
-    violations: Vec<Violation>,
-}
-
-impl Violations {
-    /// The violations, in a fixed order.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::workflow::{Violation, Violations};
-    ///
-    /// fn first(violations: &Violations) -> Option<&Violation> {
-    ///     violations.iter().next()
-    /// }
-    /// ```
-    pub fn iter(&self) -> std::slice::Iter<'_, Violation> {
-        self.violations.iter()
-    }
-}
+pub use kind::ViolationKind;
+pub use violations::Violations;
 
 /// One configuration error in how a workflow is put together, found when it is built.
 ///
@@ -112,6 +82,68 @@ pub enum Violation {
         /// The name it gives for a step, which no step of the workflow has.
         step: StepName,
     },
+    /// A step requests a service that no provider serves for it.
+    #[cfg(feature = "unstable")]
+    #[display("service not provided: {key} for {step}")]
+    #[non_exhaustive]
+    ServiceNotProvided {
+        /// The step.
+        step: StepName,
+        /// The key of the service it requests.
+        key: &'static str,
+    },
+    /// A step requests one service twice or more.
+    #[cfg(feature = "unstable")]
+    #[display("service requested twice: {key} by {step}")]
+    #[non_exhaustive]
+    ServiceRequestedTwice {
+        /// The step.
+        step: StepName,
+        /// The key it requests more than once.
+        key: &'static str,
+    },
+    /// Two or more providers of one service are attached to the same step, or to no step.
+    #[cfg(feature = "unstable")]
+    #[display("service provided twice: {key}{}", for_step(step))]
+    #[non_exhaustive]
+    ServiceProvidedTwice {
+        /// The key of the service they supply.
+        key: &'static str,
+        /// The step they are all attached to, or `None` when none of them is attached to a step.
+        step: Option<StepName>,
+        /// The providers, in the order they were declared.
+        providers: Vec<ProviderName>,
+    },
+    /// Two or more service providers have this name.
+    #[cfg(feature = "unstable")]
+    #[display("duplicate provider name: {provider}")]
+    #[non_exhaustive]
+    DuplicateProviderName {
+        /// The name the providers share.
+        provider: ProviderName,
+    },
+    /// A service provider is attached to a step the workflow does not have.
+    #[cfg(feature = "unstable")]
+    #[display("service provider for unknown step: {provider} on {step}")]
+    #[non_exhaustive]
+    ServiceProviderForUnknownStep {
+        /// The provider.
+        provider: ProviderName,
+        /// The name it gives for a step, which no step of the workflow has.
+        step: StepName,
+    },
+    /// The provider serving a step supplies another type than the step requests.
+    #[cfg(feature = "unstable")]
+    #[display("wrong service type: {provider} for {key} of {step}")]
+    #[non_exhaustive]
+    WrongServiceType {
+        /// The step.
+        step: StepName,
+        /// The key of the service it requests.
+        key: &'static str,
+        /// The provider that serves it.
+        provider: ProviderName,
+    },
 }
 
 impl Violation {
@@ -135,84 +167,54 @@ impl Violation {
             }
             Self::StepAdaptedTwice { .. } => ViolationKind::StepAdaptedTwice,
             Self::InputAdapterForUnknownStep { .. } => ViolationKind::InputAdapterForUnknownStep,
+            #[cfg(feature = "unstable")]
+            Self::ServiceNotProvided { .. } => ViolationKind::ServiceNotProvided,
+            #[cfg(feature = "unstable")]
+            Self::ServiceRequestedTwice { .. } => ViolationKind::ServiceRequestedTwice,
+            #[cfg(feature = "unstable")]
+            Self::ServiceProvidedTwice { .. } => ViolationKind::ServiceProvidedTwice,
+            #[cfg(feature = "unstable")]
+            Self::DuplicateProviderName { .. } => ViolationKind::DuplicateProviderName,
+            #[cfg(feature = "unstable")]
+            Self::ServiceProviderForUnknownStep { .. } => {
+                ViolationKind::ServiceProviderForUnknownStep
+            }
+            #[cfg(feature = "unstable")]
+            Self::WrongServiceType { .. } => ViolationKind::WrongServiceType,
         }
     }
 }
 
-/// The kinds of violation a workflow can have when it is built.
-///
-/// It displays as the specification names the violation, for example `duplicate step name`. A
-/// policy that needs a role the workflow does not provide, and a part in a mode the executor does
-/// not accept, do not compile, so they have no kind here.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::workflow::ViolationKind;
-///
-/// assert_eq!(ViolationKind::StepAdaptedTwice.to_string(), "step adapted twice");
-/// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
-#[non_exhaustive]
-pub enum ViolationKind {
-    /// Two policies attached to the same step, or to the workflow, define the same hook.
-    #[display("hook defined twice")]
-    HookDefinedTwice,
-    /// Two steps, counting each step's rescue step, have the same name.
-    #[display("duplicate step name")]
-    DuplicateStepName,
-    /// A step has both a rescue step and a retry budget.
-    #[display("rescued step retried")]
-    RescuedStepRetried,
-    /// Two input adapters are attached to the same step.
-    #[display("step adapted twice")]
-    StepAdaptedTwice,
-    /// An input adapter is attached to a step the workflow does not have.
-    #[display("input adapter for unknown step")]
-    InputAdapterForUnknownStep,
+/// What follows the key of a service provided twice: the step the providers are attached to.
+#[cfg(feature = "unstable")]
+fn for_step(step: &Option<StepName>) -> String {
+    match step {
+        Some(step) => format!(" for {step}"),
+        None => String::new(),
+    }
 }
 
-fn listed(violations: &[Violation]) -> String {
-    violations
-        .iter()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join("; ")
-}
-
-#[cfg(test)]
+#[cfg(all(test, feature = "unstable"))]
 mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::workflow::fixtures::{adapter, orders, step};
-
-    #[test]
-    fn violations_display_every_violation() {
-        let builder = orders()
-            .step(step("charge"))
-            .step(step("charge"))
-            .input_adapter(adapter("pricing", "refund"));
-        assert_eq!(
-            builder.build().unwrap_err().to_string(),
-            "the workflow's declaration has violations: duplicate step name: charge; \
-             input adapter for unknown step: pricing on refund"
-        );
-    }
 
     #[rstest]
-    #[case::hook_defined_twice(ViolationKind::HookDefinedTwice, "hook defined twice")]
-    #[case::duplicate_step_name(ViolationKind::DuplicateStepName, "duplicate step name")]
-    #[case::rescued_step_retried(ViolationKind::RescuedStepRetried, "rescued step retried")]
-    #[case::step_adapted_twice(ViolationKind::StepAdaptedTwice, "step adapted twice")]
-    #[case::input_adapter_for_unknown_step(
-        ViolationKind::InputAdapterForUnknownStep,
-        "input adapter for unknown step"
+    #[case::to_no_step(None, "service provided twice: payments")]
+    #[case::to_one_step(
+        Some(StepName::new("charge")),
+        "service provided twice: payments for charge"
     )]
-    fn violation_kinds_display_as_the_specification_names_them(
-        #[case] kind: ViolationKind,
-        #[case] name: &str,
+    fn providers_of_one_service_display_the_step_they_are_attached_to(
+        #[case] step: Option<StepName>,
+        #[case] text: &str,
     ) {
-        assert_eq!(kind.to_string(), name);
+        let violation = Violation::ServiceProvidedTwice {
+            key: "payments",
+            step,
+            providers: Vec::new(),
+        };
+        assert_eq!(violation.to_string(), text);
     }
 }

@@ -4,7 +4,7 @@ Tech spec for [proposal 0003](https://github.com/itinera-dev/spec/blob/main/prop
 
 Status: done.
 
-What chapter 7 says about services, which a rescue step may request and which are released around its attempt, belongs to services, implemented in stage 10 of the plan.
+What chapter 7 says about services, which a rescue step may request and which are released around its attempt, belongs to services, implemented in stage 10 of the plan, and is in the tech spec of [0095](0095-services-provided-to-steps.md).
 
 ## API
 
@@ -56,7 +56,7 @@ What chapter 7 says about services, which a rescue step may request and which ar
 - Unit test in `itinera-core/src/engine/retry/tests.rs`: `the_rescued_steps_retry_and_failure_hooks_are_not_called_for_the_attempt_it_rescues`.
 - Unit test in `itinera-core/src/engine/outcome/tests.rs`: `fail_workflow_from_on_step_abnormal_termination_gives_the_step_up_instead_of_rescuing_it`.
 - Unit tests in `itinera-core/src/step/name.rs`: `a_rescue_steps_name_is_the_steps_name_followed_by_rescue` and `a_rescue_steps_name_is_made_once_for_each_step_name`.
-- Admission's cases `a_step_named_as_another_steps_rescue_step`, `a_step_with_a_rescue_step_and_a_retry_budget` and `an_adapter_on_a_rescue_step`, and the listing's test, which lists a rescue step.
+- Admission's cases `a_step_named_as_another_steps_rescue_step` and `a_step_with_a_rescue_step_and_a_retry_budget`, in `itinera-core/src/workflow/violation/admission.rs`, and `an_adapter_on_a_rescue_step`, in `itinera-core/src/workflow/violation/admission/adapters.rs`, and the listing's test, which lists a rescue step.
 - The runner's unit tests: the cases `whose_rescue_step_failed`, `whose_rescue_step_failed_before_a_reporter_aborted_the_journey` and `whose_rescue_step_could_not_be_built` of `a_steps_status_and_attempts_are_read_from_its_journeys_events` in `sentences/outcomes/step_status.rs`, and `a_rescue_step_that_skips_is_a_case_error` in `step.rs`.
 - Equivalence tests in `crates/itinera/tests/macros/rescue.rs` and, behind `async`, `async_rescue.rs`: a rescue step the macros describe lists and runs as one written for the builder, for each way the first attempt ends, including required requests that abort.
 - Compile-fail tests in `crates/itinera/tests/ui.rs`, module `rescue`: a rescue step never skips, every field of a derived rescue step is a request, the reason and the error take no key, the block holds `run`, a rescue step is never named, generic rescue steps are refused, and a rescue step belongs only to a workflow of its own mode; module `workflow`: a step with a rescue step has no retry budget, no input adapter is attached to a rescue step, and no step is named like a rescue step.

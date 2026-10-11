@@ -8,8 +8,8 @@ use crate::engine::fixtures::{
 };
 use crate::journey::JourneyStatus;
 use crate::policy::{
-    FailWorkflow, HookNeeds, OnStepAbnormalTermination, Requested, StepAbnormalTermination,
-    StepPolicyDescriptor,
+    FailWorkflow, HookNeeds, OnStepAbnormalTermination, PolicyName, Requested,
+    StepAbnormalTermination, StepPolicyDescriptor,
 };
 use crate::step::{Resolved, StepFactory, StepNeeds, StepReporter};
 use crate::workflow::fixtures::{Orders, orders};
@@ -181,6 +181,94 @@ impl StepFactory for Preparing {
         let mut reporter = got.reporter()?;
         reporter.info("preparing")?;
         Ok(reporter)
+    }
+}
+
+#[cfg(feature = "unstable")]
+mod services {
+    use std::sync::Mutex;
+
+    use super::*;
+    use crate::engine::fixtures::AMOUNT;
+    use crate::service::fixtures::{
+        Dropped, Given, Labeller, Made, PAYMENTS, dropping, drops, made, per_attempt, requesting,
+    };
+    use crate::service::{PerAttempt, ServiceProviderDescriptor};
+    use crate::step::Step;
+
+    /// The factory of a step that needs an amount and the payments service.
+    struct ChargeWithPayments;
+
+    impl StepFactory for ChargeWithPayments {
+        type Step<'a> = Paid;
+
+        fn needs(&self) -> StepNeeds {
+            StepNeeds::new().input(&AMOUNT).service(&PAYMENTS)
+        }
+
+        fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Paid, Error> {
+            got.input(&AMOUNT)?;
+            got.service(&PAYMENTS)?;
+            Ok(Paid)
+        }
+    }
+
+    struct Paid;
+
+    impl Step for Paid {
+        fn run(self) -> Result<Outcome, Error> {
+            Ok(Outcome::success())
+        }
+    }
+
+    #[test]
+    fn services_are_supplied_after_the_steps_inputs_are_resolved() {
+        let made_payments = Made::default();
+        let workflow = orders()
+            .step(StepDescriptor::new(CHARGE, ChargeWithPayments))
+            .provider(per_attempt("payments", &PAYMENTS, &made_payments));
+
+        let (status, _) = travel_workflow(workflow);
+
+        assert!(matches!(
+            status,
+            JourneyStatus::Aborted(Abort::RequiredDataMissing(_))
+        ));
+        assert_eq!(made(&made_payments), 0);
+    }
+
+    /// How many instances were already dropped each time the provider was called.
+    type DroppedBefore = Arc<Mutex<Vec<usize>>>;
+
+    /// A provider of attempt scope whose instances count themselves in `dropped` once dropped,
+    /// recording in `before` how many were dropped when it is called.
+    fn counting_drops(
+        dropped: &Dropped,
+        before: &DroppedBefore,
+    ) -> ServiceProviderDescriptor<Orders, PerAttempt> {
+        let (dropped, before) = (Arc::clone(dropped), Arc::clone(before));
+        ServiceProviderDescriptor::per_attempt("payments", &PAYMENTS, move |_: &Orders, _| {
+            Ok(dropping_after(&dropped, &before))
+        })
+    }
+
+    fn dropping_after(dropped: &Dropped, before: &DroppedBefore) -> Box<dyn Labeller> {
+        before.lock().unwrap().push(drops(dropped));
+        dropping(dropped)
+    }
+
+    #[test]
+    fn an_attempt_scoped_service_is_dropped_when_its_attempt_ends() {
+        let (dropped, before) = (Dropped::default(), DroppedBefore::default());
+        let charge = requesting("charge", &[&PAYMENTS], &[timed_out], &Given::default());
+        let workflow = orders()
+            .step(charge.retry_budget(1))
+            .provider(counting_drops(&dropped, &before));
+
+        travel_workflow(workflow);
+
+        assert_eq!(*before.lock().unwrap(), [0, 1]);
+        assert_eq!(drops(&dropped), 2);
     }
 }
 

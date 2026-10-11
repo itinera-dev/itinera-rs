@@ -8,10 +8,14 @@ use super::Answers;
 use crate::error::Error;
 use crate::journey::{Contributor, DataBagAccess, JourneyId};
 use crate::mode::Synchronous;
+#[cfg(feature = "unstable")]
+use crate::policy::Provider;
 use crate::policy::{
     ErrorHookKind, FailureHookKind, HookKind, HookReporter, InputAdapter, PolicyHookKind, Provides,
-    RetryCause, StepFailure, StepFailureCause, StepHookKind, StepRetry,
+    ReportingHookKind, RetryCause, StepFailure, StepFailureCause, StepHookKind, StepRetry,
 };
+#[cfg(feature = "unstable")]
+use crate::service::PerAttempt;
 use crate::step::{Input, OptionalInput, Reason, Reporting, StepName};
 use crate::value::{AnyValue, Value};
 
@@ -613,7 +617,7 @@ impl<'a, W, H: PolicyHookKind, M> Requested<'a, W, H, M> {
     }
 }
 
-impl<'a, W, H: PolicyHookKind> Requested<'a, W, H, Synchronous> {
+impl<'a, W, H: ReportingHookKind> Requested<'a, W, H, Synchronous> {
     /// Takes the reporter the hook declared.
     ///
     /// # Errors
@@ -724,6 +728,75 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     /// ```
     pub fn data_bag(&mut self) -> Result<DataBagAccess<'a>, Error> {
         self.answers.data_bag.take().ok_or_else(undeclared_data_bag)
+    }
+}
+
+#[cfg(feature = "unstable")]
+impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
+    /// The name of the step being built.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::policy::{Provider, Requested};
+    /// use itinera::service::PerAttempt;
+    ///
+    /// trait Labeller: Send + Sync {}
+    ///
+    /// struct Label(String);
+    ///
+    /// impl Labeller for Label {}
+    ///
+    /// struct Orders;
+    ///
+    /// impl Orders {
+    ///     fn labels(
+    ///         &self,
+    ///         got: Requested<'_, Self, Provider<PerAttempt>>,
+    ///     ) -> Result<Box<dyn Labeller>, Error> {
+    ///         Ok(Box::new(Label(got.step_name().to_string())))
+    ///     }
+    /// }
+    /// ```
+    pub fn step_name(&self) -> StepName {
+        self.context.step
+    }
+
+    /// The number of the attempt being built, from 1.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::policy::{Provider, Requested};
+    /// use itinera::service::PerAttempt;
+    ///
+    /// trait PaymentGateway: Send + Sync {}
+    ///
+    /// struct Main;
+    /// struct Backup;
+    ///
+    /// impl PaymentGateway for Main {}
+    /// impl PaymentGateway for Backup {}
+    ///
+    /// struct Orders;
+    ///
+    /// impl Orders {
+    ///     fn payments(
+    ///         &self,
+    ///         got: Requested<'_, Self, Provider<PerAttempt>>,
+    ///     ) -> Result<Box<dyn PaymentGateway>, Error> {
+    ///         if got.attempt().get() == 1 {
+    ///             Ok(Box::new(Main))
+    ///         } else {
+    ///             Ok(Box::new(Backup))
+    ///         }
+    ///     }
+    /// }
+    /// ```
+    pub fn attempt(&self) -> NonZeroU32 {
+        self.context.attempt
     }
 }
 

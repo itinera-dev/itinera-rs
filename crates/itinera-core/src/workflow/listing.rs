@@ -1,5 +1,5 @@
-//! The listing: a workflow's steps in order, with their policies, input adapters and rescue
-//! steps, without running anything.
+//! The listing: a workflow's steps in order, with their policies, input adapters, rescue steps
+//! and services, without running anything.
 
 use std::num::NonZeroUsize;
 
@@ -7,12 +7,17 @@ use super::input_adapter::attached_to;
 use super::{AdapterName, InputAdapterDescriptor, WorkflowDescriptor};
 use crate::mode::Mode;
 use crate::policy::PolicyName;
+#[cfg(feature = "unstable")]
+use crate::service::{ProviderEntry, ProviderName};
+#[cfg(feature = "unstable")]
+use crate::step::ServiceNeed;
 use crate::step::{StepDescriptor, StepName};
 
 impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     /// Lists the workflow's steps in order, without running anything: each step's name, its
-    /// position from 1, the names of its policies in the order they were attached, and the names of
-    /// its input adapter and its rescue step, if it has them.
+    /// position from 1, the names of its policies in the order they were attached, the names of
+    /// its input adapter and its rescue step, if it has them, and, with the `unstable` feature,
+    /// the services it requests, each with the provider that serves it.
     ///
     /// # Examples
     ///
@@ -59,13 +64,41 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     pub fn listing(&self) -> Vec<ListedStep> {
-        let adapters = &self.declaration.adapters;
         self.declaration
             .steps
             .iter()
             .zip(positions())
-            .map(|(step, position)| listed(step, position, adapters))
+            .map(|(step, position)| self.listed(step, position))
             .collect()
+    }
+
+    fn listed(&self, step: &StepDescriptor<W, M>, position: NonZeroUsize) -> ListedStep {
+        let name = step.name();
+        ListedStep {
+            step: name,
+            position,
+            policies: step.policies().iter().map(|policy| policy.name()).collect(),
+            adapter: attached_to(&self.declaration.adapters, name)
+                .map(InputAdapterDescriptor::<W>::name),
+            rescue: step.rescue_step().map(StepDescriptor::name),
+            #[cfg(feature = "unstable")]
+            services: step
+                .needs()
+                .services()
+                .iter()
+                .filter_map(|need| self.listed_service(name, need))
+                .collect(),
+        }
+    }
+
+    /// A service the step requests, with the provider that serves it, which admission made sure
+    /// there is.
+    #[cfg(feature = "unstable")]
+    fn listed_service(&self, step: StepName, need: &ServiceNeed) -> Option<ListedService> {
+        let key = need.key();
+        self.provider(step, key)
+            .map(ProviderEntry::name)
+            .map(|provider| served_by(key, provider))
     }
 }
 
@@ -93,21 +126,35 @@ pub struct ListedStep {
     pub adapter: Option<AdapterName>,
     /// Its rescue step, if it has one.
     pub rescue: Option<StepName>,
+    /// The services it requests, in the order it declares them.
+    #[cfg(feature = "unstable")]
+    pub services: Vec<ListedService>,
 }
 
-fn listed<M, W>(
-    step: &StepDescriptor<W, M>,
-    position: NonZeroUsize,
-    adapters: &[InputAdapterDescriptor<W>],
-) -> ListedStep {
-    let name = step.name();
-    ListedStep {
-        step: name,
-        position,
-        policies: step.policies().iter().map(|policy| policy.name()).collect(),
-        adapter: attached_to(adapters, name).map(InputAdapterDescriptor::<W>::name),
-        rescue: step.rescue_step().map(StepDescriptor::name),
-    }
+/// A service a step requests, in a workflow's listing.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::workflow::ListedService;
+///
+/// fn describe(listed: &ListedService) -> String {
+///     format!("{}: {}", listed.key, listed.provider)
+/// }
+/// ```
+#[cfg(feature = "unstable")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct ListedService {
+    /// The key the step requests the service by.
+    pub key: &'static str,
+    /// The provider that serves the step for that key.
+    pub provider: ProviderName,
+}
+
+#[cfg(feature = "unstable")]
+fn served_by(key: &'static str, provider: ProviderName) -> ListedService {
+    ListedService { key, provider }
 }
 
 /// The positions of steps: 1, 2, 3 and so on.
@@ -167,6 +214,8 @@ mod tests {
                     policies: vec![PolicyName::from("audit"), PolicyName::from("alarm")],
                     adapter: Some(AdapterName::from("pricing")),
                     rescue: Some(StepName::new("charge_rescue")),
+                    #[cfg(feature = "unstable")]
+                    services: Vec::new(),
                 },
                 ListedStep {
                     step: StepName::new("ship"),
@@ -174,9 +223,50 @@ mod tests {
                     policies: Vec::new(),
                     adapter: None,
                     rescue: None,
+                    #[cfg(feature = "unstable")]
+                    services: Vec::new(),
                 },
             ]
         );
         assert_eq!(ran.load(Ordering::SeqCst), 0);
+    }
+
+    #[cfg(feature = "unstable")]
+    mod services {
+        use super::*;
+        use crate::service::fixtures::{
+            Given, Made, PAYMENTS, STOCK, per_attempt, per_journey, requesting,
+        };
+        use crate::workflow::fixtures::orders;
+
+        #[test]
+        fn each_step_is_listed_with_the_services_it_requests_and_the_provider_serving_each() {
+            let (made, given) = (Made::default(), Given::default());
+            let orders = orders()
+                .step(requesting("charge", &[&STOCK, &PAYMENTS], &[], &given))
+                .step(requesting("ship", &[&STOCK], &[], &given))
+                .provider(per_journey("stock", &STOCK, &made))
+                .provider(per_attempt("charging", &PAYMENTS, &made).step(StepName::new("charge")))
+                .build()
+                .unwrap();
+
+            let services: Vec<Vec<ListedService>> =
+                orders.listing().into_iter().map(services_of).collect();
+
+            assert_eq!(
+                services,
+                [
+                    vec![
+                        served_by("stock", ProviderName::from("stock")),
+                        served_by("payments", ProviderName::from("charging")),
+                    ],
+                    vec![served_by("stock", ProviderName::from("stock"))],
+                ]
+            );
+        }
+
+        fn services_of(listed: ListedStep) -> Vec<ListedService> {
+            listed.services
+        }
     }
 }

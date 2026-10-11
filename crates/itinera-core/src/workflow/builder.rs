@@ -10,6 +10,8 @@ use crate::journey::DataBag;
 use crate::mode::{Mode, Synchronous};
 use crate::policy::WorkflowPolicyDescriptor;
 use crate::report::{self, Reporter};
+#[cfg(feature = "unstable")]
+use crate::service::{ProviderScope, ServiceProviderDescriptor};
 use crate::step::StepDescriptor;
 
 /// Declares a workflow, one part at a time, and builds its [`WorkflowDescriptor`].
@@ -48,6 +50,8 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
                 steps: Vec::new(),
                 policies: Vec::new(),
                 adapters: Vec::new(),
+                #[cfg(feature = "unstable")]
+                providers: Vec::new(),
                 reporters: Vec::new(),
                 id_generator: None,
             },
@@ -153,6 +157,74 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
         self
     }
 
+    /// Declares a service provider of the workflow, after those already declared.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::service::{Service, ServiceProviderDescriptor};
+    /// use itinera::step::{Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds, step_name};
+    /// use itinera::workflow::WorkflowDescriptor;
+    ///
+    /// trait StockStore: Send + Sync {
+    ///     fn reserve(&self) -> Result<(), Error>;
+    /// }
+    ///
+    /// struct Warehouse;
+    ///
+    /// impl StockStore for Warehouse {
+    ///     fn reserve(&self) -> Result<(), Error> {
+    ///         Ok(())
+    ///     }
+    /// }
+    ///
+    /// const STOCK: Service<dyn StockStore> = Service::new("stock");
+    ///
+    /// struct Reserve<'a> {
+    ///     stock: &'a dyn StockStore,
+    /// }
+    ///
+    /// impl Step for Reserve<'_> {
+    ///     fn run(self) -> Result<Outcome, Error> {
+    ///         self.stock.reserve()?;
+    ///         Ok(Outcome::success())
+    ///     }
+    /// }
+    ///
+    /// struct Reserving;
+    ///
+    /// impl StepFactory for Reserving {
+    ///     type Step<'a> = Reserve<'a>;
+    ///
+    ///     fn needs(&self) -> StepNeeds {
+    ///         StepNeeds::new().service(&STOCK)
+    ///     }
+    ///
+    ///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Reserve<'a>, Error> {
+    ///         Ok(Reserve { stock: got.service(&STOCK)? })
+    ///     }
+    /// }
+    ///
+    /// struct Orders;
+    ///
+    /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
+    ///     .step(StepDescriptor::new(step_name!("reserve"), Reserving))
+    ///     .provider(ServiceProviderDescriptor::new("stock", &STOCK, |_, _| {
+    ///         Ok(Box::new(Warehouse) as Box<dyn StockStore>)
+    ///     }))
+    ///     .build()?;
+    /// # Ok::<(), itinera::workflow::Violations>(())
+    /// ```
+    #[cfg(feature = "unstable")]
+    pub fn provider<S: ProviderScope>(
+        mut self,
+        provider: ServiceProviderDescriptor<W, S, M>,
+    ) -> Self {
+        self.declaration.providers.push(Box::new(provider));
+        self
+    }
+
     /// Lists a reporter, which each instance makes for its journey with `Default`. Reporters
     /// receive events in the order they are listed, before those added as an instance is created
     /// with [`InstanceBuilder::reporter`](crate::instance::InstanceBuilder::reporter).
@@ -224,9 +296,9 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     }
 
     /// Checks the declaration and builds the workflow descriptor, or returns every violation
-    /// found: steps with the same name, a hook defined twice for one step or for the workflow, and
+    /// found: steps with the same name, a hook defined twice for one step or for the workflow,
     /// input adapters attached to a step the workflow does not have, or to a step another adapter
-    /// is attached to.
+    /// is attached to, and, with the `unstable` feature, services wrongly requested or provided.
     ///
     /// # Examples
     ///
@@ -250,11 +322,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
     pub fn build(self) -> Result<WorkflowDescriptor<W, M>, Violations> {
-        violation::check(
-            &self.declaration.steps,
-            &self.declaration.policies,
-            &self.declaration.adapters,
-        )?;
+        violation::check(&self.declaration)?;
         Ok(WorkflowDescriptor {
             declaration: Arc::new(self.declaration),
         })

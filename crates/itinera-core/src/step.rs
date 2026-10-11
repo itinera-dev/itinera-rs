@@ -34,6 +34,8 @@ pub use input::{Input, OptionalInput};
 #[cfg(feature = "macros")]
 pub use itinera_macros::{RescueStep, Step, rescue_step, step};
 pub use name::{StepName, step_name};
+#[cfg(feature = "unstable")]
+pub(crate) use needs::ServiceNeed;
 pub use needs::StepNeeds;
 pub(crate) use needs::{InputNeed, Requirement, RescueRequest, StepRequest};
 pub use outcome::Outcome;

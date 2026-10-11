@@ -1,6 +1,6 @@
 # 0042: Configuration errors are caught before a journey starts
 
-Tech spec for [proposal 0042](https://github.com/itinera-dev/spec/blob/main/proposals/0042-configuration-errors-before-the-journey.md), implemented in [#20](https://github.com/itinera-dev/itinera-rs/issues/20). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
+Tech spec for [proposal 0042](https://github.com/itinera-dev/spec/blob/main/proposals/0042-configuration-errors-before-the-journey.md), implemented in [#20](https://github.com/itinera-dev/itinera-rs/issues/20). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposal 0095 amends it, and its tech spec covers what it changes: the six violations of services and their providers.
 
 Status: done in stage 6. Stage 4 added admission, which refuses a workflow put together wrongly when it is built. The execution mode was checked by types from stage 3; stage 6 proves it.
 

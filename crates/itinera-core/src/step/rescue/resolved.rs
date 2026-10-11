@@ -5,6 +5,8 @@ use std::any;
 use crate::error::Error;
 use crate::journey::Contributor;
 use crate::mode::Synchronous;
+#[cfg(feature = "unstable")]
+use crate::service::Service;
 use crate::step::{Got, Input, OptionalInput, Reason, Resolved, StepReporter};
 use crate::value::{AnyValue, Value};
 
@@ -273,6 +275,36 @@ impl<'a, M> RescueResolved<'a, M> {
     /// ```
     pub fn contributor(&mut self) -> Result<Contributor<'a>, Error> {
         self.resolved.contributor()
+    }
+
+    /// The service the rescue step declared under the token's key, lent for its attempt.
+    ///
+    /// The rescue step never knows which provider made it, whether another step shares it, or
+    /// how long it lives. It may take a service more than once.
+    ///
+    /// # Errors
+    ///
+    /// When the rescue step's needs do not declare this service with this type. Building fails
+    /// with that error, and the journey is aborted with `step could not be built`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::service::Service;
+    /// use itinera::step::RescueResolved;
+    ///
+    /// trait PaymentGateway: Send + Sync {}
+    ///
+    /// const PAYMENTS: Service<dyn PaymentGateway> = Service::new("payments");
+    ///
+    /// fn payments<'a>(got: &RescueResolved<'a>) -> Result<&'a dyn PaymentGateway, Error> {
+    ///     got.service(&PAYMENTS)
+    /// }
+    /// ```
+    #[cfg(feature = "unstable")]
+    pub fn service<T: ?Sized + 'static>(&self, service: &Service<T>) -> Result<&'a T, Error> {
+        self.resolved.service(service)
     }
 }
 

@@ -9,11 +9,14 @@ use crate::instance::InstanceBuilder;
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::{Mode, Synchronous};
 use crate::policy::WorkflowPolicyEntry;
+#[cfg(feature = "unstable")]
+use crate::service::{self, ProviderEntry};
 use crate::step::{StepDescriptor, StepName};
 
 #[cfg(feature = "async")]
 mod asynchronous;
 mod builder;
+mod declaration;
 mod described;
 #[cfg(test)]
 pub(crate) mod fixtures;
@@ -22,6 +25,7 @@ mod listing;
 mod name;
 mod violation;
 
+use declaration::Declaration;
 use input_adapter::attached_to;
 
 pub use builder::WorkflowBuilder;
@@ -29,12 +33,15 @@ pub use described::Workflow;
 pub use input_adapter::InputAdapterDescriptor;
 #[cfg(feature = "macros")]
 pub use itinera_macros::{role, workflow};
+#[cfg(feature = "unstable")]
+pub use listing::ListedService;
 pub use listing::ListedStep;
 pub use name::{AdapterName, WorkflowName};
 pub use violation::{Violation, ViolationKind, Violations};
 
 /// A workflow's declaration: its name, its step descriptors in order, its workflow policies, its
-/// input adapters, its reporters and how it produces journey IDs.
+/// input adapters, with the `unstable` feature its service providers, its reporters and how it
+/// produces journey IDs.
 ///
 /// It is fixed once built, shared by every instance of the workflow, and cheap to clone. Only
 /// [`WorkflowBuilder::build`] makes one, after checking the declaration. Its mode `M` is
@@ -63,23 +70,6 @@ pub use violation::{Violation, ViolationKind, Violations};
 pub struct WorkflowDescriptor<W, M: Mode = Synchronous> {
     declaration: Arc<Declaration<W, M>>,
 }
-
-#[derive(derive_more::Debug)]
-struct Declaration<W, M: Mode> {
-    name: WorkflowName,
-    steps: Vec<StepDescriptor<W, M>>,
-    policies: Vec<Box<dyn WorkflowPolicyEntry<W, M>>>,
-    adapters: Vec<InputAdapterDescriptor<W>>,
-    #[debug("{}", reporters.len())]
-    reporters: Vec<MakeReporter<M>>,
-    #[debug("{}", id_generator.is_some())]
-    id_generator: Option<GenerateId<W>>,
-}
-
-/// Makes one listed reporter for a journey.
-type MakeReporter<M> = fn() -> <M as Mode>::Reporter;
-
-type GenerateId<W> = Box<dyn Fn(&W, &DataBag) -> Result<String, Error> + Send + Sync>;
 
 impl<W: Send + Sync + 'static> WorkflowDescriptor<W> {
     /// Starts declaring a synchronous workflow with this name, which only the synchronous
@@ -167,6 +157,22 @@ impl<W, M: Mode> WorkflowDescriptor<W, M> {
     /// ```
     pub fn name(&self) -> WorkflowName {
         self.declaration.name
+    }
+
+    /// The workflow's service providers, in the order they were declared.
+    #[cfg(feature = "unstable")]
+    pub(crate) fn providers(&self) -> &[Box<dyn ProviderEntry<W, M>>] {
+        &self.declaration.providers
+    }
+
+    /// The service provider that serves the step for the service under `key`, if one does.
+    #[cfg(feature = "unstable")]
+    pub(crate) fn provider(&self, step: StepName, key: &str) -> Option<&dyn ProviderEntry<W, M>> {
+        service::serving(
+            &self.declaration.providers,
+            self.declaration.served(step),
+            key,
+        )
     }
 }
 

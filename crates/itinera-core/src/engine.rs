@@ -2,6 +2,8 @@
 //! result.
 
 use std::future::Future;
+#[cfg(feature = "unstable")]
+use std::sync::Arc;
 
 use crate::event::EventBody;
 use crate::instance::WorkflowInstance;
@@ -25,6 +27,8 @@ mod outcome;
 mod request;
 mod rescue;
 mod retry;
+#[cfg(feature = "unstable")]
+mod services;
 
 #[cfg(feature = "async")]
 pub(crate) use asynchronous::Awaited;
@@ -35,6 +39,8 @@ pub(crate) use hooks::WorkflowPolicies;
 use emitter::{Delivery, Emitter};
 use end::{Aborted, End};
 use rescue::LeftForRescue;
+#[cfg(feature = "unstable")]
+use services::Kept;
 
 /// Runs one journey of the instance, with the workflow policies built for it, delivering its
 /// events through the dispatcher, whose reporters were guarded by `failures`.
@@ -54,6 +60,8 @@ pub(crate) async fn run<I: WorkflowInstance>(
         failures,
         step: None,
         interrupted: None,
+        #[cfg(feature = "unstable")]
+        kept: Arc::new(Kept::of(&descriptor)),
     };
     let status = match journey.travel(&mut instance, &descriptor, &policies).await {
         Ok(()) => JourneyStatus::Succeeded {
@@ -92,6 +100,10 @@ struct Journey<D> {
     /// The abort recorded when a reporter failed on an event a step or hook emitted, while it
     /// ran. It stands whatever the step or hook does afterwards.
     interrupted: Option<Box<Aborted>>,
+    /// The instances of journey scope the providers made, which attempts borrow while the
+    /// journey lends itself to their handles.
+    #[cfg(feature = "unstable")]
+    kept: Arc<Kept>,
 }
 
 impl<D: Delivery> Journey<D> {

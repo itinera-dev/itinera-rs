@@ -5,19 +5,23 @@ use std::fmt;
 use crate::step::StepAttempt;
 
 mod input_adapter;
+#[cfg(feature = "unstable")]
+mod provider;
 pub(crate) mod sealed;
 mod step_hook;
 mod workflow_hook;
 
 pub use input_adapter::InputAdapter;
+#[cfg(feature = "unstable")]
+pub use provider::Provider;
 pub use step_hook::{StepAbnormalTermination, StepFailure, StepRetry, StepSuccess};
 pub use workflow_hook::{WorkflowFailure, WorkflowSuccess};
 
 /// A kind of hook. [`HookNeeds`] and [`Requested`] offer a hook only the requests its kind may
 /// make, so a request it may not make does not compile.
 ///
-/// Only itinera's own kinds implement it: one for each of the six hooks of policies, and one for
-/// input adapters.
+/// Only itinera's own kinds implement it: one for each of the six hooks of policies, one for
+/// input adapters, and, with the `unstable` feature, one for service providers of each scope.
 ///
 /// [`HookNeeds`]: super::HookNeeds
 /// [`Requested`]: super::Requested
@@ -109,3 +113,26 @@ pub trait ErrorHookKind: StepHookKind {}
 /// let needs: HookNeeds<WorkflowFailure> = writing();
 /// ```
 pub trait PolicyHookKind: HookKind {}
+
+/// A kind of hook that may request a reporter, to emit `journey_info`, `journey_warning` and
+/// `journey_error`: every hook of a policy, and service providers.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::policy::{HookNeeds, ReportingHookKind, StepRetry};
+///
+/// fn reporting<H: ReportingHookKind>() -> HookNeeds<H> {
+///     HookNeeds::new().reporter()
+/// }
+///
+/// let needs: HookNeeds<StepRetry> = reporting();
+/// ```
+#[cfg(feature = "unstable")]
+pub trait ReportingHookKind: HookKind {}
+
+#[cfg(feature = "unstable")]
+impl<H: PolicyHookKind> ReportingHookKind for H {}
+
+#[cfg(not(feature = "unstable"))]
+pub(crate) use PolicyHookKind as ReportingHookKind;
