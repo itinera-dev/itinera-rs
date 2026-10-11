@@ -8,10 +8,13 @@ mod asynchronous;
 mod attempt;
 mod descriptor;
 mod factory;
+mod input;
 mod needs;
 mod outcome;
 mod reason;
 mod reporter;
+mod resolved;
+mod slots;
 
 #[cfg(feature = "async")]
 pub use asynchronous::{AsyncStep, AsyncStepFactory, AsyncStepReporter};
@@ -19,13 +22,17 @@ pub use attempt::StepAttempt;
 pub use descriptor::StepDescriptor;
 pub use factory::StepFactory;
 use factory::{Attempts, Running};
-pub(crate) use needs::{Got, InputNeed, Requirement, Slots};
-pub use needs::{Input, OptionalInput, Resolved, StepNeeds};
+pub use input::{Input, OptionalInput};
+pub use needs::StepNeeds;
+pub(crate) use needs::{InputNeed, Requirement};
 pub use outcome::Outcome;
 pub(crate) use outcome::OutcomeKind;
 pub use reason::Reason;
 pub use reporter::StepReporter;
 pub(crate) use reporter::{Level, Reporting};
+pub(crate) use resolved::Got;
+pub use resolved::Resolved;
+pub(crate) use slots::Slots;
 
 /// A step's name: non-empty text, fixed when the program is compiled, unique within its workflow
 /// and compared case-sensitively.
