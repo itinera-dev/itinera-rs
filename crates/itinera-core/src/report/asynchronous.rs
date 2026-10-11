@@ -1,7 +1,8 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use super::{DefaultDispatcher, DefaultDispatcherFactory, Delivery, Reporter};
+use super::default_dispatcher::Delivery;
+use super::{DefaultDispatcher, DefaultDispatcherFactory, Reporter};
 use crate::error::Error;
 use crate::event::Event;
 use crate::journey::{DataBag, JourneyId};
