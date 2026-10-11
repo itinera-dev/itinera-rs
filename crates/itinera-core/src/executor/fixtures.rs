@@ -54,7 +54,7 @@ pub(crate) struct Recorder<const N: usize> {
 }
 
 impl<const N: usize> Recorder<N> {
-    pub(crate) fn record(&mut self, event: &Event) -> Result<(), Error> {
+    fn record(&mut self, event: &Event) -> Result<(), Error> {
         let name = NAMES[N];
         self.log
             .lock()
@@ -80,7 +80,7 @@ impl<const N: usize> WorkflowReporter<Shop> for Recorder<N> {
 }
 
 impl<const N: usize> Recorder<N> {
-    pub(crate) fn new(shop: &Shop) -> Self {
+    fn new(shop: &Shop) -> Self {
         let name = NAMES[N];
         let fails_on = shop
             .fails_on
