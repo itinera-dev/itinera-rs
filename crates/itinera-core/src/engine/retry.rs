@@ -3,14 +3,13 @@
 
 use super::attempt::Attempting;
 use super::decision::{Decision, Failed, decide, given_up};
-use super::end::End;
+use super::end::{End, failed_by_hook};
 use super::hooks::Decided;
 use super::{Delivery, Journey, Next};
-use crate::event::{DecidingHook, EventBody, GiveUpCause, GiveUpHook, JourneyFailure};
+use crate::event::{DecidingHook, EventBody, GiveUpCause, GiveUpHook};
 use crate::instance::WorkflowInstance;
-use crate::journey::Failure;
-use crate::policy::{FailWorkflow, PolicyName, RetryCause, StepFailureCause, StepHook};
-use crate::step::{Reason, StepName};
+use crate::policy::{FailWorkflow, RetryCause, StepFailureCause, StepHook};
+use crate::step::Reason;
 
 impl<D: Delivery> Journey<D> {
     /// Acts on an attempt that did not succeed, as the step's own rule decides.
@@ -109,18 +108,4 @@ impl<D: Delivery> Journey<D> {
             reason,
         ))
     }
-}
-
-/// The failure of a journey because a hook of the step returned `FailWorkflow`.
-pub(super) fn failed_by_hook(
-    step: StepName,
-    policy: PolicyName,
-    hook: StepHook,
-    reason: Reason,
-) -> End {
-    let reported = JourneyFailure::FailWorkflow {
-        decided_by: DecidingHook { policy, hook },
-        reason: reason.clone(),
-    };
-    End::failed(step, reported, Failure::FailWorkflow(reason))
 }

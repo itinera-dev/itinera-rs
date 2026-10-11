@@ -9,6 +9,7 @@ use super::{Needs, PolicyName, Requested, StepHook, WorkflowHook};
 use crate::error::Error;
 
 mod built;
+mod calls;
 mod step_policy;
 mod workflow_policy;
 

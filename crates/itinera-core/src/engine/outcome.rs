@@ -3,9 +3,8 @@
 
 use super::attempt::Attempting;
 use super::decision::Failed;
-use super::end::End;
+use super::end::{End, failed_by_hook};
 use super::hooks::Decided;
-use super::retry::failed_by_hook;
 use super::{Delivery, Journey, Next};
 use crate::error::Error;
 use crate::event::{EventBody, GiveUpHook, Source};

@@ -13,13 +13,13 @@ use crate::workflow::WorkflowDescriptor;
 #[cfg(feature = "async")]
 mod asynchronous;
 mod attempt;
-mod conclusion;
 mod decision;
 mod emitter;
 mod end;
 mod guard;
 mod hooks;
 mod inputs;
+mod outcome;
 mod request;
 mod retry;
 

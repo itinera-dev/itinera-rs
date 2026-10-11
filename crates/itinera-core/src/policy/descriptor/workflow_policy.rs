@@ -4,6 +4,7 @@ use std::future::ready;
 use std::marker::PhantomData;
 
 use super::built::Built;
+use super::calls::WorkflowCalls;
 use super::{BuiltWorkflowPolicy, Call, Factory, HookCall, Hooked, Hookless, WorkflowPolicyEntry};
 use crate::error::Error;
 use crate::mode::Synchronous;
@@ -69,20 +70,6 @@ struct WorkflowNeeds {
     success: Needs,
     failure: Needs,
 }
-
-/// How to call each workflow hook a policy defines.
-pub(super) struct WorkflowCalls<P, W, M> {
-    pub(super) success: Option<Call<P, W, WorkflowSuccess, M, ()>>,
-    pub(super) failure: Option<Call<P, W, WorkflowFailure, M, ()>>,
-}
-
-impl<P, W, M> Clone for WorkflowCalls<P, W, M> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<P, W, M> Copy for WorkflowCalls<P, W, M> {}
 
 impl<P, W, M> WorkflowPolicyDescriptor<P, W, M, Hookless> {
     pub(crate) fn with_factory(name: PolicyName, factory: Factory<P>) -> Self {

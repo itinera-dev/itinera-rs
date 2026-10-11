@@ -4,8 +4,7 @@
 use std::future::ready;
 
 use super::HookCall;
-use super::step_policy::StepCalls;
-use super::workflow_policy::WorkflowCalls;
+use super::calls::{StepCalls, WorkflowCalls};
 use crate::policy::{
     FailWorkflow, OnSuccess, Requested, StepAbnormalTermination, StepFailure, StepRetry,
     StepSuccess, WorkflowFailure, WorkflowSuccess,

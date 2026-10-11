@@ -4,6 +4,7 @@ use std::future::ready;
 use std::marker::PhantomData;
 
 use super::built::Built;
+use super::calls::StepCalls;
 use super::{BuiltStepPolicy, Call, Factory, HookCall, Hooked, Hookless, StepPolicyEntry};
 use crate::error::Error;
 use crate::mode::Synchronous;
@@ -73,23 +74,6 @@ struct StepNeeds {
     retry: Needs,
     abnormal_termination: Needs,
 }
-
-/// How to call each step hook a policy defines.
-pub(super) struct StepCalls<P, W, M> {
-    pub(super) success: Option<Call<P, W, StepSuccess, M, Option<OnSuccess>>>,
-    pub(super) failure: Option<Call<P, W, StepFailure, M, Option<FailWorkflow>>>,
-    pub(super) retry: Option<Call<P, W, StepRetry, M, Option<FailWorkflow>>>,
-    pub(super) abnormal_termination:
-        Option<Call<P, W, StepAbnormalTermination, M, Option<FailWorkflow>>>,
-}
-
-impl<P, W, M> Clone for StepCalls<P, W, M> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<P, W, M> Copy for StepCalls<P, W, M> {}
 
 impl<P, W, M> StepPolicyDescriptor<P, W, M, Hookless> {
     pub(crate) fn with_factory(name: PolicyName, factory: Factory<P>) -> Self {
