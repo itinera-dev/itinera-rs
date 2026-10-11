@@ -43,16 +43,13 @@ fn step_ended_as_aborted(world: &mut World, step_name: String) -> Result<(), Unm
     name = "status",
     regex = "succeeded|failed|skipped|not executed|aborted"
 )]
+#[display(rename_all = "lowercase")]
 enum Status {
-    #[display("succeeded")]
     Succeeded,
-    #[display("failed")]
     Failed,
-    #[display("skipped")]
     Skipped,
     #[display("not executed")]
     NotExecuted,
-    #[display("aborted")]
     Aborted,
 }
 

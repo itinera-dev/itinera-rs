@@ -30,15 +30,17 @@ use crate::report::sealed::Held;
 ///
 /// let reporter = BoxedReporter::from_reporter(Silent);
 /// ```
-#[derive(derive_more::Debug)]
+#[derive(derive_more::Debug, derive_more::From)]
 #[debug("BoxedReporter({kind:?})")]
+#[from(Box<dyn Reporter>)]
 pub struct BoxedReporter {
     kind: Kind,
 }
 
-#[derive(derive_more::Debug)]
+#[derive(derive_more::Debug, derive_more::From)]
 enum Kind {
     #[debug("{:?}", "sync")]
+    #[from]
     Sync(Box<dyn Reporter>),
     #[debug("{:?}", "async")]
     Async(Box<dyn DynAsyncReporter>),
@@ -113,14 +115,6 @@ impl BoxedReporter {
         match &mut self.kind {
             Kind::Sync(reporter) => reporter.report(event),
             Kind::Async(reporter) => reporter.report_boxed(event).await,
-        }
-    }
-}
-
-impl From<Box<dyn Reporter>> for BoxedReporter {
-    fn from(reporter: Box<dyn Reporter>) -> Self {
-        Self {
-            kind: Kind::Sync(reporter),
         }
     }
 }

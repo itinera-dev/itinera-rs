@@ -27,8 +27,6 @@ pub(crate) enum ModelError {
     UnknownEvent(String),
     #[error("\"{0}\" cannot be emitted here")]
     UnknownEmit(String),
-    #[error("\"{0}\" is not a type of the vocabulary")]
-    UnknownType(String),
     #[error("{0} has no type of the vocabulary")]
     Untyped(String),
     #[error("policy \"{0}\" cannot define \"{1}\", a hook of the other kind")]

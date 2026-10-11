@@ -45,7 +45,7 @@ impl Line {
     /// Reads one row of an event table, keeping only its non-empty cells.
     pub(crate) fn expected(row: &Row) -> Result<Self, ModelError> {
         let mut line = Self {
-            event: EventKind::named(row.required("event")?)?.name().to_owned(),
+            event: EventKind::named(row.required("event")?)?.to_string(),
             ..Self::default()
         };
         if let Some(column) = row.columns().find(is_unknown_column) {

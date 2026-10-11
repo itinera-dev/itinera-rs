@@ -22,7 +22,7 @@ use crate::step::{Scripted, StepsRun};
 use crate::witness::Witness;
 
 /// The workflow's own value: the roles it provides.
-#[derive(Debug)]
+#[derive(Debug, derive_more::Constructor)]
 pub(crate) struct ScriptedWorkflow {
     roles: ProvidedRoles,
 }
@@ -30,12 +30,6 @@ pub(crate) struct ScriptedWorkflow {
 impl Provides<dyn Roles> for ScriptedWorkflow {
     fn role(&self) -> &(dyn Roles + 'static) {
         &self.roles
-    }
-}
-
-impl ScriptedWorkflow {
-    pub(crate) fn new(roles: ProvidedRoles) -> Self {
-        Self { roles }
     }
 }
 

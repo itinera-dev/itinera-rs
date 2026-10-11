@@ -17,13 +17,14 @@ use crate::step::Reason;
 ///
 /// assert_eq!(Lifecycle::FinishWorkflow.to_string(), "FinishWorkflow");
 /// ```
-#[derive(Clone, Debug, derive_more::Display)]
+#[derive(Clone, Debug, derive_more::Display, derive_more::From)]
 #[non_exhaustive]
 pub enum Lifecycle {
     /// The journey succeeds at once.
     FinishWorkflow,
     /// The journey fails at once, with this reason.
     #[display("FailWorkflow")]
+    #[from(FailWorkflow)]
     FailWorkflow(Reason),
 }
 
@@ -44,12 +45,13 @@ pub enum Lifecycle {
 /// assert!(ends_without_the_steps_left(&OnSuccess::FinishWorkflow));
 /// assert!(!ends_without_the_steps_left(&OnSuccess::FailWorkflow(Reason::new("refused"))));
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, derive_more::From)]
 #[non_exhaustive]
 pub enum OnSuccess {
     /// The journey succeeds at once, and the steps left are not run.
     FinishWorkflow,
     /// The journey fails at once, with this reason. The step stays succeeded.
+    #[from(FailWorkflow)]
     FailWorkflow(Reason),
 }
 
@@ -78,18 +80,6 @@ impl From<OnSuccess> for Lifecycle {
             OnSuccess::FinishWorkflow => Self::FinishWorkflow,
             OnSuccess::FailWorkflow(reason) => Self::FailWorkflow(reason),
         }
-    }
-}
-
-impl From<FailWorkflow> for OnSuccess {
-    fn from(returned: FailWorkflow) -> Self {
-        Self::FailWorkflow(returned.into())
-    }
-}
-
-impl From<FailWorkflow> for Lifecycle {
-    fn from(returned: FailWorkflow) -> Self {
-        Self::FailWorkflow(returned.into())
     }
 }
 

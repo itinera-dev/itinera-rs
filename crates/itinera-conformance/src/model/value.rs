@@ -1,14 +1,13 @@
 //! Values and types as the cases write them.
 
-use std::str::FromStr;
-
 use serde_json::Value;
 
 use super::ModelError;
 
 /// A type of the neutral vocabulary the cases use, which the runner maps to a Rust type.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, cucumber::Parameter)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, cucumber::Parameter, derive_more::FromStr)]
 #[param(name = "type", regex = "string|integer|number|boolean|list|object")]
+#[from_str(rename_all = "lowercase")]
 pub(crate) enum ValueType {
     String,
     Integer,
@@ -16,22 +15,6 @@ pub(crate) enum ValueType {
     Boolean,
     List,
     Object,
-}
-
-impl FromStr for ValueType {
-    type Err = ModelError;
-
-    fn from_str(name: &str) -> Result<Self, ModelError> {
-        Ok(match name {
-            "string" => Self::String,
-            "integer" => Self::Integer,
-            "number" => Self::Number,
-            "boolean" => Self::Boolean,
-            "list" => Self::List,
-            "object" => Self::Object,
-            _ => return Err(ModelError::UnknownType(name.to_owned())),
-        })
-    }
 }
 
 /// Reads a value written as JSON.

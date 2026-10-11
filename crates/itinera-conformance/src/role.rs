@@ -14,16 +14,10 @@ pub(crate) trait Roles: Send + Sync {
 }
 
 /// The roles the workflow provides, as the scenario declares them.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, derive_more::Constructor)]
 pub(crate) struct ProvidedRoles {
     roles: BTreeMap<String, Role>,
     witness: Witness,
-}
-
-impl ProvidedRoles {
-    pub(crate) fn new(roles: BTreeMap<String, Role>, witness: Witness) -> Self {
-        Self { roles, witness }
-    }
 }
 
 impl Roles for ProvidedRoles {

@@ -58,7 +58,7 @@ fn in_json(result: &JourneyResult) -> Result<BTreeMap<&str, Value>, Unmet> {
     data.into_iter()
         .map(entry)
         .collect::<Result<_, _>>()
-        .map_err(not_json)
+        .map_err(Unmet::from)
 }
 
 fn no_data_bag(result: &JourneyResult) -> Unmet {
@@ -67,10 +67,6 @@ fn no_data_bag(result: &JourneyResult) -> Unmet {
 
 fn entry<'d>((key, value): (&'d String, &AnyValue)) -> Result<(&'d str, Value), serde_json::Error> {
     Ok((key, serde_json::to_value(value)?))
-}
-
-fn not_json(error: serde_json::Error) -> Unmet {
-    Unmet::Case(error.to_string())
 }
 
 #[then(expr = "the result's data bag has no key {string}")]
