@@ -21,6 +21,6 @@ impl Orders {
     }
 }
 
-fn main() {
+pub(crate) fn main() {
     ServiceProviderDescriptor::new("payments", &PAYMENTS, Orders::payments);
 }

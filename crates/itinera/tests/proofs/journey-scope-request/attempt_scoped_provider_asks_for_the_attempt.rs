@@ -22,6 +22,6 @@ impl Orders {
     }
 }
 
-fn main() {
+pub(crate) fn main() {
     ServiceProviderDescriptor::per_attempt("payments", &PAYMENTS, Orders::payments);
 }
