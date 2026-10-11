@@ -13,7 +13,7 @@ use crate::model::Holding;
 
 /// Makes the dispatchers the executor is given: each holds the same recorder, before any
 /// reporter the executor adds, and behaves as the scenario says.
-#[derive(Debug)]
+#[derive(Debug, derive_more::Constructor)]
 pub(crate) struct RecordingFactory {
     recorder: Recorder,
     behaviour: Behaviour,
@@ -27,13 +27,6 @@ pub(crate) enum Behaviour {
 }
 
 impl RecordingFactory {
-    pub(crate) fn new(recorder: Recorder, behaviour: Behaviour) -> Self {
-        Self {
-            recorder,
-            behaviour,
-        }
-    }
-
     fn holding(&self) -> Result<Holding, Error> {
         match self.behaviour {
             Behaviour::Makes(holding) => Ok(holding),
@@ -88,12 +81,9 @@ impl<D> RecordingDispatcher<D> {
     /// Fails instead of delivering an event of the kind its script names.
     fn refuses(&self, event: &Event) -> Result<(), Error> {
         match self.holding {
-            Holding::FailsDispatching(kind) if kind.name() == event.kind() => {
-                Err(Error::msg(format!(
-                    "the scripted dispatcher fails when dispatching {}",
-                    kind.name()
-                )))
-            }
+            Holding::FailsDispatching(kind) if kind.is_of(event) => Err(Error::msg(format!(
+                "the scripted dispatcher fails when dispatching {kind}"
+            ))),
             _ => Ok(()),
         }
     }

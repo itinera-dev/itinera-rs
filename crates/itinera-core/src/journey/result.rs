@@ -163,16 +163,14 @@ impl JourneyStatus {
 /// assert_eq!(StatusKind::Aborted.to_string(), "aborted");
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
+#[display(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum StatusKind {
     /// The journey succeeded.
-    #[display("succeeded")]
     Succeeded,
     /// The journey failed.
-    #[display("failed")]
     Failed,
     /// The journey was aborted.
-    #[display("aborted")]
     Aborted,
 }
 

@@ -33,7 +33,7 @@ const EVENT_KINDS: [&str; 24] = [
 ];
 
 /// The name of a kind of event of the catalogue, as `Event::kind` returns it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_more::Display)]
 pub(crate) struct EventKind {
     name: &'static str,
 }
@@ -55,10 +55,6 @@ impl EventKind {
     /// Whether the event is of this kind.
     pub(crate) fn is_of(self, event: &Event) -> bool {
         event.kind() == self.name
-    }
-
-    pub(crate) fn name(self) -> &'static str {
-        self.name
     }
 }
 
@@ -122,6 +118,6 @@ mod tests {
         #[case] name: &str,
         #[case] read: Result<&str, ModelError>,
     ) {
-        assert_eq!(EventKind::named(name).map(EventKind::name), read);
+        assert_eq!(EventKind::named(name).map(|kind| kind.name), read);
     }
 }

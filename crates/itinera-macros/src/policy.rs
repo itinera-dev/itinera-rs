@@ -51,7 +51,7 @@ fn is_asynchronous_hook(function: &mut syn::ImplItemFn) -> bool {
 }
 
 fn marks_a_hook(attribute: &syn::Attribute) -> bool {
-    HookName::of(&marker::name(attribute)).is_some()
+    marker::name(attribute).parse::<HookName>().is_ok()
 }
 
 /// Implements `DescribedPolicy`, the policy trait of its kind and a hook trait per hook for the

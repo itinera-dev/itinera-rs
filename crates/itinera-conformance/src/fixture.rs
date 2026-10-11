@@ -5,7 +5,6 @@ mod delivery;
 mod payment;
 
 use std::collections::BTreeMap;
-use std::str::FromStr;
 
 use itinera::instance::{Instance, WorkflowInstance as _};
 use itinera::journey::InitialData;
@@ -21,27 +20,24 @@ use delivery::Delivery;
 use payment::Payment;
 
 /// A workflow the macros declare, by the name the scenarios give it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, cucumber::Parameter, derive_more::Display)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    cucumber::Parameter,
+    derive_more::Display,
+    derive_more::FromStr,
+)]
 #[param(name = "fixture", regex = "payment|delivery")]
+#[display(rename_all = "lowercase")]
+#[from_str(rename_all = "lowercase")]
 pub(crate) enum Fixture {
     /// Charges an order, then ships it; synchronous.
-    #[display("payment")]
     Payment,
     /// Dispatches a parcel; asynchronous.
-    #[display("delivery")]
     Delivery,
-}
-
-impl FromStr for Fixture {
-    type Err = ModelError;
-
-    fn from_str(name: &str) -> Result<Self, ModelError> {
-        match name {
-            "payment" => Ok(Self::Payment),
-            "delivery" => Ok(Self::Delivery),
-            _ => Err(ModelError::Cell("fixture", name.to_owned())),
-        }
-    }
 }
 
 impl Fixture {

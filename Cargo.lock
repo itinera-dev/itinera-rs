@@ -639,6 +639,7 @@ dependencies = [
 name = "itinera-macros"
 version = "0.0.0"
 dependencies = [
+ "derive_more",
  "itinera",
  "proc-macro2",
  "quote",

@@ -7,7 +7,8 @@ use crate::policy::Kind;
 
 /// A hook a policy may define. Its marker, such as `on_step_success`, is also the name of the
 /// hook trait's method and of the descriptor's method that defines it.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, derive_more::FromStr)]
+#[from_str(rename_all = "snake_case")]
 #[expect(
     clippy::enum_variant_names,
     reason = "the variants are the hooks' names, which all start with \"on\""
@@ -30,15 +31,6 @@ impl HookName {
         Self::OnWorkflowSuccess,
         Self::OnWorkflowFailure,
     ];
-
-    /// The hook a marker names, if it names one.
-    pub(crate) fn of(marker: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|hook| hook.is_marked_by(marker))
-    }
-
-    fn is_marked_by(self, marker: &str) -> bool {
-        self.marker() == marker
-    }
 
     /// The attribute that marks the hook, without its `#`, such as `on_step_success`.
     pub(crate) const fn marker(self) -> &'static str {
@@ -146,7 +138,7 @@ mod tests {
     #[test]
     fn every_hook_is_named_by_its_own_marker() {
         for hook in HookName::ALL {
-            assert!(HookName::of(hook.marker()) == Some(hook));
+            assert!(hook.marker().parse().ok() == Some(hook));
         }
     }
 }

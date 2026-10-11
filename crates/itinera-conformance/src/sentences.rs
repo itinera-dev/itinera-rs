@@ -71,18 +71,15 @@ enum Unmet {
     /// The case cannot be checked as written.
     #[error("the case is in error: {0}")]
     Case(String),
-}
-
-impl From<ModelError> for Unmet {
-    fn from(error: ModelError) -> Self {
-        Self::Case(error.to_string())
-    }
-}
-
-impl From<NoStream> for Unmet {
-    fn from(error: NoStream) -> Self {
-        Self::Case(error.to_string())
-    }
+    /// A sentence does not fit the scenario, or a value cannot be read.
+    #[error("the case is in error: {0}")]
+    Model(#[from] ModelError),
+    /// No stream can be read.
+    #[error("the case is in error: {0}")]
+    Stream(#[from] NoStream),
+    /// A value cannot be written as JSON.
+    #[error("the case is in error: {0}")]
+    Json(#[from] serde_json::Error),
 }
 
 /// Holds when the condition does, and otherwise says what was expected and what happened.

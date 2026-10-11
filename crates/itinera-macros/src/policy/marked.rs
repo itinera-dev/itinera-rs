@@ -65,7 +65,7 @@ fn marked(function: &mut ImplItemFn, kind: Kind) -> syn::Result<Option<Function<
         return Ok(None);
     };
     mark.meta.require_path_only()?;
-    let Some(name) = HookName::of(&marker::name(&mark)) else {
+    let Ok(name) = marker::name(&mark).parse::<HookName>() else {
         let factory = Factory::read(function)?;
         return Ok(Some(Function::Factory(factory, mark)));
     };

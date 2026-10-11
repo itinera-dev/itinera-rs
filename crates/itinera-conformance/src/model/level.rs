@@ -3,7 +3,8 @@
 use super::ModelError;
 
 /// The level of an event a step or hook emits: `step_info` or `journey_info`, and so on.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_more::FromStr)]
+#[from_str(rename_all = "lowercase")]
 pub(crate) enum Level {
     Info,
     Warning,
@@ -13,21 +14,20 @@ pub(crate) enum Level {
 impl Level {
     /// Reads the level of an event kind made of this prefix and the level, such as `step_info`.
     pub(crate) fn of(prefix: &str, kind: &str) -> Result<Self, ModelError> {
-        match kind
-            .strip_prefix(prefix)
+        kind.strip_prefix(prefix)
             .and_then(|kind| kind.strip_prefix('_'))
-        {
-            Some("info") => Ok(Self::Info),
-            Some("warning") => Ok(Self::Warning),
-            Some("error") => Ok(Self::Error),
-            _ => Err(ModelError::UnknownEmit(kind.to_owned())),
-        }
+            .and_then(parsed)
+            .ok_or_else(|| ModelError::UnknownEmit(kind.to_owned()))
     }
 
     /// Whether an event of this kind is one a step or hook emits, rather than an engine event.
     pub(crate) fn is_emitted(kind: &str) -> bool {
         Self::of("step", kind).is_ok() || Self::of("journey", kind).is_ok()
     }
+}
+
+fn parsed(level: &str) -> Option<Level> {
+    level.parse().ok()
 }
 
 #[cfg(test)]
