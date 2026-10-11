@@ -77,6 +77,22 @@ impl From<&Event> for Line {
                 line.set("cause", cause);
                 line.set("decided by", "default");
             }
+            EventBody::StepRescuing {
+                step,
+                cause,
+                rescue,
+                ..
+            } => {
+                line.attempt(step);
+                line.set("cause", cause);
+                line.set("rescue", rescue);
+                line.set("decided by", "default");
+            }
+            EventBody::StepRescued { step, rescue, .. } => {
+                line.attempt(step);
+                line.set("rescue", rescue);
+                line.set("decided by", "default");
+            }
             EventBody::StepGivenUp { step, cause, .. } => {
                 line.attempt(step);
                 line.set("cause", cause);

@@ -1,4 +1,4 @@
-//! Which hook decided, and why a step will not be attempted again.
+//! Which hook decided, why a step will not be attempted again, and why it is rescued.
 
 use crate::policy::{PolicyName, StepHook};
 use crate::step::Reason;
@@ -93,6 +93,31 @@ pub enum GiveUpCause {
     },
 }
 
+/// How the attempt of a step that is rescued failed.
+///
+/// It displays as the cause is named, for example `retriable failure`.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::event::RescueCause;
+///
+/// assert_eq!(RescueCause::RetriableFailure.to_string(), "retriable failure");
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
+#[display(rename_all = "lowercase")]
+#[non_exhaustive]
+pub enum RescueCause {
+    /// The attempt reported a failure that is not retriable.
+    Failure,
+    /// The attempt reported a retriable failure.
+    #[display("retriable failure")]
+    RetriableFailure,
+    /// The attempt ended in an abnormal termination.
+    #[display("abnormal termination")]
+    AbnormalTermination,
+}
+
 #[cfg(test)]
 mod tests {
     use std::fmt;
@@ -113,6 +138,12 @@ mod tests {
         "abnormal termination"
     )]
     #[case::given_up_with_retries_exhausted(&GiveUpCause::RetriesExhausted, "retries exhausted")]
+    #[case::rescued_after_a_failure(&RescueCause::Failure, "failure")]
+    #[case::rescued_after_a_retriable_failure(&RescueCause::RetriableFailure, "retriable failure")]
+    #[case::rescued_after_an_abnormal_termination(
+        &RescueCause::AbnormalTermination,
+        "abnormal termination"
+    )]
     fn names_display_as_the_specification_writes_them(
         #[case] name: &dyn fmt::Display,
         #[case] written: &str,

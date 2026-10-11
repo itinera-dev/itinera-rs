@@ -22,7 +22,9 @@ pub(crate) use policy::{
     Hook, HookAction, HookRequest, HookReturn, HookScript, Hooks, Lifecycle, Policy, Role,
 };
 pub(crate) use report::{Dispatching, EventKind, Holding, ReporterFailure};
-pub(crate) use step::{Attempt, AttemptOutcome, Input, Reason, Step, StepAction, attempts};
+pub(crate) use step::{
+    Attempt, AttemptOutcome, Input, Reason, RescueRequest, Step, StepAction, attempts, rescue_of,
+};
 pub(crate) use table::{Row, rows};
 pub(crate) use value::{ValueType, json};
 pub(crate) use workflow::{IdGenerator, Workflow};
@@ -72,6 +74,28 @@ impl Model {
             .scripts
             .get_mut(step)
             .ok_or_else(|| ModelError::UnknownStep(step.to_owned()))
+    }
+
+    /// Gives the step a rescue step, scripted under its rescue step's name, unless a step of the
+    /// workflow already has that name.
+    pub(crate) fn rescue(&mut self, step: &str) -> Result<(), ModelError> {
+        self.step_mut(step)?.rescued = true;
+        self.workflow_mut()?
+            .scripts
+            .entry(rescue_of(step))
+            .or_default()
+            .rescues = true;
+        Ok(())
+    }
+
+    /// The script of a rescue step, which only a rescue step's requests may change.
+    pub(crate) fn rescue_step_mut(&mut self, step: &str) -> Result<&mut Step, ModelError> {
+        let script = self.step_mut(step)?;
+        if script.rescues {
+            Ok(script)
+        } else {
+            Err(ModelError::NotRescueStep(step.to_owned()))
+        }
     }
 
     /// Defines a hook in a policy, creating the policy on its first hook.

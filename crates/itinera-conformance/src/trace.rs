@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::model::{EventKind, ModelError, Row, json};
 
 /// The columns an event table may have besides `event`.
-const COLUMNS: [&str; 15] = [
+const COLUMNS: [&str; 16] = [
     "step",
     "attempt",
     "key",
@@ -23,6 +23,7 @@ const COLUMNS: [&str; 15] = [
     "adapter",
     "source",
     "cause",
+    "rescue",
     "decided by",
     "message",
     "data",

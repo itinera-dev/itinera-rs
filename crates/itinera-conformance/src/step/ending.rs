@@ -1,7 +1,7 @@
 //! How each attempt of a scripted step ends, and what it contributes just before.
 
 use itinera::error::Error;
-use itinera::step::{Outcome, Reason};
+use itinera::step::{Outcome, Reason, RescueOutcome};
 use itinera::value::Value as Storable;
 
 use crate::model::{self, AttemptOutcome, ModelError};
@@ -30,6 +30,10 @@ impl Ending {
             contributes: Vec::new(),
             end: End::Success,
         }
+    }
+
+    pub(super) fn skips(&self) -> bool {
+        matches!(self.end, End::Skipped(_))
     }
 
     pub(super) fn of(attempt: &model::Attempt) -> Result<Self, ModelError> {
@@ -78,6 +82,17 @@ impl End {
             Self::RetriableFailure(reason) => Ok(Outcome::retriable_failure(reason.clone())),
             Self::Skipped(None) => Ok(Outcome::skipped()),
             Self::Skipped(Some(reason)) => Ok(Outcome::skipped_because(reason.clone())),
+            Self::Error(message) => Err(Error::msg(message.clone())),
+        }
+    }
+
+    /// How a rescue step ends. A rescue step's script never skips, since a rescue step cannot.
+    pub(super) fn rescue_outcome(&self) -> Result<RescueOutcome, Error> {
+        match self {
+            Self::Success => Ok(RescueOutcome::success()),
+            Self::Failure(reason) => Ok(RescueOutcome::failure(reason.clone())),
+            Self::RetriableFailure(reason) => Ok(RescueOutcome::retriable_failure(reason.clone())),
+            Self::Skipped(_) => Err(Error::msg("a rescue step cannot skip")),
             Self::Error(message) => Err(Error::msg(message.clone())),
         }
     }

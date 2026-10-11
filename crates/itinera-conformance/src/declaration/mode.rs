@@ -19,6 +19,12 @@ pub(crate) trait Declares: Mode + Sized {
 
     fn step(name: StepName, factory: Scripted) -> StepDescriptor<ScriptedWorkflow, Self>;
 
+    /// The step, with the rescue step the factory builds.
+    fn rescue(
+        step: StepDescriptor<ScriptedWorkflow, Self>,
+        factory: Scripted,
+    ) -> StepDescriptor<ScriptedWorkflow, Self>;
+
     fn step_policy(building: Building) -> StepPolicy<Self, Hookless>;
 
     /// The step policy, which defines this hook too, needing what its script says.
@@ -45,6 +51,13 @@ impl Declares for Synchronous {
 
     fn step(name: StepName, factory: Scripted) -> StepDescriptor<ScriptedWorkflow, Self> {
         StepDescriptor::new(name, factory)
+    }
+
+    fn rescue(
+        step: StepDescriptor<ScriptedWorkflow, Self>,
+        factory: Scripted,
+    ) -> StepDescriptor<ScriptedWorkflow, Self> {
+        step.rescue(factory)
     }
 
     fn step_policy(building: Building) -> StepPolicy<Self, Hookless> {
@@ -91,6 +104,13 @@ impl Declares for Asynchronous {
 
     fn step(name: StepName, factory: Scripted) -> StepDescriptor<ScriptedWorkflow, Self> {
         StepDescriptor::new_async(name, factory)
+    }
+
+    fn rescue(
+        step: StepDescriptor<ScriptedWorkflow, Self>,
+        factory: Scripted,
+    ) -> StepDescriptor<ScriptedWorkflow, Self> {
+        step.rescue_async(factory)
     }
 
     fn step_policy(building: Building) -> StepPolicy<Self, Hookless> {

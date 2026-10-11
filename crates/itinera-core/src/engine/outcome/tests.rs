@@ -8,7 +8,7 @@ use crate::engine::fixtures::{
 use crate::event::Event;
 use crate::journey::JourneyStatus;
 use crate::policy::Lifecycle;
-use crate::step::{Outcome, StepAttempt, StepDescriptor};
+use crate::step::{Outcome, RescueOutcome, StepAttempt, StepDescriptor};
 use crate::workflow::fixtures::orders;
 
 #[test]
@@ -145,4 +145,29 @@ fn an_attempt_that_does_not_succeed_commits_nothing(#[case] ends: fn() -> Result
 
     assert_eq!(data_of(&status), [("amount".to_string(), 42)]);
     assert!(!kinds(&events).contains(&"contribution_committed"));
+}
+
+#[test]
+fn fail_workflow_from_on_step_abnormal_termination_gives_the_step_up_instead_of_rescuing_it() {
+    let charge = attempting(&[crashed]).rescue(|| Ok(RescueOutcome::success()));
+
+    let hooked = travel_hooked(
+        charge,
+        None,
+        StepHook::OnStepAbnormalTermination,
+        fail_workflow(),
+    );
+
+    failed_by_the_hook(&hooked, StepHook::OnStepAbnormalTermination);
+    assert_eq!(
+        kinds(&hooked.events),
+        [
+            "journey_started",
+            "attempt_started",
+            "step_abnormal_termination",
+            "hook_called",
+            "step_given_up",
+            "journey_failed"
+        ]
+    );
 }

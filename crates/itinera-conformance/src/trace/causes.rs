@@ -1,9 +1,8 @@
 //! The columns that say why: a reason, the abort of a journey, or its failure.
 
-use itinera::event::{JourneyAbort, JourneyFailure, MissingData};
+use itinera::event::{FailureRequester, JourneyAbort, JourneyFailure, MissingData};
 use itinera::journey::LastFailure;
-use itinera::policy::{PolicyName, StepHook};
-use itinera::step::{Reason, StepName};
+use itinera::step::Reason;
 use serde_json::Value;
 
 use super::Line;
@@ -20,12 +19,21 @@ impl Line {
         }
     }
 
-    /// A step hook's request without a key, named in the key cell by what it requested.
-    fn unkeyed(&mut self, requested: &str, policy: &PolicyName, hook: &StepHook, step: &StepName) {
+    /// A request without a key, from a step hook or a rescue step, named in the key cell by what
+    /// it requested.
+    fn unkeyed(&mut self, requested: &str, requester: &FailureRequester) {
         self.set("key", requested);
-        self.set("policy", policy);
-        self.set("hook", hook);
-        self.set("step", step);
+        match requester {
+            FailureRequester::StepHook {
+                policy, hook, step, ..
+            } => {
+                self.set("policy", policy);
+                self.set("hook", hook);
+                self.set("step", step);
+            }
+            FailureRequester::RescueStep { step, .. } => self.set("step", step),
+            _ => {}
+        }
     }
 
     pub(super) fn abort(&mut self, abort: &JourneyAbort) {
@@ -43,12 +51,10 @@ impl Line {
                     self.set("key", key);
                     self.requester(requester);
                 }
-                MissingData::Reason {
-                    policy, hook, step, ..
-                } => self.unkeyed("failure reason", policy, hook, step),
-                MissingData::Error {
-                    policy, hook, step, ..
-                } => self.unkeyed("error", policy, hook, step),
+                MissingData::Reason { requester, .. } => {
+                    self.unkeyed("failure reason", requester);
+                }
+                MissingData::Error { requester, .. } => self.unkeyed("error", requester),
                 _ => {}
             },
             JourneyAbort::WrongType { key, requester, .. } => {

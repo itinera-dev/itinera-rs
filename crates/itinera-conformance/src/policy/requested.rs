@@ -2,7 +2,7 @@
 
 use itinera::error::Error;
 use itinera::policy::{ErrorHookKind, FailureHookKind, HookKind, Requested, StepHookKind};
-use itinera::step::{Input, OptionalInput, Reason};
+use itinera::step::{Input, OptionalInput};
 use itinera::value::Value as Storable;
 use serde_json::Value;
 
@@ -85,15 +85,7 @@ fn reason<H: FailureHookKind, M>(
     } else {
         Some(got.reason()?)
     };
-    reason.as_ref().map(written).transpose()
-}
-
-fn written(reason: &Reason) -> Result<model::Reason, Error> {
-    Ok(model::Reason {
-        code: reason.code().to_owned(),
-        message: reason.message().map(str::to_owned),
-        details: reason.details().map(serde_json::to_value).transpose()?,
-    })
+    reason.as_ref().map(model::Reason::written).transpose()
 }
 
 /// Takes data from the step, as JSON, or `None` when it was absent.

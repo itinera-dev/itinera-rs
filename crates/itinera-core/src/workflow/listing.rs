@@ -1,5 +1,5 @@
-//! The listing: a workflow's steps in order, with their policies and input adapters, without
-//! running anything.
+//! The listing: a workflow's steps in order, with their policies, input adapters and rescue
+//! steps, without running anything.
 
 use std::num::NonZeroUsize;
 
@@ -11,8 +11,8 @@ use crate::step::{StepDescriptor, StepName};
 
 impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     /// Lists the workflow's steps in order, without running anything: each step's name, its
-    /// position from 1, the names of its policies in the order they were attached, and the name of
-    /// its input adapter, if it has one.
+    /// position from 1, the names of its policies in the order they were attached, and the names of
+    /// its input adapter and its rescue step, if it has them.
     ///
     /// # Examples
     ///
@@ -21,7 +21,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     /// use itinera::policy::{
     ///     OnStepSuccess, OnSuccess, Requested, StepPolicyDescriptor, StepSuccess,
     /// };
-    /// use itinera::step::{Outcome, StepDescriptor, step_name};
+    /// use itinera::step::{Outcome, RescueOutcome, StepDescriptor, step_name};
     /// use itinera::workflow::{InputAdapterDescriptor, WorkflowDescriptor};
     ///
     /// struct Audit;
@@ -40,7 +40,9 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     /// let audit = StepPolicyDescriptor::new("audit", || Audit).on_step_success();
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
     ///     .step(
-    ///         StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())).policy(audit),
+    ///         StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()))
+    ///             .policy(audit)
+    ///             .rescue(|| Ok(RescueOutcome::success())),
     ///     )
     ///     .step(StepDescriptor::new(step_name!("ship"), || Ok(Outcome::success())))
     ///     .input_adapter(InputAdapterDescriptor::new("pricing", step_name!("charge"), |_, _| Ok(None)))
@@ -52,6 +54,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     /// assert_eq!(charge.position.get(), 1);
     /// assert_eq!(charge.policies.len(), 1);
     /// assert!(charge.adapter.is_some());
+    /// assert_eq!(charge.rescue, Some(step_name!("charge_rescue")));
     /// assert!(listing[1].adapter.is_none());
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
@@ -88,6 +91,8 @@ pub struct ListedStep {
     pub policies: Vec<PolicyName>,
     /// The input adapter attached to it, if any.
     pub adapter: Option<AdapterName>,
+    /// Its rescue step, if it has one.
+    pub rescue: Option<StepName>,
 }
 
 fn listed<M, W>(
@@ -101,6 +106,7 @@ fn listed<M, W>(
         position,
         policies: step.policies().iter().map(|policy| policy.name()).collect(),
         adapter: attached_to(adapters, name).map(InputAdapterDescriptor::<W>::name),
+        rescue: step.rescue_step().map(StepDescriptor::name),
     }
 }
 
@@ -121,12 +127,12 @@ mod tests {
     use super::*;
     use crate::policy::StepPolicyDescriptor;
     use crate::policy::fixtures::Quiet;
-    use crate::step::Outcome;
+    use crate::step::{Outcome, RescueOutcome};
 
     struct Orders;
 
     #[test]
-    fn a_workflow_is_listed_in_order_with_its_policies_and_adapters_without_running_anything() {
+    fn a_workflow_is_listed_in_order_without_running_anything() {
         let ran = Arc::new(AtomicUsize::new(0));
         let charged = Arc::clone(&ran);
         let shipped = Arc::clone(&ran);
@@ -137,7 +143,8 @@ mod tests {
                     Ok(Outcome::success())
                 })
                 .policy(StepPolicyDescriptor::new("audit", || Quiet).on_step_success())
-                .policy(StepPolicyDescriptor::new("alarm", || Quiet).on_step_failure()),
+                .policy(StepPolicyDescriptor::new("alarm", || Quiet).on_step_failure())
+                .rescue(|| Ok(RescueOutcome::success())),
             )
             .step(StepDescriptor::new(StepName::new("ship"), move || {
                 shipped.fetch_add(1, Ordering::SeqCst);
@@ -159,12 +166,14 @@ mod tests {
                     position: NonZeroUsize::new(1).unwrap(),
                     policies: vec![PolicyName::from("audit"), PolicyName::from("alarm")],
                     adapter: Some(AdapterName::from("pricing")),
+                    rescue: Some(StepName::new("charge_rescue")),
                 },
                 ListedStep {
                     step: StepName::new("ship"),
                     position: NonZeroUsize::new(2).unwrap(),
                     policies: Vec::new(),
                     adapter: None,
+                    rescue: None,
                 },
             ]
         );

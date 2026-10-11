@@ -67,3 +67,48 @@ impl Requester {
         }
     }
 }
+
+/// Who requested what a failed attempt left, the failure's reason or the error, and the step it
+/// was for: a step hook, for the step it acts on, or a rescue step, for the step it rescues.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::event::FailureRequester;
+/// use itinera::step::StepName;
+///
+/// fn rescue_step(requester: &FailureRequester) -> Option<StepName> {
+///     match requester {
+///         FailureRequester::RescueStep { step, .. } => Some(*step),
+///         _ => None,
+///     }
+/// }
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum FailureRequester {
+    /// A step hook.
+    #[non_exhaustive]
+    StepHook {
+        /// The policy's name.
+        policy: PolicyName,
+        /// The hook.
+        hook: StepHook,
+        /// The name of the step it acts on.
+        step: StepName,
+    },
+    /// A rescue step.
+    #[non_exhaustive]
+    RescueStep {
+        /// The rescue step's name.
+        step: StepName,
+    },
+}
+
+impl FailureRequester {
+    pub(super) fn step(&self) -> StepName {
+        match self {
+            Self::StepHook { step, .. } | Self::RescueStep { step } => *step,
+        }
+    }
+}

@@ -1,77 +1,23 @@
 //! Calling the step hooks of the policies attached to a step, after one of its attempts.
 
+mod left;
+
+pub(crate) use left::Left;
+
 use super::{Called, Decided, Returned};
 use crate::engine::attempt::Attempting;
 use crate::engine::decision::Failed;
 use crate::engine::end::End;
 use crate::engine::{Delivery, Journey};
-use crate::error::Error;
-use crate::event::{self, HookSource, JourneyAbort};
+use crate::event::HookSource;
 use crate::instance::WorkflowInstance;
-use crate::journey::{Abort, Contributions, MissingData};
 use crate::policy::{
-    BuiltStepPolicy, Call, FailWorkflow, OnSuccess, PolicyName, RetryCause,
-    StepAbnormalTermination, StepFailure, StepFailureCause, StepHook, StepHookKind, StepRetry,
-    StepSuccess,
+    BuiltStepPolicy, Call, FailWorkflow, OnSuccess, RetryCause, StepAbnormalTermination,
+    StepFailure, StepFailureCause, StepHook, StepHookKind, StepRetry, StepSuccess,
 };
-use crate::step::{Reason, Requirement, StepName};
-use crate::value::AnyValue;
 
 /// How the engine calls one step hook of kind `H` on a built policy, which returns `R`.
 type StepHookCall<W, M, H, R> = Call<dyn BuiltStepPolicy<W, M>, W, H, M, R>;
-
-/// What a step's attempt left for a step hook to request, and which hook requests it.
-pub(crate) struct Left<'s> {
-    policy: PolicyName,
-    hook: StepHook,
-    step: StepName,
-    /// What the attempt contributed, committed or not.
-    contributed: &'s Contributions,
-    /// How the attempt failed, if it did.
-    failed: Option<&'s Failed>,
-}
-
-impl<'s> Left<'s> {
-    pub(super) fn contributed(&self, key: &str) -> Option<AnyValue> {
-        self.contributed.get(key).cloned()
-    }
-
-    /// The attempt's reason, for a hook that requested it as `requirement`.
-    pub(super) fn reason(&self, requirement: Requirement) -> Result<Option<Reason>, End> {
-        match (requirement, self.failed.and_then(Failed::reason)) {
-            (Requirement::Required, None) => Err(missing_data(
-                MissingData::Reason {
-                    policy: self.policy,
-                    hook: self.hook,
-                },
-                event::MissingData::Reason {
-                    policy: self.policy,
-                    hook: self.hook,
-                    step: self.step,
-                },
-            )),
-            (_, found) => Ok(found.cloned()),
-        }
-    }
-
-    /// The attempt's error, for a hook that requested it as `requirement`.
-    pub(super) fn error(&self, requirement: Requirement) -> Result<Option<&'s Error>, End> {
-        match (requirement, self.failed.and_then(Failed::error)) {
-            (Requirement::Required, None) => Err(missing_data(
-                MissingData::Error {
-                    policy: self.policy,
-                    hook: self.hook,
-                },
-                event::MissingData::Error {
-                    policy: self.policy,
-                    hook: self.hook,
-                    step: self.step,
-                },
-            )),
-            (_, found) => Ok(found),
-        }
-    }
-}
 
 impl<D: Delivery> Journey<D> {
     /// `on step success`, after an attempt that succeeded, once its contributions are committed.
@@ -188,14 +134,6 @@ impl<D: Delivery> Journey<D> {
             None => Ok(None),
         }
     }
-}
-
-/// The abort for the reason or the error a step hook required from an attempt that has none.
-fn missing_data(missing: MissingData, reported: event::MissingData) -> End {
-    End::aborted(
-        Abort::RequiredDataMissing(missing),
-        JourneyAbort::RequiredDataMissing { missing: reported },
-    )
 }
 
 #[cfg(test)]

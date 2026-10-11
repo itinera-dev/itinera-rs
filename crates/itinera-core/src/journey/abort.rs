@@ -1,10 +1,13 @@
 //! Why a journey was aborted, as its result tells it, with what a request found missing and who
 //! made it.
 
+mod requester;
+
+pub use requester::{FailureRequester, Requester};
+
 use super::AbortReason;
 use crate::error::Error;
-use crate::policy::{PolicyName, StepHook, WorkflowHook};
-use crate::workflow::AdapterName;
+use crate::policy::PolicyName;
 
 /// Why a journey was aborted: one variant per abort reason, each holding its details, and the
 /// error when failing custom code caused it.
@@ -76,7 +79,8 @@ impl Abort {
 }
 
 /// What a required request found missing: data under a key, or the failure's reason or the error
-/// that a step hook requested from the step it acts on.
+/// that a step hook requested from the step it acts on, or a rescue step from the step it
+/// rescues.
 ///
 /// It is the result's counterpart of [`event::MissingData`](crate::event::MissingData), without
 /// the step's name, since the result names no step.
@@ -107,68 +111,14 @@ pub enum MissingData {
     /// The failure's reason, which the attempt did not report.
     #[non_exhaustive]
     Reason {
-        /// The policy's name.
-        policy: PolicyName,
-        /// The hook that requested it.
-        hook: StepHook,
+        /// Who requested it.
+        requester: FailureRequester,
     },
     /// The error, which did not end the attempt.
     #[non_exhaustive]
     Error {
-        /// The policy's name.
-        policy: PolicyName,
-        /// The hook that requested it.
-        hook: StepHook,
-    },
-}
-
-/// Who made a request whose data could not be resolved: a step for one of its inputs, an input
-/// adapter resolving a step's input, a step hook, or a workflow hook.
-///
-/// It is the result's counterpart of [`event::Requester`](crate::event::Requester), without the
-/// step's name, since the result names no step.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::journey::Requester;
-/// use itinera::policy::PolicyName;
-///
-/// fn policy(requester: &Requester) -> Option<PolicyName> {
-///     match requester {
-///         Requester::StepHook { policy, .. } | Requester::WorkflowHook { policy, .. } => {
-///             Some(*policy)
-///         }
-///         _ => None,
-///     }
-/// }
-/// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum Requester {
-    /// A step, for one of its inputs.
-    Step,
-    /// An input adapter, for an input of a step.
-    #[non_exhaustive]
-    Adapter {
-        /// The adapter's name.
-        adapter: AdapterName,
-    },
-    /// A step hook.
-    #[non_exhaustive]
-    StepHook {
-        /// The policy's name.
-        policy: PolicyName,
-        /// The hook.
-        hook: StepHook,
-    },
-    /// A workflow hook.
-    #[non_exhaustive]
-    WorkflowHook {
-        /// The policy's name.
-        policy: PolicyName,
-        /// The hook.
-        hook: WorkflowHook,
+        /// Who requested it.
+        requester: FailureRequester,
     },
 }
 

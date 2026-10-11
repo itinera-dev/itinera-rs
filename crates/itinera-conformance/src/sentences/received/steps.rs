@@ -6,9 +6,9 @@ use std::num::NonZeroU32;
 use cucumber::then;
 use serde_json::Value;
 
-use crate::model::{ModelError, json};
+use crate::model::{ModelError, Reason, json};
 use crate::sentences::{Unmet, holds};
-use crate::witness::Build;
+use crate::witness::{Build, Rescued};
 use crate::world::World;
 
 #[then(regex = r#"^step "([^"]*)" was built with input "([^"]*)" = (.+)$"#)]
@@ -86,6 +86,86 @@ fn received_input(
 /// The value as the cases write it, or `absent`.
 fn written(value: Option<&Value>) -> String {
     value.map_or_else(|| "absent".to_owned(), Value::to_string)
+}
+
+#[then(regex = r#"^step "([^"]*)" was built with rescued step data "([^"]*)" = (.+)$"#)]
+fn step_was_built_with_rescued_step_data(
+    world: &mut World,
+    step_name: String,
+    key: String,
+    value: String,
+) -> Result<(), Unmet> {
+    let value = Some(json(&value)?);
+    rescued(world, &step_name, Expected::Data(key, value))
+}
+
+#[then(expr = "step {string} was built with rescued step data {string} absent")]
+fn step_was_built_with_rescued_step_data_absent(
+    world: &mut World,
+    step_name: String,
+    key: String,
+) -> Result<(), Unmet> {
+    rescued(world, &step_name, Expected::Data(key, None))
+}
+
+#[then(
+    regex = r#"^step "([^"]*)" received the failure reason with code "([^"]*)", message "([^"]*)" and details (.+)$"#
+)]
+fn step_received_the_failure_reason(
+    world: &mut World,
+    step_name: String,
+    code: String,
+    message: String,
+    details: String,
+) -> Result<(), Unmet> {
+    let reason = Reason {
+        code,
+        message: Some(message),
+        details: Some(json(&details)?),
+    };
+    rescued(world, &step_name, Expected::Reason(reason))
+}
+
+#[then(expr = "step {string} received the error with the message {string}")]
+fn step_received_the_error_with_the_message(
+    world: &mut World,
+    step_name: String,
+    message: String,
+) -> Result<(), Unmet> {
+    rescued(world, &step_name, Expected::Error(message))
+}
+
+/// What a sentence says a rescue step received from the step it rescues, on one of its builds.
+#[derive(Debug)]
+enum Expected {
+    /// Data the failed attempt contributed under this key, `None` when absent.
+    Data(String, Option<Value>),
+    Reason(Reason),
+    /// An error with this message.
+    Error(String),
+}
+
+impl Expected {
+    fn is_in(&self, got: &Rescued) -> bool {
+        match self {
+            Self::Data(key, value) => got.data.get(key) == Some(value),
+            Self::Reason(reason) => got.reason.as_ref() == Some(reason),
+            Self::Error(message) => got.error.as_ref() == Some(message),
+        }
+    }
+}
+
+/// Holds when a build of the rescue step received what is expected from the step it rescues.
+fn rescued(world: &World, step: &str, expected: Expected) -> Result<(), Unmet> {
+    let builds = builds_of(world, step)?;
+    holds(
+        builds
+            .iter()
+            .map(|build| &build.rescued)
+            .any(|got| expected.is_in(got)),
+        format_args!("\"{step}\" built with {expected:?}"),
+        format_args!("the builds {builds:?}"),
+    )
 }
 
 /// Every factory builds a new step for each attempt, which it returns by value, so counting the

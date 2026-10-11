@@ -9,7 +9,7 @@ use crate::error::Error;
 use crate::event::Event;
 use crate::journey::{Failure, FailureCause, JourneyStatus, LastFailure};
 use crate::policy::Lifecycle;
-use crate::step::{Outcome, StepDescriptor};
+use crate::step::{Outcome, RescueOutcome, StepDescriptor};
 use crate::workflow::fixtures::{Orders, orders};
 
 #[rstest]
@@ -278,4 +278,23 @@ fn step_hooks_are_called_after_each_attempt_in_order_around_the_step_decision(
     );
 
     assert_eq!(hooked.calls, calls);
+}
+
+#[test]
+fn the_rescued_steps_retry_and_failure_hooks_are_not_called_for_the_attempt_it_rescues() {
+    let charge = attempting(&[timed_out]).rescue(|| Ok(RescueOutcome::success()));
+
+    let hooked = travel_hooked(
+        charge,
+        None,
+        StepHook::OnStepFailure,
+        Lifecycle::FinishWorkflow,
+    );
+
+    assert!(matches!(hooked.status, JourneyStatus::Succeeded { .. }));
+    assert_eq!(hook_names(&hooked.calls), [StepHook::OnStepSuccess]);
+}
+
+fn hook_names(calls: &[(StepHook, usize)]) -> Vec<StepHook> {
+    calls.iter().map(|(hook, _)| *hook).collect()
 }

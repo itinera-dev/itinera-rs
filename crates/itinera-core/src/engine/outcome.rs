@@ -15,12 +15,12 @@ use crate::step::OutcomeKind;
 
 impl<D: Delivery> Journey<D> {
     /// Acts on the outcome a step reported, and on its contributions.
-    pub(super) async fn conclude<I: WorkflowInstance>(
+    pub(super) async fn conclude<'s, I: WorkflowInstance>(
         &mut self,
         instance: &mut I,
-        attempting: &Attempting<'_, I::Workflow, I::Mode>,
+        attempting: &Attempting<'s, I::Workflow, I::Mode>,
         outcome: OutcomeKind,
-    ) -> Result<Next, End> {
+    ) -> Result<Next<'s, I::Workflow, I::Mode>, End> {
         let attempt = &attempting.attempt;
         match outcome {
             OutcomeKind::Success => {
@@ -97,11 +97,11 @@ impl<D: Delivery> Journey<D> {
     }
 
     /// Acts on what `on step success` returned: the next step by default.
-    async fn succeeded<I: WorkflowInstance>(
+    async fn succeeded<'s, I: WorkflowInstance>(
         &mut self,
         instance: &mut I,
-        attempting: &Attempting<'_, I::Workflow, I::Mode>,
-    ) -> Result<Next, End> {
+        attempting: &Attempting<'s, I::Workflow, I::Mode>,
+    ) -> Result<Next<'s, I::Workflow, I::Mode>, End> {
         match self.on_step_success(instance, attempting).await? {
             None => Ok(Next::Step),
             Some(Decided {
@@ -122,12 +122,12 @@ impl<D: Delivery> Journey<D> {
 
     /// Acts on an error that escaped a running step: an abnormal termination, after which
     /// `on step abnormal termination` may give the step up.
-    pub(super) async fn terminate<I: WorkflowInstance>(
+    pub(super) async fn terminate<'s, I: WorkflowInstance>(
         &mut self,
         instance: &mut I,
-        attempting: &Attempting<'_, I::Workflow, I::Mode>,
+        attempting: &Attempting<'s, I::Workflow, I::Mode>,
         error: Error,
-    ) -> Result<Next, End> {
+    ) -> Result<Next<'s, I::Workflow, I::Mode>, End> {
         self.emit(EventBody::StepAbnormalTermination {
             step: attempting.attempt.clone(),
             message: error.to_string(),

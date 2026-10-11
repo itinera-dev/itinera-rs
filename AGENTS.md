@@ -22,6 +22,8 @@ The plan is implemented in stages, tracked in [#7](https://github.com/itinera-de
 7. Policies, hooks and roles.
 8. Macros.
 9. Release of `0.1.0-rc.1`.
+10. Services, in a stack of their own.
+11. Rescue steps: the rescue step, its decisions and the macros that declare it.
 
 A proposal is added to `proposals` in `conformance.json` only by the pull request that completes it, which says `Closes #N` for its implementation issue. Proofs that a rule is impossible to express land with their feature, together with their entries under `impossible`.
 

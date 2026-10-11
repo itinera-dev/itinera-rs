@@ -2,6 +2,7 @@
 
 use std::num::NonZeroU32;
 
+use itinera::error::Error;
 use serde_json::Value;
 
 use super::table::Row;
@@ -13,6 +14,12 @@ use super::{Level, ModelError};
 #[derive(Debug, Default)]
 pub(crate) struct Step {
     pub(crate) inputs: Vec<Input>,
+    /// Whether it has a rescue step, scripted under its rescue step's name.
+    pub(crate) rescued: bool,
+    /// Whether it is a rescue step.
+    pub(crate) rescues: bool,
+    /// What it requests from the step it rescues, in order, when it is a rescue step.
+    pub(crate) rescue_requests: Vec<RescueRequest>,
     /// What every attempt does before it ends, in the order written.
     pub(crate) actions: Vec<StepAction>,
     /// How each attempt ends; attempts after the last repeat it. `None` until a sentence says.
@@ -31,6 +38,20 @@ pub(crate) struct Input {
     pub(crate) key: String,
     pub(crate) value_type: ValueType,
     pub(crate) optional: bool,
+}
+
+/// What a rescue step requests from the step it rescues.
+#[derive(Debug, PartialEq)]
+pub(crate) enum RescueRequest {
+    /// Data the failed attempt contributed.
+    Data(Input),
+    Reason,
+    Error,
+}
+
+/// The name of the rescue step of the step with this name.
+pub(crate) fn rescue_of(step: &str) -> String {
+    format!("{step}_rescue")
 }
 
 /// Something a step does during an attempt, before it ends.
@@ -111,6 +132,17 @@ pub(crate) struct Reason {
     pub(crate) code: String,
     pub(crate) message: Option<String>,
     pub(crate) details: Option<Value>,
+}
+
+impl Reason {
+    /// The reason a step reported, as the scenario writes one.
+    pub(crate) fn written(reason: &itinera::step::Reason) -> Result<Self, Error> {
+        Ok(Self {
+            code: reason.code().to_owned(),
+            message: reason.message().map(str::to_owned),
+            details: reason.details().map(serde_json::to_value).transpose()?,
+        })
+    }
 }
 
 /// Reads the rows of "step attempts:", numbered from 1 without gaps.

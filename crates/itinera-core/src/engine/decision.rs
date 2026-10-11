@@ -1,11 +1,11 @@
-//! What the step's own rule decides after an attempt that did not succeed: another attempt, or
-//! giving the step up. It reads only the attempt's end, the attempt number and the step
-//! descriptor, and changes nothing.
+//! What the step's own rule decides after an attempt that did not succeed: rescuing the step,
+//! another attempt, or giving the step up. It reads only the attempt's end, the attempt number
+//! and the step descriptor, and changes nothing.
 
 use std::num::NonZeroU32;
 
 use crate::error::Error;
-use crate::event::{GiveUpCause, JourneyFailure};
+use crate::event::{GiveUpCause, JourneyFailure, RescueCause};
 use crate::journey::{Failure, LastFailure};
 use crate::policy::{RetryCause, StepFailureCause};
 use crate::step::{Reason, StepDescriptor};
@@ -18,9 +18,13 @@ pub(crate) enum Failed {
     AbnormalTermination(Error),
 }
 
-/// What the step's own rule decides, before a hook may decide otherwise.
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Decision {
+/// What the step's own rule decides about a step described by a `StepDescriptor<W, M>` that lives
+/// for `'s`, before a hook may decide otherwise.
+#[derive(derive_more::Debug)]
+pub(crate) enum Decision<'s, W, M> {
+    /// The step's rescue step runs, then the step is attempted again.
+    #[debug("Rescue({}, {_1:?})", _0.name())]
+    Rescue(&'s StepDescriptor<W, M>, RescueCause),
     /// The step is attempted again.
     Retry(RetryCause),
     /// The step will not be attempted again.
@@ -28,32 +32,51 @@ pub(crate) enum Decision {
 }
 
 /// Decides what follows the attempt numbered `attempt` of the step, which ended as `failed`.
-pub(crate) fn decide<W, M>(
+///
+/// A step with a rescue step is rescued after its first attempt. It has no retry budget, so the
+/// attempt after the rescue is its last.
+pub(crate) fn decide<'s, W, M>(
     failed: &Failed,
     attempt: NonZeroU32,
-    step: &StepDescriptor<W, M>,
-) -> Decision {
-    match failed {
-        Failed::Failure(_) => Decision::GiveUp(StepFailureCause::Failure),
-        Failed::RetriableFailure(_) => within_budget(RetryCause::RetriableFailure, attempt, step),
-        Failed::AbnormalTermination(_) if step.retries_abnormal_termination() => {
+    step: &'s StepDescriptor<W, M>,
+) -> Decision<'s, W, M> {
+    match (step.rescue_step(), failed) {
+        (Some(rescue), _) if attempt == NonZeroU32::MIN => {
+            Decision::Rescue(rescue, rescue_cause(failed))
+        }
+        (_, Failed::Failure(_)) => Decision::GiveUp(StepFailureCause::Failure),
+        (_, Failed::RetriableFailure(_)) => {
+            within_budget(RetryCause::RetriableFailure, attempt, step)
+        }
+        (_, Failed::AbnormalTermination(_)) if step.retries_abnormal_termination() => {
             within_budget(RetryCause::AbnormalTermination, attempt, step)
         }
-        Failed::AbnormalTermination(_) => Decision::GiveUp(StepFailureCause::AbnormalTermination),
+        (_, Failed::AbnormalTermination(_)) => {
+            Decision::GiveUp(StepFailureCause::AbnormalTermination)
+        }
     }
 }
 
 /// Retries for the cause while the budget allows another attempt, and otherwise gives the step
 /// up.
-fn within_budget<W, M>(
+fn within_budget<'s, W, M>(
     cause: RetryCause,
     attempt: NonZeroU32,
     step: &StepDescriptor<W, M>,
-) -> Decision {
+) -> Decision<'s, W, M> {
     if step.budget_allows_after(attempt) {
         Decision::Retry(cause)
     } else {
         Decision::GiveUp(StepFailureCause::RetriesExhausted)
+    }
+}
+
+/// How the attempt of a step that is rescued failed, as `step_rescuing` reports it.
+fn rescue_cause(failed: &Failed) -> RescueCause {
+    match failed {
+        Failed::Failure(_) => RescueCause::Failure,
+        Failed::RetriableFailure(_) => RescueCause::RetriableFailure,
+        Failed::AbnormalTermination(_) => RescueCause::AbnormalTermination,
     }
 }
 
@@ -124,14 +147,35 @@ fn reported(last: &LastFailure<Error>) -> LastFailure {
 }
 
 #[cfg(test)]
+impl<W, M> PartialEq for Decision<'_, W, M> {
+    /// Two decisions to rescue are the same when they name the same rescue step, for the same
+    /// cause.
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Rescue(rescue, cause), Self::Rescue(other, other_cause)) => {
+                rescue.name() == other.name() && cause == other_cause
+            }
+            (Self::Retry(cause), Self::Retry(other)) => cause == other,
+            (Self::GiveUp(cause), Self::GiveUp(other)) => cause == other,
+            _ => false,
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::step::{Outcome, StepName};
+    use crate::mode::Synchronous;
+    use crate::step::{Outcome, RescueOutcome, StepName};
 
     fn charge() -> StepDescriptor<()> {
         StepDescriptor::new(StepName::new("charge"), || Ok(Outcome::success()))
+    }
+
+    fn rescued_charge() -> StepDescriptor<()> {
+        charge().rescue(|| Ok(RescueOutcome::success()))
     }
 
     fn declined() -> Failed {
@@ -209,9 +253,42 @@ mod tests {
         #[case] failed: Failed,
         #[case] number: u32,
         #[case] step: StepDescriptor<()>,
-        #[case] expected: Decision,
+        #[case] expected: Decision<'_, (), Synchronous>,
     ) {
         assert_eq!(decide(&failed, attempt(number), &step), expected);
+    }
+
+    #[rstest]
+    #[case::a_failure(declined(), RescueCause::Failure)]
+    #[case::a_retriable_failure(timed_out(), RescueCause::RetriableFailure)]
+    #[case::an_abnormal_termination(crashed(), RescueCause::AbnormalTermination)]
+    fn a_step_with_a_rescue_step_is_rescued_after_its_first_attempt_however_it_failed(
+        #[case] failed: Failed,
+        #[case] cause: RescueCause,
+    ) {
+        let charge = rescued_charge().abnormal_termination_retriable();
+
+        let rescue = charge.rescue_step().unwrap();
+
+        assert_eq!(rescue.name(), StepName::new("charge_rescue"));
+        assert_eq!(
+            decide(&failed, attempt(1), &charge),
+            Decision::Rescue(rescue, cause)
+        );
+    }
+
+    #[rstest]
+    #[case::a_failure(declined(), StepFailureCause::Failure)]
+    #[case::a_retriable_failure(timed_out(), StepFailureCause::RetriesExhausted)]
+    #[case::an_abnormal_termination(crashed(), StepFailureCause::AbnormalTermination)]
+    fn a_rescued_step_is_given_up_after_the_attempt_that_follows_its_rescue(
+        #[case] failed: Failed,
+        #[case] cause: StepFailureCause,
+    ) {
+        assert_eq!(
+            decide(&failed, attempt(2), &rescued_charge()),
+            Decision::GiveUp(cause)
+        );
     }
 
     #[test]

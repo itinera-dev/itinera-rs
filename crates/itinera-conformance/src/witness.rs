@@ -22,13 +22,26 @@ struct Seen {
     operations: Vec<Operation>,
 }
 
-/// One step built for an attempt, with the inputs it received.
+/// One step built for an attempt, with the inputs it received, and what a rescue step received
+/// from the step it rescues.
 #[derive(Clone, Debug)]
 pub(crate) struct Build {
     pub(crate) step: String,
     pub(crate) attempt: NonZeroU32,
     /// Each input it declared, as JSON, or `None` when it was absent.
     pub(crate) inputs: BTreeMap<String, Option<Value>>,
+    pub(crate) rescued: Rescued,
+}
+
+/// What a rescue step received for each of its requests to the step it rescues; what it did not
+/// request is `None`.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Rescued {
+    /// The failed attempt's contributions it requested, by key, `None` when absent.
+    pub(crate) data: BTreeMap<String, Option<Value>>,
+    pub(crate) reason: Option<Reason>,
+    /// The error's message.
+    pub(crate) error: Option<String>,
 }
 
 /// One call of a hook, with what it received.
