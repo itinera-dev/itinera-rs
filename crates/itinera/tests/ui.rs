@@ -182,6 +182,81 @@ mod step {
     }
 }
 
+/// What the rescue step macros refuse, each with the macro's own error or the type that rules it
+/// out.
+#[cfg(feature = "macros")]
+mod rescue {
+    use super::enforced;
+
+    #[test]
+    fn a_rescue_step_never_skips() {
+        enforced(
+            "tests/ui/rescue/skipping.rs",
+            "tests/ui/rescue/described.rs",
+        );
+    }
+
+    #[test]
+    fn every_field_of_a_derived_rescue_step_is_a_request() {
+        enforced(
+            "tests/ui/rescue/unmarked_field.rs",
+            "tests/ui/rescue/described.rs",
+        );
+    }
+
+    #[test]
+    fn the_reason_and_the_error_are_requested_without_a_key() {
+        enforced(
+            "tests/ui/rescue/a_reason_with_a_key.rs",
+            "tests/ui/rescue/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_rescue_step_block_holds_the_rescue_steps_run() {
+        enforced(
+            "tests/ui/rescue/without_run.rs",
+            "tests/ui/rescue/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_rescue_step_is_never_named() {
+        enforced("tests/ui/rescue/named.rs", "tests/ui/rescue/described.rs");
+    }
+
+    #[test]
+    fn a_generic_rescue_step_is_given_with_the_builder() {
+        enforced("tests/ui/rescue/generic.rs", "tests/ui/rescue/described.rs");
+    }
+
+    #[test]
+    fn a_generic_rescue_step_does_not_derive_rescue_step() {
+        enforced(
+            "tests/ui/rescue/derived_generic.rs",
+            "tests/ui/rescue/described.rs",
+        );
+    }
+
+    #[cfg(feature = "async")]
+    #[test]
+    fn an_asynchronous_rescue_step_belongs_only_to_an_asynchronous_workflow() {
+        enforced(
+            "tests/ui/rescue/asynchronous_in_a_synchronous_workflow.rs",
+            "tests/ui/rescue/described.rs",
+        );
+    }
+
+    #[cfg(feature = "async")]
+    #[test]
+    fn a_synchronous_rescue_step_belongs_only_to_a_synchronous_workflow() {
+        enforced(
+            "tests/ui/rescue/synchronous_in_an_asynchronous_workflow.rs",
+            "tests/ui/rescue/asynchronous.rs",
+        );
+    }
+}
+
 /// What the policy macros refuse, each with the macro's own error or the type that rules it out.
 #[cfg(feature = "macros")]
 mod policy {
@@ -468,6 +543,30 @@ mod workflow {
         enforced(
             "tests/ui/workflow/a_duplicate_step_name.rs",
             "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_step_with_a_rescue_step_has_no_retry_budget() {
+        enforced(
+            "tests/ui/workflow/a_rescued_step_with_a_retry_budget.rs",
+            "tests/ui/rescue/described.rs",
+        );
+    }
+
+    #[test]
+    fn no_input_adapter_is_attached_to_a_rescue_step() {
+        enforced(
+            "tests/ui/workflow/an_input_adapter_for_a_rescue_step.rs",
+            "tests/ui/rescue/described.rs",
+        );
+    }
+
+    #[test]
+    fn no_step_is_named_like_a_rescue_step() {
+        enforced(
+            "tests/ui/workflow/a_step_named_like_a_rescue_step.rs",
+            "tests/ui/rescue/described.rs",
         );
     }
 

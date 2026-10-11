@@ -32,7 +32,7 @@ use factory::{Attempts, Running};
 pub use from_inputs::FromInputs;
 pub use input::{Input, OptionalInput};
 #[cfg(feature = "macros")]
-pub use itinera_macros::{Step, step};
+pub use itinera_macros::{RescueStep, Step, rescue_step, step};
 pub use name::{StepName, step_name};
 pub use needs::StepNeeds;
 pub(crate) use needs::{InputNeed, Requirement, RescueRequest, StepRequest};
@@ -44,7 +44,8 @@ pub(crate) use reporting::{Level, Reporting};
 #[cfg(feature = "async")]
 pub use rescue::{AsyncRescueFactory, AsyncRescueStep};
 pub use rescue::{
-    DescribedRescueStep, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved, RescueStep,
+    DescribedRescueStep, FromRescueRequests, RescueFactory, RescueNeeds, RescueOutcome,
+    RescueResolved, RescueStep,
 };
 pub(crate) use rescue::{FromRescued, Rescues};
 pub(crate) use resolved::Got;

@@ -199,6 +199,10 @@ fn the_workflows_the_macros_declare_behave_as_their_features_say() {
                 local
             ),
             scenario(
+                "A fragile order is packed by the rescue step of ship, then shipped",
+                local
+            ),
+            scenario(
                 "A parcel is dispatched, tracked and signed for",
                 asynchronous
             ),
@@ -219,7 +223,7 @@ fn the_workflows_the_macros_declare_behave_as_their_features_say() {
                 asynchronous
             ),
             scenario(
-                "The payment workflow lists its steps, with their policies and input adapter",
+                "The payment workflow lists its steps, with their policies, input adapter and rescue step",
                 local
             ),
         ]

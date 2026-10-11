@@ -9,6 +9,9 @@
 mod async_policy;
 #[cfg(test)]
 #[cfg(feature = "async")]
+mod async_rescue;
+#[cfg(test)]
+#[cfg(feature = "async")]
 mod async_step;
 #[cfg(test)]
 #[cfg(feature = "async")]
@@ -19,6 +22,8 @@ mod fixtures;
 mod journey;
 #[cfg(test)]
 mod policy;
+#[cfg(test)]
+mod rescue;
 #[cfg(test)]
 mod step;
 #[cfg(test)]

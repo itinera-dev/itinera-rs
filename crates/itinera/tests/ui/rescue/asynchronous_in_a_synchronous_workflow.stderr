@@ -1,0 +1,17 @@
+error[E0271]: type mismatch resolving `<Refresh as DescribedRescueStep>::Mode == Synchronous`
+  --> tests/ui/rescue/asynchronous_in_a_synchronous_workflow.rs:43:47
+   |
+43 | #[with_step(Charge, name = "charge", rescue = Refresh)]
+   |                                               ^^^^^^^ type mismatch resolving `<Refresh as DescribedRescueStep>::Mode == Synchronous`
+   |
+note: expected this to be `Synchronous`
+  --> tests/ui/rescue/asynchronous_in_a_synchronous_workflow.rs:31:1
+   |
+31 | #[rescue_step]
+   | ^^^^^^^^^^^^^^
+note: required by a bound in `StepDescriptor::<W, M>::rescued_by`
+  --> $WORKSPACE/crates/itinera-core/src/step/descriptor.rs
+   |
+   |     pub fn rescued_by<R: DescribedRescueStep<Mode = M>>(self) -> Self {
+   |                                              ^^^^^^^^ required by this bound in `StepDescriptor::<W, M>::rescued_by`
+   = note: this error originates in the attribute macro `rescue_step` (in Nightly builds, run with -Z macro-backtrace for more info)

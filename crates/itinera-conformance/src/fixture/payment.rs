@@ -1,10 +1,11 @@
-//! The payment workflow: charges an order's price, less its discount, then ships it.
+//! The payment workflow: charges an order's price, less its discount, then ships it, once it is
+//! packed when it is fragile.
 
 use itinera::error::Error;
 use itinera::instance::{Instance, InstanceError};
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::policy::{OnSuccess, step_policy, workflow_policy};
-use itinera::step::{Outcome, Step, step};
+use itinera::step::{Outcome, Reason, RescueOutcome, RescueStep, Step, rescue_step, step};
 use itinera::value::AnyValue;
 use itinera::workflow::{role, workflow};
 
@@ -26,14 +27,45 @@ impl Charge {
     }
 }
 
-/// Ships the order.
+/// Ships the order, unless it is fragile and not packed.
 #[derive(Step)]
-struct Ship;
+struct Ship {
+    #[input]
+    fragile: Option<bool>,
+    #[input]
+    packed: Option<bool>,
+}
 
 #[step]
 impl Ship {
     fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+        if self.fragile == Some(true) && self.packed.is_none() {
+            return Self::fail("unpacked");
+        }
         contributor.contribute("shipped", true);
+        Self::succeed()
+    }
+}
+
+/// Packs an order that could not be shipped, saying why.
+#[derive(RescueStep)]
+struct Pack {
+    #[input]
+    order: String,
+    #[reason]
+    reason: Reason,
+}
+
+#[rescue_step]
+impl Pack {
+    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<RescueOutcome, Error> {
+        let packing = format!(
+            "order {} packed, since it was {}",
+            self.order,
+            self.reason.code()
+        );
+        contributor.contribute("packed", true);
+        contributor.contribute("packing", packing);
         Self::succeed()
     }
 }
@@ -88,7 +120,7 @@ impl Receipt {
 
 #[workflow(name = "payment", policies = [Receipt])]
 #[with_step(Charge, name = "charge", retry_budget = 1, policies = [Audit])]
-#[with_step(Ship, name = "ship")]
+#[with_step(Ship, name = "ship", rescue = Pack)]
 pub(super) struct Payment {
     shop: &'static str,
 }

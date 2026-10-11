@@ -1,0 +1,18 @@
+error[E0599]: `Refresh` is not an iterator
+  --> tests/ui/rescue/skipping.rs:35:15
+   |
+24 | struct Refresh {
+   | -------------- associated function or constant `skip` not found for this struct because it doesn't satisfy `Refresh: Iterator`
+...
+35 |         Self::skip()
+   |               ^^^^ `Refresh` is not an iterator
+   |
+   = note: the following trait bounds were not satisfied:
+           `Refresh: Iterator`
+           which is required by `&mut Refresh: Iterator`
+note: the trait `Iterator` must be implemented
+  --> $RUST/core/src/iter/traits/iterator.rs
+   = help: items from traits can only be used if the trait is implemented and in scope
+   = note: the following traits define an item `skip`, perhaps you need to implement one of them:
+           candidate #1: `DescribedStep`
+           candidate #2: `Iterator`

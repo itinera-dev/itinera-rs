@@ -26,6 +26,13 @@ pub fn step(arguments: TokenStream, block: TokenStream) -> TokenStream {
     step::expand(arguments.into(), block).into()
 }
 
+#[doc = include_str!("../docs/rescue_step.md")]
+#[proc_macro_attribute]
+pub fn rescue_step(arguments: TokenStream, block: TokenStream) -> TokenStream {
+    let block = parse_macro_input!(block as ItemImpl);
+    step::expand_rescue(arguments.into(), block).into()
+}
+
 #[doc = include_str!("../docs/step_policy.md")]
 #[proc_macro_attribute]
 pub fn step_policy(arguments: TokenStream, block: TokenStream) -> TokenStream {
@@ -45,6 +52,13 @@ pub fn workflow_policy(arguments: TokenStream, block: TokenStream) -> TokenStrea
 pub fn derive_step(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     step::expand_derive(input).into()
+}
+
+#[doc = include_str!("../docs/derive_rescue_step.md")]
+#[proc_macro_derive(RescueStep, attributes(input, from_rescued_step, reason, error))]
+pub fn derive_rescue_step(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    step::expand_rescue_derive(input).into()
 }
 
 #[doc = include_str!("../docs/derive_initial_data.md")]

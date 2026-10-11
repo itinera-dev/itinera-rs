@@ -1,0 +1,5 @@
+error: `#[reason]` takes no arguments: a failed attempt leaves at most one reason, under no key
+  --> tests/ui/rescue/a_reason_with_a_key.rs:27:7
+   |
+27 |     #[reason("why")]
+   |       ^^^^^^^^^^^^^

@@ -4,8 +4,12 @@
 mod attempt;
 mod constructor;
 mod derive;
+mod kind;
+mod rescue;
 
 pub(crate) use derive::expand as expand_derive;
+use kind::StepKind;
+pub(crate) use rescue::{expand as expand_rescue, expand_derive as expand_rescue_derive};
 
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -71,7 +75,7 @@ fn describe(arguments: TokenStream, block: &mut ItemImpl) -> syn::Result<TokenSt
         .transpose()?;
     let Some(run) = block::functions(block)
         .find(is_run)
-        .map(Run::read)
+        .map(|run| Run::read(run, StepKind::Step))
         .transpose()?
     else {
         return Err(syn::Error::new_spanned(
