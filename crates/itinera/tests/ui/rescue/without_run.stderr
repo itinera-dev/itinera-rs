@@ -1,0 +1,5 @@
+error: a `#[rescue_step]` block holds the rescue step's `run`
+  --> tests/ui/rescue/without_run.rs:32:6
+   |
+32 | impl Refresh {
+   |      ^^^^^^^

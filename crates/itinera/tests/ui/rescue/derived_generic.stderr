@@ -1,0 +1,5 @@
+error: a generic rescue step is described with the builder, not with the macros
+ --> tests/ui/rescue/derived_generic.rs:5:16
+  |
+5 | struct Refresh<T> {
+  |                ^

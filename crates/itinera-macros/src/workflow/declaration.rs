@@ -2,6 +2,7 @@
 //! instance builder.
 
 mod descriptor;
+mod names;
 
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -10,7 +11,6 @@ use syn::{Attribute, Ident, ItemStruct};
 use super::arguments::Arguments;
 use super::builder::{self, Settable};
 use super::checks::{self, Attached};
-use super::repeated;
 use super::with_step::WithStep;
 use crate::policy::Kind;
 use crate::{described, marker};
@@ -66,7 +66,7 @@ fn declare(
              `#[workflow(...)]`",
         ));
     }
-    refuse_duplicate_names(&steps)?;
+    names::refuse_duplicates(&steps)?;
     let mode = described::mode(arguments.is_asynchronous());
     let name = arguments
         .name
@@ -108,20 +108,6 @@ fn declare(
             #builder
         };
     })
-}
-
-/// Refuses a step name that an earlier `#[with_step]` line already gave.
-fn refuse_duplicate_names(steps: &[WithStep]) -> syn::Result<()> {
-    match repeated(steps, WithStep::shares_name_with) {
-        Some(step) => Err(syn::Error::new_spanned(
-            &step.name,
-            format!(
-                "duplicate step name: {}, which an earlier `#[with_step]` line already gives",
-                step.name.value()
-            ),
-        )),
-        None => Ok(()),
-    }
 }
 
 /// The names of the steps the workflow lists, which the checks of its input adapters read.

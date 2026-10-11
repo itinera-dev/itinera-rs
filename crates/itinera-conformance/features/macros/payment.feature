@@ -1,17 +1,18 @@
 @macros @capability-sync
 Feature: The payment workflow, declared with the macros
 
-  The payment workflow charges an order's price, less its discount, then ships it. Its steps,
-  its policies, the role its receipts use, its input adapter and its ID generator are declared
-  with itinera's macros alone. It is synchronous, so its scenarios run under the local executor.
+  The payment workflow charges an order's price, less its discount, then ships it, once it is
+  packed when it is fragile. Its steps, the rescue step that packs, its policies, the role its
+  receipts use, its input adapter and its ID generator are declared with itinera's macros
+  alone. It is synchronous, so its scenarios run under the local executor.
 
-  Scenario: The payment workflow lists its steps, with their policies and input adapter
+  Scenario: The payment workflow lists its steps, with their policies, input adapter and rescue step
     Given the payment workflow
     When the workflow is listed
     Then the listing is:
-      | step   | position | policies | adapter |
-      | charge | 1        | audit    | pricing |
-      | ship   | 2        |          |         |
+      | step   | position | policies | adapter | rescue      |
+      | charge | 1        | audit    | pricing |             |
+      | ship   | 2        |          |         | ship_rescue |
 
   Scenario: A priced order is charged, audited, shipped and given a receipt
     Given the payment workflow
@@ -31,6 +32,31 @@ Feature: The payment workflow, declared with the macros
       | audited | "charged 35"                             |
       | shipped | true                                     |
       | receipt | "corner-1234 paid 35 at the corner shop" |
+
+  Scenario: A fragile order is packed by the rescue step of ship, then shipped
+    Given the payment workflow
+    And the data bag contains:
+      | key     | value  |
+      | order   | "1237" |
+      | price   | 40     |
+      | fragile | true   |
+    When the workflow runs
+    Then the journey succeeded
+    And step "ship" ended as succeeded after 2 attempts
+    And the events include, in order:
+      | event           | step        |
+      | step_failed     | ship        |
+      | step_rescuing   | ship        |
+      | attempt_started | ship_rescue |
+      | step_succeeded  | ship_rescue |
+      | step_rescued    | ship        |
+      | attempt_started | ship        |
+      | step_succeeded  | ship        |
+    And the result's data bag contains:
+      | key     | value                                    |
+      | packed  | true                                     |
+      | packing | "order 1237 packed, since it was unpacked" |
+      | shipped | true                                     |
 
   Scenario: A declined charge is retried once, then fails the journey
     Given the payment workflow

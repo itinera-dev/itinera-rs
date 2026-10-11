@@ -1,5 +1,5 @@
 //! A step the workflow lists, from its `#[with_step(...)]` line: its type, its name, its retry
-//! budget, whether an abnormal termination is retriable, and its policies.
+//! budget, whether an abnormal termination is retriable, its policies, and its rescue step.
 
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
@@ -18,6 +18,7 @@ pub(super) struct WithStep {
     retry_budget: Option<u16>,
     retriable: bool,
     policies: Vec<Type>,
+    rescue: Option<Type>,
 }
 
 /// The settings that follow the step's type, each optional until checked.
@@ -27,6 +28,7 @@ struct Settings {
     retry_budget: Option<u16>,
     retriable: Option<()>,
     policies: Option<Vec<Type>>,
+    rescue: Option<Type>,
 }
 
 impl WithStep {
@@ -48,17 +50,36 @@ impl WithStep {
                  belongs to the workflow that lists it",
             ));
         };
+        if let (Some(rescue), Some(1..)) = (&settings.rescue, settings.retry_budget) {
+            return Err(syn::Error::new_spanned(
+                rescue,
+                "rescued step retried: a step with a rescue step is never retried, so it has no \
+                 `retry_budget`",
+            ));
+        }
         Ok(Self {
             step,
             name,
             retry_budget: settings.retry_budget,
             retriable: settings.retriable.is_some(),
             policies: settings.policies.unwrap_or_default(),
+            rescue: settings.rescue,
         })
     }
 
     pub(super) fn shares_name_with(&self, other: &Self) -> bool {
         self.name.value() == other.name.value()
+    }
+
+    pub(super) fn is_named_among(&self, names: &[String]) -> bool {
+        names.contains(&self.name.value())
+    }
+
+    /// The name of its rescue step, if it has one: its own name followed by `_rescue`.
+    pub(super) fn rescue_name(&self) -> Option<String> {
+        self.rescue
+            .is_some()
+            .then(|| format!("{}_rescue", self.name.value()))
     }
 
     /// The builder's call that adds the step to a workflow of this type.
@@ -70,12 +91,13 @@ impl WithStep {
             .policies
             .iter()
             .map(|policy| attached(policy, workflow));
+        let rescue = self.rescue.as_ref().map(rescued_by);
         let described = quote_spanned! {step.span()=>
             <#step as ::itinera::step::DescribedStep>::descriptor::<#workflow>(
                 ::itinera::step::step_name!(#name)
             )
         };
-        quote!(.step(#described #retry_budget #retriable #(#policies)*))
+        quote!(.step(#described #retry_budget #retriable #(#policies)* #rescue))
     }
 
     /// The checks, run as the program compiles, that no two of the step's policies define the
@@ -98,9 +120,11 @@ impl Settings {
             "retry_budget" => once(&mut self.retry_budget, budget(meta)?, meta),
             "abnormal_termination_retriable" => once(&mut self.retriable, (), meta),
             "policies" => once(&mut self.policies, policies(meta)?, meta),
+            "rescue" => once(&mut self.rescue, meta.value()?.parse()?, meta),
             _ => Err(meta.error(
                 "`#[with_step]` takes the step's type, then `name = \"...\"`, and optionally \
-                 `retry_budget = N`, `abnormal_termination_retriable` and `policies = [...]`",
+                 `retry_budget = N`, `abnormal_termination_retriable`, `policies = [...]` and \
+                 `rescue = RescueStep`",
             )),
         }
     }
@@ -126,6 +150,13 @@ fn retry_budget(budget: u16) -> TokenStream {
 
 fn retriable() -> TokenStream {
     quote!(.abnormal_termination_retriable())
+}
+
+/// The builder's call that gives the step its rescue step.
+fn rescued_by(rescue: &Type) -> TokenStream {
+    quote_spanned! {rescue.span()=>
+        .rescued_by::<#rescue>()
+    }
 }
 
 /// The builder's call that attaches the policy to the step.

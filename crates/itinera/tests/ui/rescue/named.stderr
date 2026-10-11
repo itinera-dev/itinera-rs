@@ -1,0 +1,5 @@
+error: `#[rescue_step]` takes no arguments: a rescue step's name is made from the name of the step it rescues
+  --> tests/ui/rescue/named.rs:31:15
+   |
+31 | #[rescue_step(name = "refresh")]
+   |               ^^^^^^^^^^^^^^^^

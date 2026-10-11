@@ -21,12 +21,16 @@ enum Handle {
     Reporter,
 }
 
-/// Reads which handle the parameter takes, and removes its attribute.
-pub(super) fn parameter(parameter: &mut PatType) -> syn::Result<Parameter> {
+/// Reads which handle the parameter of the `run` of this kind of step takes, and removes its
+/// attribute.
+pub(super) fn parameter(parameter: &mut PatType, noun: &str) -> syn::Result<Parameter> {
     let mark = marker::single(
         marker::take(&mut parameter.attrs, &["contributor", "reporter"]),
         &parameter.pat,
-        "every parameter of a step's `run` after `self` is a `#[contributor]` or a `#[reporter]`",
+        &format!(
+            "every parameter of a {noun}'s `run` after `self` is a `#[contributor]` or a \
+             `#[reporter]`"
+        ),
     )?;
     mark.meta.require_path_only()?;
     let handle = match marker::name(&mark).as_str() {

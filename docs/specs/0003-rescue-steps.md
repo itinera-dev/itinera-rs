@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0003](https://github.com/itinera-dev/spec/blob/main/proposals/0003-rescue-steps.md), chapter 7 of the specification, implemented in [#104](https://github.com/itinera-dev/itinera-rs/issues/104). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: done for the builder and the engine; the macros come in the next pull request of the stack.
+Status: done.
 
 What chapter 7 says about services, which a rescue step may request and which are released around its attempt, belongs to services, implemented in stage 10 of the plan.
 
@@ -18,6 +18,13 @@ What chapter 7 says about services, which a rescue step may request and which ar
 - **Aborts**: a required request for the reason or the error without a value names who made it with `journey::FailureRequester` in the result and `event::FailureRequester` in the event: a step hook, or the rescue step.
 - **The listing**: `ListedStep::rescue`, the name of the step's rescue step.
 - **The violation** `Violation::RescuedStepRetried { step }`, of the kind `ViolationKind::RescuedStepRetried`, displayed `rescued step retried`.
+- **`FromRescueRequests`**: a rescue step type built from its requests alone, which `#[derive(RescueStep)]` implements.
+
+## Macros
+
+- **`#[derive(RescueStep)]`** on a struct with named fields, or none: each field is an `#[input]` or `#[from_rescued_step]`, keyed by the field's name unless written, as in `#[from_rescued_step("account")]`, a `#[reason]` or an `#[error]`. An `Option` field is an optional request; `required` on an `Option` field keys a value that is itself an `Option`. `#[reason]` and `#[error]` take no arguments.
+- **`#[rescue_step]`** on the rescue step's own `impl` block, holding `run(self, ...)`, which takes `#[contributor]` and `#[reporter]` as a step's `run` does, and returns `Result<RescueOutcome, Error>`; `async fn run` makes it asynchronous. The block may write `Self::succeed()`, `Self::fail(reason)` and `Self::fail_retriably(reason)`. The attribute takes no arguments, since a rescue step has no name of its own.
+- **`rescue = R`** on `#[with_step(...)]` gives the step the rescue step `R`, through `rescued_by::<R>()`.
 
 ## How the rules are enforced
 
@@ -25,9 +32,9 @@ What chapter 7 says about services, which a rescue step may request and which ar
 |---|---|
 | A step has at most one rescue step, and only how to build it | `StepDescriptor` holds `Option<Box<StepDescriptor>>`; giving a rescue step replaces the one it had |
 | The rescue step's name is the step's name followed by `_rescue` | `StepName::rescue`, called by every way of giving a rescue step, none of which takes a name. Step names are `&'static str`, so the name is made once per step name for the whole program and kept, and a workflow declared many times does not grow memory |
-| A declared step with a rescue step's name is `duplicate step name` | admission counts every rescue step's name with the declared steps' names |
+| A declared step with a rescue step's name is `duplicate step name` | admission counts every rescue step's name with the declared steps' names; `#[workflow]` refuses it at compile time |
 | An input adapter attached to a rescue step is `input adapter for unknown step` | admission looks for an adapter's steps among the declared steps only |
-| A step with a rescue step and a retry budget is `rescued step retried` | admission; the specification does not let a language make it impossible, so `build()` refuses it |
+| A step with a rescue step and a retry budget is `rescued step retried` | admission; the specification does not let a language make it impossible, so `build()` refuses it. `#[with_step]` refuses `rescue` with a `retry_budget` of 1 or more at compile time |
 | `abnormal termination retriable` on a rescued step is allowed, and does not prevent the rescue of attempt 1 | the decision logic rescues every failure of attempt 1 before it reads the setting; after the rescue, the setting applies as on any step with a retry budget of 0 |
 | The rescue step is attempted when attempt 1 fails, after `on step abnormal termination`, and neither `on step retry` nor `on step failure` is called for it | the pure decision logic returns `Rescue` for attempt 1 of a step with a rescue step; the engine calls `on step abnormal termination` before deciding, and calls the retry and failure hooks only for `Retry` and `GiveUp` |
 | A step is rescued at most once | a rescued step has a retry budget of 0, so attempt 2 is its last, and only attempt 1 is rescued |
@@ -39,7 +46,8 @@ What chapter 7 says about services, which a rescue step may request and which ar
 | On success, its contributions are committed, then `step_rescued` is recorded, and the step runs again as attempt 2 | the engine, after the rescue step's attempt |
 | On failure, the journey fails naming the rescue step, and the rescued step stays `rescuing`, unless the journey is aborted afterwards | the rescue step is given up under the ordinary rules, and the engine never returns to the rescued step |
 | An abort while the rescue step is built or runs names the rescue step | the engine sets the step being run to the rescue step for its attempt, and back to the rescued step for `step_rescued` |
-| A rescue step must not skip | types: `RescueOutcome` has no skip; see the excluded scenarios. So `rescue skipped` is not an abort reason in Rust |
+| A rescue step must not skip | types: `RescueOutcome` has no skip, and `DescribedRescueStep` gives no `skip()`; see the excluded scenarios. So `rescue skipped` is not an abort reason in Rust |
+| A rescue step is never named by its author | neither the builder nor the macros take a name for it: `#[rescue_step]` refuses arguments |
 
 ## Tests
 
@@ -50,6 +58,9 @@ What chapter 7 says about services, which a rescue step may request and which ar
 - Unit tests in `itinera-core/src/step/name.rs`: `a_rescue_steps_name_is_the_steps_name_followed_by_rescue` and `a_rescue_steps_name_is_made_once_for_each_step_name`.
 - Admission's cases `a_step_named_as_another_steps_rescue_step`, `a_step_with_a_rescue_step_and_a_retry_budget` and `an_adapter_on_a_rescue_step`, and the listing's test, which lists a rescue step.
 - The runner's unit tests: the cases `whose_rescue_step_failed`, `whose_rescue_step_failed_before_a_reporter_aborted_the_journey` and `whose_rescue_step_could_not_be_built` of `a_steps_status_and_attempts_are_read_from_its_journeys_events` in `sentences/outcomes/step_status.rs`, and `a_rescue_step_that_skips_is_a_case_error` in `step.rs`.
+- Equivalence tests in `crates/itinera/tests/macros/rescue.rs` and, behind `async`, `async_rescue.rs`: a rescue step the macros describe lists and runs as one written for the builder, for each way the first attempt ends, including required requests that abort.
+- Compile-fail tests in `crates/itinera/tests/ui.rs`, module `rescue`: a rescue step never skips, every field of a derived rescue step is a request, the reason and the error take no key, the block holds `run`, a rescue step is never named, generic rescue steps are refused, and a rescue step belongs only to a workflow of its own mode; module `workflow`: a step with a rescue step has no retry budget, no input adapter is attached to a rescue step, and no step is named like a rescue step.
+- The `@macros` feature `payment.feature` of the runner, whose `ship` step is rescued by a rescue step that packs a fragile order.
 
 ## Excluded scenarios
 

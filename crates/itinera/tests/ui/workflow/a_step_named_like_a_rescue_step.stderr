@@ -1,0 +1,5 @@
+error: duplicate step name: charge_rescue, which is the name of a rescue step
+  --> tests/ui/workflow/a_step_named_like_a_rescue_step.rs:41:28
+   |
+41 | #[with_step(Charge, name = "charge_rescue")]
+   |                            ^^^^^^^^^^^^^^^
