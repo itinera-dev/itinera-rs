@@ -104,3 +104,50 @@ pub(crate) fn requiring_from_workflow<H: HookKind>(
     let data = Data::of(key, *value_type, false);
     for_type(*value_type, NeedingFromWorkflow { needs, data: &data })
 }
+
+#[cfg(test)]
+mod tests {
+    use itinera::policy::{StepHook, WorkflowHook};
+    use rstest::rstest;
+
+    use super::*;
+    use crate::model::{self, Hook, HookRequest, ModelError};
+    use crate::policy::Scripts;
+
+    fn requesting(hook: Hook, request: HookRequest) -> Result<Scripts, ModelError> {
+        let mut policy = model::Policy::new(hook);
+        policy.hook_mut(hook).unwrap().requests.push(request);
+        Scripts::of("policy", &policy)
+    }
+
+    #[rstest]
+    #[case::step_data_from_a_workflow_hook(
+        Hook::Workflow(WorkflowHook::OnWorkflowSuccess),
+        HookRequest::StepData {
+            key: "receipt".to_owned(),
+            value_type: ValueType::String,
+            optional: false,
+        },
+        "step data"
+    )]
+    #[case::the_retry_cause_from_on_step_failure(
+        Hook::Step(StepHook::OnStepFailure),
+        HookRequest::RetryCause,
+        "the retry cause"
+    )]
+    #[case::the_failure_reason_from_on_step_abnormal_termination(
+        Hook::Step(StepHook::OnStepAbnormalTermination),
+        HookRequest::FailureReason { optional: false },
+        "the failure reason"
+    )]
+    fn a_request_a_hook_cannot_make_is_a_case_error(
+        #[case] hook: Hook,
+        #[case] request: HookRequest,
+        #[case] named: &str,
+    ) {
+        assert_eq!(
+            requesting(hook, request).unwrap_err(),
+            ModelError::RequestNotAllowed(hook, named.to_owned())
+        );
+    }
+}
