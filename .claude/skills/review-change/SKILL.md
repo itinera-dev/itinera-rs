@@ -37,26 +37,28 @@ For each item, the reviewer lists every place in the diff where the item applies
 7. Every constraint stated in documentation, the specification or the plan for the new types, against "Types hold every constraint".
 8. Every struct with one field, against "A struct with one field is a tuple struct", in both directions, including how code outside its module reaches the field.
 9. Every new type's module, against "Modules follow concepts", "A module with submodules decides its public face" and "Every module is a file of its own".
-10. Every closure, including closures bound with `let` before a chain, against "A chain of adapters reads as a sentence of names".
-11. Every `for` loop, against "Iterating to get a result uses adapters". Asserting in a test acts on each item, and, in tests, so does a loop over every value of a closed set, as the bullet on several inputs says where it exists.
-12. Every item's visibility, against "Everything is `pub(crate)`", and the `unstable` gate, against "Public API of a proposal not yet listed".
-13. Every crate root, against "Every crate has `#![forbid(unsafe_code)]`".
-14. Every public item and its example, against "Every public item has documentation" and "Documentation is written where an item is defined".
-15. Every new or rewritten test, against "Test names state the rule", the bullet on several inputs where it exists, and "A chain that three or more tests". Check also that no coverage is lost.
-16. Every line of code, test and example, against "Every line does something". For each line that changes nothing, say so and ask for it to be removed.
+10. Every file the diff adds or makes longer, against "A file past 200 lines holds one thing". Count its lines, documentation included, test modules and files that only tests build excluded. Past 200, list what it holds, and unless it is all one type, propose the private submodules it splits into.
+11. Every closure, including closures bound with `let` before a chain, against "A chain of adapters reads as a sentence of names".
+12. Every `for` loop, against "Iterating to get a result uses adapters". Asserting in a test acts on each item, and, in tests, so does a loop over every value of a closed set, as the bullet on several inputs says where it exists.
+13. Every item's visibility, against "Everything is `pub(crate)`", and the `unstable` gate, against "Public API of a proposal not yet listed".
+14. Every crate root, against "Every crate has `#![forbid(unsafe_code)]`".
+15. Every public item and its example, against "Every public item has documentation" and "Documentation is written where an item is defined".
+16. Every new or rewritten test, against "Test names state the rule", the bullet on several inputs where it exists, and "A chain that three or more tests". Check also that no coverage is lost.
+17. Every test the diff adds or moves, and every test module it adds or makes longer, against "Unit tests live with the code they check". Name the module whose code decides what each test checks, and the module it is in. Count each test module's lines; past 150, it is a file of its own.
+18. Every line of code, test and example, against "Every line does something". For each line that changes nothing, say so and ask for it to be removed.
 
 **Comments**
 
-17. Every comment, doc comment and identifier, against the "Comments" section.
+19. Every comment, doc comment and identifier, against the "Comments" section.
 
 **Pull requests and writing**
 
-18. The commit message and pull request description, against "Every pull request names an open issue" and "Commit messages and pull request descriptions".
-19. Every document, description and diagram, against the "Writing" section.
+20. The commit message and pull request description, against "Every pull request names an open issue" and "Commit messages and pull request descriptions".
+21. Every document, description and diagram, against the "Writing" section.
 
 **Checks**
 
-20. The checks under "Running the checks", run in the worktree at the reviewed revision. Report any that fail.
+22. The checks under "Running the checks", run in the worktree at the reviewed revision. Report any that fail.
 
 ## Handling the findings
 
