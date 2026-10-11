@@ -14,6 +14,8 @@ use crate::step::{StepDescriptor, StepName};
 #[cfg(feature = "async")]
 mod asynchronous;
 mod builder;
+#[cfg(test)]
+mod fixtures;
 mod input_adapter;
 mod listing;
 mod name;

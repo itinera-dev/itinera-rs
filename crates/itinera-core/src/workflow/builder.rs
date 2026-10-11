@@ -279,3 +279,16 @@ fn held<R: Reporter, M: Mode>(reporter: R) -> M::Reporter {
     let reporter: Box<dyn Reporter> = Box::new(reporter);
     M::Reporter::from(reporter)
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::workflow::fixtures::{adapter, orders};
+
+    #[test]
+    #[should_panic(expected = "the workflow already has an input adapter named \"pricing\"")]
+    fn two_input_adapters_with_one_name_cannot_be_declared() {
+        let _ = orders()
+            .input_adapter(adapter("pricing", "charge"))
+            .input_adapter(adapter("pricing", "ship"));
+    }
+}

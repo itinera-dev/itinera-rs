@@ -191,3 +191,122 @@ fn add_to_count<K: Ord>(mut counts: BTreeMap<K, usize>, key: K) -> BTreeMap<K, u
 fn repeated<K>((_, count): &(K, usize)) -> bool {
     *count > 1
 }
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+    use crate::policy::fixtures::Quiet;
+    use crate::policy::{StepPolicyDescriptor, WorkflowPolicyDescriptor};
+    use crate::workflow::fixtures::{Orders, adapter, orders, step};
+    use crate::workflow::{ViolationKind, WorkflowBuilder};
+
+    fn audit() -> StepPolicyDescriptor<Quiet, Orders> {
+        StepPolicyDescriptor::new("audit", || Quiet).on_step_success()
+    }
+
+    fn alarm() -> StepPolicyDescriptor<Quiet, Orders> {
+        StepPolicyDescriptor::new("alarm", || Quiet).on_step_failure()
+    }
+
+    fn notify() -> WorkflowPolicyDescriptor<Quiet, Orders> {
+        WorkflowPolicyDescriptor::new("notify", || Quiet).on_workflow_failure()
+    }
+
+    fn violations(builder: WorkflowBuilder<Orders>) -> Vec<Violation> {
+        builder.build().unwrap_err().into_iter().collect()
+    }
+
+    #[rstest]
+    #[case::two_steps_with_one_name(
+        orders().step(step("charge")).step(step("charge")),
+        Violation::DuplicateStepName { step: StepName::new("charge") },
+    )]
+    #[case::two_step_policies_defining_one_hook(
+        orders().step(step("charge").policy(audit()).policy(
+            StepPolicyDescriptor::new("metrics", || Quiet)
+                .on_step_failure()
+                .on_step_success(),
+        )),
+        Violation::StepHookDefinedTwice {
+            step: StepName::new("charge"),
+            hook: StepHook::OnStepSuccess,
+            policies: vec![PolicyName::from("audit"), PolicyName::from("metrics")],
+        },
+    )]
+    #[case::one_step_policy_attached_twice(
+        orders().step(step("charge").policy(audit()).policy(audit())),
+        Violation::StepHookDefinedTwice {
+            step: StepName::new("charge"),
+            hook: StepHook::OnStepSuccess,
+            policies: vec![PolicyName::from("audit"), PolicyName::from("audit")],
+        },
+    )]
+    #[case::two_workflow_policies_defining_one_hook(
+        orders()
+            .policy(notify())
+            .policy(WorkflowPolicyDescriptor::new("close", || Quiet).on_workflow_failure()),
+        Violation::WorkflowHookDefinedTwice {
+            hook: WorkflowHook::OnWorkflowFailure,
+            policies: vec![PolicyName::from("notify"), PolicyName::from("close")],
+        },
+    )]
+    #[case::two_adapters_on_one_step(
+        orders()
+            .step(step("charge"))
+            .input_adapter(adapter("pricing", "charge"))
+            .input_adapter(adapter("discounts", "charge")),
+        Violation::StepAdaptedTwice {
+            step: StepName::new("charge"),
+            adapters: vec![AdapterName::from("pricing"), AdapterName::from("discounts")],
+        },
+    )]
+    #[case::an_adapter_on_a_step_the_workflow_does_not_have(
+        orders()
+            .step(step("charge"))
+            .input_adapter(adapter("pricing", "refund")),
+        Violation::InputAdapterForUnknownStep {
+            adapter: AdapterName::from("pricing"),
+            step: StepName::new("refund"),
+        },
+    )]
+    fn a_workflow_put_together_wrongly_is_refused_with_its_violation(
+        #[case] builder: WorkflowBuilder<Orders>,
+        #[case] violation: Violation,
+    ) {
+        assert_eq!(violations(builder), [violation]);
+    }
+
+    #[test]
+    fn every_violation_is_reported_together() {
+        let builder = orders()
+            .step(step("charge").policy(audit()).policy(audit()))
+            .step(step("charge"))
+            .input_adapter(adapter("pricing", "refund"));
+        let kinds: Vec<ViolationKind> = violations(builder).iter().map(Violation::kind).collect();
+        assert_eq!(
+            kinds,
+            [
+                ViolationKind::DuplicateStepName,
+                ViolationKind::HookDefinedTwice,
+                ViolationKind::InputAdapterForUnknownStep,
+            ]
+        );
+    }
+
+    #[test]
+    fn a_workflow_put_together_rightly_is_built() {
+        let builder = orders()
+            .step(step("charge").policy(audit()).policy(alarm()))
+            .step(step("Charge").policy(audit()))
+            .policy(notify())
+            .policy(WorkflowPolicyDescriptor::new("close", || Quiet).on_workflow_success())
+            .input_adapter(
+                adapter("pricing", "charge")
+                    .step(StepName::new("Charge"))
+                    .step(StepName::new("charge")),
+            );
+        assert!(builder.build().is_ok());
+    }
+}
