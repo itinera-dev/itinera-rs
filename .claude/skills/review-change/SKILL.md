@@ -37,7 +37,7 @@ For each item, the reviewer lists every place in the diff where the item applies
 7. Every constraint stated in documentation, the specification or the plan for the new types, against "Types hold every constraint".
 8. Every struct with one field, against "A struct with one field is a tuple struct", in both directions, including how code outside its module reaches the field.
 9. Every new type's module, against "Modules follow concepts", "A module with submodules decides its public face" and "Every module is a file of its own".
-10. Every file the diff adds or makes longer, against "A file past 200 lines holds one thing". Count its lines, documentation included and test module excluded. Past 200, list what it holds, and unless it is all one type, propose the private submodules it splits into.
+10. Every file the diff adds or makes longer, against "A file past 200 lines holds one thing". Count its lines, documentation included, test modules and files that only tests build excluded. Past 200, list what it holds, and unless it is all one type, propose the private submodules it splits into.
 11. Every closure, including closures bound with `let` before a chain, against "A chain of adapters reads as a sentence of names".
 12. Every `for` loop, against "Iterating to get a result uses adapters". Asserting in a test acts on each item, and, in tests, so does a loop over every value of a closed set, as the bullet on several inputs says where it exists.
 13. Every item's visibility, against "Everything is `pub(crate)`", and the `unstable` gate, against "Public API of a proposal not yet listed".
