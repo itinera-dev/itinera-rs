@@ -1,31 +1,25 @@
-//! Calling the hooks of a journey's policies and the input adapters of its workflow: what a hook
-//! requests is resolved before it runs, and what a policy's hook contributed is committed once it
-//! returns.
+//! Calling the hooks of a journey's policies: what a hook requests is resolved before it runs, and
+//! what a policy's hook contributed is committed once it returns.
 
-use super::decision::Failed;
-use super::{Attempting, Delivery, End, Journey, Requesting, Sources, could_not_build, wrong_type};
+use super::end::End;
+use super::request::Requesting;
+use super::{Delivery, Journey};
 use crate::error::Error;
-use crate::event::{self, EventBody, HookSource, JourneyAbort, Source};
+use crate::event::{EventBody, HookSource, JourneyAbort, Source};
 use crate::instance::WorkflowInstance;
-use crate::journey::{Abort, Contributions, Contributor, DataBag, DataBagAccess, MissingData};
+use crate::journey::{Abort, Contributions, Contributor, DataBag};
 use crate::policy::{
-    Answers, BuiltStepPolicy, BuiltWorkflowPolicy, Call, FailWorkflow, HookKind, Lifecycle, Needs,
-    OnSuccess, PolicyName, Request, Requested, RetryCause, StepAbnormalTermination, StepFailure,
-    StepFailureCause, StepHook, StepHookKind, StepRetry, StepSuccess, WorkflowFailure,
-    WorkflowHook, WorkflowSuccess,
+    Answers, Call, FailWorkflow, HookKind, Lifecycle, Needs, OnSuccess, PolicyName, Request,
+    Requested,
 };
-use crate::step::{InputNeed, Reason, Reporting, Requirement, StepAttempt, StepName};
-use crate::value::AnyValue;
-use crate::workflow::{InputAdapterDescriptor, WorkflowDescriptor};
+use crate::step::Reporting;
 
-/// The workflow policies built for one journey, in the order they were attached.
-pub(crate) type WorkflowPolicies<W, M> = Vec<Box<dyn BuiltWorkflowPolicy<W, M>>>;
+mod step;
+mod workflow;
 
-/// How the engine calls one step hook of kind `H` on a built policy, which returns `R`.
-type StepHookCall<W, M, H, R> = Call<dyn BuiltStepPolicy<W, M>, W, H, M, R>;
+pub(crate) use workflow::WorkflowPolicies;
 
-/// How the engine calls one workflow hook of kind `H` on a built policy.
-type WorkflowHookCall<W, M, H> = Call<dyn BuiltWorkflowPolicy<W, M>, W, H, M, ()>;
+use step::Left;
 
 /// A lifecycle a policy's hook returned, which decides what happens next.
 #[derive(Debug)]
@@ -66,239 +60,7 @@ struct Called<'s, H: HookKind> {
     left: Option<Left<'s>>,
 }
 
-/// What a step's attempt left for a step hook to request, and which hook requests it.
-struct Left<'s> {
-    policy: PolicyName,
-    hook: StepHook,
-    step: StepName,
-    /// What the attempt contributed, committed or not.
-    contributed: &'s Contributions,
-    /// How the attempt failed, if it did.
-    failed: Option<&'s Failed>,
-}
-
-impl<'s> Left<'s> {
-    fn contributed(&self, key: &str) -> Option<AnyValue> {
-        self.contributed.get(key).cloned()
-    }
-
-    /// The attempt's reason, for a hook that requested it as `requirement`.
-    fn reason(&self, requirement: Requirement) -> Result<Option<Reason>, End> {
-        match (requirement, self.failed.and_then(Failed::reason)) {
-            (Requirement::Required, None) => Err(missing_data(
-                MissingData::Reason {
-                    policy: self.policy,
-                    hook: self.hook,
-                },
-                event::MissingData::Reason {
-                    policy: self.policy,
-                    hook: self.hook,
-                    step: self.step,
-                },
-            )),
-            (_, found) => Ok(found.cloned()),
-        }
-    }
-
-    /// The attempt's error, for a hook that requested it as `requirement`.
-    fn error(&self, requirement: Requirement) -> Result<Option<&'s Error>, End> {
-        match (requirement, self.failed.and_then(Failed::error)) {
-            (Requirement::Required, None) => Err(missing_data(
-                MissingData::Error {
-                    policy: self.policy,
-                    hook: self.hook,
-                },
-                event::MissingData::Error {
-                    policy: self.policy,
-                    hook: self.hook,
-                    step: self.step,
-                },
-            )),
-            (_, found) => Ok(found),
-        }
-    }
-}
-
 impl<D: Delivery> Journey<D> {
-    /// `on step success`, after an attempt that succeeded, once its contributions are committed.
-    pub(super) async fn on_step_success<I: WorkflowInstance>(
-        &mut self,
-        instance: &mut I,
-        attempting: &Attempting<'_, I::Workflow, I::Mode>,
-    ) -> Result<Option<Decided<OnSuccess>>, End> {
-        self.step_hook::<I, StepSuccess, _>(
-            instance,
-            attempting,
-            StepHook::OnStepSuccess,
-            <dyn BuiltStepPolicy<I::Workflow, I::Mode>>::on_step_success,
-            attempting.attempt.clone(),
-            None,
-        )
-        .await
-    }
-
-    /// `on step failure`, after the step was given up for `cause`.
-    pub(super) async fn on_step_failure<I: WorkflowInstance>(
-        &mut self,
-        instance: &mut I,
-        attempting: &Attempting<'_, I::Workflow, I::Mode>,
-        failed: &Failed,
-        cause: StepFailureCause,
-    ) -> Result<Option<Decided<FailWorkflow>>, End> {
-        self.step_hook::<I, StepFailure, _>(
-            instance,
-            attempting,
-            StepHook::OnStepFailure,
-            <dyn BuiltStepPolicy<I::Workflow, I::Mode>>::on_step_failure,
-            (attempting.attempt.clone(), cause),
-            Some(failed),
-        )
-        .await
-    }
-
-    /// `on step retry`, once the step's own rule decided to attempt it again for `cause`.
-    pub(super) async fn on_step_retry<I: WorkflowInstance>(
-        &mut self,
-        instance: &mut I,
-        attempting: &Attempting<'_, I::Workflow, I::Mode>,
-        failed: &Failed,
-        cause: RetryCause,
-    ) -> Result<Option<Decided<FailWorkflow>>, End> {
-        self.step_hook::<I, StepRetry, _>(
-            instance,
-            attempting,
-            StepHook::OnStepRetry,
-            <dyn BuiltStepPolicy<I::Workflow, I::Mode>>::on_step_retry,
-            (attempting.attempt.clone(), cause),
-            Some(failed),
-        )
-        .await
-    }
-
-    /// `on step abnormal termination`, after an attempt that ended in an abnormal termination.
-    pub(super) async fn on_step_abnormal_termination<I: WorkflowInstance>(
-        &mut self,
-        instance: &mut I,
-        attempting: &Attempting<'_, I::Workflow, I::Mode>,
-        failed: &Failed,
-    ) -> Result<Option<Decided<FailWorkflow>>, End> {
-        self.step_hook::<I, StepAbnormalTermination, _>(
-            instance,
-            attempting,
-            StepHook::OnStepAbnormalTermination,
-            <dyn BuiltStepPolicy<I::Workflow, I::Mode>>::on_step_abnormal_termination,
-            attempting.attempt.clone(),
-            Some(failed),
-        )
-        .await
-    }
-
-    /// `on workflow success`, once the journey succeeded, before `journey_succeeded`.
-    pub(super) async fn on_workflow_success<I: WorkflowInstance>(
-        &mut self,
-        instance: &mut I,
-        descriptor: &WorkflowDescriptor<I::Workflow, I::Mode>,
-        policies: &WorkflowPolicies<I::Workflow, I::Mode>,
-    ) -> Result<(), End> {
-        self.workflow_hook::<I, WorkflowSuccess>(
-            instance,
-            descriptor,
-            policies,
-            WorkflowHook::OnWorkflowSuccess,
-            <dyn BuiltWorkflowPolicy<I::Workflow, I::Mode>>::on_workflow_success,
-        )
-        .await
-    }
-
-    /// `on workflow failure`, once the journey failed, before `journey_failed`.
-    pub(super) async fn on_workflow_failure<I: WorkflowInstance>(
-        &mut self,
-        instance: &mut I,
-        descriptor: &WorkflowDescriptor<I::Workflow, I::Mode>,
-        policies: &WorkflowPolicies<I::Workflow, I::Mode>,
-    ) -> Result<(), End> {
-        self.workflow_hook::<I, WorkflowFailure>(
-            instance,
-            descriptor,
-            policies,
-            WorkflowHook::OnWorkflowFailure,
-            <dyn BuiltWorkflowPolicy<I::Workflow, I::Mode>>::on_workflow_failure,
-        )
-        .await
-    }
-
-    /// Calls a step hook, if a policy attached to the step defines it.
-    async fn step_hook<I: WorkflowInstance, H: StepHookKind, L>(
-        &mut self,
-        instance: &mut I,
-        attempting: &Attempting<'_, I::Workflow, I::Mode>,
-        hook: StepHook,
-        call: StepHookCall<I::Workflow, I::Mode, H, Option<L>>,
-        context: H::Context,
-        failed: Option<&Failed>,
-    ) -> Result<Option<Decided<L>>, End>
-    where
-        Option<L>: Returned,
-    {
-        let Some((entry, policy)) = attempting.defining(hook) else {
-            return Ok(None);
-        };
-        let name = entry.name();
-        let called = Called {
-            hook: HookSource::Step {
-                policy: name,
-                hook,
-                step: attempting.attempt.clone(),
-            },
-            needs: entry.needs(hook),
-            context,
-            left: Some(Left {
-                policy: name,
-                hook,
-                step: attempting.attempt.step,
-                contributed: &attempting.contributed,
-                failed,
-            }),
-        };
-        match self.call_hook(instance, policy, call, called).await? {
-            Some(lifecycle) => Ok(Some(Decided {
-                policy: name,
-                lifecycle,
-            })),
-            None => Ok(None),
-        }
-    }
-
-    /// Calls a workflow hook, if a policy attached to the workflow defines it.
-    async fn workflow_hook<I: WorkflowInstance, H: HookKind<Context = ()>>(
-        &mut self,
-        instance: &mut I,
-        descriptor: &WorkflowDescriptor<I::Workflow, I::Mode>,
-        policies: &WorkflowPolicies<I::Workflow, I::Mode>,
-        hook: WorkflowHook,
-        call: WorkflowHookCall<I::Workflow, I::Mode, H>,
-    ) -> Result<(), End> {
-        let defining = descriptor
-            .policies()
-            .iter()
-            .zip(policies)
-            .find(|(entry, _)| entry.defines(hook));
-        let Some((entry, policy)) = defining else {
-            return Ok(());
-        };
-        let called = Called {
-            hook: HookSource::Workflow {
-                policy: entry.name(),
-                hook,
-            },
-            needs: entry.needs(hook),
-            context: (),
-            left: None,
-        };
-        self.call_hook(instance, policy.as_ref(), call, called)
-            .await
-    }
-
     /// Resolves what the hook requests, calls it, and once it returns without failing, reports
     /// what it returned and commits what it contributed.
     async fn call_hook<I: WorkflowInstance, P: ?Sized + Sync, H: HookKind, R: Returned>(
@@ -356,7 +118,7 @@ impl<D: Delivery> Journey<D> {
     }
 
     /// Resolves one of a hook's requests into its answers, or into the abort it causes.
-    async fn answer<'s>(
+    pub(super) async fn answer<'s>(
         &mut self,
         answers: &mut Answers<'s>,
         requesting: &Requesting,
@@ -387,69 +149,6 @@ impl<D: Delivery> Journey<D> {
         }
         Ok(())
     }
-
-    /// Calls the step's input adapter for one of its inputs, once what the adapter requests is
-    /// resolved: the value it supplied, or `None` when it does not supply this input.
-    pub(super) async fn adapt<W>(
-        &mut self,
-        sources: &Sources<'_, W>,
-        adapter: &InputAdapterDescriptor<W>,
-        attempt: &StepAttempt,
-        input: &InputNeed,
-    ) -> Result<Option<AnyValue>, End> {
-        let name = adapter.name();
-        let key = input.key();
-        let requesting = Requesting::adapter(name, attempt);
-        let data_bag = sources.data_bag;
-        let mut answers = Answers::default();
-        let needs = adapter.needs();
-        for request in needs.requests() {
-            self.answer(&mut answers, &requesting, request, data_bag, None)
-                .await?;
-        }
-        if needs.wants_data_bag() {
-            answers.data_bag = Some(DataBagAccess::new(data_bag));
-        }
-        let got = Requested::new(
-            sources.workflow,
-            sources.journey_id,
-            (attempt.step, key),
-            answers,
-        );
-        match adapter.adapt(sources.workflow, got) {
-            Ok(Some(value)) => {
-                self.emit(EventBody::InputAdapterSupplied {
-                    step: attempt.clone(),
-                    key: key.to_owned(),
-                    adapter: name,
-                })
-                .await?;
-                if input.accepts(&value) {
-                    Ok(Some(value))
-                } else {
-                    Err(wrong_type(key, &requesting))
-                }
-            }
-            Ok(None) => Ok(None),
-            Err(error) => {
-                self.emit(EventBody::InputAdapterFailed {
-                    step: attempt.clone(),
-                    key: key.to_owned(),
-                    adapter: name,
-                })
-                .await?;
-                Err(could_not_build(attempt.step, error))
-            }
-        }
-    }
-}
-
-/// The abort for the reason or the error a step hook required from an attempt that has none.
-fn missing_data(missing: MissingData, reported: event::MissingData) -> End {
-    End::aborted(
-        Abort::RequiredDataMissing(missing),
-        JourneyAbort::RequiredDataMissing { missing: reported },
-    )
 }
 
 fn hook_failed(hook: &HookSource, error: Error) -> End {
