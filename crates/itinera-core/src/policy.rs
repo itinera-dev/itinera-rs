@@ -3,6 +3,7 @@
 
 #[cfg(feature = "async")]
 mod asynchronous;
+mod described;
 mod descriptor;
 #[cfg(test)]
 pub(crate) mod fixtures;
@@ -18,6 +19,7 @@ pub use asynchronous::{
     AsyncHookReporter, AsyncOnStepAbnormalTermination, AsyncOnStepFailure, AsyncOnStepRetry,
     AsyncOnStepSuccess, AsyncOnWorkflowFailure, AsyncOnWorkflowSuccess,
 };
+pub use described::{DescribedPolicy, StepPolicy, WorkflowPolicy};
 #[cfg(feature = "async")]
 pub(crate) use descriptor::HookCall;
 pub(crate) use descriptor::{
@@ -28,6 +30,8 @@ pub use hook::{
     OnStepAbnormalTermination, OnStepFailure, OnStepRetry, OnStepSuccess, OnWorkflowFailure,
     OnWorkflowSuccess,
 };
+#[cfg(feature = "macros")]
+pub use itinera_macros::{step_policy, workflow_policy};
 pub use kind::{
     ErrorHookKind, FailureHookKind, HookKind, InputAdapter, PolicyHookKind,
     StepAbnormalTermination, StepFailure, StepHookKind, StepRetry, StepSuccess, WorkflowFailure,

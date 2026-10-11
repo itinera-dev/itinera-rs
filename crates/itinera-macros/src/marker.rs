@@ -38,6 +38,15 @@ pub(crate) fn single<A: quote::ToTokens>(
     }
 }
 
+/// The one mark an item carries, if it carries one, or an error pointing at its second mark.
+pub(crate) fn at_most_one(marks: Vec<Attribute>, too_many: &str) -> syn::Result<Option<Attribute>> {
+    let mut marks = marks.into_iter();
+    match (marks.next(), marks.next()) {
+        (mark, None) => Ok(mark),
+        (_, Some(second)) => Err(syn::Error::new_spanned(second, too_many)),
+    }
+}
+
 /// The name of a mark, such as `input` for `#[input("amount")]`.
 pub(crate) fn name(mark: &Attribute) -> String {
     mark.path()

@@ -1,0 +1,25 @@
+error[E0277]: the workflow `Orders` does not provide the role `(dyn Desk + 'static)`
+  --> tests/ui/policy/a_role_the_workflow_does_not_provide.rs:45:17
+   |
+45 |         .policy(Audit::descriptor());
+   |                 ^^^^^ this workflow does not provide the role
+   |
+help: the trait `Provides<(dyn Desk + 'static)>` is not implemented for `Orders`
+  --> tests/ui/policy/a_role_the_workflow_does_not_provide.rs:11:1
+   |
+11 | struct Orders;
+   | ^^^^^^^^^^^^^
+   = note: a workflow provides a role by implementing `Provides<(dyn Desk + 'static)>`
+help: the trait `StepPolicy<__ItineraWorkflow>` is conditionally implemented for `Audit`
+  --> tests/ui/policy/a_role_the_workflow_does_not_provide.rs:23:1
+   |
+23 | #[step_policy]
+   | ^^^^^^^^^^^^^^ unsatisfied requirement introduced here: `Orders: Provides<(dyn Desk + 'static)>`
+note: required for `Audit` to implement `StepPolicy<Orders>`
+  --> tests/ui/policy/a_role_the_workflow_does_not_provide.rs:23:1
+   |
+23 | #[step_policy]
+   | ^^^^^^^^^^^^^^ unsatisfied trait bound introduced here
+24 | impl Audit {
+   |      ^^^^^
+   = note: this error originates in the attribute macro `step_policy` (in Nightly builds, run with -Z macro-backtrace for more info)

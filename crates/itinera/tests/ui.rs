@@ -181,3 +181,193 @@ mod step {
         );
     }
 }
+
+/// What the policy macros refuse, each with the macro's own error or the type that rules it out.
+#[cfg(feature = "macros")]
+mod policy {
+    use super::enforced;
+
+    #[test]
+    fn a_hook_is_defined_once() {
+        enforced(
+            "tests/ui/policy/a_hook_defined_twice.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_step_policy_defines_only_step_hooks() {
+        enforced(
+            "tests/ui/policy/a_workflow_hook_in_a_step_policy.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_hook_returns_what_its_hook_returns() {
+        enforced(
+            "tests/ui/policy/a_hook_returning_the_wrong_type.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_hook_requests_only_what_its_hook_may_request() {
+        enforced(
+            "tests/ui/policy/a_request_its_hook_may_not_make.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_policy_is_attached_only_to_a_workflow_providing_its_roles() {
+        enforced(
+            "tests/ui/policy/a_role_the_workflow_does_not_provide.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn only_on_step_success_finishes_the_workflow() {
+        enforced(
+            "tests/ui/policy/finish_workflow_outside_on_step_success.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_policy_defines_at_least_one_hook() {
+        enforced(
+            "tests/ui/policy/without_hooks.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn every_parameter_of_a_hook_says_what_it_requests() {
+        enforced(
+            "tests/ui/policy/an_unmarked_request.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_policy_takes_only_its_name() {
+        enforced(
+            "tests/ui/policy/an_unknown_argument.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_generic_policy_is_described_with_the_builder() {
+        enforced("tests/ui/policy/generic.rs", "tests/ui/policy/described.rs");
+    }
+
+    #[cfg(feature = "async")]
+    #[test]
+    fn an_asynchronous_policy_belongs_only_to_an_asynchronous_workflow() {
+        enforced(
+            "tests/ui/policy/asynchronous_in_a_synchronous_workflow.rs",
+            "tests/ui/policy/asynchronous.rs",
+        );
+    }
+
+    #[cfg(feature = "async")]
+    #[test]
+    fn a_policys_hooks_are_all_synchronous_or_all_asynchronous() {
+        enforced(
+            "tests/ui/policy/synchronous_and_asynchronous_hooks.rs",
+            "tests/ui/policy/asynchronous.rs",
+        );
+    }
+
+    #[test]
+    fn a_request_has_the_type_its_attribute_names() {
+        enforced(
+            "tests/ui/policy/a_request_of_the_wrong_type.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_policy_is_described_on_its_own_block() {
+        enforced(
+            "tests/ui/policy/on_a_trait_implementation.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_policy_has_one_factory() {
+        enforced(
+            "tests/ui/policy/two_factories.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_policys_factory_takes_no_parameters() {
+        enforced(
+            "tests/ui/policy/a_factory_with_parameters.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_policys_factory_is_synchronous() {
+        enforced(
+            "tests/ui/policy/an_asynchronous_factory.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_hook_takes_the_policy_by_reference() {
+        enforced(
+            "tests/ui/policy/a_hook_taking_the_policy_by_value.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_role_is_taken_by_shared_reference() {
+        enforced(
+            "tests/ui/policy/a_role_taken_by_value.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_function_is_one_hook_or_the_factory() {
+        enforced(
+            "tests/ui/policy/a_function_marked_twice.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn every_parameter_of_a_hook_requests_one_thing() {
+        enforced(
+            "tests/ui/policy/a_parameter_marked_twice.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_workflow_policy_defines_only_workflow_hooks() {
+        enforced(
+            "tests/ui/policy/a_step_hook_in_a_workflow_policy.rs",
+            "tests/ui/policy/described_workflow_policy.rs",
+        );
+    }
+
+    #[cfg(not(feature = "async"))]
+    #[test]
+    fn an_asynchronous_hook_needs_the_async_feature() {
+        enforced(
+            "tests/ui/policy/asynchronous_without_the_async_feature.rs",
+            "tests/ui/policy/described.rs",
+        );
+    }
+}

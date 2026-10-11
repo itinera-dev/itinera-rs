@@ -1,0 +1,5 @@
+error: a function is one hook, or the factory
+  --> tests/ui/policy/a_function_marked_twice.rs:31:5
+   |
+31 |     #[on_step_retry]
+   |     ^^^^^^^^^^^^^^^^

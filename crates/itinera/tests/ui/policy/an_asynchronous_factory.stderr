@@ -1,0 +1,5 @@
+error: a policy's factory is synchronous
+  --> tests/ui/policy/an_asynchronous_factory.rs:30:5
+   |
+30 |     async fn opened() -> Self {
+   |     ^^^^^

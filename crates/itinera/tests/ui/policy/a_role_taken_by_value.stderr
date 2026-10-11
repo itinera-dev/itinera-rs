@@ -1,0 +1,5 @@
+error: a role is taken by shared reference, such as `&dyn Notifier`
+  --> tests/ui/policy/a_role_taken_by_value.rs:42:23
+   |
+42 |         #[role] desk: Box<dyn Desk>,
+   |                       ^^^^^^^^^^^^^
