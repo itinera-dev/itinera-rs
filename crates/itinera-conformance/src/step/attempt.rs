@@ -1,6 +1,8 @@
 //! One attempt of a scripted step, which does what the script says, then ends as its ending
 //! says.
 
+use std::num::NonZeroU32;
+
 use futures::executor::block_on;
 use itinera::error::Error;
 use itinera::journey::Contributor;
@@ -9,31 +11,50 @@ use itinera::step::{AsyncStep, AsyncStepReporter, Outcome, Step, StepReporter};
 use super::ending::{End, Ending};
 use super::reporter::Emits;
 use super::script::{Action, Script};
+use super::service::Lent;
 use super::{StepsRun, contribute};
+use crate::witness::{Given, Witness};
 
 /// One attempt of a scripted step, with the handles its attempt gave it.
 #[derive(derive_more::Debug)]
 pub(crate) struct Attempting<'a, R> {
+    pub(super) step: &'a str,
+    pub(super) attempt: NonZeroU32,
+    /// The services it was lent, in the order it requests them.
+    pub(super) services: Vec<Lent<'a>>,
     pub(super) script: &'a Script,
     pub(super) ending: &'a Ending,
     pub(super) contributor: Contributor<'a>,
     #[debug(skip)]
     pub(super) reporter: R,
     pub(super) runs: &'a StepsRun,
+    pub(super) witness: &'a Witness,
 }
 
 impl<'a, R: Emits> Attempting<'a, R> {
-    /// Does what the script says, then contributes what the attempt's ending says, and returns
-    /// how it ends.
+    /// Uses each service it was lent, does what the script says, then contributes what the
+    /// attempt's ending says, and returns how it ends.
     pub(super) async fn perform(self) -> Result<&'a End, Error> {
         let Self {
+            step,
+            attempt,
+            services,
             script,
             ending,
             mut contributor,
             mut reporter,
             runs,
+            witness,
         } = self;
         runs.one_more();
+        for service in &services {
+            witness.given(Given {
+                step: step.to_owned(),
+                attempt,
+                key: service.key().to_owned(),
+                label: service.label()?,
+            });
+        }
         for action in &script.actions {
             match action {
                 Action::Contribute(key, value) => contribute(&mut contributor, key, value),

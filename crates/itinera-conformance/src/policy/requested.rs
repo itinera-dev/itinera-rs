@@ -59,7 +59,7 @@ pub(super) fn receive_for_step<H: StepHookKind, M>(
 }
 
 /// Takes what a hook received for a request every hook may make.
-pub(super) fn receive_for_any<H: HookKind, M>(
+pub(crate) fn receive_for_any<H: HookKind, M>(
     got: &mut Requested<'_, ScriptedWorkflow, H, M>,
     request: &Request,
     received: &mut Received,

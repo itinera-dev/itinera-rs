@@ -7,6 +7,7 @@ mod input;
 mod reporter;
 mod rescue;
 mod script;
+mod service;
 
 use std::num::NonZeroU32;
 use std::sync::Arc;
@@ -109,18 +110,29 @@ impl Scripted {
             .iter()
             .map(|input| taken(got, input))
             .collect::<Result<_, _>>()?;
+        let services = self
+            .script
+            .services
+            .iter()
+            .map(|token| token.lent(got))
+            .collect::<Result<_, _>>()?;
+        let number = counted(attempt);
         self.witness.built(Build {
             step: self.name.clone(),
-            attempt: counted(attempt),
+            attempt: number,
             inputs,
             rescued,
         });
         Ok(Attempting {
+            step: &self.name,
+            attempt: number,
+            services,
             script: &self.script,
             ending: self.script.ending(attempt),
             contributor: got.contributor()?,
             reporter: got.reporter()?,
             runs: &self.runs,
+            witness: &self.witness,
         })
     }
 }

@@ -1,9 +1,12 @@
 //! The execution modes the scenario's workflow can be declared in.
 
+use std::sync::Arc;
+
 use itinera::mode::{Asynchronous, Mode, Synchronous};
 use itinera::policy::{
     Hookless, StepHook, StepPolicyDescriptor, WorkflowHook, WorkflowPolicyDescriptor,
 };
+use itinera::service::{Service, ServiceProviderDescriptor};
 use itinera::step::{StepDescriptor, StepName};
 use itinera::workflow::{WorkflowBuilder, WorkflowDescriptor};
 
@@ -11,6 +14,7 @@ use super::ScriptedWorkflow;
 use super::policy::{StepPolicy, WorkflowPolicy};
 use crate::model::ModelError;
 use crate::policy::{Building, Scripts};
+use crate::service::{Awaiting, Scope, ScriptedProvider, Supplied, provided_now};
 use crate::step::Scripted;
 
 /// An execution mode the scenario's workflow can be declared in.
@@ -42,6 +46,12 @@ pub(crate) trait Declares: Mode + Sized {
         hook: WorkflowHook,
         scripts: &Scripts,
     ) -> Result<WorkflowPolicy<Self>, ModelError>;
+
+    /// The scripted provider, of scope `S`, supplying the service `T`.
+    fn provider<S: Scope, T: Supplied + ?Sized>(
+        provider: ScriptedProvider,
+        service: &Service<T>,
+    ) -> ServiceProviderDescriptor<ScriptedWorkflow, S, Self>;
 }
 
 impl Declares for Synchronous {
@@ -93,6 +103,15 @@ impl Declares for Synchronous {
             WorkflowHook::OnWorkflowSuccess => policy.on_workflow_success_needing(scripts.needs()?),
             WorkflowHook::OnWorkflowFailure => policy.on_workflow_failure_needing(scripts.needs()?),
             _ => return Err(unknown(hook)),
+        })
+    }
+
+    fn provider<S: Scope, T: Supplied + ?Sized>(
+        provider: ScriptedProvider,
+        service: &Service<T>,
+    ) -> ServiceProviderDescriptor<ScriptedWorkflow, S, Self> {
+        S::synchronous(provider.name(), service, move |_, got| {
+            provided_now(&provider, got)
         })
     }
 }
@@ -147,6 +166,13 @@ impl Declares for Asynchronous {
             WorkflowHook::OnWorkflowFailure => policy.on_workflow_failure_needing(scripts.needs()?),
             _ => return Err(unknown(hook)),
         })
+    }
+
+    fn provider<S: Scope, T: Supplied + ?Sized>(
+        provider: ScriptedProvider,
+        service: &Service<T>,
+    ) -> ServiceProviderDescriptor<ScriptedWorkflow, S, Self> {
+        S::asynchronous(provider.name(), service, Awaiting::from(Arc::new(provider)))
     }
 }
 

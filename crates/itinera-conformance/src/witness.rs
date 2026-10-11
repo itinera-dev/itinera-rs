@@ -1,5 +1,5 @@
-//! What the scenario's steps, hooks and roles received and did while its journeys ran, which the
-//! Then sentences read.
+//! What the scenario's steps, hooks, roles and service providers received and did while its
+//! journeys ran, which the Then sentences read.
 
 use std::collections::BTreeMap;
 use std::num::NonZeroU32;
@@ -9,7 +9,8 @@ use serde_json::Value;
 
 use crate::model::{Hook, Reason};
 
-/// A record that every scripted step, hook and role of a scenario writes to; its clones share it.
+/// A record that every scripted step, hook, role and service provider of a scenario writes to;
+/// its clones share it.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Witness {
     seen: Arc<Mutex<Seen>>,
@@ -20,6 +21,8 @@ struct Seen {
     builds: Vec<Build>,
     calls: Vec<Call>,
     operations: Vec<Operation>,
+    provisions: Vec<Provision>,
+    services: Vec<Given>,
 }
 
 /// One step built for an attempt, with the inputs it received, and what a rescue step received
@@ -71,6 +74,22 @@ pub(crate) struct Received {
     pub(crate) journey_id: Option<String>,
 }
 
+/// One call of a service provider, with what it received.
+#[derive(Clone, Debug)]
+pub(crate) struct Provision {
+    pub(crate) provider: String,
+    pub(crate) received: Received,
+}
+
+/// A service a step was given for an attempt, with the label its operation returned.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Given {
+    pub(crate) step: String,
+    pub(crate) attempt: NonZeroU32,
+    pub(crate) key: String,
+    pub(crate) label: String,
+}
+
 /// One call of a role's operation.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Operation {
@@ -95,6 +114,14 @@ impl Witness {
         self.seen().operations.push(operation);
     }
 
+    pub(crate) fn provided(&self, provision: Provision) {
+        self.seen().provisions.push(provision);
+    }
+
+    pub(crate) fn given(&self, given: Given) {
+        self.seen().services.push(given);
+    }
+
     /// The steps built, in the order they were built.
     pub(crate) fn builds(&self) -> Vec<Build> {
         self.seen().builds.clone()
@@ -108,5 +135,15 @@ impl Witness {
     /// The operations of roles called, in the order they were called.
     pub(crate) fn operations(&self) -> Vec<Operation> {
         self.seen().operations.clone()
+    }
+
+    /// The calls of service providers, in the order they were made.
+    pub(crate) fn provisions(&self) -> Vec<Provision> {
+        self.seen().provisions.clone()
+    }
+
+    /// The services steps were given, in the order they used them.
+    pub(crate) fn services(&self) -> Vec<Given> {
+        self.seen().services.clone()
     }
 }

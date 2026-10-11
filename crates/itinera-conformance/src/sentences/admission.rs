@@ -6,7 +6,7 @@ use std::num::NonZeroUsize;
 use cucumber::gherkin::Step as Sentence;
 use cucumber::{then, when};
 use itinera::mode::Synchronous;
-use itinera::workflow::{ListedStep, Violation};
+use itinera::workflow::{ListedService, ListedStep, Violation};
 
 use super::{Unmet, holds};
 use crate::declaration::{Admission, declared};
@@ -83,12 +83,17 @@ fn kind_name(violation: &Violation) -> String {
 
 #[then(expr = "the listing is:")]
 fn the_listing_is(world: &mut World, #[step] sentence: &Sentence) -> Result<(), Unmet> {
-    let expected = rows(sentence)?
+    let rows = rows(sentence)?;
+    let services = rows.first().is_some_and(lists_services);
+    let expected = rows
         .iter()
-        .map(Listed::expected)
+        .map(|row| Listed::expected(row, services))
         .collect::<Result<Vec<_>, _>>()?;
     let found: Vec<Listed> = match admission(world)? {
-        Admission::Admitted(listing) => listing.iter().map(Listed::from).collect(),
+        Admission::Admitted(listing) => listing
+            .iter()
+            .map(|listed| Listed::found(listed, services))
+            .collect(),
         Admission::Refused(violations) => {
             return Err(Unmet::Expected(format!(
                 "a listing, but admission was refused: {violations}"
@@ -100,6 +105,15 @@ fn the_listing_is(world: &mut World, #[step] sentence: &Sentence) -> Result<(), 
         format_args!("the listing {expected:?}"),
         format_args!("{found:?}"),
     )
+}
+
+/// Whether the listing's table has the optional column of services.
+fn lists_services(row: &Row) -> bool {
+    row.columns().any(is_services)
+}
+
+fn is_services(column: &str) -> bool {
+    column == "services"
 }
 
 #[then(expr = "no step ran")]
@@ -114,7 +128,8 @@ fn admission(world: &World) -> Result<&Admission, Unmet> {
         .ok_or_else(|| Unmet::Case("the workflow was neither admitted nor listed".to_owned()))
 }
 
-/// One line of a listing, as the cases write it.
+/// One line of a listing, as the cases write it. Its services are `None` when the table does
+/// not have their column, which is then not compared.
 #[derive(Debug, PartialEq)]
 struct Listed {
     step: String,
@@ -122,22 +137,22 @@ struct Listed {
     policies: String,
     adapter: String,
     rescue: String,
+    services: Option<String>,
 }
 
 impl Listed {
-    fn expected(row: &Row) -> Result<Self, ModelError> {
+    fn expected(row: &Row, services: bool) -> Result<Self, ModelError> {
         Ok(Self {
             step: row.required("step")?.to_owned(),
             position: row.parse("position")?,
             policies: cell(row, "policies"),
             adapter: cell(row, "adapter"),
             rescue: cell(row, "rescue"),
+            services: services.then(|| cell(row, "services")),
         })
     }
-}
 
-impl From<&ListedStep> for Listed {
-    fn from(listed: &ListedStep) -> Self {
+    fn found(listed: &ListedStep, services: bool) -> Self {
         Self {
             step: listed.step.to_string(),
             position: listed.position,
@@ -157,8 +172,24 @@ impl From<&ListedStep> for Listed {
                 .as_ref()
                 .map(ToString::to_string)
                 .unwrap_or_default(),
+            services: services.then(|| services_of(listed)),
         }
     }
+}
+
+/// The services a step requests, as the cases write them, separated by commas.
+fn services_of(listed: &ListedStep) -> String {
+    listed
+        .services
+        .iter()
+        .map(served_by)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// A service in the listing, as the cases write it: its key and the provider that serves it.
+fn served_by(service: &ListedService) -> String {
+    format!("{}: {}", service.key, service.provider)
 }
 
 /// The text of a cell, empty when the row leaves it empty.

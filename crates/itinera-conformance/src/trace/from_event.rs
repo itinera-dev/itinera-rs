@@ -29,6 +29,22 @@ impl From<&Event> for Line {
                 line.set("key", key);
                 line.set("adapter", adapter);
             }
+            EventBody::ServiceProvided {
+                step,
+                key,
+                provider,
+                ..
+            }
+            | EventBody::ServiceProviderFailed {
+                step,
+                key,
+                provider,
+                ..
+            } => {
+                line.attempt(step);
+                line.set("key", key);
+                line.set("provider", provider);
+            }
             EventBody::OptionalInputAbsent { key, requester, .. } => {
                 line.set("key", key);
                 match requester {

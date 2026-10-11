@@ -14,6 +14,7 @@ mod policy;
 mod record;
 mod role;
 mod sentences;
+mod service;
 mod step;
 mod trace;
 mod value;

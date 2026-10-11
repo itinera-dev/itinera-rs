@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use super::{Adapter, Role, Step};
+use super::{Adapter, Provider, Role, Step};
 
 /// The workflow a scenario declares.
 #[derive(Debug)]
@@ -18,6 +18,8 @@ pub(crate) struct Workflow {
     pub(crate) policies: Vec<String>,
     /// The input adapters, in the order declared.
     pub(crate) adapters: Vec<Adapter>,
+    /// The service providers, in the order declared.
+    pub(crate) providers: Vec<Provider>,
     /// The reporters the workflow lists, in order.
     pub(crate) reporters: Vec<String>,
     pub(crate) id_generator: IdGenerator,

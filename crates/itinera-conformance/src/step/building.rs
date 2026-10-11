@@ -1,41 +1,46 @@
 //! What a scripted step and a scripted rescue step have in common when they are declared and
-//! built: they declare inputs, and take their inputs and both handles.
+//! built: they declare inputs and services, and take their inputs, services and both handles.
 
 use itinera::error::Error;
 use itinera::journey::Contributor;
 use itinera::mode::{Asynchronous, Synchronous};
+use itinera::service::Service;
 use itinera::step::{
     AsyncStepReporter, Input, OptionalInput, RescueNeeds, RescueResolved, Resolved, StepNeeds,
     StepReporter,
 };
 use itinera::value::Value as Storable;
 
-/// What declares a step's inputs: a step's needs or a rescue step's.
+/// What declares a step's inputs and services: a step's needs or a rescue step's.
 pub(super) trait Needs: Sized {
     fn input<T: Storable>(self, input: &Input<T>) -> Self;
 
     fn optional_input<T: Storable>(self, input: &OptionalInput<T>) -> Self;
+
+    fn service<T: ?Sized + Send + Sync + 'static>(self, service: &Service<T>) -> Self;
 }
 
-impl Needs for StepNeeds {
-    fn input<T: Storable>(self, input: &Input<T>) -> Self {
-        Self::input(self, input)
-    }
+/// Implements `Needs` for a kind of needs, by calling its own methods.
+macro_rules! needs {
+    ($needs:ident) => {
+        impl Needs for $needs {
+            fn input<T: Storable>(self, input: &Input<T>) -> Self {
+                Self::input(self, input)
+            }
 
-    fn optional_input<T: Storable>(self, input: &OptionalInput<T>) -> Self {
-        Self::optional_input(self, input)
-    }
+            fn optional_input<T: Storable>(self, input: &OptionalInput<T>) -> Self {
+                Self::optional_input(self, input)
+            }
+
+            fn service<T: ?Sized + Send + Sync + 'static>(self, service: &Service<T>) -> Self {
+                Self::service(self, service)
+            }
+        }
+    };
 }
 
-impl Needs for RescueNeeds {
-    fn input<T: Storable>(self, input: &Input<T>) -> Self {
-        Self::input(self, input)
-    }
-
-    fn optional_input<T: Storable>(self, input: &OptionalInput<T>) -> Self {
-        Self::optional_input(self, input)
-    }
-}
+needs!(StepNeeds);
+needs!(RescueNeeds);
 
 /// What a step is built from, for an attempt: a step's or a rescue step's resolved requests, in
 /// the workflow's mode.
@@ -47,6 +52,8 @@ pub(super) trait Builds<'a> {
 
     fn optional_input<T: Storable>(&mut self, input: &OptionalInput<T>)
     -> Result<Option<T>, Error>;
+
+    fn service<T: ?Sized + 'static>(&self, service: &Service<T>) -> Result<&'a T, Error>;
 
     fn contributor(&mut self) -> Result<Contributor<'a>, Error>;
 
@@ -68,6 +75,10 @@ macro_rules! builds {
                 input: &OptionalInput<T>,
             ) -> Result<Option<T>, Error> {
                 Self::optional_input(self, input)
+            }
+
+            fn service<T: ?Sized + 'static>(&self, service: &Service<T>) -> Result<&'a T, Error> {
+                Self::service(self, service)
             }
 
             fn contributor(&mut self) -> Result<Contributor<'a>, Error> {

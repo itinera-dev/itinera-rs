@@ -31,7 +31,7 @@ pub(crate) enum Request {
 }
 
 impl Request {
-    pub(super) fn of(request: &HookRequest) -> Option<Self> {
+    pub(crate) fn of(request: &HookRequest) -> Option<Self> {
         Some(match request {
             HookRequest::StepData {
                 key,
