@@ -134,3 +134,85 @@ impl AsyncDispatcherFactory for DefaultDispatcherFactory {
         Ok(DefaultDispatcher::default())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use futures::executor::block_on;
+
+    use super::*;
+    use crate::report::AsyncReporter;
+    use crate::report::fixtures::{Log, Recording, aborted, entries, started};
+
+    #[derive(derive_more::From)]
+    struct AsyncRecording {
+        recording: Recording,
+    }
+
+    impl AsyncReporter for AsyncRecording {
+        async fn report(&mut self, event: &Event) -> Result<(), Error> {
+            self.recording.record(event)
+        }
+    }
+
+    fn dispatcher_of(reporters: Vec<BoxedReporter>) -> DefaultDispatcher<BoxedReporter> {
+        let mut dispatcher = block_on(AsyncDispatcherFactory::create(
+            &mut DefaultDispatcherFactory,
+        ))
+        .unwrap();
+        for reporter in reporters {
+            block_on(dispatcher.add(reporter)).unwrap();
+        }
+        dispatcher
+    }
+
+    #[test]
+    fn the_async_default_dispatcher_calls_both_kinds_of_reporter_in_order() {
+        let log = Log::default();
+        let mut dispatcher = dispatcher_of(vec![
+            BoxedReporter::from_async_reporter(AsyncRecording::from(Recording::new("audit", &log))),
+            BoxedReporter::from_reporter(Recording::new("metrics", &log)),
+        ]);
+
+        block_on(dispatcher.dispatch(&started())).unwrap();
+
+        assert_eq!(
+            entries(&log),
+            ["audit journey_started", "metrics journey_started"]
+        );
+    }
+
+    #[test]
+    fn async_delivery_of_an_event_stops_at_the_reporter_that_failed() {
+        let log = Log::default();
+        let mut dispatcher = dispatcher_of(vec![
+            BoxedReporter::from_reporter(Recording::new("audit", &log)),
+            BoxedReporter::from_async_reporter(AsyncRecording::from(Recording::failing_on(
+                "fragile",
+                "journey_started",
+                &log,
+            ))),
+            BoxedReporter::from_reporter(Recording::new("metrics", &log)),
+        ]);
+
+        let error = block_on(dispatcher.dispatch(&started())).unwrap_err();
+
+        assert_eq!(error.to_string(), "fragile failed");
+        assert_eq!(entries(&log), ["audit journey_started"]);
+    }
+
+    #[test]
+    fn a_failure_while_journey_aborted_is_delivered_asynchronously_does_not_stop_its_delivery() {
+        let log = Log::default();
+        let mut dispatcher = dispatcher_of(vec![
+            BoxedReporter::from_async_reporter(AsyncRecording::from(Recording::failing_on(
+                "fragile",
+                "journey_aborted",
+                &log,
+            ))),
+            BoxedReporter::from_reporter(Recording::new("audit", &log)),
+        ]);
+
+        assert!(block_on(dispatcher.dispatch(&aborted())).is_err());
+        assert_eq!(entries(&log), ["audit journey_aborted"]);
+    }
+}

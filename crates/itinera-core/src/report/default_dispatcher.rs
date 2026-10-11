@@ -135,81 +135,12 @@ impl Delivery {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
-
     use super::*;
-    use crate::event::JourneyAbort;
-    use crate::event::tests::event;
-
-    type Log = Arc<Mutex<Vec<String>>>;
-
-    struct Recording {
-        name: &'static str,
-        log: Log,
-        fails_on: Option<&'static str>,
-    }
-
-    impl Recording {
-        fn new(name: &'static str, log: &Log) -> Self {
-            Self {
-                name,
-                log: Arc::clone(log),
-                fails_on: None,
-            }
-        }
-
-        fn failing_on(name: &'static str, kind: &'static str, log: &Log) -> Self {
-            Self {
-                fails_on: Some(kind),
-                ..Self::new(name, log)
-            }
-        }
-
-        fn record(&mut self, event: &Event) -> Result<(), Error> {
-            if self.fails_on == Some(event.kind()) {
-                return Err(Error::msg(format!("{} failed", self.name)));
-            }
-            self.log
-                .lock()
-                .unwrap()
-                .push(format!("{} {}", self.name, event.kind()));
-            Ok(())
-        }
-    }
-
-    impl Reporter for Recording {
-        fn report(&mut self, event: &Event) -> Result<(), Error> {
-            self.record(event)
-        }
-    }
-
-    fn started() -> Event {
-        event(
-            1,
-            EventBody::JourneyStarted {
-                initial_keys: Vec::new(),
-            },
-        )
-    }
-
-    fn aborted() -> Event {
-        event(
-            2,
-            EventBody::JourneyAborted {
-                abort: JourneyAbort::ReporterFailed {
-                    step: None,
-                    error: "a failed".to_string(),
-                },
-            },
-        )
-    }
+    use crate::event::fixtures::event;
+    use crate::report::fixtures::{Log, Recording, aborted, entries, started};
 
     fn succeeded() -> Event {
         event(2, EventBody::JourneySucceeded { decided_by: None })
-    }
-
-    fn entries(log: &Log) -> Vec<String> {
-        log.lock().unwrap().clone()
     }
 
     #[test]
@@ -293,89 +224,5 @@ mod tests {
     fn with_no_reporter_dispatching_succeeds_and_goes_nowhere() {
         let mut dispatcher = DefaultDispatcher::new();
         assert!(dispatcher.dispatch(&started()).is_ok());
-    }
-
-    #[cfg(feature = "async")]
-    mod asynchronous {
-        use futures::executor::block_on;
-
-        use super::*;
-        use crate::report::{
-            AsyncDispatcher, AsyncDispatcherFactory, AsyncReporter, BoxedReporter,
-        };
-
-        #[derive(derive_more::From)]
-        struct AsyncRecording {
-            recording: Recording,
-        }
-
-        impl AsyncReporter for AsyncRecording {
-            async fn report(&mut self, event: &Event) -> Result<(), Error> {
-                self.recording.record(event)
-            }
-        }
-
-        fn dispatcher_of(reporters: Vec<BoxedReporter>) -> DefaultDispatcher<BoxedReporter> {
-            let mut dispatcher = block_on(AsyncDispatcherFactory::create(
-                &mut DefaultDispatcherFactory,
-            ))
-            .unwrap();
-            for reporter in reporters {
-                block_on(dispatcher.add(reporter)).unwrap();
-            }
-            dispatcher
-        }
-
-        #[test]
-        fn the_async_default_dispatcher_calls_both_kinds_of_reporter_in_order() {
-            let log = Log::default();
-            let mut dispatcher = dispatcher_of(vec![
-                BoxedReporter::from_async_reporter(AsyncRecording::from(Recording::new(
-                    "audit", &log,
-                ))),
-                BoxedReporter::from_reporter(Recording::new("metrics", &log)),
-            ]);
-
-            block_on(dispatcher.dispatch(&started())).unwrap();
-
-            assert_eq!(
-                entries(&log),
-                ["audit journey_started", "metrics journey_started"]
-            );
-        }
-
-        #[test]
-        fn async_delivery_of_an_event_stops_at_the_reporter_that_failed() {
-            let log = Log::default();
-            let mut dispatcher =
-                dispatcher_of(vec![
-                    BoxedReporter::from_reporter(Recording::new("audit", &log)),
-                    BoxedReporter::from_async_reporter(AsyncRecording::from(
-                        Recording::failing_on("fragile", "journey_started", &log),
-                    )),
-                    BoxedReporter::from_reporter(Recording::new("metrics", &log)),
-                ]);
-
-            let error = block_on(dispatcher.dispatch(&started())).unwrap_err();
-
-            assert_eq!(error.to_string(), "fragile failed");
-            assert_eq!(entries(&log), ["audit journey_started"]);
-        }
-
-        #[test]
-        fn a_failure_while_journey_aborted_is_delivered_asynchronously_does_not_stop_its_delivery()
-        {
-            let log = Log::default();
-            let mut dispatcher =
-                dispatcher_of(vec![
-                    BoxedReporter::from_async_reporter(AsyncRecording::from(
-                        Recording::failing_on("fragile", "journey_aborted", &log),
-                    )),
-                    BoxedReporter::from_reporter(Recording::new("audit", &log)),
-                ]);
-
-            assert!(block_on(dispatcher.dispatch(&aborted())).is_err());
-            assert_eq!(entries(&log), ["audit journey_aborted"]);
-        }
     }
 }

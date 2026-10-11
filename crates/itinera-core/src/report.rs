@@ -8,6 +8,8 @@ use crate::journey::{DataBag, JourneyId};
 mod asynchronous;
 mod default_dispatcher;
 mod dispatcher;
+#[cfg(test)]
+mod fixtures;
 mod sealed;
 
 #[cfg(feature = "async")]
