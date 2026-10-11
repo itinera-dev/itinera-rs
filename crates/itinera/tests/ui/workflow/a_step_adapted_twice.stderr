@@ -1,0 +1,5 @@
+error: step adapted twice: charge, by `pricing` and `repricing`
+   --> tests/ui/workflow/a_step_adapted_twice.rs:116:30
+    |
+116 |     #[input_adapter(steps = ["charge"])]
+    |                              ^^^^^^^^

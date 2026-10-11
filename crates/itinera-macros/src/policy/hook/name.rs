@@ -63,6 +63,11 @@ impl HookName {
         }
     }
 
+    /// Whether the hook belongs to policies of this kind.
+    pub(crate) fn is_of(self, kind: Kind) -> bool {
+        self.kind() == kind
+    }
+
     /// The hook as the specification writes it, in backticks, such as `` `on step success` ``.
     pub(crate) fn spoken(self) -> String {
         format!("`{}`", self.marker().replace('_', " "))

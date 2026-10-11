@@ -39,7 +39,7 @@
 #[diagnostic::on_unimplemented(
     message = "the workflow `{Self}` does not provide the role `{R}`",
     label = "this workflow does not provide the role",
-    note = "a workflow provides a role by implementing `Provides<{R}>`"
+    note = "a workflow provides a role by implementing `Provides<{R}>`, which `#[role]` does on its implementation of the role's trait"
 )]
 pub trait Provides<R: ?Sized> {
     /// The workflow, as the role.

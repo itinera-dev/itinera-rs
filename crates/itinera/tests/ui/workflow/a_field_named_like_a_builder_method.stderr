@@ -1,0 +1,5 @@
+error: a workflow's field is not named `create`, which its builder's own method is named: rename the field
+  --> tests/ui/workflow/a_field_named_like_a_builder_method.rs:94:5
+   |
+94 |     create: bool,
+   |     ^^^^^^

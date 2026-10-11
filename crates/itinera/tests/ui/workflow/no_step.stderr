@@ -1,0 +1,5 @@
+error: a workflow lists at least one step, with a `#[with_step(...)]` line below `#[workflow(...)]`
+  --> tests/ui/workflow/no_step.rs:85:8
+   |
+85 | struct Shop {
+   |        ^^^^

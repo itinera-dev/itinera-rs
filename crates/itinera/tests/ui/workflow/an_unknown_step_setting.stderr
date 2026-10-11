@@ -1,0 +1,5 @@
+error: `#[with_step]` takes the step's type, then `name = "..."`, and optionally `retry_budget = N`, `abnormal_termination_retriable` and `policies = [...]`
+  --> tests/ui/workflow/an_unknown_step_setting.rs:87:44
+   |
+87 | #[with_step(Charge, name = "charge again", retries = 2)]
+   |                                            ^^^^^^^

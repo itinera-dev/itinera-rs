@@ -69,7 +69,7 @@ fn marked(function: &mut ImplItemFn, kind: Kind) -> syn::Result<Option<Function<
         let factory = Factory::read(function)?;
         return Ok(Some(Function::Factory(factory, mark)));
     };
-    if name.kind() != kind {
+    if !name.is_of(kind) {
         return Err(syn::Error::new_spanned(
             mark,
             format!(

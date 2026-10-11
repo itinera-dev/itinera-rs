@@ -14,6 +14,7 @@ use crate::step::{StepDescriptor, StepName};
 #[cfg(feature = "async")]
 mod asynchronous;
 mod builder;
+mod described;
 #[cfg(test)]
 pub(crate) mod fixtures;
 mod input_adapter;
@@ -24,7 +25,10 @@ mod violation;
 use input_adapter::attached_to;
 
 pub use builder::WorkflowBuilder;
+pub use described::Workflow;
 pub use input_adapter::InputAdapterDescriptor;
+#[cfg(feature = "macros")]
+pub use itinera_macros::{role, workflow};
 pub use listing::ListedStep;
 pub use name::{AdapterName, WorkflowName};
 pub use violation::{Violation, ViolationKind, Violations};

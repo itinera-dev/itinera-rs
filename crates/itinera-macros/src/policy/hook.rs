@@ -10,7 +10,7 @@ use syn::{ImplItemFn, PatType, Receiver, ReceiverKind, ReturnType, Signature, Ty
 
 use super::request::Request;
 use crate::{block, described};
-pub(super) use name::HookName;
+pub(crate) use name::HookName;
 
 /// What a parameter of the hook requests, and where its type is written, so that a request of
 /// another type is reported there.

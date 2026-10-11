@@ -1,0 +1,23 @@
+error[E0277]: `Shop::builder()` is not given `till`, which it requires
+   --> tests/ui/workflow/a_setter_missing_at_create.rs:125:10
+    |
+125 |         .create()?;
+    |          ^^^^^^ `till` is not set
+    |
+help: the trait `__ItineraField0` is not implemented for `__ItineraUnset`
+   --> tests/ui/workflow/a_setter_missing_at_create.rs:85:1
+    |
+ 85 | #[workflow(name = "shop", policies = [Close, Alarm], reporters = [Silent])]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: call `.till(...)` before `.create()`, or mark the field `#[default]` so that it starts from its default
+help: the trait `__ItineraField0` is implemented for `__ItineraSet<&'static str>`
+   --> tests/ui/workflow/a_setter_missing_at_create.rs:85:1
+    |
+ 85 | #[workflow(name = "shop", policies = [Close, Alarm], reporters = [Silent])]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `__ItineraBuilder::<(__ItineraState0, __ItineraState1, __ItineraState2)>::create`
+   --> tests/ui/workflow/a_setter_missing_at_create.rs:85:1
+    |
+ 85 | #[workflow(name = "shop", policies = [Close, Alarm], reporters = [Silent])]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `__ItineraBuilder::<(__ItineraState0, __ItineraState1, __ItineraState2)>::create`
+    = note: this error originates in the attribute macro `workflow` (in Nightly builds, run with -Z macro-backtrace for more info)

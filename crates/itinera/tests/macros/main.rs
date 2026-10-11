@@ -11,6 +11,9 @@ mod async_policy;
 #[cfg(feature = "async")]
 mod async_step;
 #[cfg(test)]
+#[cfg(feature = "async")]
+mod async_workflow;
+#[cfg(test)]
 mod fixtures;
 #[cfg(test)]
 mod journey;
@@ -18,3 +21,5 @@ mod journey;
 mod policy;
 #[cfg(test)]
 mod step;
+#[cfg(test)]
+mod workflow;

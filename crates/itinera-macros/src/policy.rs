@@ -15,7 +15,8 @@ use syn::ItemImpl;
 
 use crate::{block, described, marker};
 use factory::Factory;
-use hook::{Hook, HookName};
+use hook::Hook;
+pub(crate) use hook::HookName;
 pub(crate) use kind::Kind;
 use marked::Marked;
 

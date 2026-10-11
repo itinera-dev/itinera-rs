@@ -4,6 +4,8 @@ use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::{LitStr, Token, Type};
 
+use crate::described;
+
 syn::custom_keyword!(name);
 
 /// The macro's arguments: nothing, or `name = "..."`.
@@ -50,5 +52,5 @@ fn written(policy: &Type) -> Option<LitStr> {
         return None;
     };
     let last = path.path.segments.last()?;
-    Some(LitStr::new(&last.ident.to_string(), last.ident.span()))
+    Some(described::named_after(&last.ident))
 }

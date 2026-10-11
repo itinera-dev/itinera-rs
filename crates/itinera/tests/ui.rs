@@ -441,3 +441,221 @@ mod journey {
         );
     }
 }
+
+/// What the workflow macros refuse, each with the macro's own error or the check it generates.
+#[cfg(feature = "macros")]
+mod workflow {
+    use super::enforced;
+
+    #[test]
+    fn a_workflow_lists_its_steps_below_its_attribute() {
+        enforced(
+            "tests/ui/workflow/with_step_above_workflow.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_step_is_named_by_the_workflow_that_lists_it() {
+        enforced(
+            "tests/ui/workflow/a_step_without_a_name.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_workflow_names_each_step_once() {
+        enforced(
+            "tests/ui/workflow/a_duplicate_step_name.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_workflow_lists_at_least_one_step() {
+        enforced(
+            "tests/ui/workflow/no_step.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_workflow_takes_only_its_arguments() {
+        enforced(
+            "tests/ui/workflow/an_unknown_argument.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_step_listed_takes_only_its_settings() {
+        enforced(
+            "tests/ui/workflow/an_unknown_step_setting.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_generic_workflow_is_declared_with_the_builder() {
+        enforced(
+            "tests/ui/workflow/a_generic_workflow.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn an_instance_is_created_once_every_required_field_is_set() {
+        enforced(
+            "tests/ui/workflow/a_setter_missing_at_create.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn no_field_is_named_like_a_method_of_the_builder() {
+        enforced(
+            "tests/ui/workflow/a_field_named_like_a_builder_method.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn an_input_adapter_is_attached_only_to_steps_the_workflow_lists() {
+        enforced(
+            "tests/ui/workflow/an_input_adapter_for_an_unknown_step.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_step_is_adapted_once() {
+        enforced(
+            "tests/ui/workflow/a_step_adapted_twice.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn an_input_adapter_lists_each_step_once() {
+        enforced(
+            "tests/ui/workflow/a_step_listed_twice_by_one_adapter.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn an_input_adapter_is_attached_to_at_least_one_step() {
+        enforced(
+            "tests/ui/workflow/an_input_adapter_for_no_step.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn an_input_adapter_is_named_once() {
+        enforced(
+            "tests/ui/workflow/an_input_adapter_named_like_another.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_workflow_has_one_id_generator() {
+        enforced(
+            "tests/ui/workflow/two_id_generators.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_hook_is_defined_once_on_a_step() {
+        enforced(
+            "tests/ui/workflow/a_hook_defined_twice_on_a_step.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_hook_is_defined_once_on_the_workflow() {
+        enforced(
+            "tests/ui/workflow/a_hook_defined_twice_on_the_workflow.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_workflow_provides_the_roles_its_policies_request() {
+        enforced(
+            "tests/ui/workflow/a_role_the_workflow_does_not_provide.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_role_is_provided_from_an_implementation_of_it() {
+        enforced(
+            "tests/ui/workflow/a_role_on_the_workflows_own_block.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn a_workflows_fields_have_names() {
+        enforced(
+            "tests/ui/workflow/a_tuple_struct.rs",
+            "tests/ui/workflow/described_courier.rs",
+        );
+    }
+
+    #[cfg(feature = "async")]
+    #[test]
+    fn an_asynchronous_reporter_is_listed_among_the_asynchronous_reporters() {
+        enforced(
+            "tests/ui/workflow/an_asynchronous_reporter_listed_as_a_reporter.rs",
+            "tests/ui/workflow/described_asynchronous.rs",
+        );
+    }
+
+    #[cfg(feature = "async")]
+    #[test]
+    fn an_asynchronous_policy_belongs_only_to_an_asynchronous_workflow() {
+        enforced(
+            "tests/ui/workflow/an_asynchronous_policy_in_a_synchronous_workflow.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn asynchronous_reporters_belong_to_an_asynchronous_workflow() {
+        enforced(
+            "tests/ui/workflow/asynchronous_reporters_in_a_synchronous_workflow.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[test]
+    fn the_parts_of_a_workflow_belong_to_a_declared_workflow() {
+        enforced(
+            "tests/ui/workflow/parts_of_a_type_that_is_not_a_workflow.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+
+    #[cfg(feature = "async")]
+    #[test]
+    fn an_asynchronous_step_belongs_only_to_an_asynchronous_workflow() {
+        enforced(
+            "tests/ui/workflow/an_asynchronous_step_in_a_synchronous_workflow.rs",
+            "tests/ui/workflow/described_asynchronous.rs",
+        );
+    }
+
+    #[cfg(not(feature = "async"))]
+    #[test]
+    fn an_asynchronous_workflow_needs_the_async_feature() {
+        enforced(
+            "tests/ui/workflow/asynchronous_without_the_async_feature.rs",
+            "tests/ui/workflow/described.rs",
+        );
+    }
+}
