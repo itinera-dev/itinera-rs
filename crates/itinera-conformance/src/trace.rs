@@ -1,14 +1,11 @@
 //! The event stream as the cases' event tables describe it.
 
+mod causes;
+mod from_event;
+mod sources;
+
 use std::collections::BTreeMap;
 
-use itinera::event::{
-    Event, EventBody, GiveUpCause, HookSource, JourneyAbort, JourneyFailure, MissingData,
-    RequestSource, Requester, Source,
-};
-use itinera::journey::LastFailure;
-use itinera::policy::{PolicyName, StepHook};
-use itinera::step::{Reason, StepAttempt, StepName};
 use serde_json::Value;
 
 use crate::model::{EventKind, ModelError, Row, json};
@@ -95,79 +92,6 @@ impl Line {
         self.cells.insert(column, cell.to_string());
     }
 
-    fn attempt(&mut self, step: &StepAttempt) {
-        self.set("step", step.step);
-        self.set("attempt", step.attempt);
-    }
-
-    fn hook(&mut self, hook: &HookSource) {
-        match hook {
-            HookSource::Step {
-                policy, hook, step, ..
-            } => {
-                self.attempt(step);
-                self.set("policy", policy);
-                self.set("hook", hook);
-            }
-            HookSource::Workflow { policy, hook, .. } => {
-                self.set("policy", policy);
-                self.set("hook", hook);
-            }
-            _ => {}
-        }
-    }
-
-    fn requester(&mut self, requester: &Requester) {
-        match requester {
-            Requester::Step { step, .. } => self.set("step", step),
-            Requester::Adapter { adapter, step, .. } => {
-                self.set("adapter", adapter);
-                self.set("step", step);
-            }
-            Requester::StepHook {
-                policy, hook, step, ..
-            } => {
-                self.set("policy", policy);
-                self.set("hook", hook);
-                self.set("step", step);
-            }
-            Requester::WorkflowHook { policy, hook, .. } => {
-                self.set("policy", policy);
-                self.set("hook", hook);
-            }
-            _ => {}
-        }
-    }
-
-    fn source(&mut self, source: &Source) {
-        match source {
-            Source::Step(step) => {
-                self.attempt(step);
-                self.set("source", step.step);
-            }
-            Source::Hook(hook) => {
-                self.hook(hook);
-                if let (Some(policy), Some(hook)) =
-                    (self.cells.get("policy"), self.cells.get("hook"))
-                {
-                    self.set("source", format!("{policy}, {hook}"));
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn reason(&mut self, reason: &Reason) {
-        self.set("code", reason.code());
-        if let Some(message) = reason.message() {
-            self.carried.push(Value::from(message));
-        }
-        if let Some(details) = reason.details() {
-            self.carried
-                .push(serde_json::to_value(details).unwrap_or(Value::Null));
-        }
-    }
-
     /// Whether the event carries this message, as an emitted event's message, an error's
     /// message or a reason's message.
     pub(crate) fn carries_message(&self, message: &str) -> bool {
@@ -198,217 +122,6 @@ impl Line {
                 && (texts.any(|cell| cell.contains(&text))
                     || values.any(|carried| holds_text(carried, &text)))
     }
-
-    fn emitted(&mut self, message: &str, data: Option<&itinera::value::AnyValue>) {
-        self.set("message", message);
-        self.data = data.and_then(as_json);
-    }
-}
-
-impl From<&Event> for Line {
-    fn from(event: &Event) -> Self {
-        let mut line = Self {
-            event: event.kind().to_owned(),
-            ..Self::default()
-        };
-        match &event.body {
-            EventBody::AttemptStarted { step, .. }
-            | EventBody::StepSucceeded { step, .. }
-            | EventBody::ContributionsDiscarded { step, .. } => line.attempt(step),
-            EventBody::StepAbnormalTermination { step, message, .. } => {
-                line.attempt(step);
-                line.carried.push(Value::from(message.as_str()));
-            }
-            EventBody::InputAdapterSupplied {
-                step, key, adapter, ..
-            }
-            | EventBody::InputAdapterFailed {
-                step, key, adapter, ..
-            } => {
-                line.attempt(step);
-                line.set("key", key);
-                line.set("adapter", adapter);
-            }
-            EventBody::OptionalInputAbsent { key, requester, .. } => {
-                line.set("key", key);
-                match requester {
-                    RequestSource::Step(step) => line.attempt(step),
-                    RequestSource::Hook(hook) => line.hook(hook),
-                    RequestSource::Adapter { adapter, step, .. } => {
-                        line.attempt(step);
-                        line.set("adapter", adapter);
-                    }
-                    _ => {}
-                }
-            }
-            EventBody::StepFailed {
-                step,
-                retriable,
-                reason,
-                ..
-            } => {
-                line.attempt(step);
-                line.set("retriable", retriable);
-                line.reason(reason);
-            }
-            EventBody::StepSkipped { step, reason, .. } => {
-                line.attempt(step);
-                if let Some(reason) = reason {
-                    line.reason(reason);
-                }
-            }
-            EventBody::HookCalled {
-                hook, lifecycle, ..
-            } => {
-                line.hook(hook);
-                match lifecycle {
-                    Some(lifecycle) => line.set("lifecycle", lifecycle),
-                    None => line.set("lifecycle", "none"),
-                }
-            }
-            EventBody::ContributionCommitted { key, source, .. }
-            | EventBody::DataOverwritten { key, source, .. } => {
-                line.set("key", key);
-                line.source(source);
-            }
-            EventBody::JourneyAborted { abort, .. } => line.abort(abort),
-            EventBody::StepRetrying { step, cause, .. } => {
-                line.attempt(step);
-                line.set("cause", cause);
-                line.set("decided by", "default");
-            }
-            EventBody::StepGivenUp { step, cause, .. } => {
-                line.attempt(step);
-                line.set("cause", cause);
-                match cause {
-                    GiveUpCause::FailWorkflow {
-                        decided_by, reason, ..
-                    } => {
-                        line.set(
-                            "decided by",
-                            format!("{}, {}", decided_by.policy, decided_by.hook),
-                        );
-                        line.reason(reason);
-                    }
-                    _ => line.set("decided by", "default"),
-                }
-            }
-            EventBody::JourneySucceeded { decided_by, .. } => match decided_by {
-                Some(policy) => line.set("decided by", format!("{policy}, on step success")),
-                None => line.set("decided by", "default"),
-            },
-            EventBody::JourneyFailed { step, failure, .. } => {
-                line.set("step", step);
-                line.failure(failure);
-            }
-            EventBody::StepInfo {
-                step,
-                message,
-                data,
-                ..
-            }
-            | EventBody::StepWarning {
-                step,
-                message,
-                data,
-                ..
-            }
-            | EventBody::StepError {
-                step,
-                message,
-                data,
-                ..
-            } => {
-                line.attempt(step);
-                line.emitted(message, data.as_ref());
-            }
-            EventBody::JourneyInfo {
-                hook,
-                message,
-                data,
-                ..
-            }
-            | EventBody::JourneyWarning {
-                hook,
-                message,
-                data,
-                ..
-            }
-            | EventBody::JourneyError {
-                hook,
-                message,
-                data,
-                ..
-            } => {
-                line.hook(hook);
-                line.emitted(message, data.as_ref());
-            }
-            _ => {}
-        }
-        line
-    }
-}
-
-impl Line {
-    /// A step hook's request without a key, named in the key cell by what it requested.
-    fn unkeyed(&mut self, requested: &str, policy: &PolicyName, hook: &StepHook, step: &StepName) {
-        self.set("key", requested);
-        self.set("policy", policy);
-        self.set("hook", hook);
-        self.set("step", step);
-    }
-
-    fn abort(&mut self, abort: &JourneyAbort) {
-        self.set("code", abort.reason());
-        if let Some(step) = abort.step() {
-            self.set("step", step);
-        }
-        if let Some(error) = abort.error() {
-            self.set("error", error);
-        }
-        match abort {
-            JourneyAbort::PolicyCouldNotBeBuilt { policy, .. } => self.set("policy", policy),
-            JourneyAbort::RequiredDataMissing { missing, .. } => match missing {
-                MissingData::Key { key, requester, .. } => {
-                    self.set("key", key);
-                    self.requester(requester);
-                }
-                MissingData::Reason {
-                    policy, hook, step, ..
-                } => self.unkeyed("failure reason", policy, hook, step),
-                MissingData::Error {
-                    policy, hook, step, ..
-                } => self.unkeyed("error", policy, hook, step),
-                _ => {}
-            },
-            JourneyAbort::WrongType { key, requester, .. } => {
-                self.set("key", key);
-                self.requester(requester);
-            }
-            _ => {}
-        }
-    }
-
-    fn failure(&mut self, failure: &JourneyFailure) {
-        self.set("cause", failure.cause());
-        self.set("decided by", "default");
-        match failure {
-            JourneyFailure::Failure(reason) => self.reason(reason),
-            JourneyFailure::RetriesExhausted(LastFailure::Reason(reason)) => self.reason(reason),
-            JourneyFailure::RetriesExhausted(LastFailure::Error(error))
-            | JourneyFailure::AbnormalTermination(error) => self.set("error", error),
-            JourneyFailure::FailWorkflow {
-                decided_by, reason, ..
-            } => {
-                self.set(
-                    "decided by",
-                    format!("{}, {}", decided_by.policy, decided_by.hook),
-                );
-                self.reason(reason);
-            }
-            _ => {}
-        }
-    }
 }
 
 /// Whether an event table may not have this column.
@@ -428,11 +141,6 @@ fn holds(carried: &Value, value: &Value) -> bool {
 /// Whether the value is this text.
 fn is_text(value: &Value, text: &str) -> bool {
     value.as_str() == Some(text)
-}
-
-/// Event data as JSON, to compare with what a table writes.
-fn as_json(data: &itinera::value::AnyValue) -> Option<Value> {
-    serde_json::to_value(data).ok()
 }
 
 fn holds_text(carried: &Value, text: &str) -> bool {
