@@ -26,6 +26,7 @@ struct Seen {
 #[derive(Clone, Debug)]
 pub(crate) struct Build {
     pub(crate) step: String,
+    pub(crate) attempt: NonZeroU32,
     /// Each input it declared, as JSON, or `None` when it was absent.
     pub(crate) inputs: BTreeMap<String, Option<Value>>,
 }

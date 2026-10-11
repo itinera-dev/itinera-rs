@@ -548,7 +548,8 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
 /// It is declared on the workflow with [`WorkflowBuilder::input_adapter`]. When one of its steps is
 /// built, it is called for each of the step's inputs, in the order the step declares them, with
 /// the workflow's own value and what it [`Requested`]: the step's name, the input's key, the
-/// journey ID and the data from the workflow it declared, read from the data bag.
+/// journey ID and the data from the workflow it declared, read from the data bag, and, if it
+/// declared it, read access to the data bag.
 ///
 /// - A value is the input's value, which must have the type the step declares.
 /// - `None` means the adapter does not supply this input, which is read from the data bag.
@@ -620,7 +621,8 @@ impl<W> InputAdapterDescriptor<W> {
         }
     }
 
-    /// Declares what the adapter needs, resolved before each of its calls.
+    /// Declares what the adapter needs, resolved before each of its calls: data from the workflow,
+    /// and read access to the data bag.
     ///
     /// # Examples
     ///

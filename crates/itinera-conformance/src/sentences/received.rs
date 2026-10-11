@@ -1,6 +1,7 @@
 //! Outcomes: what each step was built with, and what each hook received, as the witness of the
 //! scenario recorded them.
 
+use std::fmt::Arguments;
 use std::num::NonZeroU32;
 
 use cucumber::then;
@@ -30,19 +31,55 @@ fn step_was_built_with_input_absent(
     built_with(world, &step_name, &key, None)
 }
 
+#[then(regex = r#"^step "([^"]*)" was built for attempt (\d+) with input "([^"]*)" = (.+)$"#)]
+fn step_was_built_for_attempt_with_input(
+    world: &mut World,
+    step_name: String,
+    attempt: NonZeroU32,
+    key: String,
+    value: String,
+) -> Result<(), Unmet> {
+    let builds: Vec<Build> = builds_of(world, &step_name)
+        .into_iter()
+        .filter(|build| is_of_attempt(build, attempt))
+        .collect();
+    received_input(
+        &builds,
+        &key,
+        Some(json(&value)?),
+        format_args!("\"{step_name}\" built for attempt {attempt}"),
+    )
+}
+
+fn is_of_attempt(build: &Build, attempt: NonZeroU32) -> bool {
+    build.attempt == attempt
+}
+
 /// Holds when a build of the step received this value for the input, or received it absent.
 fn built_with(world: &World, step: &str, key: &str, value: Option<Value>) -> Result<(), Unmet> {
-    let found: Vec<Option<Value>> = builds_of(world, step)
+    received_input(
+        &builds_of(world, step),
+        key,
+        value,
+        format_args!("\"{step}\" built"),
+    )
+}
+
+/// Holds when one of these builds received this value for the input, or received it absent.
+fn received_input(
+    builds: &[Build],
+    key: &str,
+    value: Option<Value>,
+    built: Arguments<'_>,
+) -> Result<(), Unmet> {
+    let found: Vec<Option<Value>> = builds
         .iter()
         .filter_map(|build| build.inputs.get(key))
         .cloned()
         .collect();
     holds(
         found.contains(&value),
-        format_args!(
-            "\"{step}\" built with \"{key}\" = {}",
-            written(value.as_ref())
-        ),
+        format_args!("{built} with \"{key}\" = {}", written(value.as_ref())),
         format_args!("the values {found:?}"),
     )
 }

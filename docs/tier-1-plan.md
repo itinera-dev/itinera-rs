@@ -8,10 +8,10 @@ Code samples show the intended shape. Names of attributes and methods may still 
 
 ## What this plan implements
 
-- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065, 0081, 0083 and 0085.
-- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.7`, and later candidates as they are tagged.
+- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065, 0081, 0083, 0085 and 0091, which amends 0010, 0054 and 0060.
+- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.8`, and later candidates as they are tagged.
 - **Capabilities claimed**: `sync` and `async`.
-- **Rules made impossible to express** (proposal 0054): `invalid-lifecycle`, `role-not-provided`, `mode-not-accepted`, `non-value` and `late-handle`.
+- **Rules made impossible to express** (proposal 0054): `invalid-lifecycle`, `role-not-provided`, `mode-not-accepted`, `non-value`, `late-handle` and `bag-write`.
 
 How excluded scenarios are declared and reported is defined in the conformance repository's FORMAT.md: the manifest lists each one with its proof, and the `run-conformance` action reports them next to the Cucumber JSON (decision 11).
 
@@ -33,13 +33,14 @@ There is no separate executor crate in tier 1: both executors share one engine, 
 
 ### 2. A typed builder, and rules made impossible to express
 
-The builder is the public API, and the macros are only syntax over it. There is no untyped API. Five rules are made impossible to express, each proven by a test (decision 11):
+The builder is the public API, and the macros are only syntax over it. There is no untyped API. Six rules are made impossible to express, each proven by a test (decision 11):
 
 - **Lifecycles.** Each hook has its own return type, holding only the lifecycles it may return, so an invalid lifecycle cannot be written.
 - **Roles.** A workflow is generic over its own type `W`, and a policy that needs a role is implemented only for workflows whose `W` implements that role's trait. Attaching it to a workflow without the role does not compile.
 - **Execution modes.** The mode is part of the descriptor's type, and a workflow is declared in it from the start: `WorkflowDescriptor::builder` declares a `Synchronous` workflow, and `WorkflowDescriptor::async_builder` an `Asynchronous` one. In an asynchronous workflow, everything that may wait on the journey is asynchronous: its steps and hooks are, and a step whose work is synchronous is written as an `async fn` that never awaits. Its reporters and dispatchers may be of either kind, since the executor wraps a synchronous one. The synchronous executor accepts only `Synchronous` workflows, and the asynchronous executor only `Asynchronous` ones. A synchronous step could not wait for an asynchronous delivery, which is why the mode is not inferred from the parts. The modes are `itinera::mode::Synchronous` and `itinera::mode::Asynchronous`, named so that they never hide the standard `Sync` trait.
 - **Values.** Only values can enter the data bag, event data or a reason's details (decision 3).
-- **Late handles.** A contributor or reporter cannot outlive its attempt or hook (decision 4).
+- **Late handles.** A contributor or reporter cannot outlive its attempt or hook, nor an input adapter's access to the data bag its call (decision 4).
+- **Writes through an adapter's access.** An input adapter's access to the data bag offers reads only, so a write through it cannot be written.
 
 The rules types cannot reach are checked when the descriptor is built (decision 6) or while the journey runs.
 
@@ -157,7 +158,7 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Synchronous>> = LazyLock::new
   ```
 
   It is called for each input of an adapted step. A value is used; `None` means "not mine", and the input is read from the data bag; `Err` emits `input_adapter_failed` and aborts with `step could not be built`. Its value is untyped and checked against the step's declared type. It may request the step's name, the key, data from the workflow and the journey ID, never roles, a contributor or a reporter. The macro generates the builder call that registers it: `InputAdapterDescriptor::new(name, step, adapt)`, where `adapt` is a function of the workflow's own value and a `Requested<'_, W, InputAdapter>`, the same as a policy's hook receives, of the hook kind `InputAdapter`. `.needing(needs)` declares its requests for data from the workflow, which the engine resolves from the data bag before each call, with the same events and aborts as a hook's, naming the adapter. `.step(other)` attaches it to another step.
-- **An input adapter may also read the data bag directly**, through `got.data_bag()`, behind the `unstable` feature until spec#91 is accepted. Reading emits nothing and aborts nothing, and the adapter can never change the data bag, since it receives it only as a shared reference.
+- **An input adapter may also read the data bag itself** (proposal 0091). It declares read access with `HookNeeds::data_bag()` and takes it with `got.data_bag()?`, a `DataBagAccess<'_>` valid for the call. `access.read::<T>(key)` gives a `Read<T>`: `Present(value)`, its own copy, `Absent` or `OtherType`. Reading emits nothing and aborts nothing, and the access offers no way to write.
 
 ### 7. The workflow instance
 
@@ -278,7 +279,8 @@ pub enum Abort {
   - `role-not-provided`: a policy whose hook requests a role, attached to a workflow that does not implement `Provides` for it; the twin's workflow provides the role;
   - `mode-not-accepted`: an asynchronous step run by `LocalExecutor`;
   - `non-value`: a closure as initial data, as a contribution, as an adapter's value, as event data and as a reason's details;
-  - `late-handle`: a contributor and step reporter kept by the step's factory beyond the attempt, or moved into a thread that may outlive it; the twin uses them from a scoped thread, which ends within the attempt.
+  - `late-handle`: a contributor and step reporter kept by the step's factory beyond the attempt, or moved into a thread that may outlive it; the twin uses them from a scoped thread, which ends within the attempt. Also an input adapter's access to the data bag kept by the workflow beyond the call, whether the adapter takes the call's own lifetime or claims a `'static` one, which `InputAdapterDescriptor::new` refuses; the twin reads through it during the call;
+  - `bag-write`: an input adapter writing through its access to the data bag; the twin reads through it.
 - **The `run-conformance` action** checks the exclusions and writes the report's second file. It leaves the `impossible` tags out of the tag expression, fails if a tagged scenario has no entry or an entry names no scenario at the pinned cases, and writes the exclusions file next to the Cucumber JSON. Together the two files are the conformance report a release carries, written to `conformance-report/cucumber.json` and `conformance-report/exclusions.json` and uploaded as an artifact. While `conformance.json` lists no proposal, the action still checks the manifest but does not run the runner, so its job is part of CI from stage 0.
 - **What runs.** A scenario runs once every proposal it is tagged with is listed in `conformance.json`. Listing a proposal therefore runs those of its scenarios whose other proposals are already listed; the rest join in, by themselves, when their last proposal is listed.
 - **The tag expression** the action passes in `ITINERA_CONFORMANCE_TAGS` uses `and`, `or`, `not` and parentheses, for example `(@proposal-0002 or @proposal-0008) and not @non-value`. The runner parses it with cucumber-rs's tag expressions, which stage 2 tests.
@@ -329,6 +331,8 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | 8. Macros | `#[step]`, `#[step_policy]`, `#[workflow_policy]`, `#[workflow]`, their equivalence and compile-fail tests | none |
 | 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
 
+Proposal 0091, which lets an input adapter read the data bag, joined tier 1 after stage 7. It was completed by the change that moved the cases to `v0.1.0-rc.8`, outside the stages.
+
 - **The decision logic is pure**: what the step's own rule decides after a failed attempt is a function of how the attempt ended, its number, the retry budget and `abnormal termination retriable`, which touches nothing. The engine calls the step hooks around it, in the order of chapter 6, and a hook's lifecycle overrides the default. Until stage 7, every hook point answered nothing, and the engine's tests scripted their answers; since stage 7, they call the policies' hooks. The code around it builds, runs, emits and commits.
 - **Step statuses are not public.** The engine's scan keeps them to itself, as its position in the steps and attempts, and the conformance runner derives each step's status and attempt count from the event stream, as the specification allows.
 - **Proofs land with their feature**, together with their tag's entries under `impossible` in `conformance.json`. A proposal is listed in `conformance.json` only when each of its scenarios that runs once it is listed passes, or is proven.
@@ -339,7 +343,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 - Each stage is one stack (`gh stack`), with one layer per coherent piece. Every layer passes all of `main`'s checks.
 - Every layer says `Refs #N` for the implementation issues it contributes to. The layer that completes a proposal says `Closes #N` and adds the proposal's number to `conformance.json`.
 - Work that belongs to no proposal (stage 0, the macros, the release) refers to #7, or to an issue of its own such as "Macros as syntax over the builder".
-- Public API of a proposal not yet listed in `conformance.json` stays behind the `unstable` feature, and so does a listed proposal's API while it holds a stand-in that a later stage replaces, or names API of a proposal not yet listed. Stage 7 lists every tier 1 proposal, so from then on every module is public, and `unstable` gates only API that the specification has not accepted yet: the input adapter's read of the data bag, `Requested::data_bag()`, until spec#91 is accepted.
+- Public API of a proposal not yet listed in `conformance.json` stays behind the `unstable` feature, and so does a listed proposal's API while it holds a stand-in that a later stage replaces, or names API of a proposal not yet listed. Stage 7 lists every tier 1 proposal accepted by then, and 0091 was listed once accepted, so every module is public, and `unstable` gates only API that the specification has not accepted yet, of which there is none now.
 
 ## Issues and tech specs
 
@@ -393,7 +397,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
   |---|---|---|
   | `macros` | on | the macros |
   | `async` | off | the asynchronous executor, steps, hooks, reporters and dispatchers, and the `Asynchronous` mode |
-  | `unstable` | off | API of proposals the specification has not accepted yet: the input adapter's read of the data bag, until spec#91 is accepted |
+  | `unstable` | off | API of proposals the specification has not accepted yet; empty for now |
 
   The engine is asynchronous internally whatever the features; without `async`, nothing asynchronous is public.
 - **Documentation**: rustdoc on every public item, published by docs.rs; a crate-level overview in `itinera` with a first complete workflow, linking once to the specification repository; runnable examples in `crates/itinera/examples/` (a synchronous workflow, the same on the asynchronous executor, and one built without macros); a README stating the crates, the tier and capabilities claimed, the rules made impossible, and how to run the conformance runner.

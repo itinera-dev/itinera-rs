@@ -24,7 +24,7 @@ Status: done in stage 7. Stage 1 added the error type, and stages 3 to 7 the exe
 
 ## Rules made impossible to express
 
-Rust makes all five rules of point 4 impossible to express, and lists their tags under `impossible` in `conformance.json`. Each excluded scenario is proven by a test in `crates/itinera/tests/proofs.rs`, which compiles the code breaking the rule, expecting the compiler's error, and a twin keeping it, which compiles and runs:
+Rust makes all six rules of point 4, the sixth added by proposal 0091, impossible to express, and lists their tags under `impossible` in `conformance.json`. Each excluded scenario is proven by a test in `crates/itinera/tests/proofs.rs`, which compiles the code breaking the rule, expecting the compiler's error, and a twin keeping it, which compiles and runs:
 
 | Tag | Scenario | Proof |
 |---|---|---|
@@ -37,8 +37,10 @@ Rust makes all five rules of point 4 impossible to express, and lists their tags
 | `@non-value` | A failure whose details are not a value aborts the journey | `a_reasons_details_cannot_be_a_non_value` |
 | `@non-value` | Data that is not a value aborts the journey, and the event is not delivered | `a_step_event_cannot_carry_a_non_value` |
 | `@late-handle` | A step's contributor and reporter used after its attempt change nothing | `a_steps_handles_cannot_outlive_its_attempt` |
+| `@late-handle` | An adapter's access kept from an earlier call shows nothing later | `an_adapters_access_to_the_data_bag_cannot_outlive_its_call` |
+| `@bag-write` | An adapter that writes through its access leaves the data bag unchanged | `an_adapter_cannot_write_through_its_access_to_the_data_bag` |
 
-The tech specs of the proposals whose scenarios they are say how each proof works: [0010](0010-hooks-lifecycles-and-roles.md), [0012](0012-local-executor.md), [0056](0056-data-bag-values.md), [0064](0064-event-data-values.md), [0011](0011-events.md) and [0057](0057-handles-valid-during-their-attempt.md).
+The tech specs of the proposals whose scenarios they are say how each proof works: [0010](0010-hooks-lifecycles-and-roles.md), [0012](0012-local-executor.md), [0056](0056-data-bag-values.md), [0064](0064-event-data-values.md), [0011](0011-events.md), [0057](0057-handles-valid-during-their-attempt.md) and [0091](0091-adapters-read-the-data-bag.md).
 
 ## Tests
 
@@ -46,8 +48,8 @@ The tech specs of the proposals whose scenarios they are say how each proof work
 - Unit tests in `itinera-core/src/engine/hooks.rs`: `a_hook_that_fails_aborts_the_journey_with_its_error`.
 - Unit tests in `itinera-core/src/executor.rs`: `a_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others`.
 - Unit tests in `itinera-core/src/journey.rs`: `statuses_causes_and_abort_reasons_display_as_the_specification_writes_them`.
-- The nine proofs above, in `itinera/tests/proofs.rs`.
+- The eleven proofs above, in `itinera/tests/proofs.rs`.
 
 ## Done when
 
-Every scenario tagged `@proposal-0054` passes, every scenario carrying one of the five tags is proven impossible to express, and 54 is listed in `conformance.json`. Done in stage 7.
+Every scenario tagged `@proposal-0054` passes, every scenario carrying one of the six tags is proven impossible to express, and 54 is listed in `conformance.json`. Done in stage 7.

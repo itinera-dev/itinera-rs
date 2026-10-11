@@ -21,7 +21,7 @@ uuid.workspace = true
 
 [dev-dependencies]
 futures = { workspace = true, features = ["executor"] }
-itinera = { path = "../itinera", default-features = false, features = ["unstable", "async"] }
+itinera = { path = "../itinera", default-features = false, features = ["async"] }
 rstest.workspace = true
 serde_json.workspace = true
 

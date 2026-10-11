@@ -847,7 +847,7 @@ pub(crate) mod tests {
     use crate::event::{Event, Timestamp};
     use crate::executor::build_policies;
     use crate::instance::InstanceBuilder;
-    use crate::journey::{FailureCause, LastFailure};
+    use crate::journey::{FailureCause, LastFailure, Read as Found};
     use crate::policy::{
         HookNeeds, InputAdapter, Lifecycle, OnStepAbnormalTermination, OnStepFailure, OnStepRetry,
         OnStepSuccess, Requested, StepAbnormalTermination, StepFailure, StepPolicyDescriptor,
@@ -1574,17 +1574,14 @@ pub(crate) mod tests {
         assert_eq!(*names.lock().unwrap(), [CHARGE, CHARGE, SHIP, SHIP]);
     }
 
-    /// Supplies the amount as twice the base the data bag holds, read directly.
+    /// Supplies the amount as twice the base read through its access to the data bag.
     fn doubled(
         _: &Orders,
-        got: Requested<'_, Orders, InputAdapter>,
+        mut got: Requested<'_, Orders, InputAdapter>,
     ) -> Result<Option<AnyValue>, Error> {
-        let base = got
-            .data_bag()
-            .get("base")
-            .and_then(AnyValue::downcast_ref::<i64>);
+        let base = got.data_bag()?.read::<i64>("base");
         match (got.key(), base) {
-            ("amount", Some(base)) => Ok(Some(AnyValue::new(base * 2))),
+            ("amount", Found::Present(base)) => Ok(Some(AnyValue::new(base * 2))),
             _ => Ok(None),
         }
     }
@@ -1592,8 +1589,10 @@ pub(crate) mod tests {
     #[test]
     fn an_input_adapter_reads_the_data_bag_without_events() {
         let read = Read::default();
-        let workflow =
-            charged(&read).input_adapter(InputAdapterDescriptor::new("pricing", CHARGE, doubled));
+        let workflow = charged(&read).input_adapter(
+            InputAdapterDescriptor::new("pricing", CHARGE, doubled)
+                .needing(HookNeeds::new().data_bag()),
+        );
 
         let (_, events) = travel(instance(workflow).data("base", 5_i64).create().unwrap());
 
@@ -1609,6 +1608,20 @@ pub(crate) mod tests {
                 "journey_succeeded"
             ]
         );
+    }
+
+    #[test]
+    fn an_input_adapter_that_did_not_declare_the_data_bag_cannot_read_it() {
+        let read = Read::default();
+        let workflow =
+            charged(&read).input_adapter(InputAdapterDescriptor::new("pricing", CHARGE, doubled));
+
+        let (status, _) = travel(instance(workflow).data("base", 5_i64).create().unwrap());
+
+        assert!(matches!(
+            status,
+            JourneyStatus::Aborted(Abort::StepCouldNotBeBuilt(_))
+        ));
     }
 
     #[test]

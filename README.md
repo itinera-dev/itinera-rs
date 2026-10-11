@@ -14,7 +14,7 @@ Applications depend on one crate, `itinera`. Its features are:
 |---|---|---|
 | `macros` | on | The macros for declaring steps, policies and workflows, which are syntax over the builder |
 | `async` | off | The asynchronous executor, and asynchronous steps, hooks, reporters and dispatchers |
-| `unstable` | off | API the specification has not settled yet, which may change or go: for now, an input adapter's read access to the data bag |
+| `unstable` | off | API the specification has not settled yet, which may change or go; empty for now |
 
 `itinera` brings in `itinera-core`, which holds the implementation, and, with `macros`, `itinera-macros`. Neither needs to be added directly. The minimum supported Rust version is 1.85.
 
@@ -26,7 +26,8 @@ The specification lets an implementation make some rules impossible to express r
 - a policy needing a role the workflow does not provide;
 - an asynchronous part run by the synchronous executor;
 - something that is not a value entering the data bag, event data or a reason's details;
-- a contributor or reporter used after its attempt or hook has ended.
+- a contributor or reporter used after its attempt or hook has ended, or an input adapter's access to the data bag used after its call;
+- an input adapter writing to the data bag through its access.
 
 ## Conformance
 

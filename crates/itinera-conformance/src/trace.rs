@@ -7,7 +7,8 @@ use itinera::event::{
     RequestSource, Requester, Source,
 };
 use itinera::journey::LastFailure;
-use itinera::step::{Reason, StepAttempt};
+use itinera::policy::{PolicyName, StepHook};
+use itinera::step::{Reason, StepAttempt, StepName};
 use serde_json::Value;
 
 use crate::model::{EventKind, ModelError, Row, json};
@@ -349,6 +350,14 @@ impl From<&Event> for Line {
 }
 
 impl Line {
+    /// A step hook's request without a key, named in the key cell by what it requested.
+    fn unkeyed(&mut self, requested: &str, policy: &PolicyName, hook: &StepHook, step: &StepName) {
+        self.set("key", requested);
+        self.set("policy", policy);
+        self.set("hook", hook);
+        self.set("step", step);
+    }
+
     fn abort(&mut self, abort: &JourneyAbort) {
         self.set("code", abort.reason());
         if let Some(step) = abort.step() {
@@ -366,14 +375,10 @@ impl Line {
                 }
                 MissingData::Reason {
                     policy, hook, step, ..
-                }
-                | MissingData::Error {
+                } => self.unkeyed("failure reason", policy, hook, step),
+                MissingData::Error {
                     policy, hook, step, ..
-                } => {
-                    self.set("policy", policy);
-                    self.set("hook", hook);
-                    self.set("step", step);
-                }
+                } => self.unkeyed("error", policy, hook, step),
                 _ => {}
             },
             JourneyAbort::WrongType { key, requester, .. } => {

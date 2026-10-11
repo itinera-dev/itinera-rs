@@ -1,6 +1,7 @@
 //! The scenario's scripted steps: what each attempt of a step does, as the scenario says.
 
 use std::future::{Future, ready};
+use std::num::NonZeroU32;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -129,6 +130,7 @@ impl Scripted {
             .collect::<Result<_, _>>()?;
         self.witness.built(Build {
             step: self.name.clone(),
+            attempt: counted(attempt),
             inputs,
         });
         Ok(Attempting {
@@ -139,6 +141,11 @@ impl Scripted {
             runs: &self.runs,
         })
     }
+}
+
+/// The attempt, counted from 1, of the build that found this many builds before it.
+fn counted(builds_before: usize) -> NonZeroU32 {
+    NonZeroU32::MIN.saturating_add(u32::try_from(builds_before).unwrap_or(u32::MAX))
 }
 
 impl StepFactory for Scripted {
