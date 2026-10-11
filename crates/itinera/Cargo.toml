@@ -23,5 +23,13 @@ rstest.workspace = true
 serde_json.workspace = true
 trybuild.workspace = true
 
+[[example]]
+name = "orders"
+required-features = ["macros"]
+
+[[example]]
+name = "orders_async"
+required-features = ["macros", "async"]
+
 [lints]
 workspace = true

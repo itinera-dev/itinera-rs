@@ -18,6 +18,8 @@ Applications depend on one crate, `itinera`. Its features are:
 
 `itinera` brings in `itinera-core`, which holds the implementation, and, with `macros`, `itinera-macros`. Neither needs to be added directly. The minimum supported Rust version is 1.85.
 
+The crate's documentation opens with a first complete workflow. [crates/itinera/examples](https://github.com/itinera-dev/itinera-rs/tree/main/crates/itinera/examples) holds three runnable ones: `orders`, a synchronous workflow declared with the macros; `orders_async`, the same on the asynchronous executor, which needs the `async` feature; and `orders_by_hand`, the same declared with the builder alone. Run one with `cargo run -p itinera --example orders`.
+
 ## Rules made impossible to express
 
 The specification lets an implementation make some rules impossible to express rather than check them while a workflow runs. In Rust, these mistakes are compile errors:

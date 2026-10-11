@@ -4,7 +4,7 @@ How itinera-rs implements tier 1 of specification 0.1.0: the architecture, the t
 
 This document holds what crosses proposals. What concerns a single proposal goes in its tech spec, `docs/specs/NNNN-short-name.md`, which refers here for the rest. Behaviour is defined only by the [specification](https://github.com/itinera-dev/spec/tree/main/spec): where this plan and the specification disagree, the specification is right, and the plan is corrected.
 
-Code samples show the intended shape. Names of attributes and methods may still change while implementing; the tech specs record the final ones.
+Code samples show the intended shape. Names of attributes and methods may still change while implementing; the tech specs record the final ones, and section 11 those of the macros.
 
 ## What this plan implements
 
@@ -55,34 +55,35 @@ The rules types cannot reach are checked when the descriptor is built (decision 
 
 ### 4. Steps
 
-- **A step's constructor declares everything it needs**, as annotated parameters, and asks only for what it uses: inputs, optional inputs, a `Contributor<'a>` and a `StepReporter<'a>`. The step keeps them as fields.
+- **A step declares everything it needs, and asks only for what it uses**: inputs, optional inputs, a `Contributor<'a>` and a `StepReporter<'a>`. With the macros (section 11), its inputs are the fields of its struct, or the parameters of its `new`, and its handles are parameters of `run`:
 
   ```rust
-  #[step]
-  impl<'a> Charge<'a> {
-      fn new(
-          #[input("amount")] amount: i64,
-          #[input("discount", optional)] discount: Option<i64>,
-          #[contributor] contributor: Contributor<'a>,
-          #[reporter] reporter: StepReporter<'a>,
-      ) -> Result<Self, Error> {
-          Ok(Self { amount, discount, contributor, reporter })
-      }
+  #[derive(Step)]
+  struct Charge {
+      #[input]
+      amount: i64,
+      #[input("coupon")]
+      discount: Option<i64>,
   }
 
-  impl Step for Charge<'_> {
-      fn run(mut self) -> Result<Outcome, Error> {
-          self.reporter.info("charging")?;
-          self.contributor.contribute("receipt", "R-1".to_string());
-          Ok(Outcome::success())
+  #[step]
+  impl Charge {
+      fn run(
+          self,
+          #[contributor] mut contributor: Contributor<'_>,
+          #[reporter] mut reporter: StepReporter<'_>,
+      ) -> Result<Outcome, Error> {
+          reporter.info("charging")?;
+          contributor.contribute("receipt", "R-1".to_owned());
+          Self::succeed()
       }
   }
   ```
 
-- **`run(self)` takes nothing else.** It consumes the step, so nothing survives into another attempt. `Step` and `AsyncStep` are separate traits, so the mode is in the type.
+- **`Step::run(self)` takes nothing else.** It consumes the step, so nothing survives into another attempt. A factory hands the step its handles when it builds it; `#[step]` generates a hidden step that keeps them and passes them to the `run` written in the block. `Step` and `AsyncStep` are separate traits, so the mode is in the type.
 - **Handles borrow their attempt.** `Contributor<'a>` and `StepReporter<'a>` carry the lifetime of the attempt, chosen by the executor, so they cannot be moved into a thread or task that outlives it. The guarantee comes from the types, with or without the macros.
 - **Emitting can be interrupted.** `StepReporter` has `info`, `warning` and `error`, each with a `_with` form that adds data, a value; `AsyncStepReporter` has the same methods, awaited. They return `Result<(), Interrupted>`. `Interrupted` is the executor's signal that a reporter failed while the event was being delivered (decision 9); the step propagates it with `?`. `Contributor::contribute` returns nothing: it cannot fail, since only values can be contributed.
-- **The builder takes a `StepFactory`**, which the macro implements:
+- **The builder takes a `StepFactory`**, which `#[step]` generates:
 
   ```rust
   pub trait StepFactory: Send + Sync + 'static {
@@ -130,9 +131,9 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Synchronous>> = LazyLock::new
         .step(StepDescriptor::new(step_name!("charge"), ChargeFactory)
             .retry_budget(2)
             .abnormal_termination_retriable()
-            .policy(|| Audit::default()))
+            .policy(StepPolicyDescriptor::new("audit", Audit::default).on_step_success()))
         .step(StepDescriptor::new(step_name!("ship"), ShipFactory))
-        .policy(|| Notify::new())
+        .policy(WorkflowPolicyDescriptor::new("notify", Notify::new).on_workflow_success())
         .reporter::<AuditLog>()
         .id_generator(|w: &Orders, data: &DataBag| Ok(format!("order-{}", w.next_number())))
         .build()
@@ -142,18 +143,18 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Synchronous>> = LazyLock::new
 
 - **A workflow descriptor** is the workflow's declaration: its name, its step descriptors, its policy descriptors, its input adapters, its reporters and its ID generator. It is immutable, `Send + Sync`, cheap to clone, shared by every instance, and only `build()` can produce one.
 - **Names are newtypes fixed at compile time**: `WorkflowName`, `StepName`, `PolicyName` and `AdapterName`, each over a `&'static str`, so they are `Copy` and every event carries them without copying text. A workflow is declared before any journey, and the macros name its parts from the code itself, so a name never needs to be made at run time. `StepName::new` panics on an empty name, and `step_name!("charge")` calls it in a `const` block, which makes an empty literal a compile error. `JourneyId`, made for each instance at run time, holds an `Arc<str>`. Events, aborts and the result hold these types instead of `String`.
-- **Adapter names are unique**: the builder panics when an input adapter is given a name the workflow already uses. The macros cannot produce one, since an adapter is a method of the workflow's own type.
+- **Adapter names are unique**: the builder panics when an input adapter is given a name the workflow already uses. The macros refuse two input adapters of one name at compile time (section 11).
 - **Each step descriptor states everything**: the retry budget, a `u16` (0 unless set), `abnormal termination retriable` (false unless set), and its policies in the order attached. A `u16` budget allows at most 65,536 attempts, so every attempt number fits the `NonZeroU32` events carry, and counting attempts can never overflow while a journey runs.
 - **`build()` checks what types cannot**, and returns every violation at once in `Violations`: `duplicate step name`, `hook defined twice`, `input adapter for unknown step` and `step adapted twice`.
 - **`listing()`** gives each step's name, its position from 1, its policy names in order, and its input adapter's name.
 - **Input adapters are hooks of the workflow**, written as its own annotated methods and attached to whole steps, at most one per step:
 
   ```rust
-  #[workflow(name = "orders")]
+  #[workflow]
   impl Orders {
       #[input_adapter(steps = ["charge", "refund"])]
       fn pricing(&self, #[step_name] step: StepName, #[key] key: &str,
-                 #[data_from_workflow("price")] price: i64) -> Result<Option<AnyValue>, Error> { /* ... */ }
+                 #[from_workflow("price")] price: i64) -> Result<Option<AnyValue>, Error> { /* ... */ }
   }
   ```
 
@@ -187,7 +188,7 @@ pub trait WorkflowInstance: Send + Sized + 'static {
       .create()?;
   ```
 
-  `create()` produces the journey ID first, with the descriptor's generator (a closure returning a `Result<String, Error>`, which may read the initial data) or the default UUID version 4, then gives it to each reporter with `set_journey_id`, then makes the instance. A failure of the generator or of a reporter's `set_journey_id` is an `InstanceError`, outside any journey.
+  A workflow declared with the macros has a builder of its own, `Orders::builder()`, with a setter per field of its struct (section 11). `create()` produces the journey ID first, with the descriptor's generator (a closure returning a `Result<String, Error>`, which may read the initial data) or the default UUID version 4, then gives it to each reporter with `set_journey_id`, then makes the instance. A failure of the generator or of a reporter's `set_journey_id` is an `InstanceError`, outside any journey.
 - **Reporters are listed on the workflow by type, or made for one instance.** A listed reporter implements `Reporter + Default`, and every instance makes its own with `Default`; an asynchronous one implements `AsyncReporter + Default`, and only an `Asynchronous` workflow lists one. A reporter made for one journey, such as one that knows the request the journey serves, is added with `InstanceBuilder::reporter(r)`, or `async_reporter(r)` on an asynchronous workflow's instance. Once the journey ID exists, `create()` gives it to every reporter with `set_journey_id(&JourneyId) -> Result<(), Error>`, which does nothing by default: the listed ones first, in order, then those added, in order, which is also the order in which they receive events. Reporters never see the workflow's own value: what they need, they are given when they are made. A mode says how its workflows hold reporters: a `Synchronous` one as `Box<dyn Reporter>`, an `Asynchronous` one as `BoxedReporter`.
 - **The instance holds the data; the engine resolves requests.** The engine reads the data bag through `data_bag()` and resolves every request from it: a step's inputs after its input adapter, and the requests of hooks and input adapters. `commit` writes and says whether a value was replaced, `Committed::Added` or `Committed::Overwritten`, which the engine turns into events.
 - **A hand-written instance** implements the trait itself, and points at a descriptor that only `build()` can produce.
@@ -264,9 +265,35 @@ pub enum Abort {
 - **`Refusal`** names what refused the journey (a workflow policy, the dispatcher factory, or the dispatcher) and carries its `Error`.
 - **`Violations`** (from `build()`), **`InstanceError`** (from `create()`) and **`Refusal`** implement `std::error::Error`.
 
+### 11. Macros
+
+The macros are syntax over the builder. Each expands to builder calls and to implementations of public traits of the core, which an application can write by hand, so no API is reachable only through them. They live in `itinera-macros`; `itinera` re-exports each from the module of its concept, behind the `macros` feature, which is on by default, and generated code names `::itinera`. A mistake in a declaration that a macro can see is a compile error pointing at what was written.
+
+| Written | On | Generates |
+|---|---|---|
+| `#[derive(Step)]` | a step's struct | `FromInputs`, building the step from its fields |
+| `#[step]` | the step's `impl` block, holding `run` and, without the derive, `new` | `DescribedStep`, with a hidden factory and step implementing `StepFactory` and `Step`, or their asynchronous traits, and, from `new`, `FromInputs` |
+| `#[step_policy]`, `#[workflow_policy]` | the policy's `impl` block | `DescribedPolicy`, `StepPolicy<W>` or `WorkflowPolicy<W>`, and one hook trait per hook |
+| `#[workflow]` and `#[with_step]` | the workflow's struct | `Workflow`, and the instance builder |
+| `#[workflow]` | the workflow's `impl` block | its input adapters and its ID generator |
+| `#[role]` | a role's implementation for the workflow | `Provides<dyn Role>` |
+| `#[derive(InitialData)]`, `#[derive(Output)]` | a struct of journey data | `InitialData`, `Output` |
+
+`#[with_step]`, the markers of methods and the attributes of parameters are not imported: the macro that owns them reads and removes them.
+
+- **Steps.** With `#[derive(Step)]`, each field of the struct is an `#[input]`, whose key is the field's name unless written, as in `#[input("coupon")]`, or a `#[default]`, which starts from `Default`. Without the derive, `new` in the block builds the step from its `#[input]` parameters, returning `Self` or `Result<Self, Error>`, whose `Err` is a step that could not be built. `run(self, ...)` takes the handles it marks `#[contributor]` or `#[reporter]`; `async fn run` makes the step asynchronous. A step has no name of its own: the workflow names it where it lists it. Every function of the block may write `Self::succeed()`, `Self::fail(reason)`, `Self::fail_retriably(reason)`, `Self::skip()` and `Self::skip_because(reason)`, which `DescribedStep` provides; `reason` is anything that converts into a `Reason`, such as its code.
+- **Optional requests.** Whether an input or a request is optional is said by its type: an `Option<T>` is optional, and is `None` when its key is absent. A required datum whose value is itself an `Option` adds `required`, as in `#[input("note", required)]`. The macros read only the tokens written, so an alias of `Option` is not recognised.
+- **Policies.** A policy is a plain type whose hooks are methods of one block, each marked with its hook, such as `#[on_step_success]`, taking `&self` and returning the hook's own type (section 5); `async fn` hooks make the policy asynchronous. Each parameter after `&self` is one request: `#[from_step("key")]` and `#[from_workflow("key")]`, whose key is the parameter's name when none is written, `#[step_name]`, `#[attempt]`, `#[reason]`, `#[cause]`, `#[error]`, `#[journey_id]`, `#[role]`, `#[contributor]` and `#[reporter]`. Requests resolve in the order of the parameters. The policy is named after its type unless the attribute names it, as in `#[step_policy(name = "audit")]`, and is built with `Default` unless a function of the block marked `#[factory]` builds it, possibly failing. Hook bodies may write `Self::carry_on()`, `Self::fail_workflow(reason)` and, on step success only, `Self::finish_workflow()`, which `DescribedPolicy` provides.
+- **Roles.** `#[role]` on `impl Notifier for Orders` keeps the implementation and provides the role. A policy requesting `#[role] notifier: &dyn Notifier` is implemented only for workflows that provide it. An asynchronous hook may hold its role across an await, and its future must be `Send`, so a role used by asynchronous hooks is `Sync`, as in `trait Notifier: Sync`.
+- **Workflows.** `#[workflow(...)]` on the struct takes, each optional, `name = "..."` (the type's name otherwise), `policies = [...]`, `reporters = [...]`, `async_reporters = [...]` and `asynchronous`, which declares an `Asynchronous` workflow. Below it, one `#[with_step(Charge, name = "charge", ...)]` per step, in the order the steps run, with `retry_budget = N`, `abnormal_termination_retriable` and `policies = [...]`, each optional. On the workflow's `impl` block, `#[workflow]` reads the methods marked `#[input_adapter(steps = ["charge"])]`, named after the method unless `name = "..."` is given, which may request `#[step_name]`, `#[key]`, `#[from_workflow]`, `#[journey_id]` and `#[data_bag]`, and the one marked `#[id_generator]`, which takes `&self` and may take the initial data as `&DataBag`. `Orders::descriptor()` builds the descriptor the first time it is asked for, keeps it in a static, and shares it with every instance.
+- **Instances.** `Orders::builder()` has one setter per field of the struct, taking the field's type. A field is required unless it is an `Option` or marked `#[default]`, and `create()` compiles only once every required field is set. `.initial_data(data)` takes any `InitialData`, and `.reporter(r)` and `.async_reporter(r)` add reporters made for this journey. The builder keeps what it is given until `create()`, as boxed calls, so initial data is `'static` and the builder is not `Send`.
+- **Journey data.** `#[derive(InitialData)]` makes each field one key, named after the field unless `#[key("...")]` names it; an `Option` field set to `None` leaves its key out, unless it is `#[required]`. `#[derive(Output)]` reads the same shape with `result.output::<Receipt>()`, which fails with an `OutputError` naming the key that is missing or holds another type, or saying that the journey aborted. `DataBag::required` and `DataBag::optional` read one key the same way.
+- **Checked at compile time.** Every violation `build()` would report is a compile error, so the descriptor of a workflow the macros declare is always built: a duplicate step name, a hook defined twice on a step or on the workflow, an input adapter for a step the workflow does not list, and a step adapted twice. So are a workflow without steps, which specification chapter 3 does not require but the agreed API refuses; a step without a name; two input adapters of one name; an empty list of adapted steps; two ID generators; asynchronous reporters in a synchronous workflow; `asynchronous` without the `async` feature; a field named like a builder method; a key given by two fields of journey data; a request a hook's kind may not make; a role the workflow does not provide; and every misused attribute. An asynchronous step, policy or reporter in a synchronous workflow is a type mismatch on its mode. Should a hand-written `DescribedStep`, `StepPolicy` or `WorkflowPolicy` break its contract, the first request for the descriptor panics with the violations.
+- **Generics are refused.** A generic step, policy, workflow or struct of journey data is a compile error: Rust has no generic statics for a workflow's descriptor, and the others are described with the builder or by implementing their traits by hand.
+
 ## Testing
 
-### 11. The conformance runner
+### 12. The conformance runner
 
 - **A binary**, `itinera-conformance`, run with `cargo run -p itinera-conformance --release`, using cucumber-rs on Tokio (a dependency of the runner only). It reads the cases from `ITINERA_CONFORMANCE_CASES`, selects scenarios with the tag expression in `ITINERA_CONFORMANCE_TAGS`, writes Cucumber JSON to `ITINERA_CONFORMANCE_REPORT`, and fails if any selected scenario fails or uses an undefined sentence.
 - **Only the public API.** Each scenario's sentences fill a scenario model, which "When the workflow runs" turns into builder calls: scripted steps implementing `StepFactory`, scripted policy factories recording what their hooks received, a scripted workflow type implementing one recording role trait, scripted reporters, and a recording dispatcher factory whose dispatchers share the test's reporter. Every sentence about events, and about step statuses, reads from that reporter. When a scenario uses the default dispatcher, the runner gives no factory: a sentence about one reporter reads that reporter, and a sentence about the whole event stream reads the first of the scenario's reporters that never failed, a failure on `journey_aborted` included; if every one of them failed, the runner reports the scenario as an error in the case. Scripted failures (a hook, role operation, reporter, dispatcher, factory or policy that fails) return an `Error`.
@@ -285,17 +312,18 @@ pub enum Abort {
 - **What runs.** A scenario runs once every proposal it is tagged with is listed in `conformance.json`. Listing a proposal therefore runs those of its scenarios whose other proposals are already listed; the rest join in, by themselves, when their last proposal is listed.
 - **The tag expression** the action passes in `ITINERA_CONFORMANCE_TAGS` uses `and`, `or`, `not` and parentheses, for example `(@proposal-0002 or @proposal-0008) and not @non-value`. The runner parses it with cucumber-rs's tag expressions, which stage 2 tests.
 
-### 12. Rust's own tests
+### 13. Rust's own tests
 
 - **Unit tests** in `itinera-core`, next to the code: the decision rules, typed reads from the bag, the order of events, the handling of `Interrupted`.
 - **Macro equivalence**: each macro form is paired with the same workflow written with the builder. Both must give the same listing, and the same event stream for the same inputs, apart from the journey ID and timestamps.
-- **Compile-fail tests** in `crates/itinera/tests/ui/`, each with a compiling twin: running an instance twice, calling `run` concurrently, attaching a policy that defines no hook, misused macro attributes, a hook request its kind may not make, a handle field without its lifetime, an `async fn` step without the `async` feature.
+- **Compile-fail tests** in `crates/itinera/tests/ui/`, each with a compiling twin: running an instance twice, calling `run` concurrently, attaching a policy that defines no hook, and each refusal of the macros listed in section 11, such as a hook request its kind may not make. A few of them check a refusal made only without the `async` feature, such as an `async fn` step: they run with `cargo test -p itinera --test ui` without that feature, which no CI job does, since the test job enables every feature.
+- **Macro features**: the conformance runner also runs `@macros` features of its own, in `crates/itinera-conformance/features/macros`, which drive workflows declared only with the macros through the cases' own sentences.
 - **Property-based tests** with `proptest`, over generated workflows with random outcomes, budgets, lifecycles and failing hooks or reporters: the first and last events, increasing sequence numbers, one outcome fact per attempt, one decision after each failed attempt, at most the budget plus one attempts, no bag values in engine events, and identical streams from both executors.
 - **Doc tests**: every public item has an example that compiles and runs.
 - **No `unsafe`**: `#![forbid(unsafe_code)]` in every crate.
 - Coverage may be reported for information; it never blocks a merge.
 
-### 13. Continuous integration
+### 14. Continuous integration
 
 Each job runs one command, as the organisation's rules require. All are required to merge, except the weekly beta run.
 
@@ -316,7 +344,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 
 ## Order of work
 
-### 14. Stages
+### 15. Stages
 
 | Stage | Content | Proposals completed |
 |---|---|---|
@@ -328,7 +356,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | 5. Steps | modes declared from the start, needs and tokens, building per attempt, input adapters that supply values (stage 7 adds their requests), outcomes, contributions, typed reads from the data bag, read-only received data, values, handles and `Interrupted`; until stage 6, every attempt is the last, as if each step had a retry budget of 0, so a failed attempt ends the journey with the default decisions `step_given_up` and `journey_failed` | 0056, 0057, 0064 (their scenarios are all proven impossible) |
 | 6. The scan and its decisions | statuses, retries, `abnormal termination retriable`, aborts and the result; the decision logic with its hook points in place, tested through internal test hooks; it replaces stage 5's rule that every attempt is the last | 0012, 0032, 0042, 0061, 0063, 0065 |
 | 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, 0054, 0055, 0058, 0060, 0081, 0083, 0085 |
-| 8. Macros | `#[step]`, `#[step_policy]`, `#[workflow_policy]`, `#[workflow]`, their equivalence and compile-fail tests | none |
+| 8. Macros | reporters given the journey ID, `#[step]` and `derive(Step)`, `#[step_policy]` and `#[workflow_policy]`, `derive(InitialData)` and `derive(Output)`, `#[workflow]`, `#[with_step]` and `#[role]` with the instance builder, their equivalence and compile-fail tests, the `@macros` features, the crate overview and the examples | none |
 | 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
 
 Proposal 0091, which lets an input adapter read the data bag, joined tier 1 after stage 7. It was completed by the change that moved the cases to `v0.1.0-rc.8`, outside the stages.
@@ -347,7 +375,7 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
 
 ## Issues and tech specs
 
-### 15. Implementation issues
+### 16. Implementation issues
 
 - **One issue per tier 1 proposal**, titled "Implement spec#NNNN (short name)", labelled `implements-proposal` and `tier: 1`. Its body links the proposal and its cases, summarises the decisions of this plan that concern it, lists its excluded scenarios and their proofs, and says it closes only when its cases pass.
 - **[#2](https://github.com/itinera-dev/itinera-rs/issues/2)** is the implementation issue of 0002. Its comments are kept as history; the plan supersedes them.
@@ -356,7 +384,7 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
 
 ## Code
 
-### 16. Style, structure and comments
+### 17. Style, structure and comments
 
 - **Formatting**: plain `rustfmt`, without configuration.
 - **Names** use the specification's vocabulary exactly: `JourneyId`, `StepDescriptor`, `Contributor`, `Outcome`, `retry_budget`, `FailWorkflow`. Event kinds keep their snake_case names.
@@ -371,7 +399,7 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
 
 ## Tooling
 
-### 17. Toolchain, dependencies, features and documentation
+### 18. Toolchain, dependencies, features and documentation
 
 - **`rust-toolchain.toml`** pins Rust 1.98.1 with `rustfmt` and `clippy`. Moving to a newer version is a pull request of its own, which also refreshes the stored compiler messages.
 - **The minimum supported Rust version is 1.85**, declared as `rust-version`. Before 1.0, raising it is allowed in a minor release, and the changelog says so. It is a promise to users of the published crates, so the conformance runner, which is not published, follows cucumber-rs instead: it declares 1.88, and the minimum-version check leaves it out.
@@ -404,7 +432,7 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
 
 ## Release
 
-### 18. Releasing the crates
+### 19. Releasing the crates
 
 - **Crates**: `itinera-core`, `itinera-macros` and `itinera`, with one workspace version, published together by `cargo publish --workspace`.
 - **Versions are independent of the specification's.** The first release is `0.1.0-rc.1`. The README and the crate documentation say what each release implements: "specification 0.1.0, tier 1, capabilities `sync` and `async`, cases `v0.1.0-rc.N`".
@@ -423,7 +451,7 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
 
 ## Also
 
-### 19. The rest
+### 20. The rest
 
 - **An agents' manual** in this repository (`AGENTS.md`, imported by `CLAUDE.md`), self-contained: the rule that behaviour comes only from the specification, the stages, the comment rules, how to run the checks and the runner, and stacks.
 - **The README** is updated in stage 0 to the crates and status of this plan.

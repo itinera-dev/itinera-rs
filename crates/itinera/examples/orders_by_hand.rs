@@ -1,0 +1,184 @@
+//! The workflow of the `orders` example, declared with the builder alone, as an application
+//! without the `macros` feature declares it. Run it with
+//! `cargo run -p itinera --example orders_by_hand --no-default-features`.
+
+use itinera::error::Error;
+use itinera::event::Event;
+use itinera::executor::LocalExecutor;
+use itinera::journey::{Contributor, DataBag};
+use itinera::policy::{
+    HookNeeds, InputAdapter, OnStepSuccess, OnSuccess, OnWorkflowSuccess, Provides, Requested,
+    StepPolicyDescriptor, StepSuccess, WorkflowPolicyDescriptor, WorkflowSuccess,
+};
+use itinera::report::Reporter;
+use itinera::step::{
+    Input, OptionalInput, Outcome, Reason, Resolved, Step, StepDescriptor, StepFactory, StepNeeds,
+    step_name,
+};
+use itinera::value::AnyValue;
+use itinera::workflow::{InputAdapterDescriptor, WorkflowDescriptor};
+
+const AMOUNT: Input<i64> = Input::new("amount");
+const CHARGED: Input<i64> = Input::new("charged");
+const PRICE: Input<i64> = Input::new("price");
+const DISCOUNT: OptionalInput<i64> = OptionalInput::new("discount");
+
+/// Charges the amount the workflow's pricing works out. A charge of nothing is declined, which
+/// may be retried.
+struct Charge<'a> {
+    amount: i64,
+    contributor: Contributor<'a>,
+}
+
+impl Step for Charge<'_> {
+    fn run(mut self) -> Result<Outcome, Error> {
+        if self.amount <= 0 {
+            return Ok(Outcome::retriable_failure(Reason::new("declined")));
+        }
+        self.contributor.contribute("charged", self.amount);
+        Ok(Outcome::success())
+    }
+}
+
+/// Builds a charge for each attempt.
+struct Charging;
+
+impl StepFactory for Charging {
+    type Step<'a> = Charge<'a>;
+
+    fn needs(&self) -> StepNeeds {
+        StepNeeds::new().input(&AMOUNT).contributor()
+    }
+
+    fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge<'a>, Error> {
+        Ok(Charge {
+            amount: got.input(&AMOUNT)?,
+            contributor: got.contributor()?,
+        })
+    }
+}
+
+/// Ships the order: a step that needs nothing, whose function is its own factory.
+fn ship() -> Result<Outcome, Error> {
+    Ok(Outcome::success())
+}
+
+/// Notes each amount charged.
+struct Audit;
+
+impl OnStepSuccess<Orders> for Audit {
+    fn needs() -> HookNeeds<StepSuccess> {
+        HookNeeds::new().from_step(&CHARGED).contributor()
+    }
+
+    fn on_step_success(
+        &self,
+        mut got: Requested<'_, Orders, StepSuccess>,
+    ) -> Result<Option<OnSuccess>, Error> {
+        let charged = got.from_step(&CHARGED)?;
+        got.contributor()?
+            .contribute("audit", format!("charged {charged}"));
+        Ok(None)
+    }
+}
+
+/// A role the shop provides: telling a customer something.
+trait Messages {
+    fn tell(&self, message: &str);
+}
+
+/// Tells the customer once the order is paid and shipped.
+struct Notify;
+
+impl OnWorkflowSuccess<Orders> for Notify {
+    fn needs() -> HookNeeds<WorkflowSuccess> {
+        HookNeeds::new().from_workflow(&CHARGED)
+    }
+
+    fn on_workflow_success(
+        &self,
+        mut got: Requested<'_, Orders, WorkflowSuccess>,
+    ) -> Result<(), Error> {
+        let charged = got.from_workflow(&CHARGED)?;
+        let messages: &dyn Messages = got.role();
+        messages.tell(&format!("order {}: paid {charged}", got.journey_id()));
+        Ok(())
+    }
+}
+
+/// Prints each event of every journey.
+#[derive(Default)]
+struct Printer;
+
+impl Reporter for Printer {
+    fn report(&mut self, event: &Event) -> Result<(), Error> {
+        println!("{} {}", event.journey_id, event.kind());
+        Ok(())
+    }
+}
+
+struct Orders {
+    shop: &'static str,
+}
+
+impl Messages for Orders {
+    fn tell(&self, message: &str) {
+        println!("{}: {message}", self.shop);
+    }
+}
+
+impl Provides<dyn Messages> for Orders {
+    fn role(&self) -> &(dyn Messages + 'static) {
+        self
+    }
+}
+
+/// Works out the amount to charge: the price, less any discount.
+fn pricing(
+    _: &Orders,
+    mut got: Requested<'_, Orders, InputAdapter>,
+) -> Result<Option<AnyValue>, Error> {
+    let price = got.from_workflow(&PRICE)?;
+    let discount = got.optional_from_workflow(&DISCOUNT)?;
+    Ok(Some(AnyValue::new(price - discount.unwrap_or_default())))
+}
+
+/// Names each journey after the shop and the order.
+fn order_id(orders: &Orders, data: &DataBag) -> Result<String, Error> {
+    let order: String = data.required("order")?;
+    Ok(format!("{}-{order}", orders.shop))
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let audit = StepPolicyDescriptor::new("audit", || Audit).on_step_success();
+    let notify = WorkflowPolicyDescriptor::new("notify", || Notify).on_workflow_success();
+    let adapter = InputAdapterDescriptor::new("pricing", step_name!("charge"), pricing).needing(
+        HookNeeds::new()
+            .from_workflow(&PRICE)
+            .optional_from_workflow(&DISCOUNT),
+    );
+    let orders = WorkflowDescriptor::builder("orders")
+        .step(
+            StepDescriptor::new(step_name!("charge"), Charging)
+                .retry_budget(1)
+                .policy(audit),
+        )
+        .step(StepDescriptor::new(step_name!("ship"), ship))
+        .policy(notify)
+        .reporter::<Printer>()
+        .input_adapter(adapter)
+        .id_generator(order_id)
+        .build()?;
+    let mut executor = LocalExecutor::new();
+    for (order, price, discount) in [("1", 40_i64, 5_i64), ("2", 10, 10)] {
+        let instance = orders
+            .instance(Orders { shop: "corner" })
+            .data("order", order.to_owned())
+            .data("price", price)
+            .data("discount", discount)
+            .create()?;
+        let result = executor.run(instance)?;
+        println!("{}: {}", result.journey_id, result.status.kind());
+    }
+    Ok(())
+}
