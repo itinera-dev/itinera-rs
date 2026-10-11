@@ -131,3 +131,6 @@ pub enum InstanceError {
     #[error("a reporter could not be made: {0}")]
     Reporter(Error),
 }
+
+#[cfg(test)]
+mod tests;
