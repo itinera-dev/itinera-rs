@@ -197,3 +197,95 @@ fn missing_data(missing: MissingData, reported: event::MissingData) -> End {
         JourneyAbort::RequiredDataMissing { missing: reported },
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use rstest::rstest;
+
+    use crate::engine::fixtures::{
+        DECLINE, Orders, Seen, attempting, charge_declined_with_a_contribution, crashed, declined,
+        orders, seen, skips, timed_out, travel_hooked, travel_workflow,
+    };
+    use crate::error::Error;
+    use crate::policy::{
+        FailWorkflow, HookNeeds, Lifecycle, OnStepFailure, Requested, StepFailure, StepHook,
+        StepPolicyDescriptor,
+    };
+    use crate::step::{Input, StepDescriptor};
+
+    /// `on step failure`, which records the data from the step it was attached to read, which its
+    /// own type does not declare.
+    struct Echo {
+        key: &'static str,
+        seen: Seen,
+    }
+
+    impl OnStepFailure<Orders> for Echo {
+        fn on_step_failure(
+            &self,
+            mut got: Requested<'_, Orders, StepFailure>,
+        ) -> Result<Option<FailWorkflow>, Error> {
+            let value = got.from_step(&Input::<String>::new(self.key))?;
+            self.seen.lock().unwrap().push(value);
+            Ok(None)
+        }
+    }
+
+    #[test]
+    fn a_hook_needs_what_its_attachment_declares() {
+        let saw = Seen::default();
+        let echo = Arc::clone(&saw);
+        let policy = StepPolicyDescriptor::new("echo", move || Echo {
+            key: "decline",
+            seen: Arc::clone(&echo),
+        })
+        .on_step_failure_needing(HookNeeds::new().from_step(&DECLINE));
+
+        travel_workflow(orders().step(charge_declined_with_a_contribution().policy(policy)));
+
+        assert_eq!(seen(&saw), ["insufficient funds"]);
+    }
+
+    #[rstest]
+    #[case::a_retriable_failure_with_budget_left(
+        attempting(&[timed_out]).retry_budget(1),
+        &[(StepHook::OnStepRetry, 3), (StepHook::OnStepSuccess, 8)]
+    )]
+    #[case::a_retriable_failure_with_the_budget_spent(
+        attempting(&[timed_out]),
+        &[(StepHook::OnStepFailure, 4)]
+    )]
+    #[case::a_failure(attempting(&[declined]).retry_budget(1), &[(StepHook::OnStepFailure, 4)])]
+    #[case::an_abnormal_termination_the_step_does_not_retry(
+        attempting(&[crashed]).retry_budget(1),
+        &[(StepHook::OnStepAbnormalTermination, 3), (StepHook::OnStepFailure, 5)]
+    )]
+    #[case::an_abnormal_termination_the_step_retries(
+        attempting(&[crashed]).retry_budget(1).abnormal_termination_retriable(),
+        &[
+            (StepHook::OnStepAbnormalTermination, 3),
+            (StepHook::OnStepRetry, 4),
+            (StepHook::OnStepSuccess, 9)
+        ]
+    )]
+    #[case::an_abnormal_termination_with_the_budget_spent(
+        attempting(&[crashed]).abnormal_termination_retriable(),
+        &[(StepHook::OnStepAbnormalTermination, 3), (StepHook::OnStepFailure, 5)]
+    )]
+    #[case::a_skip(attempting(&[skips]), &[])]
+    fn step_hooks_are_called_after_each_attempt_in_order_around_the_step_decision(
+        #[case] step: StepDescriptor<Orders>,
+        #[case] calls: &[(StepHook, usize)],
+    ) {
+        let hooked = travel_hooked(
+            step,
+            None,
+            StepHook::OnStepSuccess,
+            Lifecycle::FinishWorkflow,
+        );
+
+        assert_eq!(hooked.calls, calls);
+    }
+}

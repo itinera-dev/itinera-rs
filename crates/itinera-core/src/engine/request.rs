@@ -133,3 +133,88 @@ pub(super) fn wrong_type(key: &str, requesting: &Requesting) -> End {
         },
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+    use crate::engine::fixtures::{
+        CHARGE, Data, Orders, Read, amount_as_i32, charged, instance, kinds, reads, travel,
+        travel_workflow,
+    };
+    use crate::instance::InstanceBuilder;
+    use crate::journey::JourneyStatus;
+
+    #[test]
+    fn an_optional_input_without_a_value_is_absent_and_reported() {
+        let read = Read::default();
+        let journey = instance(charged(&read)).data("amount", 42_i64);
+
+        let (_, events) = travel(journey.create().unwrap());
+
+        assert_eq!(reads(&read), [(42, None)]);
+        assert_eq!(
+            kinds(&events),
+            [
+                "journey_started",
+                "attempt_started",
+                "optional_input_absent",
+                "step_succeeded",
+                "journey_succeeded"
+            ]
+        );
+        let Some(EventBody::OptionalInputAbsent { key, requester }) =
+            events.get(2).map(|e| &e.body)
+        else {
+            panic!("the third event is not optional_input_absent");
+        };
+        assert_eq!(key, "discount");
+        assert_eq!(requester, &RequestSource::Step(StepAttempt::first(CHARGE)));
+    }
+
+    #[test]
+    fn a_required_input_without_a_value_aborts_the_journey_before_the_step_is_built() {
+        let read = Read::default();
+
+        let (status, events) = travel_workflow(charged(&read));
+
+        let JourneyStatus::Aborted(Abort::RequiredDataMissing(MissingData::Key { key, requester })) =
+            status
+        else {
+            panic!("the journey was not aborted for missing data: {status:?}");
+        };
+        assert_eq!(key, "amount");
+        assert_eq!(requester, Requester::Step);
+        assert!(reads(&read).is_empty());
+        assert_eq!(
+            kinds(&events),
+            ["journey_started", "attempt_started", "journey_aborted"]
+        );
+    }
+
+    fn discount_as_text(journey: InstanceBuilder<Orders>) -> InstanceBuilder<Orders> {
+        journey
+            .data("amount", 42_i64)
+            .data("discount", "five".to_string())
+    }
+
+    #[rstest]
+    #[case::a_narrower_integer_for_a_required_input(amount_as_i32, "amount")]
+    #[case::text_for_an_optional_input(discount_as_text, "discount")]
+    fn a_value_of_another_type_aborts_the_journey_with_wrong_type(
+        #[case] data: Data,
+        #[case] expected: &str,
+    ) {
+        let read = Read::default();
+
+        let (status, _) = travel(data(instance(charged(&read))).create().unwrap());
+
+        let JourneyStatus::Aborted(Abort::WrongType { key, requester }) = status else {
+            panic!("the journey was not aborted for a wrong type: {status:?}");
+        };
+        assert_eq!(key, expected);
+        assert_eq!(requester, Requester::Step);
+        assert!(reads(&read).is_empty());
+    }
+}

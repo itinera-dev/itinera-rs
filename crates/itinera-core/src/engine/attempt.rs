@@ -158,3 +158,6 @@ pub(super) fn could_not_build(step: StepName, error: Error) -> End {
     };
     End::aborted(Abort::StepCouldNotBeBuilt(error), reported)
 }
+
+#[cfg(test)]
+mod tests;

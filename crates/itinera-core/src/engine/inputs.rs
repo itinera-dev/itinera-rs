@@ -98,3 +98,6 @@ impl<D: Delivery> Journey<D> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

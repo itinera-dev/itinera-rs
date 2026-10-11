@@ -129,3 +129,6 @@ fn reporter_failed(step: Option<StepName>, error: Error) -> Box<Aborted> {
         reported,
     })
 }
+
+#[cfg(test)]
+mod tests;
