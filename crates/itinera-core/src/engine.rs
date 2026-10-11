@@ -177,9 +177,15 @@ pub(crate) fn finish<T>(future: impl Future<Output = T>) -> T {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Mutex};
+
     use super::*;
     use crate::engine::fixtures::{CHARGE, SHIP, orders, succeed, travel_workflow};
+    use crate::error::Error;
     use crate::event::Event;
+    use crate::executor::LocalExecutor;
+    use crate::executor::fixtures::{Recorder, Shop, entries, shop_builder};
+    use crate::step::Outcome;
 
     fn kind_and_step(event: &Event) -> (&'static str, Option<StepName>) {
         let step = match &event.body {
@@ -210,6 +216,47 @@ mod tests {
                 ("step_succeeded", Some(SHIP)),
                 ("journey_succeeded", None),
             ]
+        );
+    }
+
+    fn count(runs: &Mutex<u32>) -> Result<Outcome, Error> {
+        *runs.lock().unwrap() += 1;
+        Ok(Outcome::success())
+    }
+
+    #[test]
+    fn the_step_runs_once() {
+        let runs = Arc::new(Mutex::new(0));
+        let counted = Arc::clone(&runs);
+        let workflow = shop_builder()
+            .step(StepDescriptor::new(StepName::new("charge"), move || {
+                count(&counted)
+            }))
+            .build()
+            .unwrap();
+
+        let result = LocalExecutor::new()
+            .run(workflow.instance(Shop::new()).create().unwrap())
+            .unwrap();
+
+        assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+        assert_eq!(*runs.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn a_journey_without_a_step_succeeds() {
+        let shop = Shop::new();
+        let log = Arc::clone(&shop.log);
+        let workflow = shop_builder().reporter::<Recorder<0>>().build().unwrap();
+
+        let result = LocalExecutor::new()
+            .run(workflow.instance(shop).create().unwrap())
+            .unwrap();
+
+        assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+        assert_eq!(
+            entries(&log),
+            ["audit journey_started", "audit journey_succeeded"]
         );
     }
 }

@@ -5,6 +5,13 @@ use crate::engine::fixtures::{
     CHARGE, Orders, failing_on, instance, kinds, noon, orders, scripted, succeed, travel_before,
     travel_with_amount, travel_workflow,
 };
+use crate::event::JourneyAbort;
+use crate::executor::LocalExecutor;
+use crate::executor::fixtures::{
+    FailingFactory, Shop, entries, run, run_shop_with, run_with, shop_workflow,
+};
+use crate::journey::DataBag;
+use crate::report::{DefaultDispatcher, DispatcherFactory, Reporter, WorkflowReporter};
 use crate::step::{
     Outcome, Resolved, StepAttempt, StepDescriptor, StepFactory, StepNeeds, StepReporter,
 };
@@ -144,6 +151,136 @@ impl StepFactory for Preparing {
         reporter.info("preparing")?;
         Ok(reporter)
     }
+}
+
+#[test]
+fn a_reporter_that_fails_on_the_last_decision_still_aborts_the_journey() {
+    let (result, log) = run(Shop::failing("metrics", "journey_succeeded"));
+
+    assert!(matches!(
+        result.status,
+        JourneyStatus::Aborted(Abort::ReporterFailed(_))
+    ));
+    assert_eq!(
+        entries(&log)[9..],
+        [
+            "audit journey_succeeded",
+            "fragile journey_succeeded",
+            "metrics journey_succeeded",
+            "audit journey_aborted",
+            "fragile journey_aborted",
+        ]
+    );
+}
+
+#[derive(Default)]
+struct Recording {
+    events: Arc<Mutex<Vec<Event>>>,
+}
+
+impl Reporter for Recording {
+    fn report(&mut self, event: &Event) -> Result<(), Error> {
+        self.events.lock().unwrap().push(event.clone());
+        Ok(())
+    }
+}
+
+impl WorkflowReporter<Shop> for Recording {
+    fn init(_: &Shop, _: &JourneyId, _: &DataBag) -> Result<Self, Error> {
+        Ok(Self::default())
+    }
+}
+
+#[test]
+fn journey_aborted_names_the_step_during_which_a_reporter_failed() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let mut dispatcher = DefaultDispatcher::new();
+    dispatcher
+        .add(Box::new(Recording {
+            events: Arc::clone(&events),
+        }))
+        .unwrap();
+    let instance = shop_workflow()
+        .instance(Shop::failing("fragile", "step_succeeded"))
+        .create()
+        .unwrap();
+
+    let mut executor = LocalExecutor::with_dispatcher_factory(Holding {
+        dispatcher: Some(dispatcher),
+    });
+    executor.run(instance).unwrap();
+
+    let events = events.lock().unwrap();
+    let Some(EventBody::JourneyAborted {
+        abort: JourneyAbort::ReporterFailed { step, error },
+    }) = events.last().map(|event| &event.body)
+    else {
+        panic!("the last event is not journey_aborted: {events:?}");
+    };
+    assert_eq!(*step, Some(StepName::new("charge")));
+    assert_eq!(error, "fragile failed on step_succeeded");
+}
+
+/// A factory whose dispatcher holds the test's reporter first, then the journey's.
+struct Holding {
+    dispatcher: Option<DefaultDispatcher>,
+}
+
+impl DispatcherFactory for Holding {
+    type Dispatcher = DefaultDispatcher;
+
+    fn create(&mut self) -> Result<DefaultDispatcher, Error> {
+        self.dispatcher
+            .take()
+            .ok_or_else(|| Error::msg("used twice"))
+    }
+}
+
+#[test]
+fn a_dispatcher_that_fails_while_dispatching_aborts_the_journey() {
+    let (result, log) = run_with(FailingFactory {
+        on: Some(Some("step_succeeded")),
+    });
+
+    let JourneyStatus::Aborted(Abort::ReporterFailed(error)) = result.unwrap().status else {
+        panic!("the journey was not aborted by the dispatcher");
+    };
+    assert_eq!(error.to_string(), "the dispatcher failed on step_succeeded");
+    assert_eq!(
+        entries(&log)[6..],
+        [
+            "audit step_succeeded",
+            "fragile step_succeeded",
+            "metrics step_succeeded",
+            "audit journey_aborted",
+            "fragile journey_aborted",
+            "metrics journey_aborted",
+        ]
+    );
+}
+
+#[test]
+fn a_dispatcher_that_fails_while_journey_aborted_is_delivered_is_ignored() {
+    let (result, log) = run_shop_with(
+        Shop::failing("fragile", "journey_started"),
+        FailingFactory {
+            on: Some(Some("journey_aborted")),
+        },
+    );
+
+    let JourneyStatus::Aborted(Abort::ReporterFailed(error)) = result.unwrap().status else {
+        panic!("the journey was not aborted by a reporter");
+    };
+    assert_eq!(error.to_string(), "fragile failed on journey_started");
+    assert_eq!(
+        entries(&log),
+        [
+            "audit journey_started",
+            "fragile journey_started",
+            "audit journey_aborted",
+            "metrics journey_aborted",
+        ]
+    );
 }
 
 #[cfg(feature = "async")]
