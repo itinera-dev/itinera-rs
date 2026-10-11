@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
 use crate::engine::fixtures::{
-    CHARGE, Charging, Counted, DRAFT, Read, Seen, attempting, broken, charge, crashed, kinds,
-    scripted, seen, timed_out, travel_workflow,
+    CHARGE, Charging, Counted, DRAFT, Read, Seen, attempting, broken, charge, crashed, failing_on,
+    instance, kinds, scripted, seen, timed_out, travel_before, travel_workflow,
 };
 use crate::journey::JourneyStatus;
 use crate::policy::{
@@ -146,6 +146,42 @@ fn a_step_policy_that_cannot_be_built_aborts_the_journey_before_the_steps_inputs
         kinds(&events),
         ["journey_started", "attempt_started", "journey_aborted"]
     );
+}
+
+#[test]
+fn a_reporter_failing_on_an_event_emitted_while_the_step_is_built_aborts_the_journey() {
+    let workflow = orders().step(StepDescriptor::new(CHARGE, Preparing));
+
+    let (status, events) = travel_before(
+        instance(workflow).create().unwrap(),
+        Some(failing_on("step_info")),
+    );
+
+    assert!(matches!(
+        status,
+        JourneyStatus::Aborted(Abort::ReporterFailed(_))
+    ));
+    let Some(EventBody::JourneyAborted { abort }) = events.last().map(|e| &e.body) else {
+        panic!("the last event is not journey_aborted");
+    };
+    assert_eq!(abort.step(), Some(CHARGE));
+}
+
+/// The factory of a step that emits while it is built, and fails to build when interrupted.
+struct Preparing;
+
+impl StepFactory for Preparing {
+    type Step<'a> = StepReporter<'a>;
+
+    fn needs(&self) -> StepNeeds {
+        StepNeeds::new().reporter()
+    }
+
+    fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<StepReporter<'a>, Error> {
+        let mut reporter = got.reporter()?;
+        reporter.info("preparing")?;
+        Ok(reporter)
+    }
 }
 
 #[cfg(feature = "async")]

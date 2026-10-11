@@ -12,7 +12,7 @@ use crate::executor::fixtures::{
 use crate::journey::DataBag;
 use crate::report::fixtures::entries;
 use crate::report::{DefaultDispatcher, DispatcherFactory, Reporter, WorkflowReporter};
-use crate::step::{Outcome, Resolved, StepDescriptor, StepFactory, StepNeeds, StepReporter};
+use crate::step::{Outcome, Resolved, StepDescriptor, StepNeeds};
 use crate::workflow::fixtures::{Orders, orders};
 
 fn sequence(event: &Event) -> NonZeroU64 {
@@ -74,42 +74,6 @@ fn a_reporter_failing_on_a_step_event_aborts_the_journey_whatever_the_step_does_
         panic!("the last event is not journey_aborted");
     };
     assert_eq!(abort.step(), Some(CHARGE));
-}
-
-#[test]
-fn a_reporter_failing_on_an_event_emitted_while_the_step_is_built_aborts_the_journey() {
-    let workflow = orders().step(StepDescriptor::new(CHARGE, Preparing));
-
-    let (status, events) = travel_before(
-        instance(workflow).create().unwrap(),
-        Some(failing_on("step_info")),
-    );
-
-    assert!(matches!(
-        status,
-        JourneyStatus::Aborted(Abort::ReporterFailed(_))
-    ));
-    let Some(EventBody::JourneyAborted { abort }) = events.last().map(|e| &e.body) else {
-        panic!("the last event is not journey_aborted");
-    };
-    assert_eq!(abort.step(), Some(CHARGE));
-}
-
-/// The factory of a step that emits while it is built, and fails to build when interrupted.
-struct Preparing;
-
-impl StepFactory for Preparing {
-    type Step<'a> = StepReporter<'a>;
-
-    fn needs(&self) -> StepNeeds {
-        StepNeeds::new().reporter()
-    }
-
-    fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<StepReporter<'a>, Error> {
-        let mut reporter = got.reporter()?;
-        reporter.info("preparing")?;
-        Ok(reporter)
-    }
 }
 
 #[test]
