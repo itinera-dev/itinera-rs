@@ -51,3 +51,46 @@ pub(super) fn workflow_returning(
         HookReturn::Fails(message) => Ok(fails(message.as_deref())),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use itinera::policy::{StepHook, WorkflowHook};
+    use rstest::rstest;
+
+    use super::*;
+    use crate::model;
+    use crate::policy::script::Scripts;
+
+    fn returning(hook: Hook, returned: HookReturn) -> Result<Scripts, ModelError> {
+        let mut policy = model::Policy::new(hook);
+        policy.hook_mut(hook).unwrap().returns = returned;
+        Scripts::of("policy", &policy)
+    }
+
+    #[rstest]
+    #[case::finish_workflow_from_a_workflow_hook(
+        Hook::Workflow(WorkflowHook::OnWorkflowSuccess),
+        HookReturn::FinishWorkflow,
+        Lifecycle::FinishWorkflow
+    )]
+    #[case::fail_workflow_from_a_workflow_hook(
+        Hook::Workflow(WorkflowHook::OnWorkflowFailure),
+        HookReturn::FailWorkflow { code: "late".to_owned() },
+        Lifecycle::FailWorkflow
+    )]
+    #[case::finish_workflow_from_a_failure_hook(
+        Hook::Step(StepHook::OnStepFailure),
+        HookReturn::FinishWorkflow,
+        Lifecycle::FinishWorkflow
+    )]
+    fn a_lifecycle_a_hook_cannot_return_is_a_case_error(
+        #[case] hook: Hook,
+        #[case] returned: HookReturn,
+        #[case] lifecycle: Lifecycle,
+    ) {
+        assert_eq!(
+            returning(hook, returned).unwrap_err(),
+            ModelError::LifecycleNotAllowed(hook, lifecycle)
+        );
+    }
+}

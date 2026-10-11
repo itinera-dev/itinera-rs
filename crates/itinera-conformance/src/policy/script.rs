@@ -164,13 +164,7 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
-    use crate::model::{Hook, HookRequest, HookReturn, Lifecycle, ValueType};
-
-    fn returning(hook: Hook, returned: HookReturn) -> Result<Scripts, ModelError> {
-        let mut policy = model::Policy::new(hook);
-        policy.hook_mut(hook).unwrap().returns = returned;
-        Scripts::of("policy", &policy)
-    }
+    use crate::model::{Hook, HookRequest, ValueType};
 
     fn requesting(hook: Hook, request: HookRequest) -> Result<Scripts, ModelError> {
         let mut policy = model::Policy::new(hook);
@@ -206,33 +200,6 @@ mod tests {
         assert_eq!(
             requesting(hook, request).unwrap_err(),
             ModelError::RequestNotAllowed(hook, named.to_owned())
-        );
-    }
-
-    #[rstest]
-    #[case::finish_workflow_from_a_workflow_hook(
-        Hook::Workflow(WorkflowHook::OnWorkflowSuccess),
-        HookReturn::FinishWorkflow,
-        Lifecycle::FinishWorkflow
-    )]
-    #[case::fail_workflow_from_a_workflow_hook(
-        Hook::Workflow(WorkflowHook::OnWorkflowFailure),
-        HookReturn::FailWorkflow { code: "late".to_owned() },
-        Lifecycle::FailWorkflow
-    )]
-    #[case::finish_workflow_from_a_failure_hook(
-        Hook::Step(StepHook::OnStepFailure),
-        HookReturn::FinishWorkflow,
-        Lifecycle::FinishWorkflow
-    )]
-    fn a_lifecycle_a_hook_cannot_return_is_a_case_error(
-        #[case] hook: Hook,
-        #[case] returned: HookReturn,
-        #[case] lifecycle: Lifecycle,
-    ) {
-        assert_eq!(
-            returning(hook, returned).unwrap_err(),
-            ModelError::LifecycleNotAllowed(hook, lifecycle)
         );
     }
 }
