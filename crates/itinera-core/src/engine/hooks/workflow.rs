@@ -81,6 +81,3 @@ impl<D: Delivery> Journey<D> {
             .await
     }
 }
-
-#[cfg(test)]
-mod tests;
