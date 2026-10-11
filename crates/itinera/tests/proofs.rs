@@ -104,3 +104,39 @@ fn an_adapter_cannot_write_through_its_access_to_the_data_bag() {
         "tests/proofs/bag-write/read_through_the_access.rs",
     );
 }
+
+#[test]
+#[cfg(feature = "unstable")]
+fn a_journey_scoped_provider_cannot_request_the_attempt() {
+    proves(
+        "tests/proofs/journey-scope-request/journey_scoped_provider_asks_for_the_attempt.rs",
+        "tests/proofs/journey-scope-request/attempt_scoped_provider_asks_for_the_attempt.rs",
+    );
+}
+
+#[test]
+#[cfg(feature = "unstable")]
+fn a_provider_cannot_return_nothing() {
+    proves(
+        "tests/proofs/no-instance/provider_returning_nothing.rs",
+        "tests/proofs/no-instance/provider_returning_an_instance.rs",
+    );
+}
+
+#[test]
+#[cfg(feature = "unstable")]
+fn a_providers_event_cannot_carry_a_non_value() {
+    proves(
+        "tests/proofs/non-value/provider_event_data.rs",
+        "tests/proofs/non-value/provider_event_data_value.rs",
+    );
+}
+
+#[test]
+#[cfg(all(feature = "async", feature = "unstable"))]
+fn a_synchronous_workflow_cannot_have_an_asynchronous_provider() {
+    proves(
+        "tests/proofs/mode-not-accepted/asynchronous_provider.rs",
+        "tests/proofs/mode-not-accepted/asynchronous_provider_async_workflow.rs",
+    );
+}

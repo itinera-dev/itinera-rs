@@ -200,6 +200,31 @@ fn no_workflow_hook_runs_when_the_journey_is_aborted() {
     assert!(seen(&saw).is_empty());
 }
 
+#[cfg(feature = "unstable")]
+mod services {
+    use super::*;
+    use crate::service::ServiceProviderDescriptor;
+    use crate::service::fixtures::{Dropped, Given, STOCK, dropping, drops, requesting};
+
+    #[test]
+    fn a_journey_scoped_service_is_dropped_when_the_journey_ends() {
+        let dropped = Dropped::default();
+        let made = Arc::clone(&dropped);
+        let workflow = orders()
+            .step(requesting("reserve", &[&STOCK], &[], &Given::default()))
+            .step(requesting("ship", &[&STOCK], &[], &Given::default()))
+            .provider(ServiceProviderDescriptor::new(
+                "stock",
+                &STOCK,
+                move |_: &Orders, _| Ok(dropping(&made)),
+            ));
+
+        travel_workflow(workflow);
+
+        assert_eq!(drops(&dropped), 1);
+    }
+}
+
 #[cfg(feature = "async")]
 mod asynchronous {
     use super::*;

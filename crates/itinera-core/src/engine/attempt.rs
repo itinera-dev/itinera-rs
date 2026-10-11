@@ -1,6 +1,9 @@
 //! One attempt of a step: building its policies and the step, with its inputs resolved, running
 //! it, and acting on how it ended.
 
+#[cfg(feature = "unstable")]
+use std::sync::Arc;
+
 use super::end::End;
 use super::inputs::Sources;
 use super::{Delivery, Journey, LeftForRescue, Next};
@@ -8,11 +11,16 @@ use crate::error::Error;
 use crate::event::{EventBody, JourneyAbort};
 use crate::instance::WorkflowInstance;
 use crate::journey::{Abort, Contributions, Contributor};
-use crate::policy::{BuiltStepPolicy, PolicyName, StepHook, StepPolicyEntry};
+use crate::policy::{BuiltStepPolicy, StepHook, StepPolicyEntry};
+#[cfg(feature = "unstable")]
+use crate::service::Instance;
 use crate::step::{
     FromRescued, Got, Outcome, Reporting, StepAttempt, StepDescriptor, StepName, StepRequest,
 };
 use crate::value::AnyValue;
+use policies::build_policies;
+
+mod policies;
 
 /// One attempt of a step once it ended, while its hooks are called: the step, the policies built
 /// for the attempt, and what it contributed, committed or not.
@@ -59,9 +67,22 @@ impl<D: Delivery> Journey<D> {
             }
         }
         let mut contributed = Contributions::default();
-        let ran = self
-            .build_and_run(step, attempt, inputs, rescued, &mut contributed)
-            .await;
+        let ran = {
+            #[cfg(feature = "unstable")]
+            let kept = Arc::clone(&self.kept);
+            #[cfg(feature = "unstable")]
+            let provided = self
+                .provide(instance.descriptor(), &sources, &kept, step, attempt)
+                .await?;
+            let building = Building {
+                attempt,
+                inputs,
+                rescued,
+                #[cfg(feature = "unstable")]
+                services: provided.lent(),
+            };
+            self.build_and_run(step, building, &mut contributed).await
+        };
         if let Some(aborted) = self.interrupted.take() {
             return Err(End::Aborted(aborted));
         }
@@ -78,14 +99,12 @@ impl<D: Delivery> Journey<D> {
         }
     }
 
-    /// Builds the step for its attempt, with the inputs resolved, what a rescue step requested
-    /// from the step it rescues, and the handles it declares, and runs it.
+    /// Builds the step for its attempt, with what was resolved for it and the handles it
+    /// declares, and runs it.
     async fn build_and_run<W, M>(
         &mut self,
         step: &StepDescriptor<W, M>,
-        attempt: &StepAttempt,
-        inputs: Vec<(&'static str, Option<AnyValue>)>,
-        rescued: FromRescued,
+        building: Building<'_>,
         contributions: &mut Contributions,
     ) -> Result<Result<Outcome, Error>, End> {
         let needs = step.needs();
@@ -95,15 +114,29 @@ impl<D: Delivery> Journey<D> {
             None
         };
         let reporting = if needs.wants_reporter() {
-            Some(Reporting::new(self, attempt.clone()))
+            Some(Reporting::new(self, building.attempt.clone()))
         } else {
             None
         };
-        match step.attempt(Got::new(inputs, rescued, contributor, reporting)) {
+        let got = Got::new(building.inputs, building.rescued, contributor, reporting);
+        #[cfg(feature = "unstable")]
+        let got = got.lending(building.services);
+        match step.attempt(got) {
             Ok(running) => Ok(running.await),
             Err(error) => Err(could_not_build(step.name(), error)),
         }
     }
+}
+
+/// An attempt about to be built, with what was resolved for it: the step's inputs, in the order
+/// it declares them, absent ones as `None`, what a rescue step requested from the step it
+/// rescues, and the services lent to it.
+struct Building<'s> {
+    attempt: &'s StepAttempt,
+    inputs: Vec<(&'static str, Option<AnyValue>)>,
+    rescued: FromRescued,
+    #[cfg(feature = "unstable")]
+    services: Vec<(&'static str, &'s Instance)>,
 }
 
 /// A policy attached to a step, with its instance built for the attempt.
@@ -133,40 +166,11 @@ fn kept(ran: &Result<Outcome, Error>, contributed: Contributions) -> Contributio
     }
 }
 
-/// Builds the step's policies for one attempt, in the order they were attached.
-fn build_policies<W, M>(
-    step: &StepDescriptor<W, M>,
-) -> Result<Vec<Box<dyn BuiltStepPolicy<W, M>>>, End> {
-    let name = step.name();
-    step.policies()
-        .iter()
-        .map(Box::as_ref)
-        .map(|policy| build_policy(name, policy))
-        .collect()
-}
-
-fn build_policy<W, M>(
-    step: StepName,
-    policy: &dyn StepPolicyEntry<W, M>,
-) -> Result<Box<dyn BuiltStepPolicy<W, M>>, End> {
-    match policy.build() {
-        Ok(built) => Ok(built),
-        Err(error) => Err(policy_could_not_be_built(step, policy.name(), error)),
-    }
-}
-
-fn policy_could_not_be_built(step: StepName, policy: PolicyName, error: Error) -> End {
-    let reported = JourneyAbort::PolicyCouldNotBeBuilt {
-        step,
-        policy,
-        error: error.to_string(),
-    };
-    End::aborted(Abort::PolicyCouldNotBeBuilt { policy, error }, reported)
-}
-
 pub(super) fn could_not_build(step: StepName, error: Error) -> End {
     let reported = JourneyAbort::StepCouldNotBeBuilt {
         step,
+        #[cfg(feature = "unstable")]
+        provider: None,
         error: error.to_string(),
     };
     End::aborted(Abort::StepCouldNotBeBuilt(error), reported)

@@ -1,17 +1,27 @@
 //! What a step declares it needs, which the executor resolves before the step is built.
 
 use super::{Input, OptionalInput};
-use crate::value::{AnyValue, Value};
+#[cfg(feature = "unstable")]
+use crate::service::Service;
+use crate::value::Value;
 
+mod input_need;
 mod request;
+#[cfg(feature = "unstable")]
+mod service_need;
 
+pub(crate) use input_need::{InputNeed, Requirement};
 pub(crate) use request::{RescueRequest, StepRequest};
 use request::{other_than_error, other_than_reason};
+#[cfg(feature = "unstable")]
+pub(crate) use service_need::ServiceNeed;
 
 /// Everything a step declares it needs, which the executor resolves before the step is built:
-/// its inputs, and whether it needs a contributor and a step reporter.
+/// its inputs, whether it needs a contributor and a step reporter, and, with the `unstable`
+/// feature, its services.
 ///
-/// Its inputs are resolved in the order they are declared.
+/// Its inputs are resolved in the order they are declared, then its services, in the order they
+/// are declared.
 ///
 /// # Examples
 ///
@@ -30,57 +40,10 @@ use request::{other_than_error, other_than_reason};
 #[derive(Clone, Debug, Default)]
 pub struct StepNeeds {
     requests: Vec<StepRequest>,
+    #[cfg(feature = "unstable")]
+    services: Vec<ServiceNeed>,
     contributor: bool,
     reporter: bool,
-}
-
-/// Whether a step needs an input to be built, or may be built without it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Requirement {
-    Required,
-    Optional,
-}
-
-/// One declared input, as the executor resolves it.
-#[derive(Clone, derive_more::Debug)]
-pub(crate) struct InputNeed {
-    key: &'static str,
-    requirement: Requirement,
-    #[debug(skip)]
-    accepts: fn(&AnyValue) -> bool,
-}
-
-impl InputNeed {
-    /// A value of type `T` under the key, without which nothing can be built.
-    pub(crate) fn required<T: Value>(key: &'static str) -> Self {
-        Self {
-            key,
-            requirement: Requirement::Required,
-            accepts: AnyValue::is::<T>,
-        }
-    }
-
-    /// A value of type `T` under the key, which may be absent.
-    pub(crate) fn optional<T: Value>(key: &'static str) -> Self {
-        Self {
-            key,
-            requirement: Requirement::Optional,
-            accepts: AnyValue::is::<T>,
-        }
-    }
-
-    pub(crate) fn key(&self) -> &'static str {
-        self.key
-    }
-
-    pub(crate) fn requirement(&self) -> Requirement {
-        self.requirement
-    }
-
-    /// Whether a value has the type the input declares.
-    pub(crate) fn accepts(&self, value: &AnyValue) -> bool {
-        (self.accepts)(value)
-    }
 }
 
 impl StepNeeds {
@@ -151,6 +114,27 @@ impl StepNeeds {
         self
     }
 
+    /// Declares a service the step needs, after those already declared. The workflow decides
+    /// which provider supplies it and how long an instance lives.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::service::Service;
+    /// use itinera::step::StepNeeds;
+    ///
+    /// trait PaymentGateway: Send + Sync {}
+    ///
+    /// const PAYMENTS: Service<dyn PaymentGateway> = Service::new("payments");
+    ///
+    /// let needs = StepNeeds::new().service(&PAYMENTS);
+    /// ```
+    #[cfg(feature = "unstable")]
+    pub fn service<T: ?Sized + Send + Sync + 'static>(mut self, service: &Service<T>) -> Self {
+        self.services.push(ServiceNeed::of(service));
+        self
+    }
+
     /// What the step requests, in the order it declared it.
     pub(crate) fn requests(&self) -> &[StepRequest] {
         &self.requests
@@ -172,6 +156,11 @@ impl StepNeeds {
     pub(crate) fn request_error(mut self, requirement: Requirement) -> Self {
         self.requests.retain(other_than_error);
         self.request(StepRequest::Rescued(RescueRequest::Error(requirement)))
+    }
+
+    #[cfg(feature = "unstable")]
+    pub(crate) fn services(&self) -> &[ServiceNeed] {
+        &self.services
     }
 
     pub(crate) fn wants_contributor(&self) -> bool {

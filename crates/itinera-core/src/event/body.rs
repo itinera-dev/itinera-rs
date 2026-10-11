@@ -4,6 +4,8 @@ use super::{
     GiveUpCause, HookSource, JourneyAbort, JourneyFailure, RequestSource, RescueCause, Source,
 };
 use crate::policy::{Lifecycle, PolicyName, RetryCause};
+#[cfg(feature = "unstable")]
+use crate::service::ProviderName;
 use crate::step::{Reason, StepAttempt, StepName};
 use crate::value::AnyValue;
 use crate::workflow::AdapterName;
@@ -69,6 +71,28 @@ pub enum EventBody {
         key: String,
         /// Who requested it.
         requester: RequestSource,
+    },
+    /// A service provider made an instance of a step's service.
+    #[cfg(feature = "unstable")]
+    #[non_exhaustive]
+    ServiceProvided {
+        /// The step and attempt being built.
+        step: StepAttempt,
+        /// The service's key.
+        key: String,
+        /// The provider's name.
+        provider: ProviderName,
+    },
+    /// A service provider failed for a step's service.
+    #[cfg(feature = "unstable")]
+    #[non_exhaustive]
+    ServiceProviderFailed {
+        /// The step and attempt being built.
+        step: StepAttempt,
+        /// The service's key.
+        key: String,
+        /// The provider's name.
+        provider: ProviderName,
     },
     /// An attempt reported Success.
     #[non_exhaustive]
@@ -222,7 +246,8 @@ pub enum EventBody {
     /// A hook reported information.
     #[non_exhaustive]
     JourneyInfo {
-        /// The hook, and the step and attempt that triggered a step hook.
+        /// The hook, and the step and attempt that triggered a step hook or that a service
+        /// provider was building.
         hook: HookSource,
         /// The hook's message.
         message: String,
@@ -232,7 +257,8 @@ pub enum EventBody {
     /// A hook reported a warning.
     #[non_exhaustive]
     JourneyWarning {
-        /// The hook, and the step and attempt that triggered a step hook.
+        /// The hook, and the step and attempt that triggered a step hook or that a service
+        /// provider was building.
         hook: HookSource,
         /// The hook's message.
         message: String,
@@ -242,7 +268,8 @@ pub enum EventBody {
     /// A hook reported an error, which does not change what it returns.
     #[non_exhaustive]
     JourneyError {
-        /// The hook, and the step and attempt that triggered a step hook.
+        /// The hook, and the step and attempt that triggered a step hook or that a service
+        /// provider was building.
         hook: HookSource,
         /// The hook's message.
         message: String,
@@ -269,6 +296,10 @@ impl EventBody {
             Self::InputAdapterSupplied { .. } => "input_adapter_supplied",
             Self::InputAdapterFailed { .. } => "input_adapter_failed",
             Self::OptionalInputAbsent { .. } => "optional_input_absent",
+            #[cfg(feature = "unstable")]
+            Self::ServiceProvided { .. } => "service_provided",
+            #[cfg(feature = "unstable")]
+            Self::ServiceProviderFailed { .. } => "service_provider_failed",
             Self::StepSucceeded { .. } => "step_succeeded",
             Self::StepFailed { .. } => "step_failed",
             Self::StepSkipped { .. } => "step_skipped",

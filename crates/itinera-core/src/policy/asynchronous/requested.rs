@@ -1,11 +1,11 @@
-//! The reporter an asynchronous workflow's policy hook takes from what it received.
+//! The reporter an asynchronous workflow's hook takes from what it received.
 
 use super::AsyncHookReporter;
 use crate::error::Error;
 use crate::mode::Asynchronous;
-use crate::policy::{PolicyHookKind, Requested};
+use crate::policy::{ReportingHookKind, Requested};
 
-impl<'a, W, H: PolicyHookKind> Requested<'a, W, H, Asynchronous> {
+impl<'a, W, H: ReportingHookKind> Requested<'a, W, H, Asynchronous> {
     /// Takes the reporter the hook declared.
     ///
     /// # Errors

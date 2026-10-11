@@ -4,7 +4,8 @@ use std::marker::PhantomData;
 
 use super::{Needs, Request};
 use crate::policy::{
-    ErrorHookKind, FailureHookKind, HookKind, InputAdapter, PolicyHookKind, StepHookKind,
+    ErrorHookKind, FailureHookKind, HookKind, InputAdapter, PolicyHookKind, ReportingHookKind,
+    StepHookKind,
 };
 use crate::step::{Input, InputNeed, OptionalInput, Requirement};
 use crate::value::Value;
@@ -15,8 +16,8 @@ use crate::value::Value;
 ///
 /// Its kind `H` decides what it may declare: data from the step only for step hooks, the reason
 /// only for `on step failure` and `on step retry`, the error only for those and
-/// `on step abnormal termination`, a contributor and a reporter only for hooks of policies, and
-/// read access to the data bag only for input adapters.
+/// `on step abnormal termination`, a contributor only for hooks of policies, a reporter only for
+/// those and service providers, and read access to the data bag only for input adapters.
 ///
 /// The requests are resolved in the order they are declared, and the first required one without
 /// a value aborts the journey before the hook runs. Declaring the reason or the error again
@@ -245,7 +246,9 @@ impl<H: PolicyHookKind> HookNeeds<H> {
         self.needs.contributor = true;
         self
     }
+}
 
+impl<H: ReportingHookKind> HookNeeds<H> {
     /// Needs a reporter, to emit `journey_info`, `journey_warning` and `journey_error`.
     ///
     /// # Examples

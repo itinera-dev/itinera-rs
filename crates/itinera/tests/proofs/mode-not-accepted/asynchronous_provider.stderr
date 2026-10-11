@@ -1,0 +1,15 @@
+error[E0308]: mismatched types
+  --> tests/proofs/mode-not-accepted/asynchronous_provider.rs:28:19
+   |
+28 |         .provider(ServiceProviderDescriptor::new_async("payments", &PAYMENTS, Orders::payments));
+   |          -------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `ServiceProviderDescriptor<Orders, _>`, found `ServiceProviderDescriptor<..., ..., ...>`
+   |          |
+   |          arguments to this method are incorrect
+   |
+   = note: expected struct `ServiceProviderDescriptor<Orders, _, Synchronous>`
+              found struct `ServiceProviderDescriptor<Orders, PerJourney, Asynchronous>`
+note: method defined here
+  --> $WORKSPACE/crates/itinera-core/src/workflow/builder.rs
+   |
+   |     pub fn provider<S: ProviderScope>(
+   |            ^^^^^^^^

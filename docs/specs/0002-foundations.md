@@ -1,6 +1,6 @@
 # 0002: Foundations
 
-Tech spec for [proposal 0002](https://github.com/itinera-dev/spec/blob/main/proposals/0002-foundations.md), implemented in [#2](https://github.com/itinera-dev/itinera-rs/issues/2). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposals 0027, 0058 and 0060 amend it, and their tech specs cover what they change: received data is read-only, policies are built per journey or per attempt, and input adapters are attached to steps.
+Tech spec for [proposal 0002](https://github.com/itinera-dev/spec/blob/main/proposals/0002-foundations.md), implemented in [#2](https://github.com/itinera-dev/itinera-rs/issues/2). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposals 0027, 0058, 0060 and 0095 amend it, and their tech specs cover what they change: received data is read-only, policies are built per journey or per attempt, input adapters are attached to steps, and steps request services that the workflow's providers supply.
 
 Status: done in stage 7. Stage 4 added the declaration: step and policy descriptors, input adapters, admission with `hook defined twice`, and the listing. Stage 5 built each step from the inputs it declares, resolved from its input adapter or the data bag. Stage 7 added the policies' hooks, with the data they request from the step.
 

@@ -3,15 +3,17 @@
 use std::any;
 use std::marker::PhantomData;
 
-mod got;
-
-pub(crate) use got::Got;
-
 use super::{FromRescued, Input, OptionalInput, Reporting, StepReporter};
 use crate::error::Error;
 use crate::journey::Contributor;
 use crate::mode::Synchronous;
+#[cfg(feature = "unstable")]
+use crate::service::{Service, lent};
 use crate::value::{AnyValue, Value};
+
+mod got;
+
+pub(crate) use got::Got;
 
 /// What the executor resolved for one attempt of a step, from which its factory builds it.
 ///
@@ -131,6 +133,40 @@ impl<'a, M> Resolved<'a, M> {
         &mut self.got.rescued
     }
 
+    /// The service the step declared under the token's key, lent for the attempt.
+    ///
+    /// The step never knows which provider made it, whether another step shares it, or how long
+    /// it lives. It may take a service more than once.
+    ///
+    /// # Errors
+    ///
+    /// When the step's needs do not declare this service with this type. Building fails with
+    /// that error, and the journey is aborted with `step could not be built`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::service::Service;
+    /// use itinera::step::Resolved;
+    ///
+    /// trait PaymentGateway: Send + Sync {}
+    ///
+    /// const PAYMENTS: Service<dyn PaymentGateway> = Service::new("payments");
+    ///
+    /// fn payments<'a>(got: &Resolved<'a>) -> Result<&'a dyn PaymentGateway, Error> {
+    ///     got.service(&PAYMENTS)
+    /// }
+    /// ```
+    #[cfg(feature = "unstable")]
+    pub fn service<T: ?Sized + 'static>(&self, service: &Service<T>) -> Result<&'a T, Error> {
+        let key = service.key();
+        self.got
+            .lent(key)
+            .and_then(lent)
+            .ok_or_else(|| undeclared_service::<T>(key))
+    }
+
     pub(crate) fn reporting(&mut self) -> Result<Reporting<'a>, Error> {
         self.got
             .reporting
@@ -165,6 +201,14 @@ impl<'a> Resolved<'a, Synchronous> {
 fn undeclared_handle(handle: &str) -> Error {
     Error::msg(format!(
         "the step does not declare {handle}, or took it already"
+    ))
+}
+
+#[cfg(feature = "unstable")]
+fn undeclared_service<T: ?Sized>(key: &str) -> Error {
+    Error::msg(format!(
+        "the step does not declare the service \"{key}\" of type {}",
+        any::type_name::<T>()
     ))
 }
 
@@ -244,5 +288,47 @@ mod tests {
             error.to_string(),
             format!("the step does not declare {handle}, or took it already")
         );
+    }
+
+    #[cfg(feature = "unstable")]
+    mod services {
+        use super::*;
+        use crate::service::{Instance, Service, erased};
+
+        const COUNTER: Service<i64> = Service::new("counter");
+
+        fn lending_a_counter(counter: &Instance) -> Resolved<'_> {
+            Resolved::new(
+                Got::new(Vec::new(), FromRescued::default(), None, None)
+                    .lending(vec![("counter", counter)]),
+            )
+        }
+
+        #[test]
+        fn a_service_may_be_taken_more_than_once() {
+            let counter = erased::<i64>(Box::new(7));
+            let got = lending_a_counter(&counter);
+
+            assert_eq!(got.service(&COUNTER).unwrap(), &7);
+            assert_eq!(got.service(&COUNTER).unwrap(), &7);
+        }
+
+        #[test]
+        fn a_service_the_step_does_not_declare_cannot_be_taken() {
+            let got = resolved(Vec::new());
+
+            assert_eq!(
+                got.service(&COUNTER).unwrap_err().to_string(),
+                "the step does not declare the service \"counter\" of type i64"
+            );
+        }
+
+        #[test]
+        fn a_service_taken_as_another_type_than_declared_cannot_be_taken() {
+            let counter = erased::<i64>(Box::new(7));
+            let got = lending_a_counter(&counter);
+
+            assert!(got.service(&Service::<i32>::new("counter")).is_err());
+        }
     }
 }

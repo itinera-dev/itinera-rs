@@ -1,5 +1,7 @@
 //! What a rescue step declares it needs.
 
+#[cfg(feature = "unstable")]
+use crate::service::Service;
 use crate::step::{
     Input, InputNeed, OptionalInput, Requirement, RescueRequest, StepNeeds, StepRequest,
 };
@@ -7,11 +9,12 @@ use crate::value::Value;
 
 /// Everything a rescue step declares it needs, which the executor resolves before it is built:
 /// its inputs from the data bag, what the failed attempt of the step it rescues left (the data it
-/// contributed, the failure's reason and the error), and whether it needs a contributor and a
-/// step reporter.
+/// contributed, the failure's reason and the error), whether it needs a contributor and a step
+/// reporter, and, with the `unstable` feature, its services.
 ///
-/// Its requests are resolved in the order they are declared, and the first required one without
-/// a value aborts the journey before the rescue step is built. Declaring the reason or the error
+/// Its requests are resolved in the order they are declared, then its services, in the order they
+/// are declared, and the first required request without a value aborts the journey before the
+/// rescue step is built. Declaring the reason or the error
 /// again replaces the earlier declaration, and moves it to its new place in that order.
 ///
 /// # Examples
@@ -209,6 +212,29 @@ impl RescueNeeds {
     pub fn reporter(self) -> Self {
         Self {
             needs: self.needs.reporter(),
+        }
+    }
+
+    /// Declares a service the rescue step needs, after those already declared. Only the
+    /// workflow's providers attached to no step serve a rescue step, since the workflow declares
+    /// no step under its name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::service::Service;
+    /// use itinera::step::RescueNeeds;
+    ///
+    /// trait PaymentGateway: Send + Sync {}
+    ///
+    /// const PAYMENTS: Service<dyn PaymentGateway> = Service::new("payments");
+    ///
+    /// let needs = RescueNeeds::new().service(&PAYMENTS);
+    /// ```
+    #[cfg(feature = "unstable")]
+    pub fn service<T: ?Sized + Send + Sync + 'static>(self, service: &Service<T>) -> Self {
+        Self {
+            needs: self.needs.service(service),
         }
     }
 

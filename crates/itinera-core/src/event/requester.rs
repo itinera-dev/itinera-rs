@@ -1,12 +1,15 @@
 //! Who made a request whose data could not be resolved, as events tell it.
 
 use crate::policy::{PolicyName, StepHook, WorkflowHook};
+#[cfg(feature = "unstable")]
+use crate::service::ProviderName;
 use crate::step::StepName;
 use crate::workflow::AdapterName;
 
 /// Who made a request whose data could not be resolved, and the step it was made for: a step for
-/// one of its inputs, an input adapter resolving a step's input, a step hook, or a workflow hook,
-/// which has no step.
+/// one of its inputs, an input adapter resolving a step's input, a step hook, a workflow hook,
+/// which has no step, or, with the `unstable` feature, a service provider supplying a step's
+/// service.
 ///
 /// # Examples
 ///
@@ -56,6 +59,15 @@ pub enum Requester {
         /// The hook.
         hook: WorkflowHook,
     },
+    /// A service provider, for a service of a step.
+    #[cfg(feature = "unstable")]
+    #[non_exhaustive]
+    Provider {
+        /// The provider's name.
+        provider: ProviderName,
+        /// The name of the step whose service it was supplying.
+        step: StepName,
+    },
 }
 impl Requester {
     pub(super) fn step(&self) -> Option<StepName> {
@@ -63,6 +75,8 @@ impl Requester {
             Self::Step { step } | Self::Adapter { step, .. } | Self::StepHook { step, .. } => {
                 Some(*step)
             }
+            #[cfg(feature = "unstable")]
+            Self::Provider { step, .. } => Some(*step),
             Self::WorkflowHook { .. } => None,
         }
     }
