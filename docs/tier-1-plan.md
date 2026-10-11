@@ -462,13 +462,13 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
   2. once Rust, the first implementation, passes every tier 1 case, the specification and conformance are tagged `v0.1.0`;
   3. Rust then releases `0.1.0`, pinning cases `v0.1.0`.
 - **A release is requested by a maintainer pushing a tag `v*` on `main`**; a repository ruleset restricts those tags to maintainers. The release workflow runs four jobs:
-  1. **gate**: the `release-gate` action checks that the tag matches the workspace version, that the commit is on `main`, and that `conformance.json` lists every proposal of the tier claimed, taken from the `@proposal-NNNN` tags of the cases at the pinned version;
+  1. **gate**: the `release-gate` action checks that the tag matches the workspace version, that the commit is on `main`, that `CHANGELOG.md` has notes for the version, and that `conformance.json` lists every proposal of the tier claimed, taken from the `@proposal-NNNN` tags of the cases at the pinned version;
   2. **conformance**: `run-conformance`, producing the report;
-  3. **publish**: in the `crates-io` environment, which needs a maintainer's approval, authenticated through trusted publishing with `rust-lang/crates-io-auth-action`, then `cargo publish --workspace`;
-  4. **release**: `gh release create`, a pre-release for `-rc` tags, with the conformance report attached.
+  3. **publish**: in the `crates-io` environment, which needs a maintainer's approval, authenticated through trusted publishing with `rust-lang/crates-io-auth-action` (except for the first publish, below), then `cargo publish --workspace`;
+  4. **release**: the `create-release` action creates the GitHub release with the notes of the version's section of `CHANGELOG.md`, a pre-release for a version with a pre-release part, such as `0.1.0-beta.1`, with the conformance report attached.
 - **The first publish of each crate.** crates.io configures trusted publishing only for crates that already exist, and PROCESS.md leaves such registry exceptions to each language. Ours: the first release of each crate is published by the release workflow, after its gate, with a short-lived token that a maintainer creates for that release only and stores as a secret of the `crates-io` environment. The token is deleted as soon as the release is published and trusted publishing is configured for the crates; every later release uses trusted publishing only. Nothing is published before that first release: crate names are not reserved with placeholder packages.
 - **`CHANGELOG.md`** is updated in the pull request that bumps the version, and the release notes come from it.
-- **`release-gate`** is written in itinera-dev/actions, in Python with tests.
+- **`release-gate` and `create-release`** are written in itinera-dev/actions, in Python with tests.
 
 ## Also
 

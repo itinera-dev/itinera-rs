@@ -48,3 +48,14 @@ The toolchain is pinned in `rust-toolchain.toml`, and the minimum supported Rust
 `conformance.json` pins the conformance cases, lists the proposals implemented and the capabilities claimed, and maps each scenario excluded as impossible to express to the test that proves it. A proposal is listed only by the pull request that completes it.
 
 In CI, the `run-conformance` action of [itinera-dev/actions](https://github.com/itinera-dev/actions) reads `conformance.json`, checks the excluded scenarios, runs the scenarios whose proposals are all listed, and writes the report. While no proposal is listed, it checks the manifest without starting the runner.
+
+## Releasing
+
+All three published crates share the workspace version and are published together, only by the release workflow, `.github/workflows/release.yml`. A maintainer requests a release by pushing a tag `v` followed by that version, such as `v0.1.0-rc.1`, on `main`, after the pull request that sets the version and adds its section to `CHANGELOG.md` has merged. The workflow then runs four jobs, each waiting for the one before:
+
+1. **release gate**: the `release-gate` action refuses the tag unless it matches the version in `Cargo.toml`, the commit is on `main`, `CHANGELOG.md` has a section for the version, and `conformance.json` lists every tier 1 proposal of the pinned cases;
+2. **conformance**: `run-conformance` runs the cases and keeps the report;
+3. **publish to crates.io**: `cargo publish --workspace`, in the `crates-io` environment, which waits for a maintainer's approval;
+4. **GitHub release**: the `create-release` action creates the release with the notes of the version's changelog section, as a pre-release for a version such as `0.1.0-rc.1`, and attaches the conformance report.
+
+The first release of each crate is published with a crates.io token that a maintainer creates for that release only and stores as the `CARGO_REGISTRY_TOKEN` secret of the `crates-io` environment, because crates.io configures trusted publishing only for crates that already exist. Once that release is published, trusted publishing is configured for the three crates, the token is deleted, and the publish job authenticates through trusted publishing from then on.
