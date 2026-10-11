@@ -141,8 +141,6 @@ pub enum StatusKind {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt;
-
     use rstest::rstest;
 
     use super::*;
@@ -188,11 +186,11 @@ mod tests {
     }
 
     #[rstest]
-    #[case::status_succeeded(&StatusKind::Succeeded, "succeeded")]
-    #[case::status_failed(&StatusKind::Failed, "failed")]
-    #[case::status_aborted(&StatusKind::Aborted, "aborted")]
+    #[case::status_succeeded(StatusKind::Succeeded, "succeeded")]
+    #[case::status_failed(StatusKind::Failed, "failed")]
+    #[case::status_aborted(StatusKind::Aborted, "aborted")]
     fn statuses_display_as_the_specification_writes_them(
-        #[case] name: &dyn fmt::Display,
+        #[case] name: StatusKind,
         #[case] written: &str,
     ) {
         assert_eq!(name.to_string(), written);
