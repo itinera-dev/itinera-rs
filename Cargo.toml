@@ -24,6 +24,7 @@ thiserror = { version = "2", default-features = false, features = ["std"] }
 getrandom = { version = "0.4", default-features = false, features = ["std"] }
 uuid = { version = "1", default-features = false }
 rstest = { version = "0.27", default-features = false }
+proptest = { version = "1", default-features = false, features = ["std"] }
 trybuild = { version = "1", default-features = false }
 syn = { version = "3", default-features = false, features = ["full", "derive", "parsing", "printing", "proc-macro", "clone-impls"] }
 quote = { version = "1", default-features = false }

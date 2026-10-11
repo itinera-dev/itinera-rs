@@ -19,8 +19,10 @@ unstable = ["itinera-core/unstable"]
 itinera-core.workspace = true
 
 [dev-dependencies]
+derive_more.workspace = true
 futures = { workspace = true, features = ["executor"] }
 itinera-core = { workspace = true, features = ["testing"] }
+proptest.workspace = true
 rstest.workspace = true
 serde_json.workspace = true
 trybuild.workspace = true
