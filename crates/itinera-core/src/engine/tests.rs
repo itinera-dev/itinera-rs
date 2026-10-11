@@ -4,8 +4,8 @@ use rstest::rstest;
 
 use super::*;
 use crate::engine::fixtures::{
-    CHARGE, Orders, SHIP, Seen, broken, charge_succeeding, data_of, declined, kinds, orders, seen,
-    succeed, travel_workflow,
+    CHARGE, SHIP, Seen, broken, charge_succeeding, data_of, declined, kinds, seen, succeed,
+    travel_workflow,
 };
 use crate::error::Error;
 use crate::event::Event;
@@ -18,6 +18,7 @@ use crate::policy::{
 use crate::report::fixtures::entries;
 use crate::step::Outcome;
 use crate::workflow::WorkflowBuilder;
+use crate::workflow::fixtures::{Orders, orders};
 
 fn kind_and_step(event: &Event) -> (&'static str, Option<StepName>) {
     let step = match &event.body {

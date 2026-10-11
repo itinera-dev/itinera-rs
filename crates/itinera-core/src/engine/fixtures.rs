@@ -26,9 +26,8 @@ use crate::step::{
     StepNeeds, StepReporter,
 };
 use crate::value::AnyValue;
+use crate::workflow::fixtures::{Orders, orders};
 use crate::workflow::{WorkflowBuilder, WorkflowDescriptor};
-
-pub(super) struct Orders;
 
 /// A reporter that records every event it receives, and fails on one kind if told to.
 #[derive(Default)]
@@ -208,10 +207,6 @@ pub(super) fn travel_recorded<I: WorkflowInstance>(
         noon,
     ))
     .status
-}
-
-pub(super) fn orders() -> WorkflowBuilder<Orders> {
-    WorkflowDescriptor::builder("orders")
 }
 
 /// The charge step, which needs an amount, may have a discount, and records what it read

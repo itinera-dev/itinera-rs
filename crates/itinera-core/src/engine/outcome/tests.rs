@@ -3,13 +3,13 @@ use rstest::rstest;
 use super::*;
 use crate::engine::fixtures::{
     CHARGE, SHIP, attempting, audit, crashed, data_of, declined, fail_workflow, failed_by_the_hook,
-    kinds, orders, scripted, skips, succeed, timed_out, travel_hooked, travel_with_amount,
-    travel_workflow,
+    kinds, scripted, skips, succeed, timed_out, travel_hooked, travel_with_amount, travel_workflow,
 };
 use crate::event::Event;
 use crate::journey::JourneyStatus;
 use crate::policy::Lifecycle;
 use crate::step::{Outcome, StepAttempt, StepDescriptor};
+use crate::workflow::fixtures::orders;
 
 #[test]
 fn a_skipped_step_discards_its_contributions_and_the_journey_goes_on() {

@@ -2,14 +2,15 @@ use rstest::rstest;
 
 use super::*;
 use crate::engine::fixtures::{
-    CHARGE, Orders, SHIP, attempting, audit, crashed, data_of, declined, fail_workflow,
-    failed_by_the_hook, kinds, orders, skips, succeed, timed_out, travel_hooked, travel_workflow,
+    CHARGE, SHIP, attempting, audit, crashed, data_of, declined, fail_workflow, failed_by_the_hook,
+    kinds, skips, succeed, timed_out, travel_hooked, travel_workflow,
 };
 use crate::error::Error;
 use crate::event::Event;
 use crate::journey::{Failure, FailureCause, JourneyStatus, LastFailure};
 use crate::policy::Lifecycle;
 use crate::step::{Outcome, StepDescriptor};
+use crate::workflow::fixtures::{Orders, orders};
 
 #[rstest]
 #[case::a_failure(declined, "step_failed", FailureCause::Failure)]

@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
 use crate::engine::fixtures::{
-    CHARGE, Charging, Counted, DRAFT, Orders, Read, Seen, attempting, broken, charge, crashed,
-    kinds, orders, scripted, seen, timed_out, travel_workflow,
+    CHARGE, Charging, Counted, DRAFT, Read, Seen, attempting, broken, charge, crashed, kinds,
+    scripted, seen, timed_out, travel_workflow,
 };
 use crate::journey::JourneyStatus;
 use crate::policy::{
@@ -12,6 +12,7 @@ use crate::policy::{
     StepPolicyDescriptor,
 };
 use crate::step::{Resolved, StepFactory, StepNeeds, StepReporter};
+use crate::workflow::fixtures::{Orders, orders};
 
 /// The factory of a step that can never be built.
 struct Unbuildable;

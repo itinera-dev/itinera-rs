@@ -3,9 +3,9 @@ use std::sync::Arc;
 use rstest::rstest;
 
 use crate::engine::fixtures::{
-    AMOUNT, CHARGE, DECLINE, DRAFT, Ends, Orders, Recording, Seen, attempting,
+    AMOUNT, CHARGE, DECLINE, DRAFT, Ends, Recording, Seen, attempting,
     charge_declined_with_a_contribution, charge_succeeding, crashed, data_of, declined, failing_on,
-    instance, kinds, orders, seen, travel, travel_needing, travel_recorded, travel_workflow,
+    instance, kinds, seen, travel, travel_needing, travel_recorded, travel_workflow,
 };
 use crate::error::Error;
 use crate::event::{Event, EventBody, HookSource, JourneyAbort, RequestSource, Source};
@@ -17,6 +17,7 @@ use crate::policy::{
     WorkflowPolicyDescriptor, WorkflowSuccess,
 };
 use crate::step::{OptionalInput, StepAttempt};
+use crate::workflow::fixtures::{Orders, orders};
 
 const COUPON: OptionalInput<String> = OptionalInput::new("coupon");
 

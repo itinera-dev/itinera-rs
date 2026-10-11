@@ -203,13 +203,14 @@ mod tests {
     use std::sync::Arc;
 
     use crate::engine::fixtures::{
-        DECLINE, Orders, Seen, charge_declined_with_a_contribution, orders, seen, travel_workflow,
+        DECLINE, Seen, charge_declined_with_a_contribution, seen, travel_workflow,
     };
     use crate::error::Error;
     use crate::policy::{
         FailWorkflow, HookNeeds, OnStepFailure, Requested, StepFailure, StepPolicyDescriptor,
     };
     use crate::step::Input;
+    use crate::workflow::fixtures::{Orders, orders};
 
     /// `on step failure`, which records the data from the step it was attached to read, which its
     /// own type does not declare.

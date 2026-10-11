@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use super::*;
 use crate::engine::fixtures::{
-    CHARGE, Orders, failing_on, instance, kinds, noon, orders, scripted, succeed, travel_before,
+    CHARGE, failing_on, instance, kinds, noon, scripted, succeed, travel_before,
     travel_with_amount, travel_workflow,
 };
 use crate::event::JourneyAbort;
@@ -17,6 +17,7 @@ use crate::step::{
     Outcome, Resolved, StepAttempt, StepDescriptor, StepFactory, StepNeeds, StepReporter,
 };
 use crate::value::AnyValue;
+use crate::workflow::fixtures::{Orders, orders};
 
 fn sequence(event: &Event) -> NonZeroU64 {
     event.sequence

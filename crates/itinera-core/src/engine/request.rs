@@ -140,11 +140,11 @@ mod tests {
 
     use super::*;
     use crate::engine::fixtures::{
-        CHARGE, Data, Orders, Read, amount_as_i32, charged, instance, kinds, reads, travel,
-        travel_workflow,
+        CHARGE, Data, Read, amount_as_i32, charged, instance, kinds, reads, travel, travel_workflow,
     };
     use crate::instance::InstanceBuilder;
     use crate::journey::JourneyStatus;
+    use crate::workflow::fixtures::Orders;
 
     #[test]
     fn an_optional_input_without_a_value_is_absent_and_reported() {
