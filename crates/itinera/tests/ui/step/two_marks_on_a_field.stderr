@@ -1,0 +1,5 @@
+error: this attribute is one too many: each item carries one of them
+  --> tests/ui/step/two_marks_on_a_field.rs:12:5
+   |
+12 |     #[default]
+   |     ^^^^^^^^^^

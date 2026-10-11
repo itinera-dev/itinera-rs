@@ -1,0 +1,5 @@
+error: a generic step is described with the builder, not with the macros
+  --> tests/ui/step/derived_generic.rs:10:15
+   |
+10 | struct Charge<T> {
+   |               ^

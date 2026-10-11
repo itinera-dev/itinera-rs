@@ -1,0 +1,5 @@
+error: a generic step is described with the builder, not with the macros
+  --> tests/ui/step/generic.rs:14:6
+   |
+14 | impl<T: itinera::value::Value> Charge<T> {
+   |      ^^^^^^^^^^^^^^^^^^^^^^^^

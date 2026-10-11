@@ -1,0 +1,9 @@
+error: a step's `run` takes the step by value, as `self`
+  --> tests/ui/step/run_by_reference.rs:17:5
+   |
+17 | /     fn run(
+18 | |         &self,
+19 | |         #[contributor] mut contributor: Contributor<'_>,
+20 | |         #[reporter] mut reporter: StepReporter<'_>,
+21 | |     ) -> Result<Outcome, Error> {
+   | |_______________________________^

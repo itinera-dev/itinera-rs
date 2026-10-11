@@ -1,0 +1,5 @@
+error: `#[step]` takes no arguments: a step's name is given where a workflow lists it
+  --> tests/ui/step/named_in_the_block.rs:15:8
+   |
+15 | #[step(name = "charge")]
+   |        ^^^^^^^^^^^^^^^

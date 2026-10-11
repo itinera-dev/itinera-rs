@@ -6,8 +6,10 @@ use crate::error::Error;
 #[cfg(feature = "async")]
 mod asynchronous;
 mod attempt;
+mod described;
 mod descriptor;
 mod factory;
+mod from_inputs;
 mod input;
 mod needs;
 mod outcome;
@@ -20,10 +22,14 @@ mod slots;
 #[cfg(feature = "async")]
 pub use asynchronous::{AsyncStep, AsyncStepFactory, AsyncStepReporter};
 pub use attempt::StepAttempt;
+pub use described::DescribedStep;
 pub use descriptor::StepDescriptor;
 pub use factory::StepFactory;
 use factory::{Attempts, Running};
+pub use from_inputs::FromInputs;
 pub use input::{Input, OptionalInput};
+#[cfg(feature = "macros")]
+pub use itinera_macros::{Step, step};
 pub use needs::StepNeeds;
 pub(crate) use needs::{InputNeed, Requirement};
 pub use outcome::Outcome;

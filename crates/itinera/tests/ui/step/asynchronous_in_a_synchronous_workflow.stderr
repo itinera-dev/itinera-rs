@@ -1,0 +1,15 @@
+error[E0308]: mismatched types
+  --> tests/ui/step/asynchronous_in_a_synchronous_workflow.rs:24:15
+   |
+24 |         .step(Charge::descriptor(step_name!("charge")))
+   |          ---- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `StepDescriptor<_>`, found `StepDescriptor<_, Asynchronous>`
+   |          |
+   |          arguments to this method are incorrect
+   |
+   = note: expected struct `StepDescriptor<_, Synchronous>`
+              found struct `StepDescriptor<_, Asynchronous>`
+note: method defined here
+  --> $WORKSPACE/crates/itinera-core/src/workflow/builder.rs
+   |
+   |     pub fn step(mut self, step: StepDescriptor<W, M>) -> Self {
+   |            ^^^^

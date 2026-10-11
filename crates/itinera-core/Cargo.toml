@@ -8,7 +8,8 @@ license.workspace = true
 repository.workspace = true
 
 [features]
-async = []
+async = ["itinera-macros?/async"]
+macros = ["dep:itinera-macros"]
 unstable = []
 
 [dependencies]
@@ -16,6 +17,7 @@ serde.workspace = true
 erased-serde.workspace = true
 derive_more = { workspace = true, features = ["into_iterator"] }
 getrandom.workspace = true
+itinera-macros = { workspace = true, optional = true }
 thiserror.workspace = true
 uuid.workspace = true
 

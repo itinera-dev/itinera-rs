@@ -10,16 +10,17 @@ readme = "../../README.md"
 
 [features]
 default = ["macros"]
-macros = ["dep:itinera-macros"]
+macros = ["itinera-core/macros"]
 async = ["itinera-core/async"]
 unstable = ["itinera-core/unstable"]
 
 [dependencies]
 itinera-core.workspace = true
-itinera-macros = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures = { workspace = true, features = ["executor"] }
+rstest.workspace = true
+serde_json.workspace = true
 trybuild.workspace = true
 
 [lints]

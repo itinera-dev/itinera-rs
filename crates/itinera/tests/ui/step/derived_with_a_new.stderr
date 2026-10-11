@@ -1,0 +1,10 @@
+error[E0119]: conflicting implementations of trait `FromInputs` for type `Charge`
+  --> tests/ui/step/derived_with_a_new.rs:15:1
+   |
+ 9 | #[derive(Step)]
+   |          ---- first implementation here
+...
+15 | #[step]
+   | ^^^^^^^ conflicting implementation for `Charge`
+   |
+   = note: this error originates in the attribute macro `step` (in Nightly builds, run with -Z macro-backtrace for more info)
