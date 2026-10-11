@@ -5,7 +5,7 @@ use itinera::workflow::WorkflowDescriptor;
 
 struct Orders;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let orders = WorkflowDescriptor::builder("orders").build()?;
     let first = orders.instance(Orders).create()?;
     let second = orders.instance(Orders).create()?;

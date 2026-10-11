@@ -34,7 +34,7 @@ impl Audit {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()));
     let orders = WorkflowDescriptor::builder("orders")
         .step(charge)

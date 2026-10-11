@@ -4,7 +4,7 @@ use itinera::workflow::InputAdapterDescriptor;
 
 struct Orders;
 
-fn main() {
+pub(crate) fn main() {
     let _pricing = InputAdapterDescriptor::new("pricing", step_name!("charge"), |_: &Orders, _| {
         Ok(Some(AnyValue::new(1_i64)))
     });

@@ -4,7 +4,7 @@ use itinera::workflow::WorkflowDescriptor;
 
 struct Orders;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let charge = StepDescriptor::new(step_name!("charge"), || {
         Ok(Outcome::failure(Reason::new("expired")))
     })

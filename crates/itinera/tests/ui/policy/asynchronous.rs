@@ -21,10 +21,12 @@ impl Audit {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let charge = StepDescriptor::new_async(step_name!("charge"), async || Ok(Outcome::success()))
         .policy(Audit::descriptor());
-    let orders = WorkflowDescriptor::async_builder("orders").step(charge).build()?;
+    let orders = WorkflowDescriptor::async_builder("orders")
+        .step(charge)
+        .build()?;
     futures::executor::block_on(AsyncLocalExecutor::new().run(orders.instance(Orders).create()?))?;
     Ok(())
 }

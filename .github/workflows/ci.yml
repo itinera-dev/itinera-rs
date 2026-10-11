@@ -37,7 +37,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: cargo test --workspace --all-features
+      - if: runner.os == 'Linux'
+        run: cargo test --workspace --all-features
+      # Compiler errors read the same on every system, so the ui and proofs tests run on Linux only.
+      - if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          cargo test --workspace --all-features --exclude itinera
+          cargo test -p itinera --all-features --lib --examples --test macros
+          cargo test -p itinera --all-features --doc
 
   sync-only:
     name: sync-only build

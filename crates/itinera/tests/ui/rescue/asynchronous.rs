@@ -25,7 +25,10 @@ struct Label;
 
 #[rescue_step]
 impl Label {
-    async fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<RescueOutcome, Error> {
+    async fn run(
+        self,
+        #[contributor] mut contributor: Contributor<'_>,
+    ) -> Result<RescueOutcome, Error> {
         contributor.contribute("label", "L-1".to_owned());
         Self::succeed()
     }
@@ -35,7 +38,7 @@ impl Label {
 #[with_step(Dispatch, name = "dispatch", rescue = Label)]
 struct Delivery;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Delivery::builder().create()?;
     let result = futures::executor::block_on(AsyncLocalExecutor::new().run(instance))?;
     assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));

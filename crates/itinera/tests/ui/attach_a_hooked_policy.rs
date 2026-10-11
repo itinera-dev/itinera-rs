@@ -16,7 +16,7 @@ impl OnStepSuccess<Orders> for Audit {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let audit = StepPolicyDescriptor::new("audit", || Audit).on_step_success();
     let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())).policy(audit);
     WorkflowDescriptor::<Orders>::builder("orders")

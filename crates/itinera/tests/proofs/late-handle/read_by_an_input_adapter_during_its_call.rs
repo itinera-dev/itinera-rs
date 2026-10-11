@@ -8,7 +8,10 @@ use itinera::workflow::InputAdapterDescriptor;
 struct Orders;
 
 impl Orders {
-    fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
+    fn pricing(
+        &self,
+        mut got: Requested<'_, Self, InputAdapter>,
+    ) -> Result<Option<AnyValue>, Error> {
         match got.data_bag()?.read::<i64>("price") {
             Read::Present(price) => Ok(Some(AnyValue::new(price))),
             Read::Absent | Read::OtherType => Ok(None),
@@ -16,7 +19,7 @@ impl Orders {
     }
 }
 
-fn main() {
+pub(crate) fn main() {
     let _pricing = InputAdapterDescriptor::new("pricing", step_name!("charge"), Orders::pricing)
         .needing(HookNeeds::new().data_bag());
 }

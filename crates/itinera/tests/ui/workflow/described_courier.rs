@@ -18,10 +18,11 @@ impl Ship {
 #[with_step(Ship, name = "ship")]
 struct Courier {
     #[default]
+    #[expect(dead_code, reason = "this field only has to have a name")]
     van: &'static str,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Courier::builder().create()?;
     let result = LocalExecutor::new().run(instance)?;
     assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));

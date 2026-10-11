@@ -13,7 +13,7 @@ struct Order {
     gift_note: Option<String>,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let orders = WorkflowDescriptor::builder("orders").build()?;
     let order = Order {
         price: 42,

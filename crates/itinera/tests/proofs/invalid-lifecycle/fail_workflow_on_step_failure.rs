@@ -17,7 +17,7 @@ impl OnStepFailure<Orders> for Settle {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settle = StepPolicyDescriptor::new("settle", || Settle).on_step_failure();
     let charge = StepDescriptor::new(step_name!("charge"), || {
         Ok(Outcome::failure(Reason::new("declined")))
