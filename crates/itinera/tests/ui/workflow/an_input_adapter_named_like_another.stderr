@@ -1,0 +1,5 @@
+error: another input adapter of the workflow is named `pricing`
+   --> tests/ui/workflow/an_input_adapter_named_like_another.rs:116:54
+    |
+116 |     #[input_adapter(steps = ["charge again"], name = "pricing")]
+    |                                                      ^^^^^^^^^

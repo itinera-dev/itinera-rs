@@ -1,0 +1,5 @@
+error: a workflow has one ID generator
+   --> tests/ui/workflow/two_id_generators.rs:122:8
+    |
+122 |     fn another_id(&self) -> Result<String, Error> {
+    |        ^^^^^^^^^^

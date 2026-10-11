@@ -1,0 +1,5 @@
+error: an asynchronous workflow needs the `async` feature of `itinera`
+  --> tests/ui/workflow/asynchronous_without_the_async_feature.rs:85:27
+   |
+85 | #[workflow(name = "shop", asynchronous, policies = [Close, Alarm], reporters = [Silent])]
+   |                           ^^^^^^^^^^^^

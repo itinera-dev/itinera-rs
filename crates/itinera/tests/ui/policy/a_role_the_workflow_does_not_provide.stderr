@@ -9,7 +9,7 @@ help: the trait `Provides<(dyn Desk + 'static)>` is not implemented for `Orders`
    |
 11 | struct Orders;
    | ^^^^^^^^^^^^^
-   = note: a workflow provides a role by implementing `Provides<(dyn Desk + 'static)>`
+   = note: a workflow provides a role by implementing `Provides<(dyn Desk + 'static)>`, which `#[role]` does on its implementation of the role's trait
 help: the trait `StepPolicy<__ItineraWorkflow>` is conditionally implemented for `Audit`
   --> tests/ui/policy/a_role_the_workflow_does_not_provide.rs:23:1
    |

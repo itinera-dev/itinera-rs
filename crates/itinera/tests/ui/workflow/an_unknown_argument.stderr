@@ -1,0 +1,5 @@
+error: `#[workflow]` on a struct takes `name = "..."`, `policies = [...]`, `reporters = [...]`, `async_reporters = [...]` and `asynchronous`, each optional
+  --> tests/ui/workflow/an_unknown_argument.rs:85:76
+   |
+85 | #[workflow(name = "shop", policies = [Close, Alarm], reporters = [Silent], retries = 2)]
+   |                                                                            ^^^^^^^

@@ -3,11 +3,10 @@
 
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::ext::IdentExt as _;
 use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, GenericArgument, Ident, LitStr, Meta, PathArguments, Token, Type, TypePath};
 
-use crate::marker;
+use crate::{described, marker};
 
 syn::custom_keyword!(required);
 
@@ -77,7 +76,7 @@ impl Arguments {
     pub(crate) fn datum(self, name: Option<&Ident>, ty: &Type) -> syn::Result<Datum> {
         let key = match (self.key, name) {
             (Some(key), _) => key,
-            (None, Some(name)) => LitStr::new(&name.unraw().to_string(), name.span()),
+            (None, Some(name)) => described::named_after(name),
             (None, None) => {
                 return Err(syn::Error::new_spanned(
                     ty,

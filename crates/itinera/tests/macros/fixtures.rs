@@ -235,9 +235,7 @@ impl Order {
 /// What a workflow lists, then the result and events of one journey of it with this initial
 /// data, on the synchronous executor.
 pub(crate) fn run(workflow: &WorkflowDescriptor<Orders>, order: Order) -> Journey {
-    let recorder = Recorder::default();
-    let result = LocalExecutor::new().run(instance(workflow, order, &recorder));
-    Journey::of(workflow, &result, &recorder)
+    run_created(workflow, |recorder| instance(workflow, order, recorder))
 }
 
 /// What a workflow lists, then the result and events of one journey of it with this initial
@@ -247,27 +245,48 @@ pub(crate) fn run_async(
     workflow: &WorkflowDescriptor<Orders, Asynchronous>,
     order: Order,
 ) -> Journey {
+    run_created_async(workflow, |recorder| instance(workflow, order, recorder))
+}
+
+/// What a workflow lists, then the result and events of a journey of the instance made with the
+/// recorder, on the synchronous executor.
+pub(crate) fn run_created<W: Send + Sync + 'static>(
+    workflow: &WorkflowDescriptor<W>,
+    create: impl FnOnce(Recorder) -> Instance<W>,
+) -> Journey {
+    let recorder = Recorder::default();
+    let result = LocalExecutor::new().run(create(recorder.clone()));
+    Journey::of(workflow, &result, &recorder)
+}
+
+/// What a workflow lists, then the result and events of a journey of the instance made with the
+/// recorder, on the asynchronous executor.
+#[cfg(feature = "async")]
+pub(crate) fn run_created_async<W: Send + Sync + 'static>(
+    workflow: &WorkflowDescriptor<W, Asynchronous>,
+    create: impl FnOnce(Recorder) -> Instance<W, Asynchronous>,
+) -> Journey {
     let recorder = Recorder::default();
     let mut executor = AsyncLocalExecutor::new();
-    let result = futures::executor::block_on(executor.run(instance(workflow, order, &recorder)));
+    let result = futures::executor::block_on(executor.run(create(recorder.clone())));
     Journey::of(workflow, &result, &recorder)
 }
 
 fn instance<M: Mode>(
     workflow: &WorkflowDescriptor<Orders, M>,
     order: Order,
-    recorder: &Recorder,
+    recorder: Recorder,
 ) -> Instance<Orders, M> {
     order
         .given_to(workflow.instance(Orders))
-        .reporter(recorder.clone())
+        .reporter(recorder)
         .create()
         .unwrap()
 }
 
 impl Journey {
-    fn of<M: Mode>(
-        workflow: &WorkflowDescriptor<Orders, M>,
+    fn of<W: Send + Sync + 'static, M: Mode>(
+        workflow: &WorkflowDescriptor<W, M>,
         result: &Result<JourneyResult, Refusal>,
         recorder: &Recorder,
     ) -> Self {

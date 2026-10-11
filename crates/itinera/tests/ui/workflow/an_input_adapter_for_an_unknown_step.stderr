@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: input adapter for unknown step: pricing on refund
+   --> tests/ui/workflow/an_input_adapter_for_an_unknown_step.rs:104:30
+    |
+104 |     #[input_adapter(steps = ["refund"])]
+    |                              ^^^^^^^^ evaluation of `_::_` failed here

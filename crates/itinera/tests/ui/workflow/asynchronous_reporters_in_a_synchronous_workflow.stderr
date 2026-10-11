@@ -1,0 +1,5 @@
+error: asynchronous reporters belong to an asynchronous workflow: add `asynchronous` to `#[workflow(...)]`
+  --> tests/ui/workflow/asynchronous_reporters_in_a_synchronous_workflow.rs:85:73
+   |
+85 | #[workflow(name = "shop", policies = [Close, Alarm], async_reporters = [Silent])]
+   |                                                                         ^^^^^^

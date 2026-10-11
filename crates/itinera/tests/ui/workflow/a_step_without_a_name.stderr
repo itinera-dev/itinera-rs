@@ -1,0 +1,5 @@
+error: name the step, as in `#[with_step(Charge, name = "charge")]`: a step's name belongs to the workflow that lists it
+  --> tests/ui/workflow/a_step_without_a_name.rs:87:1
+   |
+87 | #[with_step(Charge)]
+   | ^^^^^^^^^^^^^^^^^^^^
