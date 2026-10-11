@@ -23,7 +23,8 @@ impl Orders {
     }
 }
 
-fn main() {
-    let _orders = WorkflowDescriptor::<Orders, Asynchronous>::async_builder("orders")
-        .provider(ServiceProviderDescriptor::new_async("payments", &PAYMENTS, Orders::payments));
+pub(crate) fn main() {
+    let _orders = WorkflowDescriptor::<Orders, Asynchronous>::async_builder("orders").provider(
+        ServiceProviderDescriptor::new_async("payments", &PAYMENTS, Orders::payments),
+    );
 }
