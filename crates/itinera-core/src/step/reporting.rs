@@ -101,3 +101,50 @@ fn journey_event(
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::fixtures::{CHARGE, kinds, scripted, travel_workflow};
+    use crate::step::Outcome;
+    use crate::workflow::fixtures::orders;
+
+    #[test]
+    fn a_step_emits_its_own_events_stamped_with_its_attempt_before_its_outcome() {
+        let workflow = orders().step(scripted(|_, reporter| {
+            reporter.info("charging")?;
+            reporter.warning_with("slow", 300_i64)?;
+            reporter.error("no receipt")?;
+            Ok(Outcome::success())
+        }));
+
+        let (_, events) = travel_workflow(workflow);
+
+        assert_eq!(
+            kinds(&events),
+            [
+                "journey_started",
+                "attempt_started",
+                "step_info",
+                "step_warning",
+                "step_error",
+                "step_succeeded",
+                "journey_succeeded"
+            ]
+        );
+        let Some(EventBody::StepWarning {
+            step,
+            message,
+            data,
+        }) = events.get(3).map(|e| &e.body)
+        else {
+            panic!("the fourth event is not step_warning");
+        };
+        assert_eq!(step, &StepAttempt::first(CHARGE));
+        assert_eq!(message, "slow");
+        assert_eq!(
+            data.as_ref().and_then(AnyValue::downcast_ref),
+            Some(&300_i64)
+        );
+    }
+}

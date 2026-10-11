@@ -46,7 +46,7 @@ impl Reporter for Recording {
     }
 }
 
-pub(super) const CHARGE: StepName = StepName::new("charge");
+pub(crate) const CHARGE: StepName = StepName::new("charge");
 pub(super) const SHIP: StepName = StepName::new("ship");
 pub(super) const AMOUNT: Input<i64> = Input::new("amount");
 const DISCOUNT: OptionalInput<i64> = OptionalInput::new("discount");
@@ -116,7 +116,7 @@ struct ScriptedStep<'a, S> {
     reporter: StepReporter<'a>,
 }
 
-pub(super) fn scripted<S>(script: S) -> StepDescriptor<Orders>
+pub(crate) fn scripted<S>(script: S) -> StepDescriptor<Orders>
 where
     S: Fn(&mut Contributor<'_>, &mut StepReporter<'_>) -> Result<Outcome, Error>
         + Send
@@ -229,7 +229,7 @@ pub(super) fn travel_with_amount(builder: WorkflowBuilder<Orders>) -> (JourneySt
 }
 
 /// Runs a journey of the workflow, with no initial data.
-pub(super) fn travel_workflow(builder: WorkflowBuilder<Orders>) -> (JourneyStatus, Vec<Event>) {
+pub(crate) fn travel_workflow(builder: WorkflowBuilder<Orders>) -> (JourneyStatus, Vec<Event>) {
     travel(instance(builder).create().unwrap())
 }
 
@@ -241,7 +241,7 @@ pub(super) fn succeed() -> Result<Outcome, Error> {
     Ok(Outcome::success())
 }
 
-pub(super) fn kinds(events: &[Event]) -> Vec<&'static str> {
+pub(crate) fn kinds(events: &[Event]) -> Vec<&'static str> {
     events.iter().map(Event::kind).collect()
 }
 

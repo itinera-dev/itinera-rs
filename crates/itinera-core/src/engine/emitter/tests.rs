@@ -2,8 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use super::*;
 use crate::engine::fixtures::{
-    CHARGE, failing_on, instance, kinds, noon, scripted, succeed, travel_before,
-    travel_with_amount, travel_workflow,
+    CHARGE, failing_on, instance, kinds, noon, scripted, succeed, travel_before, travel_with_amount,
 };
 use crate::event::JourneyAbort;
 use crate::executor::LocalExecutor;
@@ -13,10 +12,7 @@ use crate::executor::fixtures::{
 use crate::journey::DataBag;
 use crate::report::fixtures::entries;
 use crate::report::{DefaultDispatcher, DispatcherFactory, Reporter, WorkflowReporter};
-use crate::step::{
-    Outcome, Resolved, StepAttempt, StepDescriptor, StepFactory, StepNeeds, StepReporter,
-};
-use crate::value::AnyValue;
+use crate::step::{Outcome, Resolved, StepDescriptor, StepFactory, StepNeeds, StepReporter};
 use crate::workflow::fixtures::{Orders, orders};
 
 fn sequence(event: &Event) -> NonZeroU64 {
@@ -42,45 +38,6 @@ fn events_are_numbered_from_one_and_carry_the_journey_the_workflow_and_the_time(
         panic!("the first event is not journey_started");
     };
     assert_eq!(initial_keys, &["amount"]);
-}
-
-#[test]
-fn a_step_emits_its_own_events_stamped_with_its_attempt_before_its_outcome() {
-    let workflow = orders().step(scripted(|_, reporter| {
-        reporter.info("charging")?;
-        reporter.warning_with("slow", 300_i64)?;
-        reporter.error("no receipt")?;
-        Ok(Outcome::success())
-    }));
-
-    let (_, events) = travel_workflow(workflow);
-
-    assert_eq!(
-        kinds(&events),
-        [
-            "journey_started",
-            "attempt_started",
-            "step_info",
-            "step_warning",
-            "step_error",
-            "step_succeeded",
-            "journey_succeeded"
-        ]
-    );
-    let Some(EventBody::StepWarning {
-        step,
-        message,
-        data,
-    }) = events.get(3).map(|e| &e.body)
-    else {
-        panic!("the fourth event is not step_warning");
-    };
-    assert_eq!(step, &StepAttempt::first(CHARGE));
-    assert_eq!(message, "slow");
-    assert_eq!(
-        data.as_ref().and_then(AnyValue::downcast_ref),
-        Some(&300_i64)
-    );
 }
 
 #[test]
