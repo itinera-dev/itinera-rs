@@ -9,6 +9,8 @@ mod access;
 mod contributor;
 mod data_bag;
 mod failure;
+#[cfg(test)]
+mod fixtures;
 mod result;
 
 pub use abort::{Abort, MissingData, Requester};
@@ -159,10 +161,7 @@ mod tests {
     #[case::reason_wrong_type(&AbortReason::WrongType, "wrong type")]
     #[case::reason_hook_failed(&AbortReason::HookFailed, "hook failed")]
     #[case::reason_reporter_failed(&AbortReason::ReporterFailed, "reporter failed")]
-    #[case::status_succeeded(&StatusKind::Succeeded, "succeeded")]
-    #[case::status_failed(&StatusKind::Failed, "failed")]
-    #[case::status_aborted(&StatusKind::Aborted, "aborted")]
-    fn statuses_causes_and_abort_reasons_display_as_the_specification_writes_them(
+    fn causes_and_abort_reasons_display_as_the_specification_writes_them(
         #[case] name: &dyn fmt::Display,
         #[case] written: &str,
     ) {

@@ -141,11 +141,13 @@ pub enum StatusKind {
 
 #[cfg(test)]
 mod tests {
+    use std::fmt;
+
     use rstest::rstest;
 
     use super::*;
     use crate::error::Error;
-    use crate::journey::data_bag::tests::bag;
+    use crate::journey::fixtures::bag;
     use crate::step::Reason;
 
     #[rstest]
@@ -183,5 +185,16 @@ mod tests {
     )]
     fn a_status_names_its_kind(#[case] status: JourneyStatus, #[case] kind: StatusKind) {
         assert_eq!(status.kind(), kind);
+    }
+
+    #[rstest]
+    #[case::status_succeeded(&StatusKind::Succeeded, "succeeded")]
+    #[case::status_failed(&StatusKind::Failed, "failed")]
+    #[case::status_aborted(&StatusKind::Aborted, "aborted")]
+    fn statuses_display_as_the_specification_writes_them(
+        #[case] name: &dyn fmt::Display,
+        #[case] written: &str,
+    ) {
+        assert_eq!(name.to_string(), written);
     }
 }

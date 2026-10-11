@@ -81,15 +81,9 @@ impl DataBag {
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
     use super::*;
-
-    pub(crate) fn bag() -> DataBag {
-        let mut data = DataBag::new();
-        data.insert("customer".to_string(), AnyValue::new("ana".to_string()));
-        data.insert("amount".to_string(), AnyValue::new(42_i64));
-        data
-    }
+    use crate::journey::fixtures::bag;
 
     fn amount(value: &AnyValue) -> Option<i64> {
         value.downcast_ref().copied()
