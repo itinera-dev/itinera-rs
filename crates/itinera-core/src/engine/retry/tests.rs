@@ -3,11 +3,12 @@ use rstest::rstest;
 use super::*;
 use crate::engine::fixtures::{
     CHARGE, Orders, SHIP, attempting, audit, crashed, data_of, declined, fail_workflow,
-    failed_by_the_hook, kinds, orders, succeed, timed_out, travel_hooked, travel_workflow,
+    failed_by_the_hook, kinds, orders, skips, succeed, timed_out, travel_hooked, travel_workflow,
 };
 use crate::error::Error;
 use crate::event::Event;
 use crate::journey::{Failure, FailureCause, JourneyStatus, LastFailure};
+use crate::policy::Lifecycle;
 use crate::step::{Outcome, StepDescriptor};
 
 #[rstest]
@@ -235,4 +236,45 @@ fn fail_workflow_from_on_step_failure_gives_the_journey_its_reason_after_the_ste
         })
     ));
     assert_eq!(hooked.calls, [(StepHook::OnStepFailure, 4)]);
+}
+
+#[rstest]
+#[case::a_retriable_failure_with_budget_left(
+    attempting(&[timed_out]).retry_budget(1),
+    &[(StepHook::OnStepRetry, 3), (StepHook::OnStepSuccess, 8)]
+)]
+#[case::a_retriable_failure_with_the_budget_spent(
+    attempting(&[timed_out]),
+    &[(StepHook::OnStepFailure, 4)]
+)]
+#[case::a_failure(attempting(&[declined]).retry_budget(1), &[(StepHook::OnStepFailure, 4)])]
+#[case::an_abnormal_termination_the_step_does_not_retry(
+    attempting(&[crashed]).retry_budget(1),
+    &[(StepHook::OnStepAbnormalTermination, 3), (StepHook::OnStepFailure, 5)]
+)]
+#[case::an_abnormal_termination_the_step_retries(
+    attempting(&[crashed]).retry_budget(1).abnormal_termination_retriable(),
+    &[
+        (StepHook::OnStepAbnormalTermination, 3),
+        (StepHook::OnStepRetry, 4),
+        (StepHook::OnStepSuccess, 9)
+    ]
+)]
+#[case::an_abnormal_termination_with_the_budget_spent(
+    attempting(&[crashed]).abnormal_termination_retriable(),
+    &[(StepHook::OnStepAbnormalTermination, 3), (StepHook::OnStepFailure, 5)]
+)]
+#[case::a_skip(attempting(&[skips]), &[])]
+fn step_hooks_are_called_after_each_attempt_in_order_around_the_step_decision(
+    #[case] step: StepDescriptor<Orders>,
+    #[case] calls: &[(StepHook, usize)],
+) {
+    let hooked = travel_hooked(
+        step,
+        None,
+        StepHook::OnStepSuccess,
+        Lifecycle::FinishWorkflow,
+    );
+
+    assert_eq!(hooked.calls, calls);
 }
