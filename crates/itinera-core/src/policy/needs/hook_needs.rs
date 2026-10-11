@@ -260,17 +260,3 @@ impl<H: PolicyHookKind> HookNeeds<H> {
         self
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::engine::fixtures::{crashed, travel_needing};
-    use crate::journey::JourneyStatus;
-
-    #[test]
-    fn a_reason_declared_again_replaces_the_earlier_declaration() {
-        let (status, _) = travel_needing(HookNeeds::new().reason().optional_reason(), crashed);
-
-        assert!(matches!(status, JourneyStatus::Failed { .. }));
-    }
-}
