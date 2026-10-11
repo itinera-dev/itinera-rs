@@ -3,7 +3,10 @@
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 
-use super::{Attempts, Got, Resolved, Running, Step, StepFactory, StepName, StepNeeds};
+use super::{
+    Attempts, DescribedRescueStep, Got, RescueFactory, Rescues, Resolved, Running, Step,
+    StepFactory, StepName, StepNeeds,
+};
 use crate::error::Error;
 use crate::mode::Synchronous;
 use crate::policy::{StepPolicyDescriptor, StepPolicyEntry};
@@ -21,11 +24,11 @@ impl<F: StepFactory> Attempts for Synchronously<F> {
 }
 
 /// What a workflow holds for one step: its name, what it needs, how to build it for each
-/// attempt, its retry budget, whether an abnormal termination may be retried, and the step
-/// policies attached to it, in the order they were attached.
+/// attempt, its retry budget, whether an abnormal termination may be retried, the step policies
+/// attached to it, in the order they were attached, and its rescue step, if it has one.
 ///
-/// The retry budget is 0, and an abnormal termination is not retried, unless the descriptor
-/// says otherwise.
+/// The retry budget is 0, an abnormal termination is not retried, and there is no rescue step,
+/// unless the descriptor says otherwise.
 ///
 /// `W` is the type of the workflows that may hold it, which only its policies see, and `M` their
 /// mode: a step of a synchronous workflow comes from a [`StepFactory`].
@@ -67,6 +70,9 @@ pub struct StepDescriptor<W, M = Synchronous> {
     retry_budget: u16,
     abnormal_termination_retriable: bool,
     policies: Vec<Box<dyn StepPolicyEntry<W, M>>>,
+    /// The rescue step, described as a step of its own, under the name the executor gives it.
+    #[debug("{:?}", rescue.as_deref().map(Self::name))]
+    rescue: Option<Box<StepDescriptor<W, M>>>,
     #[debug(skip)]
     mode: PhantomData<fn() -> M>,
 }
@@ -87,6 +93,28 @@ impl<W> StepDescriptor<W> {
     pub fn new(name: StepName, factory: impl StepFactory) -> Self {
         Self::holding(name, factory.needs(), Box::new(Synchronously { factory }))
     }
+
+    /// Gives the step a rescue step, built by the factory, replacing any it had. The rescue
+    /// step's name is the step's name followed by `_rescue`.
+    ///
+    /// When an attempt of the step fails, the rescue step runs, and once it succeeds the step runs
+    /// once more. A step with a rescue step is never retried: a workflow holding one with a retry
+    /// budget is refused with `rescued step retried`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::{Outcome, RescueOutcome, StepDescriptor, step_name};
+    ///
+    /// struct Orders;
+    ///
+    /// let charge = StepDescriptor::<Orders>::new(step_name!("charge"), || Ok(Outcome::success()))
+    ///     .rescue(|| Ok(RescueOutcome::success()));
+    /// ```
+    pub fn rescue(self, factory: impl RescueFactory) -> Self {
+        let needs = factory.needs().into_step_needs();
+        self.rescued(needs, Box::new(Rescues::new(factory)))
+    }
 }
 
 impl<W, M> StepDescriptor<W, M> {
@@ -98,8 +126,57 @@ impl<W, M> StepDescriptor<W, M> {
             retry_budget: 0,
             abnormal_termination_retriable: false,
             policies: Vec::new(),
+            rescue: None,
             mode: PhantomData,
         }
+    }
+
+    /// Gives the step a rescue step, needing `needs` and built by `factory`, replacing any it had.
+    pub(super) fn rescued(mut self, needs: StepNeeds, factory: Box<dyn Attempts>) -> Self {
+        let rescue = Self::holding(self.name.rescue(), needs, factory);
+        self.rescue = Some(Box::new(rescue));
+        self
+    }
+
+    /// Gives the step the rescue step `R`, replacing any it had. The rescue step's name is the
+    /// step's name followed by `_rescue`.
+    ///
+    /// When an attempt of the step fails, the rescue step runs, and once it succeeds the step runs
+    /// once more. A step with a rescue step is never retried: a workflow holding one with a retry
+    /// budget is refused with `rescued step retried`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::mode::Synchronous;
+    /// use itinera::step::{
+    ///     DescribedRescueStep, Outcome, RescueOutcome, RescueStep, StepDescriptor, step_name,
+    /// };
+    ///
+    /// struct RefreshToken;
+    ///
+    /// impl RescueStep for RefreshToken {
+    ///     fn run(self) -> Result<RescueOutcome, Error> {
+    ///         Self::succeed()
+    ///     }
+    /// }
+    ///
+    /// impl DescribedRescueStep for RefreshToken {
+    ///     type Mode = Synchronous;
+    ///
+    ///     fn rescue<W>(step: StepDescriptor<W>) -> StepDescriptor<W> {
+    ///         step.rescue(|| RefreshToken.run())
+    ///     }
+    /// }
+    ///
+    /// struct Orders;
+    ///
+    /// let charge = StepDescriptor::<Orders>::new(step_name!("charge"), || Ok(Outcome::success()))
+    ///     .rescued_by::<RefreshToken>();
+    /// ```
+    pub fn rescued_by<R: DescribedRescueStep<Mode = M>>(self) -> Self {
+        R::rescue(self)
     }
 
     /// Sets how many retries the step allows after its first attempt: a step with a budget of
@@ -221,6 +298,16 @@ impl<W, M> StepDescriptor<W, M> {
 
     pub(crate) fn policies(&self) -> &[Box<dyn StepPolicyEntry<W, M>>] {
         &self.policies
+    }
+
+    /// The step's rescue step, described as a step of its own, if it has one.
+    pub(crate) fn rescue_step(&self) -> Option<&Self> {
+        self.rescue.as_deref()
+    }
+
+    /// Whether the step allows any retry.
+    pub(crate) fn allows_retries(&self) -> bool {
+        self.retry_budget > 0
     }
 
     /// Builds the step for one attempt and starts it, or fails to build it.

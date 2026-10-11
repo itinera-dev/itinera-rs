@@ -1,9 +1,11 @@
 //! The scenario's scripted steps: what each attempt of a step does, as the scenario says.
 
 mod attempt;
+mod building;
 mod ending;
 mod input;
 mod reporter;
+mod rescue;
 mod script;
 
 use std::num::NonZeroU32;
@@ -12,7 +14,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use itinera::error::Error;
 use itinera::journey::Contributor;
-use itinera::mode::{Asynchronous, Synchronous};
+use itinera::mode::Asynchronous;
 use itinera::step::{
     AsyncStepFactory, AsyncStepReporter, Resolved, StepFactory, StepNeeds, StepReporter,
 };
@@ -21,12 +23,13 @@ use itinera::value::Value as Storable;
 pub(crate) use reporter::Emitted;
 
 use attempt::Attempting;
+use building::Builds;
 use input::taken;
 use script::Script;
 
 use crate::model::{self, ModelError};
 use crate::value::{Takes, Typed};
-use crate::witness::{Build, Witness};
+use crate::witness::{Build, Rescued, Witness};
 
 /// How many times the scenario's steps ran, whatever step it was.
 #[derive(Clone, Debug, Default)]
@@ -74,12 +77,28 @@ impl Scripted {
         })
     }
 
-    /// The step for the next attempt, with the reporter of the workflow's mode.
-    fn attempting<'a, M, R>(
+    /// The factory of the rescue step `name` with this script, which cannot skip.
+    pub(crate) fn rescue(
+        name: &str,
+        step: &model::Step,
+        runs: StepsRun,
+        witness: Witness,
+    ) -> Result<Self, ModelError> {
+        let scripted = Self::new(name, step, runs, witness)?;
+        if scripted.script.skips() {
+            Err(ModelError::RescueSkips(name.to_owned()))
+        } else {
+            Ok(scripted)
+        }
+    }
+
+    /// The step for the next attempt, with the reporter of the workflow's mode, recording what it
+    /// was built with, including what a rescue step received from the step it rescues.
+    fn attempting<'a, G: Builds<'a>>(
         &'a self,
-        got: &mut Resolved<'a, M>,
-        reporter: fn(&mut Resolved<'a, M>) -> Result<R, Error>,
-    ) -> Result<Attempting<'a, R>, Error> {
+        got: &mut G,
+        rescued: Rescued,
+    ) -> Result<Attempting<'a, G::Reporter>, Error> {
         let attempt = self.attempts.fetch_add(1, Ordering::SeqCst);
         if let Some(message) = &self.script.construction_failure {
             return Err(Error::msg(message.clone()));
@@ -94,12 +113,13 @@ impl Scripted {
             step: self.name.clone(),
             attempt: counted(attempt),
             inputs,
+            rescued,
         });
         Ok(Attempting {
             script: &self.script,
             ending: self.script.ending(attempt),
             contributor: got.contributor()?,
-            reporter: reporter(got)?,
+            reporter: got.reporter()?,
             runs: &self.runs,
         })
     }
@@ -118,7 +138,7 @@ impl StepFactory for Scripted {
     }
 
     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Self::Step<'a>, Error> {
-        self.attempting(got, Resolved::<'a, Synchronous>::reporter)
+        self.attempting(got, Rescued::default())
     }
 }
 
@@ -130,7 +150,7 @@ impl AsyncStepFactory for Scripted {
     }
 
     fn build<'a>(&'a self, got: &mut Resolved<'a, Asynchronous>) -> Result<Self::Step<'a>, Error> {
-        self.attempting(got, Resolved::<'a, Asynchronous>::reporter)
+        self.attempting(got, Rescued::default())
     }
 }
 
@@ -148,5 +168,32 @@ impl Takes for Contributing<'_, '_> {
 
     fn take<T: Storable>(self, value: T) {
         self.contributor.contribute(self.key, value);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::journey::fixtures::attempt;
+    use crate::model::AttemptOutcome;
+
+    #[test]
+    fn a_rescue_step_that_skips_is_a_case_error() {
+        let step = model::Step {
+            attempts: Some(vec![attempt(AttemptOutcome::Skipped(None))]),
+            ..model::Step::default()
+        };
+
+        let scripted = Scripted::rescue(
+            "charge_rescue",
+            &step,
+            StepsRun::default(),
+            Witness::default(),
+        );
+
+        assert_eq!(
+            scripted.err(),
+            Some(ModelError::RescueSkips("charge_rescue".to_owned()))
+        );
     }
 }

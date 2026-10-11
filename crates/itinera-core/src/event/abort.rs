@@ -1,8 +1,8 @@
 //! Why a journey was aborted, as events tell it.
 
-use super::Requester;
+use super::{FailureRequester, Requester};
 use crate::journey::AbortReason;
-use crate::policy::{PolicyName, StepHook};
+use crate::policy::PolicyName;
 use crate::step::StepName;
 
 /// Why a journey was aborted, with exactly what that reason carries: the step during which it
@@ -142,7 +142,8 @@ impl JourneyAbort {
 }
 
 /// What a required request found missing: data under a key, or the failure's reason or the error
-/// that a step hook requested from the step it acts on.
+/// that a step hook requested from the step it acts on, or a rescue step from the step it
+/// rescues.
 ///
 /// # Examples
 ///
@@ -170,29 +171,21 @@ pub enum MissingData {
     /// The failure's reason, which the attempt did not report.
     #[non_exhaustive]
     Reason {
-        /// The policy's name.
-        policy: PolicyName,
-        /// The hook that requested it.
-        hook: StepHook,
-        /// The name of the step it acts on.
-        step: StepName,
+        /// Who requested it, and for which step.
+        requester: FailureRequester,
     },
     /// The error, which did not end the attempt.
     #[non_exhaustive]
     Error {
-        /// The policy's name.
-        policy: PolicyName,
-        /// The hook that requested it.
-        hook: StepHook,
-        /// The name of the step it acts on.
-        step: StepName,
+        /// Who requested it, and for which step.
+        requester: FailureRequester,
     },
 }
 impl MissingData {
     fn step(&self) -> Option<StepName> {
         match self {
             Self::Key { requester, .. } => requester.step(),
-            Self::Reason { step, .. } | Self::Error { step, .. } => Some(*step),
+            Self::Reason { requester } | Self::Error { requester } => Some(requester.step()),
         }
     }
 }
@@ -200,7 +193,7 @@ impl MissingData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::policy::WorkflowHook;
+    use crate::policy::{StepHook, WorkflowHook};
     use crate::workflow::AdapterName;
 
     #[test]
@@ -223,13 +216,27 @@ mod tests {
     fn a_required_request_for_a_missing_reason_names_the_step_the_hook_acts_on() {
         let abort = JourneyAbort::RequiredDataMissing {
             missing: MissingData::Reason {
-                policy: PolicyName::from("alarm"),
-                hook: StepHook::OnStepFailure,
-                step: StepName::new("charge"),
+                requester: FailureRequester::StepHook {
+                    policy: PolicyName::from("alarm"),
+                    hook: StepHook::OnStepFailure,
+                    step: StepName::new("charge"),
+                },
             },
         };
         assert_eq!(abort.step(), Some(StepName::new("charge")));
         assert_eq!(abort.error(), None);
+    }
+
+    #[test]
+    fn a_rescue_steps_required_request_for_a_missing_error_names_the_rescue_step() {
+        let abort = JourneyAbort::RequiredDataMissing {
+            missing: MissingData::Error {
+                requester: FailureRequester::RescueStep {
+                    step: StepName::new("charge_rescue"),
+                },
+            },
+        };
+        assert_eq!(abort.step(), Some(StepName::new("charge_rescue")));
     }
 
     #[test]

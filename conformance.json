@@ -1,6 +1,6 @@
 {
-  "cases": "v0.1.0-rc.8",
-  "proposals": [2, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85, 91],
+  "cases": "v0.1.0-rc.9",
+  "proposals": [2, 3, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85, 91],
   "capabilities": ["sync", "async"],
   "impossible": {
     "invalid-lifecycle": [
@@ -8,6 +8,13 @@
         "feature": "cases/tier-1/0010-hooks-lifecycles-and-roles/order-and-lifecycles.feature",
         "scenario": "A lifecycle a hook may not return aborts the journey",
         "proof": { "test": "a_failure_hook_cannot_finish_the_workflow", "file": "crates/itinera/tests/proofs.rs" }
+      }
+    ],
+    "rescue-skip": [
+      {
+        "feature": "cases/tier-1/0003-rescue-steps/failing-rescue.feature",
+        "scenario": "A rescue step that skips aborts the journey",
+        "proof": { "test": "a_rescue_step_cannot_skip", "file": "crates/itinera/tests/proofs.rs" }
       }
     ],
     "role-not-provided": [

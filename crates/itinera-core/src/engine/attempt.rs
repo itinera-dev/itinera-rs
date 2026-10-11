@@ -3,13 +3,15 @@
 
 use super::end::End;
 use super::inputs::Sources;
-use super::{Delivery, Journey, Next};
+use super::{Delivery, Journey, LeftForRescue, Next};
 use crate::error::Error;
 use crate::event::{EventBody, JourneyAbort};
 use crate::instance::WorkflowInstance;
 use crate::journey::{Abort, Contributions, Contributor};
 use crate::policy::{BuiltStepPolicy, PolicyName, StepHook, StepPolicyEntry};
-use crate::step::{Got, Outcome, Reporting, StepAttempt, StepDescriptor, StepName};
+use crate::step::{
+    FromRescued, Got, Outcome, Reporting, StepAttempt, StepDescriptor, StepName, StepRequest,
+};
 use crate::value::AnyValue;
 
 /// One attempt of a step once it ended, while its hooks are called: the step, the policies built
@@ -24,12 +26,13 @@ pub(super) struct Attempting<'s, W, M> {
 impl<D: Delivery> Journey<D> {
     /// Builds the step's policies and the step for one attempt, runs it, and acts on how it
     /// ended.
-    pub(super) async fn attempt<I: WorkflowInstance>(
+    pub(super) async fn attempt<'s, I: WorkflowInstance>(
         &mut self,
         instance: &mut I,
-        step: &StepDescriptor<I::Workflow, I::Mode>,
+        step: &'s StepDescriptor<I::Workflow, I::Mode>,
         attempt: &StepAttempt,
-    ) -> Result<Next, End> {
+        mut left: Option<LeftForRescue>,
+    ) -> Result<Next<'s, I::Workflow, I::Mode>, End> {
         self.emit(EventBody::AttemptStarted {
             step: attempt.clone(),
         })
@@ -42,13 +45,22 @@ impl<D: Delivery> Journey<D> {
             data_bag: instance.data_bag(),
         };
         let mut inputs = Vec::new();
-        for input in step.needs().inputs() {
-            let value = self.input(&sources, attempt, input).await?;
-            inputs.push((input.key(), value));
+        let mut rescued = FromRescued::default();
+        for request in step.needs().requests() {
+            match request {
+                StepRequest::Input(input) => {
+                    let value = self.input(&sources, attempt, input).await?;
+                    inputs.push((input.key(), value));
+                }
+                StepRequest::Rescued(request) => {
+                    self.rescue_request(&mut rescued, attempt, request, left.as_mut())
+                        .await?;
+                }
+            }
         }
         let mut contributed = Contributions::default();
         let ran = self
-            .build_and_run(step, attempt, inputs, &mut contributed)
+            .build_and_run(step, attempt, inputs, rescued, &mut contributed)
             .await;
         if let Some(aborted) = self.interrupted.take() {
             return Err(End::Aborted(aborted));
@@ -66,13 +78,14 @@ impl<D: Delivery> Journey<D> {
         }
     }
 
-    /// Builds the step for its attempt, with the inputs resolved and the handles it declares, and
-    /// runs it.
+    /// Builds the step for its attempt, with the inputs resolved, what a rescue step requested
+    /// from the step it rescues, and the handles it declares, and runs it.
     async fn build_and_run<W, M>(
         &mut self,
         step: &StepDescriptor<W, M>,
         attempt: &StepAttempt,
         inputs: Vec<(&'static str, Option<AnyValue>)>,
+        rescued: FromRescued,
         contributions: &mut Contributions,
     ) -> Result<Result<Outcome, Error>, End> {
         let needs = step.needs();
@@ -86,7 +99,7 @@ impl<D: Delivery> Journey<D> {
         } else {
             None
         };
-        match step.attempt(Got::new(inputs, contributor, reporting)) {
+        match step.attempt(Got::new(inputs, rescued, contributor, reporting)) {
             Ok(running) => Ok(running.await),
             Err(error) => Err(could_not_build(step.name(), error)),
         }

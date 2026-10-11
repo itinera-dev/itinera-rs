@@ -8,10 +8,10 @@ Code samples show the intended shape. Names of attributes and methods may still 
 
 ## What this plan implements
 
-- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065, 0081, 0083, 0085 and 0091, which amends 0010, 0054 and 0060.
-- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.8`, and later candidates as they are tagged.
+- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065, 0081, 0083, 0085 and 0091, which amends 0010, 0054 and 0060; and 0003, rescue steps, which joined tier 1 later.
+- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.9`, and later candidates as they are tagged.
 - **Capabilities claimed**: `sync` and `async`.
-- **Rules made impossible to express** (proposal 0054): `invalid-lifecycle`, `role-not-provided`, `mode-not-accepted`, `non-value`, `late-handle` and `bag-write`.
+- **Rules made impossible to express** (proposal 0054): `invalid-lifecycle`, `role-not-provided`, `mode-not-accepted`, `non-value`, `late-handle`, `bag-write` and `rescue-skip`.
 
 How excluded scenarios are declared and reported is defined in the conformance repository's FORMAT.md: the manifest lists each one with its proof, and the `run-conformance` action reports them next to the Cucumber JSON (decision 11).
 
@@ -358,6 +358,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, 0054, 0055, 0058, 0060, 0081, 0083, 0085 |
 | 8. Macros | reporters given the journey ID, `#[step]` and `derive(Step)`, `#[step_policy]` and `#[workflow_policy]`, `derive(InitialData)` and `derive(Output)`, `#[workflow]`, `#[with_step]` and `#[role]` with the instance builder, their equivalence and compile-fail tests, the `@macros` features, the crate overview and the examples | none |
 | 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
+| 11. Rescue steps | rescue steps and their traits, outcome, needs and factories, the `rescued step retried` violation, the rescue in the listing, the decisions `step_rescuing` and `step_rescued`, the engine's rescue, the runner's sentences, the `rescue-skip` proof, then the macros | 0003 |
 
 Proposal 0091, which lets an input adapter read the data bag, joined tier 1 after stage 7. It was completed by the change that moved the cases to `v0.1.0-rc.8`, outside the stages.
 

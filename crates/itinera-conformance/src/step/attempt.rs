@@ -1,14 +1,12 @@
 //! One attempt of a scripted step, which does what the script says, then ends as its ending
 //! says.
 
-use std::future::Future;
-
 use futures::executor::block_on;
 use itinera::error::Error;
 use itinera::journey::Contributor;
 use itinera::step::{AsyncStep, AsyncStepReporter, Outcome, Step, StepReporter};
 
-use super::ending::Ending;
+use super::ending::{End, Ending};
 use super::reporter::Emits;
 use super::script::{Action, Script};
 use super::{StepsRun, contribute};
@@ -24,9 +22,10 @@ pub(crate) struct Attempting<'a, R> {
     pub(super) runs: &'a StepsRun,
 }
 
-impl<R: Emits> Attempting<'_, R> {
-    /// Does what the script says, then ends as the attempt's ending says.
-    async fn perform(self) -> Result<Outcome, Error> {
+impl<'a, R: Emits> Attempting<'a, R> {
+    /// Does what the script says, then contributes what the attempt's ending says, and returns
+    /// how it ends.
+    pub(super) async fn perform(self) -> Result<&'a End, Error> {
         let Self {
             script,
             ending,
@@ -53,18 +52,18 @@ impl<R: Emits> Attempting<'_, R> {
         for (key, value) in &ending.contributes {
             contribute(&mut contributor, key, value);
         }
-        ending.end.outcome()
+        Ok(&ending.end)
     }
 }
 
 impl Step for Attempting<'_, StepReporter<'_>> {
     fn run(self) -> Result<Outcome, Error> {
-        block_on(self.perform())
+        block_on(self.perform()).and_then(End::outcome)
     }
 }
 
 impl AsyncStep for Attempting<'_, AsyncStepReporter<'_>> {
-    fn run(self) -> impl Future<Output = Result<Outcome, Error>> + Send {
-        self.perform()
+    async fn run(self) -> Result<Outcome, Error> {
+        self.perform().await.and_then(End::outcome)
     }
 }

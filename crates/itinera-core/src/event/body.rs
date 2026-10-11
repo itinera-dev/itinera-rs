@@ -1,6 +1,8 @@
 //! What an event says, one variant per kind of event.
 
-use super::{GiveUpCause, HookSource, JourneyAbort, JourneyFailure, RequestSource, Source};
+use super::{
+    GiveUpCause, HookSource, JourneyAbort, JourneyFailure, RequestSource, RescueCause, Source,
+};
 use crate::policy::{Lifecycle, PolicyName, RetryCause};
 use crate::step::{Reason, StepAttempt, StepName};
 use crate::value::AnyValue;
@@ -18,6 +20,8 @@ use crate::workflow::AdapterName;
 ///         body,
 ///         EventBody::StepRetrying { .. }
 ///             | EventBody::StepGivenUp { .. }
+///             | EventBody::StepRescuing { .. }
+///             | EventBody::StepRescued { .. }
 ///             | EventBody::JourneySucceeded { .. }
 ///             | EventBody::JourneyFailed { .. }
 ///     )
@@ -150,6 +154,26 @@ pub enum EventBody {
         /// Why it will not be attempted again, and who decided it.
         cause: GiveUpCause,
     },
+    /// The executor decided to rescue a step: its rescue step runs, then the step is attempted
+    /// again.
+    #[non_exhaustive]
+    StepRescuing {
+        /// The step and the attempt that failed.
+        step: StepAttempt,
+        /// How that attempt failed. The executor's own rule always decides it.
+        cause: RescueCause,
+        /// The name of the step's rescue step.
+        rescue: StepName,
+    },
+    /// A step's rescue step succeeded: the executor decided to attempt the step again. The
+    /// executor's own rule always decides it.
+    #[non_exhaustive]
+    StepRescued {
+        /// The step and the attempt that failed.
+        step: StepAttempt,
+        /// The name of the step's rescue step.
+        rescue: StepName,
+    },
     /// The executor decided that the journey succeeds.
     #[non_exhaustive]
     JourneySucceeded {
@@ -256,6 +280,8 @@ impl EventBody {
             Self::JourneyAborted { .. } => "journey_aborted",
             Self::StepRetrying { .. } => "step_retrying",
             Self::StepGivenUp { .. } => "step_given_up",
+            Self::StepRescuing { .. } => "step_rescuing",
+            Self::StepRescued { .. } => "step_rescued",
             Self::JourneySucceeded { .. } => "journey_succeeded",
             Self::JourneyFailed { .. } => "journey_failed",
             Self::StepInfo { .. } => "step_info",
@@ -361,6 +387,15 @@ mod tests {
                 step: charge(2),
                 cause: GiveUpCause::RetriesExhausted,
             },
+            EventBody::StepRescuing {
+                step: charge(1),
+                cause: RescueCause::Failure,
+                rescue: StepName::new("charge_rescue"),
+            },
+            EventBody::StepRescued {
+                step: charge(1),
+                rescue: StepName::new("charge_rescue"),
+            },
             EventBody::JourneySucceeded { decided_by: None },
             EventBody::JourneyFailed {
                 step: StepName::new("charge"),
@@ -403,7 +438,7 @@ mod tests {
     fn every_kind_of_event_has_its_own_kind() {
         let kinds: std::collections::HashSet<_> =
             every_kind().iter().map(EventBody::kind).collect();
-        assert_eq!(kinds.len(), 24);
+        assert_eq!(kinds.len(), 26);
         let event = event(1, EventBody::AttemptStarted { step: charge(1) });
         assert_eq!(event.kind(), "attempt_started");
     }

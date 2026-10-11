@@ -15,7 +15,7 @@ mod initial_data;
 mod output;
 mod result;
 
-pub use abort::{Abort, MissingData, Requester};
+pub use abort::{Abort, FailureRequester, MissingData, Requester};
 pub use access::{DataBagAccess, Read};
 pub use contributor::Contributor;
 pub(crate) use contributor::{Contribution, Contributions};

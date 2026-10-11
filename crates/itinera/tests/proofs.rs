@@ -57,6 +57,14 @@ fn a_failure_hook_cannot_finish_the_workflow() {
 }
 
 #[test]
+fn a_rescue_step_cannot_skip() {
+    proves(
+        "tests/proofs/rescue-skip/skipping_rescue_step.rs",
+        "tests/proofs/rescue-skip/succeeding_rescue_step.rs",
+    );
+}
+
+#[test]
 fn a_policy_cannot_be_attached_to_a_workflow_that_does_not_provide_its_role() {
     proves(
         "tests/proofs/role-not-provided/role_not_provided.rs",

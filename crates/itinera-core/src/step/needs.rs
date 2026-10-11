@@ -3,6 +3,11 @@
 use super::{Input, OptionalInput};
 use crate::value::{AnyValue, Value};
 
+mod request;
+
+pub(crate) use request::{RescueRequest, StepRequest};
+use request::{other_than_error, other_than_reason};
+
 /// Everything a step declares it needs, which the executor resolves before the step is built:
 /// its inputs, and whether it needs a contributor and a step reporter.
 ///
@@ -24,7 +29,7 @@ use crate::value::{AnyValue, Value};
 /// ```
 #[derive(Clone, Debug, Default)]
 pub struct StepNeeds {
-    inputs: Vec<InputNeed>,
+    requests: Vec<StepRequest>,
     contributor: bool,
     reporter: bool,
 }
@@ -101,9 +106,8 @@ impl StepNeeds {
     ///
     /// let needs = StepNeeds::new().input(&Input::<i64>::new("amount"));
     /// ```
-    pub fn input<T: Value>(mut self, input: &Input<T>) -> Self {
-        self.inputs.push(InputNeed::required::<T>(input.key));
-        self
+    pub fn input<T: Value>(self, input: &Input<T>) -> Self {
+        self.request(StepRequest::Input(InputNeed::required::<T>(input.key)))
     }
 
     /// Declares an optional input, after those already declared.
@@ -115,9 +119,8 @@ impl StepNeeds {
     ///
     /// let needs = StepNeeds::new().optional_input(&OptionalInput::<i64>::new("discount"));
     /// ```
-    pub fn optional_input<T: Value>(mut self, input: &OptionalInput<T>) -> Self {
-        self.inputs.push(InputNeed::optional::<T>(input.key));
-        self
+    pub fn optional_input<T: Value>(self, input: &OptionalInput<T>) -> Self {
+        self.request(StepRequest::Input(InputNeed::optional::<T>(input.key)))
     }
 
     /// Declares that the step needs a contributor, for the data it contributes.
@@ -148,8 +151,27 @@ impl StepNeeds {
         self
     }
 
-    pub(crate) fn inputs(&self) -> &[InputNeed] {
-        &self.inputs
+    /// What the step requests, in the order it declared it.
+    pub(crate) fn requests(&self) -> &[StepRequest] {
+        &self.requests
+    }
+
+    /// Requests something after what was already requested.
+    pub(crate) fn request(mut self, request: StepRequest) -> Self {
+        self.requests.push(request);
+        self
+    }
+
+    /// Requests the failure's reason, replacing an earlier request for it.
+    pub(crate) fn request_reason(mut self, requirement: Requirement) -> Self {
+        self.requests.retain(other_than_reason);
+        self.request(StepRequest::Rescued(RescueRequest::Reason(requirement)))
+    }
+
+    /// Requests the error, replacing an earlier request for it.
+    pub(crate) fn request_error(mut self, requirement: Requirement) -> Self {
+        self.requests.retain(other_than_error);
+        self.request(StepRequest::Rescued(RescueRequest::Error(requirement)))
     }
 
     pub(crate) fn wants_contributor(&self) -> bool {

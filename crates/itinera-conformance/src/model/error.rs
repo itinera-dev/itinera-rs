@@ -69,6 +69,10 @@ pub(crate) enum ModelError {
     AdapterDeclaredTwice(String),
     #[error("the hook \"{0}\" cannot request {1}")]
     RequestNotAllowed(Hook, String),
+    #[error("\"{0}\" is not a rescue step")]
+    NotRescueStep(String),
+    #[error("rescue step \"{0}\" cannot skip")]
+    RescueSkips(String),
     #[error("the hook \"{0}\" cannot return {1}")]
     LifecycleNotAllowed(Hook, Lifecycle),
 }

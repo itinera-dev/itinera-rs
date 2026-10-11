@@ -41,13 +41,14 @@ fn step_ended_as_aborted(world: &mut World, step_name: String) -> Result<(), Unm
 #[derive(Clone, Copy, Debug, PartialEq, Eq, cucumber::Parameter, derive_more::Display)]
 #[param(
     name = "status",
-    regex = "succeeded|failed|skipped|not executed|aborted"
+    regex = "succeeded|failed|skipped|rescuing|not executed|aborted"
 )]
 #[display(rename_all = "lowercase")]
 enum Status {
     Succeeded,
     Failed,
     Skipped,
+    Rescuing,
     #[display("not executed")]
     NotExecuted,
     Aborted,
@@ -61,6 +62,7 @@ impl FromStr for Status {
             "succeeded" => Self::Succeeded,
             "failed" => Self::Failed,
             "skipped" => Self::Skipped,
+            "rescuing" => Self::Rescuing,
             "not executed" => Self::NotExecuted,
             "aborted" => Self::Aborted,
             _ => return Err(ModelError::Cell("status", name.to_owned())),
@@ -71,11 +73,14 @@ impl FromStr for Status {
 impl Status {
     /// The step's status, read from the journey's events: the first event that settles it, which
     /// stays final even when the journey is aborted afterwards; otherwise `aborted` when
-    /// `journey_aborted` names it, since the journey was aborted before the step settled, or
-    /// `not executed` when no attempt started; nothing while it was still being attempted.
+    /// `journey_aborted` names it, since the journey was aborted before the step settled;
+    /// otherwise `rescuing` when its rescue step was handed a failed attempt, or `aborted` when
+    /// the journey was aborted after that; otherwise `not executed` when no attempt started;
+    /// nothing while it was still being attempted.
     fn of(events: &[Event], step: &str) -> Option<Self> {
         settling(events, step)
             .or_else(|| aborted_before_settling(events, step))
+            .or_else(|| rescuing(events, step))
             .or_else(|| not_executed(events, step))
     }
 }
@@ -86,6 +91,32 @@ fn settling(events: &[Event], step: &str) -> Option<Status> {
 
 fn aborted_before_settling(events: &[Event], step: &str) -> Option<Status> {
     events.iter().find_map(|event| aborted_during(event, step))
+}
+
+/// `rescuing` when the step's rescue step was handed a failed attempt, or `aborted` when the
+/// journey was aborted afterwards, since a rescuing step has no final status.
+fn rescuing(events: &[Event], step: &str) -> Option<Status> {
+    if !was_handed_to_its_rescue_step(events, step) {
+        return None;
+    }
+    Some(if events.iter().any(is_journey_aborted) {
+        Status::Aborted
+    } else {
+        Status::Rescuing
+    })
+}
+
+fn is_journey_aborted(event: &Event) -> bool {
+    matches!(event.body, EventBody::JourneyAborted { .. })
+}
+
+/// Whether `step_rescuing` handed the step to its rescue step.
+fn was_handed_to_its_rescue_step(events: &[Event], step: &str) -> bool {
+    events.iter().any(|event| hands_over(event, step))
+}
+
+fn hands_over(event: &Event, step: &str) -> bool {
+    matches!(&event.body, EventBody::StepRescuing { step: attempt, .. } if is_of_step(attempt.step, step))
 }
 
 fn not_executed(events: &[Event], step: &str) -> Option<Status> {
@@ -174,8 +205,46 @@ mod tests {
         charge.attempts = Some(vec![attempt(timed_out()), attempt(AttemptOutcome::Success)]);
     }
 
+    /// The charge step fails, and is handed to its rescue step, which ends as the outcome says.
+    fn is_rescued_by_a_rescue_step_that(model: &mut Model, outcome: AttemptOutcome) {
+        ends(model, "charge", timed_out());
+        model.rescue("charge").unwrap();
+        ends(model, "charge_rescue", outcome);
+    }
+
+    fn is_rescued_by_a_rescue_step_that_fails(model: &mut Model) {
+        is_rescued_by_a_rescue_step_that(model, timed_out());
+    }
+
+    fn is_rescued_by_a_rescue_step_that_cannot_be_built(model: &mut Model) {
+        is_rescued_by_a_rescue_step_that(model, AttemptOutcome::Success);
+        model
+            .step_mut("charge_rescue")
+            .unwrap()
+            .construction_failure = Some("no client".to_owned());
+    }
+
     fn cannot_be_built(model: &mut Model) {
         model.step_mut("charge").unwrap().construction_failure = Some("no connection".to_owned());
+    }
+
+    /// The charge step's rescue step fails, and a reporter fails on `journey_failed`, which
+    /// aborts the journey while the charge step is rescuing.
+    fn is_rescued_by_a_rescue_step_that_fails_before_a_reporter_aborts_the_journey(
+        model: &mut Model,
+    ) {
+        is_rescued_by_a_rescue_step_that_fails(model);
+        fails_on(model, "journey_failed");
+    }
+
+    /// A reporter that fails on the first event of the kind.
+    fn fails_on(model: &mut Model, kind: &str) {
+        model.dispatching = Dispatching::Default;
+        model.workflow_mut().unwrap().reporters = vec!["fragile".to_owned(), "audit".to_owned()];
+        let kind = EventKind::named(kind).unwrap();
+        model
+            .reporter_failures
+            .insert("fragile".to_owned(), ReporterFailure::On(kind, None));
     }
 
     /// The charge step succeeds, and a reporter fails on its contribution, which aborts the
@@ -186,12 +255,7 @@ mod tests {
             outcome: AttemptOutcome::Success,
             contributes: vec![("receipt".to_owned(), serde_json::json!("R-1"))],
         }]);
-        model.dispatching = Dispatching::Default;
-        model.workflow_mut().unwrap().reporters = vec!["fragile".to_owned(), "audit".to_owned()];
-        let committed = EventKind::named("contribution_committed").unwrap();
-        model
-            .reporter_failures
-            .insert("fragile".to_owned(), ReporterFailure::On(committed, None));
+        fails_on(model, "contribution_committed");
     }
 
     #[rstest]
@@ -201,6 +265,24 @@ mod tests {
     #[case::that_succeeded_once_retried(is_retried, "charge", Status::Succeeded, 2)]
     #[case::after_one_given_up(is_given_up, "ship", Status::NotExecuted, 0)]
     #[case::that_could_not_be_built(cannot_be_built, "charge", Status::Aborted, 1)]
+    #[case::whose_rescue_step_failed(
+        is_rescued_by_a_rescue_step_that_fails,
+        "charge",
+        Status::Rescuing,
+        1
+    )]
+    #[case::whose_rescue_step_failed_before_a_reporter_aborted_the_journey(
+        is_rescued_by_a_rescue_step_that_fails_before_a_reporter_aborts_the_journey,
+        "charge",
+        Status::Aborted,
+        1
+    )]
+    #[case::whose_rescue_step_could_not_be_built(
+        is_rescued_by_a_rescue_step_that_cannot_be_built,
+        "charge",
+        Status::Aborted,
+        1
+    )]
     #[case::that_succeeded_before_the_journey_was_aborted(
         succeeds_before_a_reporter_aborts_the_journey,
         "charge",

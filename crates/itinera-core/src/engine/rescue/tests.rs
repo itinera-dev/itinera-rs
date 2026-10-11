@@ -1,0 +1,316 @@
+use std::sync::Arc;
+
+use rstest::rstest;
+
+use crate::engine::fixtures::{
+    CHARGE, Seen, attempting, crashed, data_of, declined, failing_on, instance, kinds, seen,
+    timed_out, travel_before, travel_workflow,
+};
+use crate::error::Error;
+use crate::event::{Event, EventBody};
+use crate::journey::{
+    Abort, Contributor, FailureCause, FailureRequester, JourneyStatus, MissingData,
+};
+use crate::step::{
+    OptionalInput, Outcome, Reason, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved,
+    RescueStep, StepDescriptor, StepName,
+};
+use crate::workflow::fixtures::{Orders, orders};
+
+const RESCUE: StepName = StepName::new("charge_rescue");
+const ATTEMPT: OptionalInput<i64> = OptionalInput::new("attempt");
+
+type Ends = fn() -> Result<Outcome, Error>;
+
+/// The charge step, which ends each attempt as the next of `ends` says, with a rescue step that
+/// succeeds.
+fn rescued(ends: &'static [Ends]) -> StepDescriptor<Orders> {
+    attempting(ends).rescue(|| Ok(RescueOutcome::success()))
+}
+
+/// Runs a journey of a workflow holding only the charge step.
+fn travel_charge(charge: StepDescriptor<Orders>) -> (JourneyStatus, Vec<Event>) {
+    travel_workflow(orders().step(charge))
+}
+
+/// The step a `journey_failed` event names, with the cause of the journey's failure.
+fn failed_step(event: &Event) -> Option<(StepName, FailureCause)> {
+    match &event.body {
+        EventBody::JourneyFailed { step, failure } => Some((*step, failure.cause())),
+        _ => None,
+    }
+}
+
+#[rstest]
+#[case::a_failure(&[declined as Ends], "step_failed")]
+#[case::a_retriable_failure(&[timed_out as Ends], "step_failed")]
+#[case::an_abnormal_termination_the_step_would_retry(&[crashed as Ends], "step_abnormal_termination")]
+fn a_failed_first_attempt_is_rescued_then_the_step_is_attempted_again(
+    #[case] ends: &'static [Ends],
+    #[case] fact: &str,
+) {
+    let charge = rescued(ends).abnormal_termination_retriable();
+
+    let (status, events) = travel_charge(charge);
+
+    assert_eq!(data_of(&status), [("attempt".to_string(), 2)]);
+    assert_eq!(
+        kinds(&events),
+        [
+            "journey_started",
+            "attempt_started",
+            fact,
+            "step_rescuing",
+            "attempt_started",
+            "step_succeeded",
+            "step_rescued",
+            "attempt_started",
+            "step_succeeded",
+            "contribution_committed",
+            "journey_succeeded"
+        ]
+    );
+}
+
+#[rstest]
+#[case::a_failure(&[declined as Ends, declined], "step_failed", FailureCause::Failure)]
+#[case::a_retriable_failure(&[declined as Ends, timed_out], "step_failed", FailureCause::RetriesExhausted)]
+#[case::an_abnormal_termination(
+    &[declined as Ends, crashed],
+    "step_abnormal_termination",
+    FailureCause::AbnormalTermination
+)]
+fn a_step_that_fails_after_its_rescue_is_given_up_without_a_second_rescue(
+    #[case] ends: &'static [Ends],
+    #[case] fact: &str,
+    #[case] cause: FailureCause,
+) {
+    let (_, events) = travel_charge(rescued(ends));
+
+    assert_eq!(
+        kinds(&events),
+        [
+            "journey_started",
+            "attempt_started",
+            "step_failed",
+            "step_rescuing",
+            "attempt_started",
+            "step_succeeded",
+            "step_rescued",
+            "attempt_started",
+            fact,
+            "step_given_up",
+            "journey_failed"
+        ]
+    );
+    assert_eq!(
+        events.last().and_then(failed_step),
+        Some((StepName::new("charge"), cause))
+    );
+}
+
+fn refresh_failing() -> Result<RescueOutcome, Error> {
+    Ok(RescueOutcome::failure(Reason::new("no-refresh")))
+}
+
+fn refresh_busy() -> Result<RescueOutcome, Error> {
+    Ok(RescueOutcome::retriable_failure(Reason::new("busy")))
+}
+
+fn refresh_crashing() -> Result<RescueOutcome, Error> {
+    Err(Error::msg("refresh down"))
+}
+
+#[rstest]
+#[case::a_failure(refresh_failing, "step_failed", FailureCause::Failure)]
+#[case::a_retriable_failure(refresh_busy, "step_failed", FailureCause::RetriesExhausted)]
+#[case::an_abnormal_termination(
+    refresh_crashing,
+    "step_abnormal_termination",
+    FailureCause::AbnormalTermination
+)]
+fn a_rescue_step_that_does_not_succeed_fails_the_journey_and_the_step_is_not_attempted_again(
+    #[case] refresh: fn() -> Result<RescueOutcome, Error>,
+    #[case] fact: &str,
+    #[case] cause: FailureCause,
+) {
+    let charge = attempting(&[declined]).rescue(refresh);
+
+    let (_, events) = travel_charge(charge);
+
+    assert_eq!(
+        kinds(&events),
+        [
+            "journey_started",
+            "attempt_started",
+            "step_failed",
+            "step_rescuing",
+            "attempt_started",
+            fact,
+            "step_given_up",
+            "journey_failed"
+        ]
+    );
+    assert_eq!(events.last().and_then(failed_step), Some((RESCUE, cause)));
+}
+
+/// A rescue step that records what the failed attempt left, contributes a token, and succeeds.
+struct Refresh {
+    seen: Seen,
+}
+
+struct Refreshing<'a> {
+    attempt: Option<i64>,
+    reason: Option<Reason>,
+    error: Option<Error>,
+    contributor: Contributor<'a>,
+    seen: &'a Seen,
+}
+
+impl RescueFactory for Refresh {
+    type Step<'a> = Refreshing<'a>;
+
+    fn needs(&self) -> RescueNeeds {
+        RescueNeeds::new()
+            .optional_from_rescued_step(&ATTEMPT)
+            .optional_reason()
+            .optional_error()
+            .contributor()
+    }
+
+    fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<Refreshing<'a>, Error> {
+        Ok(Refreshing {
+            attempt: got.optional_from_rescued_step(&ATTEMPT)?,
+            reason: got.optional_reason()?,
+            error: got.optional_error()?,
+            contributor: got.contributor()?,
+            seen: &self.seen,
+        })
+    }
+}
+
+impl RescueStep for Refreshing<'_> {
+    fn run(mut self) -> Result<RescueOutcome, Error> {
+        let reason = self.reason.as_ref().map(Reason::code);
+        let error = self.error.as_ref().map(ToString::to_string);
+        let saw = format!("{:?}, {reason:?}, {error:?}", self.attempt);
+        self.seen.lock().unwrap().push(saw);
+        self.contributor.contribute("token", 7_i64);
+        Ok(RescueOutcome::success())
+    }
+}
+
+#[rstest]
+#[case::a_failure(&[declined as Ends], r#"Some(1), Some("declined"), None"#)]
+#[case::an_abnormal_termination(&[crashed as Ends], r#"None, None, Some("the gateway crashed")"#)]
+fn the_rescue_step_receives_what_the_failed_attempt_left_and_its_contributions_are_committed(
+    #[case] ends: &'static [Ends],
+    #[case] received: &str,
+) {
+    let saw = Seen::default();
+    let refresh = Refresh {
+        seen: Arc::clone(&saw),
+    };
+    let charge = attempting(ends).rescue(refresh);
+
+    let (status, _) = travel_charge(charge);
+
+    assert_eq!(seen(&saw), [received]);
+    assert_eq!(
+        data_of(&status),
+        [("attempt".to_string(), 2), ("token".to_string(), 7)]
+    );
+}
+
+/// A rescue step that requires the failure's reason, and succeeds.
+struct NeedingReason;
+
+impl RescueFactory for NeedingReason {
+    type Step<'a> = Reason;
+
+    fn needs(&self) -> RescueNeeds {
+        RescueNeeds::new().reason()
+    }
+
+    fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<Reason, Error> {
+        got.reason()
+    }
+}
+
+impl RescueStep for Reason {
+    fn run(self) -> Result<RescueOutcome, Error> {
+        Ok(RescueOutcome::success())
+    }
+}
+
+fn aborted_at(event: &Event) -> Option<StepName> {
+    match &event.body {
+        EventBody::JourneyAborted { abort } => abort.step(),
+        _ => None,
+    }
+}
+
+#[test]
+fn a_required_reason_an_abnormal_termination_did_not_leave_aborts_naming_the_rescue_step() {
+    let charge = attempting(&[crashed]).rescue(NeedingReason);
+
+    let (status, events) = travel_charge(charge);
+
+    assert!(matches!(
+        status,
+        JourneyStatus::Aborted(Abort::RequiredDataMissing(MissingData::Reason {
+            requester: FailureRequester::RescueStep
+        }))
+    ));
+    assert_eq!(events.last().and_then(aborted_at), Some(RESCUE));
+}
+
+#[rstest]
+#[case::on_step_rescuing("step_rescuing")]
+#[case::on_step_rescued("step_rescued")]
+fn a_reporter_failing_on_a_rescue_decision_aborts_the_journey_naming_the_rescued_step(
+    #[case] kind: &'static str,
+) {
+    let workflow = orders().step(rescued(&[declined]));
+
+    let (status, events) =
+        travel_before(instance(workflow).create().unwrap(), Some(failing_on(kind)));
+
+    assert!(matches!(
+        status,
+        JourneyStatus::Aborted(Abort::ReporterFailed(_))
+    ));
+    assert_eq!(events.last().and_then(aborted_at), Some(CHARGE));
+}
+
+#[cfg(feature = "async")]
+mod asynchronous {
+    use super::*;
+    use crate::engine::fixtures::{async_orders, travel};
+
+    #[test]
+    fn an_asynchronous_rescue_step_is_awaited_before_the_step_is_attempted_again() {
+        let charge = StepDescriptor::new_async(CHARGE, async || declined())
+            .rescue_async(async || Ok(RescueOutcome::success()));
+        let workflow = async_orders().step(charge).build().unwrap();
+
+        let (_, events) = travel(workflow.instance(Orders).create().unwrap());
+
+        assert_eq!(
+            kinds(&events),
+            [
+                "journey_started",
+                "attempt_started",
+                "step_failed",
+                "step_rescuing",
+                "attempt_started",
+                "step_succeeded",
+                "step_rescued",
+                "attempt_started",
+                "step_failed",
+                "step_given_up",
+                "journey_failed"
+            ]
+        );
+    }
+}

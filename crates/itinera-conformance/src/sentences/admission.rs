@@ -121,6 +121,7 @@ struct Listed {
     position: NonZeroUsize,
     policies: String,
     adapter: String,
+    rescue: String,
 }
 
 impl Listed {
@@ -130,6 +131,7 @@ impl Listed {
             position: row.parse("position")?,
             policies: cell(row, "policies"),
             adapter: cell(row, "adapter"),
+            rescue: cell(row, "rescue"),
         })
     }
 }
@@ -147,6 +149,11 @@ impl From<&ListedStep> for Listed {
                 .join(", "),
             adapter: listed
                 .adapter
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_default(),
+            rescue: listed
+                .rescue
                 .as_ref()
                 .map(ToString::to_string)
                 .unwrap_or_default(),

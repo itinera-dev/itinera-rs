@@ -16,7 +16,7 @@ pub(crate) use mode::Declares;
 use input_adapter::input_adapter;
 use policy::{step_policy, workflow_policy};
 
-use crate::model::{IdGenerator, Model, ModelError, Workflow};
+use crate::model::{IdGenerator, Model, ModelError, Workflow, rescue_of};
 use crate::role::{ProvidedRoles, Roles};
 use crate::step::{Scripted, StepsRun};
 use crate::witness::Witness;
@@ -99,6 +99,11 @@ fn step_descriptor<M: Declares>(
     } else {
         descriptor
     };
+    let descriptor = if script.rescued {
+        M::rescue(descriptor, rescue(workflow, step, steps_run, witness)?)
+    } else {
+        descriptor
+    };
     let policies = workflow
         .step_policies
         .get(step)
@@ -109,6 +114,21 @@ fn step_descriptor<M: Declares>(
     Ok(policies
         .into_iter()
         .fold(descriptor, StepDescriptor::policy))
+}
+
+/// The factory of the step's rescue step, scripted under its rescue step's name.
+fn rescue(
+    workflow: &Workflow,
+    step: &str,
+    steps_run: &StepsRun,
+    witness: &Witness,
+) -> Result<Scripted, ModelError> {
+    let name = rescue_of(step);
+    let script = workflow
+        .scripts
+        .get(&name)
+        .ok_or_else(|| ModelError::UnknownStep(name.clone()))?;
+    Scripted::rescue(&name, script, steps_run.clone(), witness.clone())
 }
 
 /// A step name, which may not be empty.

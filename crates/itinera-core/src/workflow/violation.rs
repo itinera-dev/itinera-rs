@@ -59,11 +59,19 @@ impl Violations {
 #[derive(Clone, Debug, PartialEq, Eq, derive_more::Display)]
 #[non_exhaustive]
 pub enum Violation {
-    /// Two or more steps have this name.
+    /// Two or more steps have this name, counting each step's rescue step.
     #[display("duplicate step name: {step}")]
     #[non_exhaustive]
     DuplicateStepName {
         /// The name the steps share.
+        step: StepName,
+    },
+    /// A step has both a rescue step and a retry budget, though a step with a rescue step is
+    /// never retried.
+    #[display("rescued step retried: {step}")]
+    #[non_exhaustive]
+    RescuedStepRetried {
+        /// The step.
         step: StepName,
     },
     /// Two or more step policies attached to one step define the same hook.
@@ -121,6 +129,7 @@ impl Violation {
     pub fn kind(&self) -> ViolationKind {
         match self {
             Self::DuplicateStepName { .. } => ViolationKind::DuplicateStepName,
+            Self::RescuedStepRetried { .. } => ViolationKind::RescuedStepRetried,
             Self::StepHookDefinedTwice { .. } | Self::WorkflowHookDefinedTwice { .. } => {
                 ViolationKind::HookDefinedTwice
             }
@@ -149,9 +158,12 @@ pub enum ViolationKind {
     /// Two policies attached to the same step, or to the workflow, define the same hook.
     #[display("hook defined twice")]
     HookDefinedTwice,
-    /// Two steps have the same name.
+    /// Two steps, counting each step's rescue step, have the same name.
     #[display("duplicate step name")]
     DuplicateStepName,
+    /// A step has both a rescue step and a retry budget.
+    #[display("rescued step retried")]
+    RescuedStepRetried,
     /// Two input adapters are attached to the same step.
     #[display("step adapted twice")]
     StepAdaptedTwice,
@@ -191,6 +203,7 @@ mod tests {
     #[rstest]
     #[case::hook_defined_twice(ViolationKind::HookDefinedTwice, "hook defined twice")]
     #[case::duplicate_step_name(ViolationKind::DuplicateStepName, "duplicate step name")]
+    #[case::rescued_step_retried(ViolationKind::RescuedStepRetried, "rescued step retried")]
     #[case::step_adapted_twice(ViolationKind::StepAdaptedTwice, "step adapted twice")]
     #[case::input_adapter_for_unknown_step(
         ViolationKind::InputAdapterForUnknownStep,

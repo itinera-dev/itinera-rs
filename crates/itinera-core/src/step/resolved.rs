@@ -3,7 +3,11 @@
 use std::any;
 use std::marker::PhantomData;
 
-use super::{Input, OptionalInput, Reporting, Slots, StepReporter};
+mod got;
+
+pub(crate) use got::Got;
+
+use super::{FromRescued, Input, OptionalInput, Reporting, StepReporter};
 use crate::error::Error;
 use crate::journey::Contributor;
 use crate::mode::Synchronous;
@@ -122,6 +126,11 @@ impl<'a, M> Resolved<'a, M> {
             .ok_or_else(|| undeclared_handle("a contributor"))
     }
 
+    /// What the failed attempt of the step a rescue step rescues left for its requests.
+    pub(crate) fn rescued(&mut self) -> &mut FromRescued {
+        &mut self.got.rescued
+    }
+
     pub(crate) fn reporting(&mut self) -> Result<Reporting<'a>, Error> {
         self.got
             .reporting
@@ -166,38 +175,6 @@ fn undeclared<T>(key: &str) -> Error {
     ))
 }
 
-/// What the engine resolved for one attempt, whatever the workflow's mode.
-#[derive(derive_more::Debug)]
-pub(crate) struct Got<'a> {
-    inputs: Slots,
-    contributor: Option<Contributor<'a>>,
-    reporting: Option<Reporting<'a>>,
-}
-
-impl<'a> Got<'a> {
-    /// Holds the values of the inputs, in the order the needs declare them, absent ones as
-    /// `None`, and the handles the needs declare.
-    pub(crate) fn new(
-        inputs: impl IntoIterator<Item = (&'static str, Option<AnyValue>)>,
-        contributor: Option<Contributor<'a>>,
-        reporting: Option<Reporting<'a>>,
-    ) -> Self {
-        Self {
-            inputs: inputs.into_iter().collect(),
-            contributor,
-            reporting,
-        }
-    }
-
-    fn take(&mut self, key: &str) -> Option<AnyValue> {
-        self.inputs.take(key)
-    }
-
-    fn take_optional(&mut self, key: &str) -> Option<Option<AnyValue>> {
-        self.inputs.take_optional(key)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
@@ -207,7 +184,7 @@ mod tests {
     const AMOUNT: Input<i64> = Input::new("amount");
 
     fn resolved<'a>(inputs: Vec<(&'static str, Option<AnyValue>)>) -> Resolved<'a> {
-        Resolved::new(Got::new(inputs, None, None))
+        Resolved::new(Got::new(inputs, FromRescued::default(), None, None))
     }
 
     #[test]

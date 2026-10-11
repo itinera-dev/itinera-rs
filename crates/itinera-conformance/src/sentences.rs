@@ -14,6 +14,7 @@ mod outcomes;
 mod policies;
 mod received;
 mod reporters;
+mod rescue_steps;
 
 use std::fmt;
 use std::num::NonZeroU64;

@@ -5,7 +5,7 @@ use itinera::event::Event;
 use super::ModelError;
 
 /// The kinds of event of the catalogue, by the names the cases use.
-const EVENT_KINDS: [&str; 24] = [
+const EVENT_KINDS: [&str; 26] = [
     "journey_started",
     "attempt_started",
     "input_adapter_supplied",
@@ -22,6 +22,8 @@ const EVENT_KINDS: [&str; 24] = [
     "journey_aborted",
     "step_retrying",
     "step_given_up",
+    "step_rescuing",
+    "step_rescued",
     "journey_succeeded",
     "journey_failed",
     "step_info",

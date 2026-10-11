@@ -17,9 +17,9 @@ mod timestamp;
 
 pub use abort::{JourneyAbort, MissingData};
 pub use body::EventBody;
-pub use decision::{DecidingHook, GiveUpCause, GiveUpHook};
+pub use decision::{DecidingHook, GiveUpCause, GiveUpHook, RescueCause};
 pub use failure::JourneyFailure;
-pub use requester::Requester;
+pub use requester::{FailureRequester, Requester};
 pub use source::{HookSource, RequestSource, Source};
 pub use timestamp::Timestamp;
 

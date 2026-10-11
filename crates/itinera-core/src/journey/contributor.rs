@@ -70,7 +70,7 @@ impl<'a> Contributor<'a> {
 
 /// What one attempt contributed: each key with its last value, in the order the keys were first
 /// contributed.
-#[derive(Debug, Default, derive_more::IntoIterator)]
+#[derive(Clone, Debug, Default, derive_more::IntoIterator)]
 #[into_iterator(owned, ref)]
 pub(crate) struct Contributions {
     contributions: Vec<Contribution>,
@@ -98,7 +98,7 @@ impl Contributions {
 }
 
 /// A value contributed under a key.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct Contribution {
     pub(crate) key: String,
     pub(crate) value: AnyValue,

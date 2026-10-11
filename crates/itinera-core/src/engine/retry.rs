@@ -1,5 +1,5 @@
-//! What follows an attempt that did not succeed: the step is attempted again or given up, as its
-//! own rule decides, unless a hook decides otherwise.
+//! What follows an attempt that did not succeed: the step is rescued, attempted again or given
+//! up, as its own rule decides, unless a hook decides otherwise.
 
 use super::attempt::Attempting;
 use super::decision::{Decision, Failed, decide, given_up};
@@ -13,26 +13,29 @@ use crate::step::Reason;
 
 impl<D: Delivery> Journey<D> {
     /// Acts on an attempt that did not succeed, as the step's own rule decides.
-    pub(super) async fn failed<I: WorkflowInstance>(
+    pub(super) async fn failed<'s, I: WorkflowInstance>(
         &mut self,
         instance: &mut I,
-        attempting: &Attempting<'_, I::Workflow, I::Mode>,
+        attempting: &Attempting<'s, I::Workflow, I::Mode>,
         failed: Failed,
-    ) -> Result<Next, End> {
+    ) -> Result<Next<'s, I::Workflow, I::Mode>, End> {
         match decide(&failed, attempting.attempt.attempt, attempting.step) {
+            Decision::Rescue(rescue, cause) => {
+                self.rescuing(attempting, rescue, failed, cause).await
+            }
             Decision::Retry(cause) => self.retry(instance, attempting, &failed, cause).await,
             Decision::GiveUp(cause) => self.give_up(instance, attempting, failed, cause).await,
         }
     }
 
     /// Attempts the step again, unless `on step retry` gives it up.
-    async fn retry<I: WorkflowInstance>(
+    async fn retry<'s, I: WorkflowInstance>(
         &mut self,
         instance: &mut I,
-        attempting: &Attempting<'_, I::Workflow, I::Mode>,
+        attempting: &Attempting<'s, I::Workflow, I::Mode>,
         failed: &Failed,
         cause: RetryCause,
-    ) -> Result<Next, End> {
+    ) -> Result<Next<'s, I::Workflow, I::Mode>, End> {
         match self
             .on_step_retry(instance, attempting, failed, cause)
             .await?
@@ -54,13 +57,13 @@ impl<D: Delivery> Journey<D> {
 
     /// Gives the step up as its own rule decided, then fails the journey as
     /// `on step failure` decides.
-    async fn give_up<I: WorkflowInstance>(
+    async fn give_up<'s, I: WorkflowInstance>(
         &mut self,
         instance: &mut I,
-        attempting: &Attempting<'_, I::Workflow, I::Mode>,
+        attempting: &Attempting<'s, I::Workflow, I::Mode>,
         failed: Failed,
         cause: StepFailureCause,
-    ) -> Result<Next, End> {
+    ) -> Result<Next<'s, I::Workflow, I::Mode>, End> {
         let step = attempting.attempt.step;
         self.emit(EventBody::StepGivenUp {
             step: attempting.attempt.clone(),
@@ -86,12 +89,12 @@ impl<D: Delivery> Journey<D> {
 
     /// Gives the step up because `hook` returned `FailWorkflow`, and fails the journey with its
     /// reason. `on step failure` is not called.
-    pub(super) async fn given_up_by<W, M>(
+    pub(super) async fn given_up_by<'s, W, M>(
         &mut self,
-        attempting: &Attempting<'_, W, M>,
+        attempting: &Attempting<'s, W, M>,
         hook: GiveUpHook,
         Decided { policy, lifecycle }: Decided<FailWorkflow>,
-    ) -> Result<Next, End> {
+    ) -> Result<Next<'s, W, M>, End> {
         let reason: Reason = lifecycle.into();
         self.emit(EventBody::StepGivenUp {
             step: attempting.attempt.clone(),

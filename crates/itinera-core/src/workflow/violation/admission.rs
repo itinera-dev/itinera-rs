@@ -1,11 +1,12 @@
 //! Admission's checks on a workflow's declaration, which find every violation it has.
 
-use std::collections::BTreeMap;
-
 use super::{Violation, Violations};
 use crate::policy::{PolicyName, StepHook, StepPolicyEntry, WorkflowHook, WorkflowPolicyEntry};
 use crate::step::{StepDescriptor, StepName};
 use crate::workflow::{AdapterName, InputAdapterDescriptor};
+use tally::{counted, grouped, more_than_once, repeated};
+
+mod tally;
 
 /// Checks a workflow's declaration, and returns every violation found.
 pub(crate) fn check<M, W>(
@@ -14,6 +15,7 @@ pub(crate) fn check<M, W>(
     adapters: &[InputAdapterDescriptor<W>],
 ) -> Result<(), Violations> {
     let violations: Vec<Violation> = duplicate_step_names(steps)
+        .chain(rescued_steps_retried(steps))
         .chain(steps.iter().flat_map(step_hooks_defined_twice))
         .chain(workflow_hooks_defined_twice(policies))
         .chain(adapters_for_unknown_steps(steps, adapters))
@@ -27,14 +29,36 @@ pub(crate) fn check<M, W>(
 }
 
 fn duplicate_step_names<W, M>(steps: &[StepDescriptor<W, M>]) -> impl Iterator<Item = Violation> {
-    counted(steps.iter().map(StepDescriptor::name))
+    counted(steps.iter().flat_map(names))
         .into_iter()
         .filter(repeated)
         .map(duplicate_step_name)
 }
 
+/// The step's name, then its rescue step's, if it has one.
+fn names<W, M>(step: &StepDescriptor<W, M>) -> impl Iterator<Item = StepName> {
+    std::iter::once(step.name()).chain(step.rescue_step().map(StepDescriptor::name))
+}
+
 fn duplicate_step_name((step, _): (StepName, usize)) -> Violation {
     Violation::DuplicateStepName { step }
+}
+
+fn rescued_steps_retried<W, M>(
+    steps: &[StepDescriptor<W, M>],
+) -> impl Iterator<Item = Violation> + '_ {
+    steps
+        .iter()
+        .filter(rescued_and_retried)
+        .map(rescued_step_retried)
+}
+
+fn rescued_and_retried<W, M>(step: &&StepDescriptor<W, M>) -> bool {
+    step.rescue_step().is_some() && step.allows_retries()
+}
+
+fn rescued_step_retried<W, M>(step: &StepDescriptor<W, M>) -> Violation {
+    Violation::RescuedStepRetried { step: step.name() }
 }
 
 fn step_hooks_defined_twice<W, M>(step: &StepDescriptor<W, M>) -> impl Iterator<Item = Violation> {
@@ -161,37 +185,6 @@ fn is_unknown<W, M>(steps: &[StepDescriptor<W, M>], name: StepName) -> bool {
     !is_known(steps, name)
 }
 
-/// Groups values by key, keeping the values of each key in order.
-fn grouped<K: Ord, V>(pairs: impl Iterator<Item = (K, V)>) -> BTreeMap<K, Vec<V>> {
-    pairs.fold(BTreeMap::new(), add_to_group)
-}
-
-fn add_to_group<K: Ord, V>(
-    mut groups: BTreeMap<K, Vec<V>>,
-    (key, value): (K, V),
-) -> BTreeMap<K, Vec<V>> {
-    groups.entry(key).or_default().push(value);
-    groups
-}
-
-fn more_than_once<K, V>((_, values): &(K, Vec<V>)) -> bool {
-    values.len() > 1
-}
-
-/// Counts how many times each key occurs.
-fn counted<K: Ord>(keys: impl Iterator<Item = K>) -> BTreeMap<K, usize> {
-    keys.fold(BTreeMap::new(), add_to_count)
-}
-
-fn add_to_count<K: Ord>(mut counts: BTreeMap<K, usize>, key: K) -> BTreeMap<K, usize> {
-    *counts.entry(key).or_default() += 1;
-    counts
-}
-
-fn repeated<K>((_, count): &(K, usize)) -> bool {
-    *count > 1
-}
-
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
@@ -199,6 +192,7 @@ mod tests {
     use super::*;
     use crate::policy::fixtures::Quiet;
     use crate::policy::{StepPolicyDescriptor, WorkflowPolicyDescriptor};
+    use crate::step::RescueOutcome;
     use crate::workflow::fixtures::{Orders, adapter, orders, step};
     use crate::workflow::{ViolationKind, WorkflowBuilder};
 
@@ -214,6 +208,10 @@ mod tests {
         WorkflowPolicyDescriptor::new("notify", || Quiet).on_workflow_failure()
     }
 
+    fn rescued_charge() -> StepDescriptor<Orders> {
+        step("charge").rescue(|| Ok(RescueOutcome::success()))
+    }
+
     fn violations(builder: WorkflowBuilder<Orders>) -> Vec<Violation> {
         builder.build().unwrap_err().into_iter().collect()
     }
@@ -222,6 +220,25 @@ mod tests {
     #[case::two_steps_with_one_name(
         orders().step(step("charge")).step(step("charge")),
         Violation::DuplicateStepName { step: StepName::new("charge") },
+    )]
+    #[case::a_step_named_as_another_steps_rescue_step(
+        orders()
+            .step(rescued_charge())
+            .step(step("charge_rescue")),
+        Violation::DuplicateStepName { step: StepName::new("charge_rescue") },
+    )]
+    #[case::a_step_with_a_rescue_step_and_a_retry_budget(
+        orders().step(rescued_charge().retry_budget(1)),
+        Violation::RescuedStepRetried { step: StepName::new("charge") },
+    )]
+    #[case::an_adapter_on_a_rescue_step(
+        orders()
+            .step(rescued_charge())
+            .input_adapter(adapter("pricing", "charge_rescue")),
+        Violation::InputAdapterForUnknownStep {
+            adapter: AdapterName::from("pricing"),
+            step: StepName::new("charge_rescue"),
+        },
     )]
     #[case::two_step_policies_defining_one_hook(
         orders().step(step("charge").policy(audit()).policy(

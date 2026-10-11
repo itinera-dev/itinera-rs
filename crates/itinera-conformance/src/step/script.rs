@@ -1,9 +1,11 @@
 //! What a step's script says, read from the scenario model with its values typed.
 
-use itinera::step::StepNeeds;
+use itinera::step::{RescueNeeds, StepNeeds};
 
+use super::building::Needs;
 use super::ending::Ending;
 use super::input::{needing, requested};
+use super::rescue::{RescueData, needing_rescued, requested_from_rescued};
 use crate::model::{self, Level, ModelError, StepAction};
 use crate::value::{Data, Typed};
 
@@ -15,6 +17,8 @@ use crate::value::{Data, Typed};
 #[derive(Debug)]
 pub(super) struct Script {
     pub(super) inputs: Vec<Data>,
+    /// What it requests from the step it rescues, in order, when it is a rescue step.
+    pub(super) rescue_requests: Vec<RescueData>,
     /// What every attempt does before it ends, in order.
     pub(super) actions: Vec<Action>,
     /// How the attempts before the last stated one end, in order.
@@ -46,6 +50,11 @@ impl Script {
         };
         Ok(Self {
             inputs: step.inputs.iter().map(requested).collect(),
+            rescue_requests: step
+                .rescue_requests
+                .iter()
+                .map(requested_from_rescued)
+                .collect(),
             actions: step
                 .actions
                 .iter()
@@ -60,9 +69,23 @@ impl Script {
 
     /// Its inputs, and both handles, which it takes whether it uses them or not.
     pub(super) fn needs(&self) -> StepNeeds {
-        self.inputs
-            .iter()
-            .fold(StepNeeds::new().contributor().reporter(), needing)
+        self.needing_inputs(StepNeeds::new().contributor().reporter())
+    }
+
+    /// As a rescue step: its inputs, both handles, and what it requests from the step it
+    /// rescues.
+    pub(super) fn rescue_needs(&self) -> RescueNeeds {
+        let needs = self.needing_inputs(RescueNeeds::new().contributor().reporter());
+        self.rescue_requests.iter().fold(needs, needing_rescued)
+    }
+
+    fn needing_inputs<N: Needs>(&self, needs: N) -> N {
+        self.inputs.iter().fold(needs, needing)
+    }
+
+    /// Whether any of its attempts skips.
+    pub(super) fn skips(&self) -> bool {
+        self.endings.iter().chain([&self.last]).any(Ending::skips)
     }
 
     /// How the attempt that comes after `before` others ends.

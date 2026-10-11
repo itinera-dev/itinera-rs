@@ -23,6 +23,7 @@ mod hooks;
 mod inputs;
 mod outcome;
 mod request;
+mod rescue;
 mod retry;
 
 #[cfg(feature = "async")]
@@ -33,6 +34,7 @@ pub(crate) use hooks::WorkflowPolicies;
 
 use emitter::{Delivery, Emitter};
 use end::{Aborted, End};
+use rescue::LeftForRescue;
 
 /// Runs one journey of the instance, with the workflow policies built for it, delivering its
 /// events through the dispatcher, whose reporters were guarded by `failures`.
@@ -66,15 +68,18 @@ pub(crate) async fn run<I: WorkflowInstance>(
     JourneyResult { journey_id, status }
 }
 
-/// What the scan does after an attempt, when the journey goes on.
-#[derive(Debug)]
-enum Next {
+/// What the scan does after an attempt of a step described by a `StepDescriptor<W, M>` that
+/// lives for `'s`, when the journey goes on.
+enum Next<'s, W, M> {
     /// The step is done: it succeeded or skipped itself.
     Step,
     /// The step is attempted again.
     Attempt,
     /// A hook of the step returned `FinishWorkflow`: the journey succeeds without the steps left.
     Finish(PolicyName),
+    /// The step's rescue step runs with what the failed attempt left, then the step is attempted
+    /// again.
+    Rescue(&'s StepDescriptor<W, M>, Box<LeftForRescue>),
 }
 
 /// One journey while it runs.
@@ -143,8 +148,8 @@ impl<D: Delivery> Journey<D> {
         Ok(None)
     }
 
-    /// Attempts a step until it is done, or the journey ends. Returns the policy whose hook
-    /// finished the journey, if one did.
+    /// Attempts a step until it is done, or the journey ends, running its rescue step when an
+    /// attempt is handed to it. Returns the policy whose hook finished the journey, if one did.
     async fn run_step<I: WorkflowInstance>(
         &mut self,
         instance: &mut I,
@@ -152,10 +157,14 @@ impl<D: Delivery> Journey<D> {
     ) -> Result<Option<PolicyName>, End> {
         let mut attempt = StepAttempt::first(step.name());
         loop {
-            match self.attempt(instance, step, &attempt).await? {
+            match self.attempt(instance, step, &attempt, None).await? {
                 Next::Attempt => attempt = attempt.next(),
                 Next::Step => return Ok(None),
                 Next::Finish(policy) => return Ok(Some(policy)),
+                Next::Rescue(rescue, rescuing) => {
+                    self.rescue(instance, rescue, &attempt, *rescuing).await?;
+                    attempt = attempt.next();
+                }
             }
         }
     }

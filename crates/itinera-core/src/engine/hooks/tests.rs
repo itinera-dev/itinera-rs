@@ -10,7 +10,7 @@ use crate::engine::fixtures::{
 use crate::error::Error;
 use crate::event::{Event, EventBody, HookSource, JourneyAbort, RequestSource, Source};
 use crate::instance::WorkflowInstance;
-use crate::journey::{Abort, JourneyStatus, MissingData, Requester};
+use crate::journey::{Abort, FailureRequester, JourneyStatus, MissingData, Requester};
 use crate::policy::{
     FailWorkflow, HookNeeds, OnStepFailure, OnStepSuccess, OnSuccess, OnWorkflowSuccess,
     PolicyName, Requested, StepFailure, StepHook, StepPolicyDescriptor, StepSuccess, WorkflowHook,
@@ -121,6 +121,13 @@ fn alarm_requester() -> Requester {
     }
 }
 
+fn alarm_failure_requester() -> FailureRequester {
+    FailureRequester::StepHook {
+        policy: PolicyName::from("alarm"),
+        hook: StepHook::OnStepFailure,
+    }
+}
+
 #[rstest]
 #[case::data_from_the_step(
     HookNeeds::new().from_step(&DECLINE),
@@ -135,18 +142,12 @@ fn alarm_requester() -> Requester {
 #[case::the_reason_of_an_abnormal_termination(
     HookNeeds::new().reason(),
     crashed,
-    MissingData::Reason {
-        policy: PolicyName::from("alarm"),
-        hook: StepHook::OnStepFailure,
-    }
+    MissingData::Reason { requester: alarm_failure_requester() }
 )]
 #[case::the_error_of_a_failure(
     HookNeeds::new().error(),
     declined,
-    MissingData::Error {
-        policy: PolicyName::from("alarm"),
-        hook: StepHook::OnStepFailure,
-    }
+    MissingData::Error { requester: alarm_failure_requester() }
 )]
 fn a_required_request_without_a_value_aborts_the_journey_before_the_hook_runs(
     #[case] needs: HookNeeds<StepFailure>,
