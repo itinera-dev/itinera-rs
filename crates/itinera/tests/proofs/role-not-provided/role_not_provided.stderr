@@ -25,7 +25,7 @@ note: required for `Tell` to implement `itinera::policy::OnStepSuccess<Orders>`
    |         |
    |         unsatisfied trait bound introduced here
 note: required by a bound in `StepPolicyDescriptor::<P, W, Synchronous, S>::on_step_success`
-  --> $WORKSPACE/crates/itinera-core/src/policy/descriptor.rs
+  --> $WORKSPACE/crates/itinera-core/src/policy/descriptor/step_policy.rs
    |
    |     pub fn on_step_success(self) -> StepPolicyDescriptor<P, W>
    |            --------------- required by a bound in this associated function

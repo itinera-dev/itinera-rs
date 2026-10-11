@@ -42,3 +42,38 @@ impl AsyncReporter for Guarded {
         self.guard.record(event, reported)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use futures::executor::block_on;
+
+    use crate::executor::AsyncLocalExecutor;
+    use crate::executor::fixtures::{Shop, mixed_instance};
+    use crate::journey::{Abort, JourneyStatus};
+    use crate::report::fixtures::entries;
+
+    #[test]
+    fn an_asynchronous_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others()
+     {
+        let (instance, log) = mixed_instance(Shop::failing("fragile", "journey_started"));
+
+        let result = block_on(AsyncLocalExecutor::new().run(instance)).unwrap();
+
+        let JourneyStatus::Aborted(Abort::ReporterFailed(error)) = result.status else {
+            panic!(
+                "the journey was not aborted by a reporter: {:?}",
+                result.status
+            );
+        };
+        assert_eq!(error.to_string(), "fragile failed on journey_started");
+        assert_eq!(
+            entries(&log),
+            [
+                "audit journey_started",
+                "fragile journey_started",
+                "audit journey_aborted",
+                "metrics journey_aborted",
+            ]
+        );
+    }
+}

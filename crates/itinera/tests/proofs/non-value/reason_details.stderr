@@ -19,7 +19,7 @@ error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/reason_detai
           and $N others
   = note: required for `{closure@$DIR/tests/proofs/non-value/reason_details.rs:4:75: 4:77}` to implement `Value`
 note: required by a bound in `itinera::step::Reason::with_details`
- --> $WORKSPACE/crates/itinera-core/src/step.rs
+ --> $WORKSPACE/crates/itinera-core/src/step/reason.rs
   |
   |     pub fn with_details<T: Value>(mut self, details: T) -> Self {
   |                            ^^^^^ required by this bound in `Reason::with_details`
@@ -46,7 +46,7 @@ error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/reason_detai
   = note: required for `{closure@$DIR/tests/proofs/non-value/reason_details.rs:4:75: 4:77}` to implement `serde_core::de::DeserializeOwned`
   = note: required for `{closure@$DIR/tests/proofs/non-value/reason_details.rs:4:75: 4:77}` to implement `Value`
 note: required by a bound in `itinera::step::Reason::with_details`
- --> $WORKSPACE/crates/itinera-core/src/step.rs
+ --> $WORKSPACE/crates/itinera-core/src/step/reason.rs
   |
   |     pub fn with_details<T: Value>(mut self, details: T) -> Self {
   |                            ^^^^^ required by this bound in `Reason::with_details`

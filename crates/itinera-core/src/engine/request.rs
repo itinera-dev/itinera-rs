@@ -1,0 +1,220 @@
+//! Turning what was found for a request into its value, or into the abort it causes, naming who
+//! requested it: a step, an input adapter or a hook.
+
+use super::end::End;
+use super::{Delivery, Journey};
+use crate::event::{self, EventBody, HookSource, JourneyAbort, RequestSource};
+use crate::journey::{Abort, MissingData, Requester};
+use crate::step::{InputNeed, Requirement, StepAttempt};
+use crate::value::AnyValue;
+use crate::workflow::AdapterName;
+
+/// Who requests a value, as the result, the abort and the events name it.
+pub(super) struct Requesting {
+    requester: Requester,
+    reported: event::Requester,
+    source: RequestSource,
+}
+
+impl Requesting {
+    /// A step, for one of its inputs during this attempt.
+    pub(super) fn step(attempt: &StepAttempt) -> Self {
+        Self {
+            requester: Requester::Step,
+            reported: event::Requester::Step { step: attempt.step },
+            source: RequestSource::Step(attempt.clone()),
+        }
+    }
+
+    /// An input adapter, for an input of the step it is building in this attempt.
+    pub(super) fn adapter(adapter: AdapterName, attempt: &StepAttempt) -> Self {
+        Self {
+            requester: Requester::Adapter { adapter },
+            reported: event::Requester::Adapter {
+                adapter,
+                step: attempt.step,
+            },
+            source: RequestSource::Adapter {
+                adapter,
+                step: attempt.clone(),
+            },
+        }
+    }
+
+    /// A hook of a policy.
+    pub(super) fn hook(hook: &HookSource) -> Self {
+        let (requester, reported) = match *hook {
+            HookSource::Step {
+                policy,
+                hook,
+                ref step,
+            } => (
+                Requester::StepHook { policy, hook },
+                event::Requester::StepHook {
+                    policy,
+                    hook,
+                    step: step.step,
+                },
+            ),
+            HookSource::Workflow { policy, hook } => (
+                Requester::WorkflowHook { policy, hook },
+                event::Requester::WorkflowHook { policy, hook },
+            ),
+        };
+        Self {
+            requester,
+            reported,
+            source: RequestSource::Hook(hook.clone()),
+        }
+    }
+}
+
+impl<D: Delivery> Journey<D> {
+    /// Turns what was found for one request into its value, or the abort it causes.
+    pub(super) async fn request(
+        &mut self,
+        requesting: &Requesting,
+        need: &InputNeed,
+        found: Option<AnyValue>,
+    ) -> Result<Option<AnyValue>, End> {
+        let key = need.key();
+        match found {
+            Some(value) if need.accepts(&value) => Ok(Some(value)),
+            Some(_) => Err(wrong_type(key, requesting)),
+            None => match need.requirement() {
+                Requirement::Required => Err(missing(key, requesting)),
+                Requirement::Optional => self.absent(key, requesting.source.clone()).await,
+            },
+        }
+    }
+
+    /// Reports that an optional request has no value, which its requester receives absent.
+    async fn absent(
+        &mut self,
+        key: &str,
+        requester: RequestSource,
+    ) -> Result<Option<AnyValue>, End> {
+        self.emit(EventBody::OptionalInputAbsent {
+            key: key.to_owned(),
+            requester,
+        })
+        .await?;
+        Ok(None)
+    }
+}
+
+/// The abort for a required request without a value, naming who requested it.
+fn missing(key: &str, requesting: &Requesting) -> End {
+    End::aborted(
+        Abort::RequiredDataMissing(MissingData::Key {
+            key: key.to_owned(),
+            requester: requesting.requester.clone(),
+        }),
+        JourneyAbort::RequiredDataMissing {
+            missing: event::MissingData::Key {
+                key: key.to_owned(),
+                requester: requesting.reported.clone(),
+            },
+        },
+    )
+}
+
+/// The abort for a value of the wrong type, naming who requested it: the input adapter that
+/// supplied it, or the step, input adapter or hook that read it.
+pub(super) fn wrong_type(key: &str, requesting: &Requesting) -> End {
+    End::aborted(
+        Abort::WrongType {
+            key: key.to_owned(),
+            requester: requesting.requester.clone(),
+        },
+        JourneyAbort::WrongType {
+            key: key.to_owned(),
+            requester: requesting.reported.clone(),
+        },
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+    use crate::engine::fixtures::{
+        CHARGE, Data, Read, amount_as_i32, charged, instance, kinds, reads, travel, travel_workflow,
+    };
+    use crate::instance::InstanceBuilder;
+    use crate::journey::JourneyStatus;
+    use crate::workflow::fixtures::Orders;
+
+    #[test]
+    fn an_optional_input_without_a_value_is_absent_and_reported() {
+        let read = Read::default();
+        let journey = instance(charged(&read)).data("amount", 42_i64);
+
+        let (_, events) = travel(journey.create().unwrap());
+
+        assert_eq!(reads(&read), [(42, None)]);
+        assert_eq!(
+            kinds(&events),
+            [
+                "journey_started",
+                "attempt_started",
+                "optional_input_absent",
+                "step_succeeded",
+                "journey_succeeded"
+            ]
+        );
+        let Some(EventBody::OptionalInputAbsent { key, requester }) =
+            events.get(2).map(|e| &e.body)
+        else {
+            panic!("the third event is not optional_input_absent");
+        };
+        assert_eq!(key, "discount");
+        assert_eq!(requester, &RequestSource::Step(StepAttempt::first(CHARGE)));
+    }
+
+    #[test]
+    fn a_required_input_without_a_value_aborts_the_journey_before_the_step_is_built() {
+        let read = Read::default();
+
+        let (status, events) = travel_workflow(charged(&read));
+
+        let JourneyStatus::Aborted(Abort::RequiredDataMissing(MissingData::Key { key, requester })) =
+            status
+        else {
+            panic!("the journey was not aborted for missing data: {status:?}");
+        };
+        assert_eq!(key, "amount");
+        assert_eq!(requester, Requester::Step);
+        assert!(reads(&read).is_empty());
+        assert_eq!(
+            kinds(&events),
+            ["journey_started", "attempt_started", "journey_aborted"]
+        );
+    }
+
+    fn discount_as_text(journey: InstanceBuilder<Orders>) -> InstanceBuilder<Orders> {
+        journey
+            .data("amount", 42_i64)
+            .data("discount", "five".to_string())
+    }
+
+    #[rstest]
+    #[case::a_narrower_integer_for_a_required_input(amount_as_i32, "amount")]
+    #[case::text_for_an_optional_input(discount_as_text, "discount")]
+    fn a_value_of_another_type_aborts_the_journey_with_wrong_type(
+        #[case] data: Data,
+        #[case] expected: &str,
+    ) {
+        let read = Read::default();
+
+        let (status, _) = travel(data(instance(charged(&read))).create().unwrap());
+
+        let JourneyStatus::Aborted(Abort::WrongType { key, requester }) = status else {
+            panic!("the journey was not aborted for a wrong type: {status:?}");
+        };
+        assert_eq!(key, expected);
+        assert_eq!(requester, Requester::Step);
+        assert!(reads(&read).is_empty());
+    }
+}

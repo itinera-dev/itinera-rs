@@ -1,27 +1,26 @@
 //! The scenario's workflow, declared with itinera's builder from the scenario model, in the
 //! mode of the executor that runs it.
 
-use itinera::error::Error;
-use itinera::journey::{DataBag, DataBagAccess, Read};
-use itinera::mode::{Asynchronous, Mode, Synchronous};
-use itinera::policy::{
-    HookNeeds, Hooked, Hookless, InputAdapter, Provides, Requested, StepHook, StepPolicyDescriptor,
-    WorkflowHook, WorkflowPolicyDescriptor,
-};
-use itinera::step::{StepDescriptor, StepName};
-use itinera::value::{AnyValue, Value as Storable};
-use itinera::workflow::{
-    InputAdapterDescriptor, ListedStep, Violations, WorkflowBuilder, WorkflowDescriptor,
-};
+mod input_adapter;
+mod mode;
+mod policy;
 
-use crate::model::{
-    Adapter, Answer, HookScript, Hooks, IdGenerator, Model, ModelError, Policy, ValueType, Workflow,
-};
-use crate::policy::{Building, ScriptedPolicy, Scripts, requiring_from_workflow};
+use itinera::error::Error;
+use itinera::journey::DataBag;
+use itinera::mode::Mode;
+use itinera::policy::Provides;
+use itinera::step::{StepDescriptor, StepName};
+use itinera::workflow::{ListedStep, Violations, WorkflowBuilder};
+
+pub(crate) use mode::Declares;
+
+use input_adapter::input_adapter;
+use policy::{step_policy, workflow_policy};
+
+use crate::model::{IdGenerator, Model, ModelError, Workflow};
 use crate::record::{ListedReporter, Recorder};
 use crate::role::{ProvidedRoles, Roles};
 use crate::step::{Scripted, StepsRun};
-use crate::value::{ForType, Typed, for_type};
 use crate::witness::Witness;
 
 /// The workflow's own value: the recorders of the reporters it lists, in order, which its
@@ -55,136 +54,6 @@ pub(crate) enum Admission {
     /// The workflow was admitted, with this listing.
     Admitted(Vec<ListedStep>),
     Refused(Violations),
-}
-
-/// A scripted step policy, declared in the mode `M`, which names its hooks once it is `Hooked`.
-type StepPolicy<M, S = Hooked> = StepPolicyDescriptor<ScriptedPolicy, ScriptedWorkflow, M, S>;
-
-/// A scripted workflow policy, declared in the mode `M`, which names its hooks once it is
-/// `Hooked`.
-type WorkflowPolicy<M, S = Hooked> =
-    WorkflowPolicyDescriptor<ScriptedPolicy, ScriptedWorkflow, M, S>;
-
-/// An execution mode the scenario's workflow can be declared in.
-pub(crate) trait Declares: Mode + Sized {
-    fn builder(name: &'static str) -> WorkflowBuilder<ScriptedWorkflow, Self>;
-
-    fn step(name: StepName, factory: Scripted) -> StepDescriptor<ScriptedWorkflow, Self>;
-
-    fn step_policy(building: Building) -> StepPolicy<Self, Hookless>;
-
-    /// The step policy, which defines this hook too, needing what its script says.
-    fn step_hook<S>(
-        policy: StepPolicy<Self, S>,
-        hook: StepHook,
-        scripts: &Scripts,
-    ) -> Result<StepPolicy<Self>, ModelError>;
-
-    fn workflow_policy(building: Building) -> WorkflowPolicy<Self, Hookless>;
-
-    /// The workflow policy, which defines this hook too, needing what its script says.
-    fn workflow_hook<S>(
-        policy: WorkflowPolicy<Self, S>,
-        hook: WorkflowHook,
-        scripts: &Scripts,
-    ) -> Result<WorkflowPolicy<Self>, ModelError>;
-}
-
-impl Declares for Synchronous {
-    fn builder(name: &'static str) -> WorkflowBuilder<ScriptedWorkflow, Self> {
-        WorkflowDescriptor::builder(name)
-    }
-
-    fn step(name: StepName, factory: Scripted) -> StepDescriptor<ScriptedWorkflow, Self> {
-        StepDescriptor::new(name, factory)
-    }
-
-    fn step_policy(building: Building) -> StepPolicy<Self, Hookless> {
-        StepPolicyDescriptor::fallible(building.name(), move || building.build())
-    }
-
-    fn step_hook<S>(
-        policy: StepPolicy<Self, S>,
-        hook: StepHook,
-        scripts: &Scripts,
-    ) -> Result<StepPolicy<Self>, ModelError> {
-        Ok(match hook {
-            StepHook::OnStepSuccess => policy.on_step_success_needing(scripts.needs()?),
-            StepHook::OnStepFailure => policy.on_step_failure_needing(scripts.needs()?),
-            StepHook::OnStepRetry => policy.on_step_retry_needing(scripts.needs()?),
-            StepHook::OnStepAbnormalTermination => {
-                policy.on_step_abnormal_termination_needing(scripts.needs()?)
-            }
-            _ => return Err(unknown(hook)),
-        })
-    }
-
-    fn workflow_policy(building: Building) -> WorkflowPolicy<Self, Hookless> {
-        WorkflowPolicyDescriptor::fallible(building.name(), move || building.build())
-    }
-
-    fn workflow_hook<S>(
-        policy: WorkflowPolicy<Self, S>,
-        hook: WorkflowHook,
-        scripts: &Scripts,
-    ) -> Result<WorkflowPolicy<Self>, ModelError> {
-        Ok(match hook {
-            WorkflowHook::OnWorkflowSuccess => policy.on_workflow_success_needing(scripts.needs()?),
-            WorkflowHook::OnWorkflowFailure => policy.on_workflow_failure_needing(scripts.needs()?),
-            _ => return Err(unknown(hook)),
-        })
-    }
-}
-
-impl Declares for Asynchronous {
-    fn builder(name: &'static str) -> WorkflowBuilder<ScriptedWorkflow, Self> {
-        WorkflowDescriptor::async_builder(name)
-    }
-
-    fn step(name: StepName, factory: Scripted) -> StepDescriptor<ScriptedWorkflow, Self> {
-        StepDescriptor::new_async(name, factory)
-    }
-
-    fn step_policy(building: Building) -> StepPolicy<Self, Hookless> {
-        StepPolicyDescriptor::fallible_async(building.name(), move || building.build())
-    }
-
-    fn step_hook<S>(
-        policy: StepPolicy<Self, S>,
-        hook: StepHook,
-        scripts: &Scripts,
-    ) -> Result<StepPolicy<Self>, ModelError> {
-        Ok(match hook {
-            StepHook::OnStepSuccess => policy.on_step_success_needing(scripts.needs()?),
-            StepHook::OnStepFailure => policy.on_step_failure_needing(scripts.needs()?),
-            StepHook::OnStepRetry => policy.on_step_retry_needing(scripts.needs()?),
-            StepHook::OnStepAbnormalTermination => {
-                policy.on_step_abnormal_termination_needing(scripts.needs()?)
-            }
-            _ => return Err(unknown(hook)),
-        })
-    }
-
-    fn workflow_policy(building: Building) -> WorkflowPolicy<Self, Hookless> {
-        WorkflowPolicyDescriptor::fallible_async(building.name(), move || building.build())
-    }
-
-    fn workflow_hook<S>(
-        policy: WorkflowPolicy<Self, S>,
-        hook: WorkflowHook,
-        scripts: &Scripts,
-    ) -> Result<WorkflowPolicy<Self>, ModelError> {
-        Ok(match hook {
-            WorkflowHook::OnWorkflowSuccess => policy.on_workflow_success_needing(scripts.needs()?),
-            WorkflowHook::OnWorkflowFailure => policy.on_workflow_failure_needing(scripts.needs()?),
-            _ => return Err(unknown(hook)),
-        })
-    }
-}
-
-/// A hook itinera knows that the runner does not.
-fn unknown(hook: impl ToString) -> ModelError {
-    ModelError::UnknownHook(hook.to_string())
 }
 
 /// Declares the scenario's workflow, whose steps count their runs in `steps_run`, and whose
@@ -265,173 +134,6 @@ fn step_descriptor<M: Declares>(
         .fold(descriptor, StepDescriptor::policy))
 }
 
-fn step_policy<M: Declares>(
-    model: &Model,
-    name: &str,
-    witness: &Witness,
-) -> Result<StepPolicy<M>, ModelError> {
-    let policy = policy(model, name)?;
-    let Hooks::Step(hooks) = &policy.hooks else {
-        return Err(ModelError::NotStepPolicy(name.to_owned()));
-    };
-    let building = Building::of(name, policy, witness)?;
-    let scripts = building.scripts();
-    let mut hooks = hooks.iter().map(hook_of);
-    let first = hooks.next().ok_or_else(|| no_hooks(name))?;
-    let declared = M::step_hook(M::step_policy(building), first, &scripts)?;
-    hooks.try_fold(declared, |declared, hook| {
-        M::step_hook(declared, hook, &scripts)
-    })
-}
-
-fn workflow_policy<M: Declares>(
-    model: &Model,
-    name: &str,
-    witness: &Witness,
-) -> Result<WorkflowPolicy<M>, ModelError> {
-    let policy = policy(model, name)?;
-    let Hooks::Workflow(hooks) = &policy.hooks else {
-        return Err(ModelError::NotWorkflowPolicy(name.to_owned()));
-    };
-    let building = Building::of(name, policy, witness)?;
-    let scripts = building.scripts();
-    let mut hooks = hooks.iter().map(hook_of);
-    let first = hooks.next().ok_or_else(|| no_hooks(name))?;
-    let declared = M::workflow_hook(M::workflow_policy(building), first, &scripts)?;
-    hooks.try_fold(declared, |declared, hook| {
-        M::workflow_hook(declared, hook, &scripts)
-    })
-}
-
-fn policy<'a>(model: &'a Model, name: &str) -> Result<&'a Policy, ModelError> {
-    model
-        .policies
-        .get(name)
-        .ok_or_else(|| ModelError::UnknownPolicy(name.to_owned()))
-}
-
-/// A policy of the scenario that defines no hook, which itinera cannot declare.
-fn no_hooks(name: &str) -> ModelError {
-    ModelError::NoHooks(name.to_owned())
-}
-
-fn hook_of<H: Copy>((hook, _): &(H, HookScript)) -> H {
-    *hook
-}
-
-fn input_adapter(
-    adapter: &Adapter,
-) -> Result<InputAdapterDescriptor<ScriptedWorkflow>, ModelError> {
-    let steps = adapter
-        .steps
-        .iter()
-        .map(String::as_str)
-        .map(step_name)
-        .collect::<Result<Vec<_>, _>>()?;
-    let (first, rest) = steps
-        .split_first()
-        .ok_or_else(|| ModelError::AdapterWithoutSteps(adapter.name.clone()))?;
-    let answers = adapter
-        .answers
-        .iter()
-        .map(Answering::of)
-        .collect::<Result<Vec<_>, _>>()?;
-    let needs = adapter
-        .requests
-        .iter()
-        .fold(HookNeeds::new(), requiring_from_workflow);
-    let needs = if adapter.data_bag {
-        needs.data_bag()
-    } else {
-        needs
-    };
-    Ok(rest.iter().copied().fold(
-        InputAdapterDescriptor::new(leaked(&adapter.name), *first, move |_, mut got| {
-            answer(&answers, &mut got)
-        })
-        .needing(needs),
-        InputAdapterDescriptor::step,
-    ))
-}
-
-/// A scripted adapter's answer for one key, with its value typed.
-#[derive(Debug)]
-struct Answering {
-    key: String,
-    answer: Answered,
-}
-
-#[derive(Debug)]
-enum Answered {
-    Value(Typed),
-    Nothing,
-    Fails(String),
-    ReadFromDataBag(String, ValueType),
-}
-
-impl Answering {
-    fn of((key, answer): &(String, Answer)) -> Result<Self, ModelError> {
-        let answer = match answer {
-            Answer::Value(value) => Answered::Value(Typed::of(value)?),
-            Answer::Nothing => Answered::Nothing,
-            Answer::Fails(message) => Answered::Fails(message.clone()),
-            Answer::ReadFromDataBag(key, value_type) => {
-                Answered::ReadFromDataBag(key.clone(), *value_type)
-            }
-        };
-        Ok(Self {
-            key: key.clone(),
-            answer,
-        })
-    }
-
-    fn is_for(&self, key: &str) -> bool {
-        self.key == key
-    }
-}
-
-/// What the adapter answers for the key it is called for: nothing for a key its script does not
-/// mention.
-fn answer(
-    answers: &[Answering],
-    got: &mut Requested<'_, ScriptedWorkflow, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
-    let key = got.key();
-    let answered = answers
-        .iter()
-        .find(|answering| answering.is_for(key))
-        .map(|answering| &answering.answer);
-    match answered {
-        Some(Answered::Value(value)) => Ok(Some(value.clone().erased())),
-        Some(Answered::Fails(message)) => Err(Error::msg(message.clone())),
-        Some(Answered::ReadFromDataBag(key, value_type)) => Ok(for_type(
-            *value_type,
-            Reading {
-                access: got.data_bag()?,
-                key,
-            },
-        )),
-        Some(Answered::Nothing) | None => Ok(None),
-    }
-}
-
-/// Reads a key through an adapter's access to the data bag, as one type.
-struct Reading<'a, 'k> {
-    access: DataBagAccess<'a>,
-    key: &'k str,
-}
-
-impl ForType for Reading<'_, '_> {
-    type Output = Option<AnyValue>;
-
-    fn of<T: Storable>(self) -> Option<AnyValue> {
-        match self.access.read::<T>(self.key) {
-            Read::Present(value) => Some(AnyValue::new(value)),
-            Read::Absent | Read::OtherType => None,
-        }
-    }
-}
-
 /// A builder step that lists one more reporter.
 type Lists<M> = fn(WorkflowBuilder<ScriptedWorkflow, M>) -> WorkflowBuilder<ScriptedWorkflow, M>;
 
@@ -466,9 +168,11 @@ pub(crate) fn leaked(name: &str) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use itinera::mode::Synchronous;
     use itinera::workflow::{Violation, ViolationKind};
 
     use super::*;
+    use crate::model::Adapter;
 
     /// The scenario's workflow, declared synchronous, with nothing counting its steps' runs.
     fn declared_synchronously(

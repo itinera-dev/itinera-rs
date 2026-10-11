@@ -9,7 +9,7 @@ error[E0308]: mismatched types
    = note: expected struct `StepPolicyDescriptor<_, _, Synchronous, Hooked>`
               found struct `StepPolicyDescriptor<Audit, _, Synchronous, Hookless>`
 note: method defined here
-  --> $WORKSPACE/crates/itinera-core/src/step.rs
+  --> $WORKSPACE/crates/itinera-core/src/step/descriptor.rs
    |
    |     pub fn policy<P: Send + Sync + 'static>(mut self, policy: StepPolicyDescriptor<P, W, M>) -> Self
    |            ^^^^^^

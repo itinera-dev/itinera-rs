@@ -19,7 +19,7 @@ error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/initial_data
           and $N others
   = note: required for `{closure@$DIR/tests/proofs/non-value/initial_data.rs:7:62: 7:64}` to implement `Value`
 note: required by a bound in `InstanceBuilder::<W, M>::data`
- --> $WORKSPACE/crates/itinera-core/src/instance.rs
+ --> $WORKSPACE/crates/itinera-core/src/instance/builder.rs
   |
   |     pub fn data<T: Value>(mut self, key: impl Into<String>, value: T) -> Self {
   |                    ^^^^^ required by this bound in `InstanceBuilder::<W, M>::data`
@@ -46,7 +46,7 @@ error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/initial_data
   = note: required for `{closure@$DIR/tests/proofs/non-value/initial_data.rs:7:62: 7:64}` to implement `serde_core::de::DeserializeOwned`
   = note: required for `{closure@$DIR/tests/proofs/non-value/initial_data.rs:7:62: 7:64}` to implement `Value`
 note: required by a bound in `InstanceBuilder::<W, M>::data`
- --> $WORKSPACE/crates/itinera-core/src/instance.rs
+ --> $WORKSPACE/crates/itinera-core/src/instance/builder.rs
   |
   |     pub fn data<T: Value>(mut self, key: impl Into<String>, value: T) -> Self {
   |                    ^^^^^ required by this bound in `InstanceBuilder::<W, M>::data`
