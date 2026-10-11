@@ -6,12 +6,9 @@ use crate::engine::fixtures::{
 };
 use crate::event::JourneyAbort;
 use crate::executor::LocalExecutor;
-use crate::executor::fixtures::{
-    FailingFactory, Shop, run, run_shop_with, run_with, shop_workflow,
-};
-use crate::journey::DataBag;
+use crate::executor::fixtures::{FailingFactory, Shop, recorded, run, run_shop_with, run_with};
 use crate::report::fixtures::entries;
-use crate::report::{DefaultDispatcher, DispatcherFactory, Reporter, WorkflowReporter};
+use crate::report::{DefaultDispatcher, DispatcherFactory, Reporter};
 use crate::step::{Outcome, Resolved, StepDescriptor, StepNeeds};
 use crate::workflow::fixtures::{Orders, orders};
 
@@ -96,7 +93,6 @@ fn a_reporter_that_fails_on_the_last_decision_still_aborts_the_journey() {
     );
 }
 
-#[derive(Default)]
 struct Recording {
     events: Arc<Mutex<Vec<Event>>>,
 }
@@ -105,12 +101,6 @@ impl Reporter for Recording {
     fn report(&mut self, event: &Event) -> Result<(), Error> {
         self.events.lock().unwrap().push(event.clone());
         Ok(())
-    }
-}
-
-impl WorkflowReporter<Shop> for Recording {
-    fn init(_: &Shop, _: &JourneyId, _: &DataBag) -> Result<Self, Error> {
-        Ok(Self::default())
     }
 }
 
@@ -123,8 +113,7 @@ fn journey_aborted_names_the_step_during_which_a_reporter_failed() {
             events: Arc::clone(&events),
         }))
         .unwrap();
-    let instance = shop_workflow()
-        .instance(Shop::failing("fragile", "step_succeeded"))
+    let instance = recorded(Shop::failing("fragile", "step_succeeded"))
         .create()
         .unwrap();
 

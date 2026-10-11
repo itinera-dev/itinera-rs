@@ -35,7 +35,7 @@ impl Recorders {
     }
 
     /// A new recorder for the scripted reporter of this name, made with its script, which
-    /// replaces the one made before, since each workflow instance makes its own reporters.
+    /// replaces the one made before, since each workflow instance has its own reporters.
     pub(crate) fn renewed(&mut self, name: &str, model: &Model) -> Recorder {
         let recorder = Recorder::scripted(model, name);
         self.named.insert(name.to_owned(), recorder.clone());

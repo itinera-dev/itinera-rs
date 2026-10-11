@@ -1,8 +1,6 @@
 use super::{WorkflowBuilder, WorkflowDescriptor, WorkflowName};
-use crate::error::Error;
-use crate::journey::{DataBag, JourneyId};
 use crate::mode::Asynchronous;
-use crate::report::{AsyncWorkflowReporter, BoxedReporter};
+use crate::report::{AsyncReporter, BoxedReporter};
 
 impl<W: Send + Sync + 'static> WorkflowDescriptor<W, Asynchronous> {
     /// Starts declaring an asynchronous workflow with this name, which only the asynchronous
@@ -27,20 +25,21 @@ impl<W: Send + Sync + 'static> WorkflowDescriptor<W, Asynchronous> {
 }
 
 impl<W: Send + Sync + 'static> WorkflowBuilder<W, Asynchronous> {
-    /// Lists an asynchronous reporter, which each instance makes for its journey. Reporters
-    /// receive events in the order they are listed.
+    /// Lists an asynchronous reporter, which each instance makes for its journey with
+    /// `Default`. Reporters receive events in the order they are listed, before those added as an
+    /// instance is created.
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::error::Error;
     /// use itinera::event::Event;
-    /// use itinera::journey::{DataBag, JourneyId};
-    /// use itinera::report::{AsyncReporter, AsyncWorkflowReporter};
+    /// use itinera::report::AsyncReporter;
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// struct Orders;
     ///
+    /// #[derive(Default)]
     /// struct Forward;
     ///
     /// impl AsyncReporter for Forward {
@@ -49,29 +48,17 @@ impl<W: Send + Sync + 'static> WorkflowBuilder<W, Asynchronous> {
     ///     }
     /// }
     ///
-    /// impl AsyncWorkflowReporter<Orders> for Forward {
-    ///     fn init(_: &Orders, _: &JourneyId, _: &DataBag) -> Result<Self, Error> {
-    ///         Ok(Forward)
-    ///     }
-    /// }
-    ///
-    /// let orders = WorkflowDescriptor::async_builder("orders")
+    /// let orders = WorkflowDescriptor::<Orders, _>::async_builder("orders")
     ///     .async_reporter::<Forward>()
     ///     .build()?;
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
-    pub fn async_reporter<R: AsyncWorkflowReporter<W>>(mut self) -> Self {
-        self.declaration
-            .reporters
-            .push(Box::new(make_async_reporter::<W, R>));
+    pub fn async_reporter<R: AsyncReporter + Default>(mut self) -> Self {
+        self.declaration.reporters.push(made_async::<R>);
         self
     }
 }
 
-fn make_async_reporter<W, R: AsyncWorkflowReporter<W>>(
-    workflow: &W,
-    journey_id: &JourneyId,
-    data: &DataBag,
-) -> Result<BoxedReporter, Error> {
-    R::init(workflow, journey_id, data).map(BoxedReporter::from_async_reporter)
+fn made_async<R: AsyncReporter + Default>() -> BoxedReporter {
+    BoxedReporter::from_async_reporter(R::default())
 }

@@ -154,15 +154,13 @@ async fn journey<M: Declares, E: Runs<M>>(
         .iter()
         .map(|name| world.recorders.renewed(name, &world.model))
         .collect();
-    let reporters = names
+    let roles = ProvidedRoles::new(workflow.roles.clone(), world.witness.clone());
+    let instance = descriptor.instance(ScriptedWorkflow::new(roles));
+    let instance = recorders
         .iter()
         .cloned()
-        .zip(recorders.iter().cloned())
-        .collect();
-    let instance = descriptor.instance(ScriptedWorkflow::new(
-        recorders,
-        ProvidedRoles::new(workflow.roles.clone(), world.witness.clone()),
-    ));
+        .fold(instance, InstanceBuilder::reporter);
+    let reporters = names.iter().cloned().zip(recorders).collect();
     let instance = world
         .model
         .initial_data

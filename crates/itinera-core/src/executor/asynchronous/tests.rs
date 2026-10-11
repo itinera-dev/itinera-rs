@@ -46,20 +46,25 @@ fn an_asynchronous_workflow_emits_its_events_in_order_to_both_kinds_of_reporter(
 }
 
 #[test]
-fn an_asynchronous_workflow_may_list_only_synchronous_reporters() {
+fn an_asynchronous_workflow_may_have_only_synchronous_reporters() {
     let shop = Shop::new();
     let log = Arc::clone(&shop.log);
+    let audit = Recorder::new(&shop, "audit");
+    let fragile = Recorder::new(&shop, "fragile");
     let workflow = WorkflowDescriptor::async_builder("shop")
         .step(StepDescriptor::new_async(
             StepName::new("charge"),
             async || Ok(Outcome::success()),
         ))
-        .reporter::<Recorder<0>>()
-        .reporter::<Recorder<1>>()
         .id_generator(|_: &Shop, _| Ok("order-7".to_string()))
         .build()
         .unwrap();
-    let instance = workflow.instance(shop).create().unwrap();
+    let instance = workflow
+        .instance(shop)
+        .reporter(audit)
+        .reporter(fragile)
+        .create()
+        .unwrap();
 
     let result = block_on(AsyncLocalExecutor::new().run(instance)).unwrap();
 
@@ -121,13 +126,14 @@ fn an_asynchronous_workflow_policy_that_cannot_be_built_refuses_the_journey_befo
     .on_workflow_success();
     let workflow = WorkflowDescriptor::async_builder("shop")
         .policy(broken)
-        .reporter::<Recorder<0>>()
         .build()
         .unwrap();
     let shop = Shop::new();
     let log = Arc::clone(&shop.log);
+    let audit = Recorder::new(&shop, "audit");
+    let instance = workflow.instance(shop).reporter(audit).create().unwrap();
 
-    let result = block_on(AsyncLocalExecutor::new().run(workflow.instance(shop).create().unwrap()));
+    let result = block_on(AsyncLocalExecutor::new().run(instance));
 
     let Err(Refusal::WorkflowPolicy { policy, error }) = result else {
         panic!("the journey was not refused by the policy");

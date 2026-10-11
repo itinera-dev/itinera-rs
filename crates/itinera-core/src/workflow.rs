@@ -67,13 +67,13 @@ struct Declaration<W, M: Mode> {
     policies: Vec<Box<dyn WorkflowPolicyEntry<W, M>>>,
     adapters: Vec<InputAdapterDescriptor<W>>,
     #[debug("{}", reporters.len())]
-    reporters: Vec<MakeReporter<W, M>>,
+    reporters: Vec<MakeReporter<M>>,
     #[debug("{}", id_generator.is_some())]
     id_generator: Option<GenerateId<W>>,
 }
 
-type MakeReporter<W, M> =
-    Box<dyn Fn(&W, &JourneyId, &DataBag) -> Result<<M as Mode>::Reporter, Error> + Send + Sync>;
+/// Makes one listed reporter for a journey.
+type MakeReporter<M> = fn() -> <M as Mode>::Reporter;
 
 type GenerateId<W> = Box<dyn Fn(&W, &DataBag) -> Result<String, Error> + Send + Sync>;
 
@@ -137,17 +137,12 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
         }
     }
 
-    /// The workflow's reporters, made for one journey, in the order they were listed.
-    pub(crate) fn reporters(
-        &self,
-        workflow: &W,
-        journey_id: &JourneyId,
-        data: &DataBag,
-    ) -> Result<Vec<M::Reporter>, Error> {
+    /// The workflow's listed reporters, made for one journey, in the order they were listed.
+    pub(crate) fn reporters(&self) -> Vec<M::Reporter> {
         self.declaration
             .reporters
             .iter()
-            .map(|make| make(workflow, journey_id, data))
+            .map(|make| make())
             .collect()
     }
 }

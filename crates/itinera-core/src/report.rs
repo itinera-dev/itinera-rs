@@ -2,7 +2,8 @@
 
 use crate::error::Error;
 use crate::event::Event;
-use crate::journey::{DataBag, JourneyId};
+use crate::journey::JourneyId;
+use crate::mode::Mode;
 
 #[cfg(feature = "async")]
 mod asynchronous;
@@ -10,19 +11,20 @@ mod default_dispatcher;
 mod dispatcher;
 #[cfg(test)]
 pub(crate) mod fixtures;
-mod sealed;
+pub(crate) mod sealed;
 
 #[cfg(feature = "async")]
-pub use asynchronous::{
-    AsyncDispatcher, AsyncDispatcherFactory, AsyncReporter, AsyncWorkflowReporter, BoxedReporter,
-};
+pub use asynchronous::{AsyncDispatcher, AsyncDispatcherFactory, AsyncReporter, BoxedReporter};
 pub use default_dispatcher::{DefaultDispatcher, DefaultDispatcherFactory};
 pub use dispatcher::{Dispatcher, DispatcherFactory};
 
 /// Receives the events of a journey, and decides on its own what to do with each: filter it,
 /// map it, forward it or ignore it.
 ///
-/// A workflow lists its reporters, and each journey gets its own.
+/// Each journey gets its own reporters: those its workflow lists, made with `Default` for every
+/// instance, then those the application makes for that one instance and adds as it creates it.
+/// Once the journey ID exists, each is given it with [`set_journey_id`](Reporter::set_journey_id),
+/// before the journey starts.
 ///
 /// A reporter should never fail. One that cannot report an event, for example because the
 /// service it forwards to is unavailable, should handle that itself (log it, drop the event,
@@ -53,6 +55,48 @@ pub use dispatcher::{Dispatcher, DispatcherFactory};
 /// let reporter: Box<dyn Reporter> = Box::new(Kinds::default());
 /// ```
 pub trait Reporter: Send + 'static {
+    /// Receives the ID of the journey the reporter is for, once, as the workflow instance is
+    /// created and before the journey starts. It does nothing unless the reporter says otherwise.
+    ///
+    /// # Errors
+    ///
+    /// An error makes creating the instance fail, with
+    /// [`InstanceError::Reporter`](crate::instance::InstanceError::Reporter).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::event::Event;
+    /// use itinera::journey::JourneyId;
+    /// use itinera::report::Reporter;
+    /// use itinera::workflow::WorkflowDescriptor;
+    ///
+    /// #[derive(Default)]
+    /// struct Audit {
+    ///     journey: Option<JourneyId>,
+    /// }
+    ///
+    /// impl Reporter for Audit {
+    ///     fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
+    ///         self.journey = Some(journey_id.clone());
+    ///         Ok(())
+    ///     }
+    ///
+    ///     fn report(&mut self, event: &Event) -> Result<(), Error> {
+    ///         eprintln!("{:?} {}", self.journey, event.kind());
+    ///         Ok(())
+    ///     }
+    /// }
+    ///
+    /// struct Orders;
+    ///
+    /// let orders = WorkflowDescriptor::<Orders>::builder("orders").reporter::<Audit>();
+    /// ```
+    fn set_journey_id(&mut self, _journey_id: &JourneyId) -> Result<(), Error> {
+        Ok(())
+    }
+
     /// Receives one event.
     ///
     /// # Examples
@@ -73,74 +117,8 @@ pub trait Reporter: Send + 'static {
     fn report(&mut self, event: &Event) -> Result<(), Error>;
 }
 
-/// A [`Reporter`] that a workflow lists, which every instance of the workflow makes for itself.
-///
-/// The workflow lists its reporters by type. Creating an instance makes each of them with
-/// [`init`](WorkflowReporter::init), after the journey ID, so a reporter can be made for that
-/// journey alone.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::error::Error;
-/// use itinera::event::Event;
-/// use itinera::journey::{DataBag, JourneyId};
-/// use itinera::report::{Reporter, WorkflowReporter};
-///
-/// struct Orders;
-///
-/// struct Audit {
-///     journey: JourneyId,
-/// }
-///
-/// impl Reporter for Audit {
-///     fn report(&mut self, event: &Event) -> Result<(), Error> {
-///         eprintln!("{} {}", self.journey, event.kind());
-///         Ok(())
-///     }
-/// }
-///
-/// impl WorkflowReporter<Orders> for Audit {
-///     fn init(_: &Orders, journey_id: &JourneyId, _: &DataBag) -> Result<Self, Error> {
-///         Ok(Audit {
-///             journey: journey_id.clone(),
-///         })
-///     }
-/// }
-/// ```
-pub trait WorkflowReporter<W>: Reporter + Sized {
-    /// Makes the reporter for one journey, from the workflow's own value, the journey ID and the
-    /// initial data. Failing makes creating the instance fail.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::error::Error;
-    /// use itinera::event::Event;
-    /// use itinera::journey::{DataBag, JourneyId};
-    /// use itinera::report::{Reporter, WorkflowReporter};
-    ///
-    /// struct Orders {
-    ///     audited: bool,
-    /// }
-    ///
-    /// struct Audit;
-    ///
-    /// impl Reporter for Audit {
-    ///     fn report(&mut self, _event: &Event) -> Result<(), Error> {
-    ///         Ok(())
-    ///     }
-    /// }
-    ///
-    /// impl WorkflowReporter<Orders> for Audit {
-    ///     fn init(orders: &Orders, _: &JourneyId, _: &DataBag) -> Result<Self, Error> {
-    ///         if orders.audited {
-    ///             Ok(Audit)
-    ///         } else {
-    ///             Err(Error::msg("auditing is off"))
-    ///         }
-    ///     }
-    /// }
-    /// ```
-    fn init(workflow: &W, journey_id: &JourneyId, data: &DataBag) -> Result<Self, Error>;
+/// A reporter as the mode `M` holds it.
+pub(crate) fn held<M: Mode>(reporter: impl Reporter) -> M::Reporter {
+    let reporter: Box<dyn Reporter> = Box::new(reporter);
+    M::Reporter::from(reporter)
 }
