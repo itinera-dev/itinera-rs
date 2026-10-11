@@ -4,6 +4,7 @@
 use std::num::NonZeroU32;
 
 use super::{Hook, Lifecycle};
+use crate::fixture::Fixture;
 
 /// A sentence that does not fit the scenario declared so far, or a value it cannot read.
 #[derive(Debug, PartialEq, thiserror::Error)]
@@ -58,6 +59,8 @@ pub(crate) enum ModelError {
     AttemptOutOfOrder(NonZeroU32),
     #[error("{0} is already stated")]
     StatedTwice(&'static str),
+    #[error("the {0} workflow is declared with the macros, so no script records what it does")]
+    Unscripted(Fixture),
     #[error("a step name cannot be empty")]
     EmptyStepName,
     #[error("policy \"{0}\" defines no hook")]

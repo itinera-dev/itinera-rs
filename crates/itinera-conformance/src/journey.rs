@@ -3,19 +3,22 @@
 
 #[cfg(test)]
 pub(crate) mod fixtures;
+mod runs;
 
 use std::collections::BTreeMap;
 
 use itinera::executor::{AsyncLocalExecutor, LocalExecutor, Refusal};
-use itinera::instance::{Instance, InstanceBuilder, InstanceError, WorkflowInstance as _};
+use itinera::instance::{InstanceBuilder, InstanceError, WorkflowInstance as _};
 use itinera::journey::{JourneyId, JourneyResult};
 use itinera::mode::{Asynchronous, Mode, Synchronous};
-use itinera::report::{AsyncDispatcherFactory, DispatcherFactory};
 use itinera::value::Value as Storable;
 use serde_json::Value;
 
+pub(crate) use runs::Runs;
+
 use crate::declaration::{Admission, Declares, ScriptedWorkflow, declared};
 use crate::executor::Executor;
+use crate::fixture::{self, Fixture, RunsFixtures};
 use crate::model::{Dispatching, Holding, Model, ModelError};
 use crate::record::{Behaviour, Recorder, Recorders, RecordingFactory};
 use crate::role::ProvidedRoles;
@@ -42,6 +45,8 @@ pub(crate) enum Unrunnable {
     Instance(#[from] InstanceError),
     #[error("the scenario has no executor to run under")]
     NoExecutor,
+    #[error("the {0} workflow is not declared in this executor's execution mode")]
+    OtherMode(Fixture),
 }
 
 /// Runs the scenario's workflow this many times, each with a new instance, under one executor
@@ -91,33 +96,7 @@ fn recording_factory(model: &Model, recorders: &mut Recorders) -> Option<Recordi
     }
 }
 
-/// An executor of the mode's workflows.
-trait Runs<M: Mode> {
-    async fn run(
-        &mut self,
-        instance: Instance<ScriptedWorkflow, M>,
-    ) -> Result<JourneyResult, Refusal>;
-}
-
-impl<F: DispatcherFactory> Runs<Synchronous> for LocalExecutor<F> {
-    async fn run(
-        &mut self,
-        instance: Instance<ScriptedWorkflow, Synchronous>,
-    ) -> Result<JourneyResult, Refusal> {
-        LocalExecutor::run(self, instance)
-    }
-}
-
-impl<F: AsyncDispatcherFactory> Runs<Asynchronous> for AsyncLocalExecutor<F> {
-    async fn run(
-        &mut self,
-        instance: Instance<ScriptedWorkflow, Asynchronous>,
-    ) -> Result<JourneyResult, Refusal> {
-        AsyncLocalExecutor::run(self, instance).await
-    }
-}
-
-async fn journeys<M: Declares, E: Runs<M>>(
+async fn journeys<M: Declares + RunsFixtures, E: Runs<M>>(
     world: &mut World,
     times: usize,
     mut executor: E,
@@ -136,10 +115,14 @@ async fn journeys<M: Declares, E: Runs<M>>(
 ///
 /// Each journey has a workflow declared anew, so that its steps count their attempts from the
 /// first.
-async fn journey<M: Declares, E: Runs<M>>(
+async fn journey<M: Declares + RunsFixtures, E: Runs<M>>(
     world: &mut World,
     executor: &mut E,
 ) -> Result<Option<Journey>, Unrunnable> {
+    if let Some(fixture) = fixture::named(world)? {
+        world.admission = Some(Admission::Admitted(fixture.listing()));
+        return M::journey(fixture, &world.model, executor).await.map(Some);
+    }
     let descriptor = match declared::<M>(&world.model, &world.steps_run, &world.witness)?.build() {
         Ok(descriptor) => descriptor,
         Err(violations) => {

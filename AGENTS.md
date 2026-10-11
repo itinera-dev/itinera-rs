@@ -82,6 +82,8 @@ Run `cargo run -p itinera-conformance --release` with:
 
 In CI the `run-conformance` action sets these from `conformance.json`.
 
+The features under `crates/itinera-conformance/features/macros`, tagged `@macros`, drive workflows declared only with the macros, reusing the sentences of the conformance cases with a Given sentence naming each workflow, such as `Given the payment workflow`. The runner's own tests run them, so `cargo test` covers them.
+
 ## Pull requests and stacks
 
 - Each stage is one stack of pull requests, made with `gh stack`, one layer per coherent piece. Every layer passes all of `main`'s checks.

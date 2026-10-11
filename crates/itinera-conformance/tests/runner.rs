@@ -13,15 +13,19 @@ struct Run {
     report: PathBuf,
 }
 
+/// Runs the runner's own cases in this directory of `tests/cases`.
 fn run(name: &str, cases: &str, tags: &str) -> Run {
+    run_in(name, &Path::new("tests/cases").join(cases), tags)
+}
+
+/// Runs the cases in this directory of the crate.
+fn run_in(name: &str, cases: &Path, tags: &str) -> Run {
     let report = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("{name}.json"));
     let _ = std::fs::remove_file(&report);
     let output = Command::new(env!("CARGO_BIN_EXE_itinera-conformance"))
         .env(
             "ITINERA_CONFORMANCE_CASES",
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("tests/cases")
-                .join(cases),
+            Path::new(env!("CARGO_MANIFEST_DIR")).join(cases),
         )
         .env("ITINERA_CONFORMANCE_TAGS", tags)
         .env("ITINERA_CONFORMANCE_REPORT", &report)
@@ -173,6 +177,53 @@ fn has_failed(element: &Value) -> bool {
 
 fn is_failed_step(step: &Value) -> bool {
     step["result"]["status"] == "failed"
+}
+
+#[test]
+fn the_workflows_the_macros_declare_behave_as_their_features_say() {
+    let run = run_in("macros", Path::new("features/macros"), "@macros");
+    assert!(
+        run.succeeded(),
+        "{}",
+        String::from_utf8_lossy(&run.output.stdout)
+    );
+    let mut scenarios = run.scenarios();
+    scenarios.sort();
+    let asynchronous = &["executor-async"];
+    let local = &["executor-local"];
+    assert_eq!(
+        scenarios,
+        [
+            scenario(
+                "A declined charge is retried once, then fails the journey",
+                local
+            ),
+            scenario(
+                "A parcel is dispatched, tracked and signed for",
+                asynchronous
+            ),
+            scenario(
+                "A priced order is charged, audited, shipped and given a receipt",
+                local
+            ),
+            scenario(
+                "An empty parcel fails the journey, and is not signed for",
+                asynchronous
+            ),
+            scenario(
+                "An order without a price is aborted, since nothing supplies the amount to charge",
+                local
+            ),
+            scenario(
+                "The delivery workflow lists its step, with its policy",
+                asynchronous
+            ),
+            scenario(
+                "The payment workflow lists its steps, with their policies and input adapter",
+                local
+            ),
+        ]
+    );
 }
 
 #[test]

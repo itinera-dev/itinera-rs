@@ -65,7 +65,7 @@ fn the_operation_of_the_role_was_called(
 ) -> Result<(), Unmet> {
     let called = Operation { role, operation };
     let found = world
-        .witness
+        .witnessed()?
         .operations()
         .iter()
         .filter(|operation| is_called(operation, &called))

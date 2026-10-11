@@ -12,7 +12,7 @@ use crate::world::World;
 pub(super) fn calls_of(world: &World, policy: &str, hook: &str) -> Result<Vec<Call>, ModelError> {
     let hook = Hook::named(hook)?;
     Ok(world
-        .witness
+        .witnessed()?
         .calls()
         .into_iter()
         .filter(|call| is_of_hook(call, policy, hook))
