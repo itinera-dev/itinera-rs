@@ -1,8 +1,9 @@
 use super::*;
+use crate::error::Error;
 use crate::event::Event;
 use crate::instance::WorkflowInstance;
 use crate::instance::fixtures::{Audit, Made, Orders, entries, log, orders};
-use crate::journey::JourneyId;
+use crate::journey::{InitialData, JourneyId};
 use crate::workflow::WorkflowBuilder;
 
 #[derive(Default)]
@@ -143,6 +144,45 @@ fn a_reporter_that_fails_to_take_the_journey_id_makes_creating_the_instance_fail
         error.to_string(),
         "a reporter failed to take the journey ID: the audit log is closed"
     );
+}
+
+struct NewOrder {
+    price: i64,
+    note: &'static str,
+}
+
+impl InitialData for NewOrder {
+    fn entries(self) -> impl IntoIterator<Item = (String, AnyValue)> {
+        [
+            ("price".to_owned(), AnyValue::new(self.price)),
+            ("note".to_owned(), AnyValue::new(self.note.to_owned())),
+        ]
+    }
+}
+
+fn price(instance: &Instance<Orders>) -> Option<i64> {
+    instance.data_bag().get("price")?.downcast_ref().copied()
+}
+
+#[test]
+fn initial_data_gives_each_of_its_keys_replacing_what_was_given_before() {
+    let orders = orders().build().unwrap();
+    let instance = orders
+        .instance(Orders::new())
+        .data("price", 7_i64)
+        .data("customer", "ana".to_owned())
+        .initial_data(NewOrder {
+            price: 42,
+            note: "gift",
+        })
+        .create()
+        .unwrap();
+
+    assert_eq!(
+        instance.data_bag().keys().collect::<Vec<_>>(),
+        ["customer", "note", "price"]
+    );
+    assert_eq!(price(&instance), Some(42));
 }
 
 #[cfg(feature = "async")]

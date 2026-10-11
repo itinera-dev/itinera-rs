@@ -2,7 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use crate::value::AnyValue;
+use super::{OutputError, Read};
+use crate::value::{AnyValue, Value};
 
 /// The data of one journey: a map from string keys to values.
 ///
@@ -78,10 +79,79 @@ impl DataBag {
     pub fn keys(&self) -> impl Iterator<Item = &str> {
         self.values.keys().map(String::as_str)
     }
+
+    /// What the data bag holds under a key, read as a value of this type.
+    pub(crate) fn read<T: Value>(&self, key: &str) -> Read<T> {
+        self.get(key).map_or(Read::Absent, as_read)
+    }
+
+    /// The value under a key, which an output requires.
+    ///
+    /// # Errors
+    ///
+    /// When the data bag holds no value under the key, or a value of another type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::journey::{DataBag, OutputError};
+    ///
+    /// fn receipt(data: &DataBag) -> Result<String, OutputError> {
+    ///     data.required("receipt")
+    /// }
+    /// ```
+    pub fn required<T: Value>(&self, key: &str) -> Result<T, OutputError> {
+        match self.read(key) {
+            Read::Present(value) => Ok(value),
+            Read::Absent => Err(OutputError::Missing {
+                key: key.to_owned(),
+            }),
+            Read::OtherType => Err(wrong_type::<T>(key)),
+        }
+    }
+
+    /// The value under a key, or `None` when the data bag holds none.
+    ///
+    /// # Errors
+    ///
+    /// When the data bag holds a value of another type under the key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::journey::{DataBag, OutputError};
+    ///
+    /// fn note(data: &DataBag) -> Result<Option<String>, OutputError> {
+    ///     data.optional("note")
+    /// }
+    /// ```
+    pub fn optional<T: Value>(&self, key: &str) -> Result<Option<T>, OutputError> {
+        match self.read(key) {
+            Read::Present(value) => Ok(Some(value)),
+            Read::Absent => Ok(None),
+            Read::OtherType => Err(wrong_type::<T>(key)),
+        }
+    }
+}
+
+fn as_read<T: Value>(value: &AnyValue) -> Read<T> {
+    value
+        .downcast_ref::<T>()
+        .cloned()
+        .map_or(Read::OtherType, Read::Present)
+}
+
+fn wrong_type<T>(key: &str) -> OutputError {
+    OutputError::WrongType {
+        key: key.to_owned(),
+        expected: std::any::type_name::<T>(),
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
     use crate::journey::fixtures::bag;
 
@@ -105,5 +175,41 @@ mod tests {
     fn a_data_bag_iterates_over_its_keys_and_values() {
         let keys: Vec<String> = bag().into_iter().map(|(key, _)| key).collect();
         assert_eq!(keys, ["amount", "customer"]);
+    }
+
+    #[rstest]
+    #[case::a_value_of_the_type_asked_for("amount", Read::Present(42))]
+    #[case::a_key_the_data_bag_does_not_hold("discount", Read::Absent)]
+    #[case::a_value_of_another_type("customer", Read::OtherType)]
+    fn a_read_reports_what_the_data_bag_holds(#[case] key: &str, #[case] expected: Read<i64>) {
+        assert_eq!(bag().read::<i64>(key), expected);
+    }
+
+    #[rstest]
+    #[case::a_value_of_the_type_asked_for("amount", Ok(42))]
+    #[case::a_key_the_data_bag_does_not_hold("discount", Err(OutputError::Missing { key: "discount".to_owned() }))]
+    #[case::a_value_of_another_type(
+        "customer",
+        Err(OutputError::WrongType { key: "customer".to_owned(), expected: "i64" })
+    )]
+    fn a_required_value_is_present_and_of_its_type(
+        #[case] key: &str,
+        #[case] expected: Result<i64, OutputError>,
+    ) {
+        assert_eq!(bag().required::<i64>(key), expected);
+    }
+
+    #[rstest]
+    #[case::a_value_of_the_type_asked_for("amount", Ok(Some(42)))]
+    #[case::a_key_the_data_bag_does_not_hold("discount", Ok(None))]
+    #[case::a_value_of_another_type(
+        "customer",
+        Err(OutputError::WrongType { key: "customer".to_owned(), expected: "i64" })
+    )]
+    fn an_optional_value_is_absent_or_of_its_type(
+        #[case] key: &str,
+        #[case] expected: Result<Option<i64>, OutputError>,
+    ) {
+        assert_eq!(bag().optional::<i64>(key), expected);
     }
 }

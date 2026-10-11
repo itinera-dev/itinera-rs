@@ -13,6 +13,8 @@ mod async_step;
 #[cfg(test)]
 mod fixtures;
 #[cfg(test)]
+mod journey;
+#[cfg(test)]
 mod policy;
 #[cfg(test)]
 mod step;

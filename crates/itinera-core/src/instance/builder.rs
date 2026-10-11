@@ -1,8 +1,7 @@
 //! Creating an instance: its initial data, then its journey ID and its reporters.
 
-use super::Instance;
-use crate::error::Error;
-use crate::journey::DataBag;
+use super::{Instance, InstanceError};
+use crate::journey::{DataBag, InitialData};
 use crate::mode::{Mode, Synchronous};
 use crate::report::sealed::Held as _;
 use crate::report::{Reporter, held};
@@ -70,6 +69,44 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
     /// ```
     pub fn data<T: Value>(mut self, key: impl Into<String>, value: T) -> Self {
         self.data.insert(key.into(), AnyValue::new(value));
+        self
+    }
+
+    /// Adds initial data given as a type of the application's own, each of its keys replacing
+    /// any value given before under the same key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::instance::WorkflowInstance;
+    /// use itinera::journey::InitialData;
+    /// use itinera::value::AnyValue;
+    /// use itinera::workflow::WorkflowDescriptor;
+    ///
+    /// struct Orders;
+    ///
+    /// struct NewOrder {
+    ///     price: i64,
+    /// }
+    ///
+    /// impl InitialData for NewOrder {
+    ///     fn entries(self) -> impl IntoIterator<Item = (String, AnyValue)> {
+    ///         [("price".to_owned(), AnyValue::new(self.price))]
+    ///     }
+    /// }
+    ///
+    /// let orders = WorkflowDescriptor::builder("orders").build()?;
+    /// let instance = orders
+    ///     .instance(Orders)
+    ///     .initial_data(NewOrder { price: 42 })
+    ///     .create()?;
+    /// assert_eq!(instance.data_bag().keys().collect::<Vec<_>>(), ["price"]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn initial_data(mut self, data: impl InitialData) -> Self {
+        for (key, value) in data.entries() {
+            self.data.insert(key, value);
+        }
         self
     }
 
@@ -158,28 +195,6 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
             data,
         })
     }
-}
-
-/// Why an instance could not be created. No journey exists yet, so nothing is reported.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::instance::InstanceError;
-///
-/// fn describe(error: &InstanceError) -> String {
-///     error.to_string()
-/// }
-/// ```
-#[derive(Debug, thiserror::Error)]
-#[non_exhaustive]
-pub enum InstanceError {
-    /// The workflow's generator failed to produce the journey ID.
-    #[error("the journey ID could not be produced: {0}")]
-    JourneyId(Error),
-    /// A reporter's `set_journey_id` failed.
-    #[error("a reporter failed to take the journey ID: {0}")]
-    Reporter(Error),
 }
 
 #[cfg(test)]

@@ -106,7 +106,7 @@ fn output(result: &Result<JourneyResult, Refusal>) -> Vec<String> {
         .collect()
 }
 
-fn written((key, value): (&String, &AnyValue)) -> String {
+pub(crate) fn written((key, value): (&String, &AnyValue)) -> String {
     format!("{key} = {}", serde_json::to_string(value).unwrap())
 }
 

@@ -11,6 +11,8 @@ mod data_bag;
 mod failure;
 #[cfg(test)]
 mod fixtures;
+mod initial_data;
+mod output;
 mod result;
 
 pub use abort::{Abort, MissingData, Requester};
@@ -19,6 +21,10 @@ pub use contributor::Contributor;
 pub(crate) use contributor::{Contribution, Contributions};
 pub use data_bag::DataBag;
 pub use failure::Failure;
+pub use initial_data::InitialData;
+#[cfg(feature = "macros")]
+pub use itinera_macros::{InitialData, Output};
+pub use output::{Output, OutputError};
 pub use result::{JourneyResult, JourneyStatus, StatusKind};
 
 /// The identifier of one journey, unique to it. It is made when the journey's instance is

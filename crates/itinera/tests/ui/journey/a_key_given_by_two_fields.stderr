@@ -1,0 +1,5 @@
+error: key given twice: `price`, which an earlier field gives already
+  --> tests/ui/journey/a_key_given_by_two_fields.rs:10:11
+   |
+10 |     #[key("price")]
+   |           ^^^^^^^
