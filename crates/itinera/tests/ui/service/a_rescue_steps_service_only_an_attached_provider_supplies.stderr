@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: service not provided: tokens for charge_rescue
+  --> tests/ui/service/a_rescue_steps_service_only_an_attached_provider_supplies.rs:57:47
+   |
+57 | #[with_step(Charge, name = "charge", rescue = Refresh)]
+   |                                               ^^^^^^^ evaluation of `_::_` failed here

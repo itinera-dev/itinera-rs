@@ -1,0 +1,5 @@
+error: a service provider returns the instance it makes, as `Result<Box<T>, Error>`
+  --> tests/ui/service/a_provider_without_a_return_type.rs:84:8
+   |
+84 |     fn stock(&self, #[journey_id] _journey: &JourneyId) {}
+   |        ^^^^^

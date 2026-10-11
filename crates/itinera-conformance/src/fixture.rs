@@ -1,8 +1,10 @@
 //! The workflows that the `@macros` features drive, declared only with itinera's macros, each
 //! named by a scenario instead of a workflow it declares sentence by sentence.
 
+mod courier;
 mod delivery;
 mod payment;
+mod warehouse;
 
 use std::collections::BTreeMap;
 
@@ -16,8 +18,10 @@ use crate::journey::{Journey, Runs, Unrunnable};
 use crate::model::{Model, ModelError};
 use crate::value::Typed;
 use crate::world::World;
+use courier::Couriers;
 use delivery::Delivery;
 use payment::Payment;
+use warehouse::Warehouse;
 
 /// A workflow the macros declare, by the name the scenarios give it.
 #[derive(
@@ -30,7 +34,7 @@ use payment::Payment;
     derive_more::Display,
     derive_more::FromStr,
 )]
-#[param(name = "fixture", regex = "payment|delivery")]
+#[param(name = "fixture", regex = "payment|delivery|warehouse|courier")]
 #[display(rename_all = "lowercase")]
 #[from_str(rename_all = "lowercase")]
 pub(crate) enum Fixture {
@@ -38,6 +42,11 @@ pub(crate) enum Fixture {
     Payment,
     /// Dispatches a parcel; asynchronous.
     Delivery,
+    /// Reserves, charges and ships an order with the services its providers supply;
+    /// synchronous.
+    Warehouse,
+    /// Packs and dispatches a parcel with the services its providers supply; asynchronous.
+    Courier,
 }
 
 impl Fixture {
@@ -46,6 +55,8 @@ impl Fixture {
         match self {
             Self::Payment => Payment::descriptor().listing(),
             Self::Delivery => Delivery::descriptor().listing(),
+            Self::Warehouse => Warehouse::descriptor().listing(),
+            Self::Courier => Couriers::descriptor().listing(),
         }
     }
 }
@@ -77,7 +88,8 @@ impl RunsFixtures for Synchronous {
         let data = Entries::of(model)?;
         match fixture {
             Fixture::Payment => ran(payment::instance(data)?, executor).await,
-            Fixture::Delivery => Err(Unrunnable::OtherMode(fixture)),
+            Fixture::Warehouse => ran(warehouse::instance(data)?, executor).await,
+            Fixture::Delivery | Fixture::Courier => Err(Unrunnable::OtherMode(fixture)),
         }
     }
 }
@@ -91,7 +103,8 @@ impl RunsFixtures for Asynchronous {
         let data = Entries::of(model)?;
         match fixture {
             Fixture::Delivery => ran(delivery::instance(data)?, executor).await,
-            Fixture::Payment => Err(Unrunnable::OtherMode(fixture)),
+            Fixture::Courier => ran(courier::instance(data)?, executor).await,
+            Fixture::Payment | Fixture::Warehouse => Err(Unrunnable::OtherMode(fixture)),
         }
     }
 }

@@ -51,7 +51,7 @@ mod step {
     mod asynchronous;
     mod built_by_a_new_that_may_fail;
     mod built_by_its_new;
-    mod described;
+    pub(super) mod described;
 
     #[test]
     fn every_field_of_a_derived_step_is_an_input_or_a_default() -> Result<(), Box<dyn Error>> {
@@ -457,7 +457,7 @@ mod workflow {
     use super::fails_to_compile;
     use std::error::Error;
 
-    mod described;
+    pub(super) mod described;
     #[cfg(feature = "async")]
     mod described_asynchronous;
     mod described_courier;
@@ -642,5 +642,216 @@ mod workflow {
     fn an_asynchronous_workflow_needs_the_async_feature() -> Result<(), Box<dyn Error>> {
         fails_to_compile("tests/ui/workflow/asynchronous_without_the_async_feature.rs");
         described::main()
+    }
+}
+
+/// What the macros refuse in the services steps request and workflows provide, each with the
+/// macro's own error or the check it generates.
+#[cfg(all(feature = "macros", feature = "unstable"))]
+#[path = "ui/service"]
+mod service {
+    use super::fails_to_compile;
+    use std::error::Error;
+
+    mod described;
+    #[cfg(feature = "async")]
+    mod described_asynchronous;
+    mod described_with_a_rescue_step;
+    mod described_with_providers_written_apart;
+
+    #[test]
+    fn a_step_requests_each_service_once() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_service_requested_twice.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_service_is_taken_by_shared_reference() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_service_taken_by_value.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_service_new_and_run_both_take_has_one_type() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_service_requested_as_two_types.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_service_is_named_by_a_string() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_service_key_that_is_not_a_string.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_workflow_provides_every_service_its_steps_request() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_service_not_provided.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_workflow_has_a_provider_for_every_key_its_steps_request() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_service_of_a_key_no_provider_supplies.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_step_requests_a_service_as_the_type_its_provider_makes() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_service_of_another_type_than_its_provider_makes.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_step_requests_a_service_as_the_type_its_attached_provider_makes()
+    -> Result<(), Box<dyn Error>> {
+        fails_to_compile(
+            "tests/ui/service/a_service_of_another_type_than_its_attached_provider_makes.rs",
+        );
+        described::main()
+    }
+
+    #[test]
+    fn providers_of_one_key_boxing_different_types_leave_it_to_the_descriptor()
+    -> Result<(), Box<dyn Error>> {
+        described_with_providers_written_apart::main()
+    }
+
+    #[test]
+    fn a_rescue_step_is_served_only_by_a_provider_attached_to_no_step() -> Result<(), Box<dyn Error>>
+    {
+        fails_to_compile(
+            "tests/ui/service/a_rescue_steps_service_only_an_attached_provider_supplies.rs",
+        );
+        described_with_a_rescue_step::main()
+    }
+
+    #[test]
+    fn a_rescue_step_requests_a_service_as_the_type_its_provider_makes()
+    -> Result<(), Box<dyn Error>> {
+        fails_to_compile(
+            "tests/ui/service/a_rescue_steps_service_of_another_type_than_its_provider_makes.rs",
+        );
+        described_with_a_rescue_step::main()
+    }
+
+    #[test]
+    fn a_rescue_step_requests_each_service_once() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_service_requested_twice_by_a_rescue_step.rs");
+        described_with_a_rescue_step::main()
+    }
+
+    #[test]
+    fn a_provider_is_never_attached_to_a_rescue_step() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_provider_for_a_rescue_step.rs");
+        described_with_a_rescue_step::main()
+    }
+
+    #[test]
+    fn one_provider_attached_to_no_step_provides_a_service() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_service_provided_twice.rs");
+        described::main()
+    }
+
+    #[test]
+    fn one_provider_attached_to_a_step_provides_it_a_service() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_service_provided_twice_to_a_step.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_provider_is_named_once() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_provider_named_like_another.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_provider_is_attached_only_to_steps_the_workflow_lists() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_provider_for_an_unknown_step.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_provider_lists_each_step_once() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_provider_listing_a_step_twice.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_provider_attached_to_steps_lists_at_least_one() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_provider_for_no_step.rs");
+        described::main()
+    }
+
+    #[test]
+    fn only_a_provider_of_attempt_scope_requests_the_attempt() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_journey_scoped_provider_requesting_the_attempt.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_provider_takes_only_its_settings() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/an_unknown_provider_argument.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_provider_takes_the_workflow_by_reference() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_provider_taking_the_workflow_by_value.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_provider_returns_the_instance_it_makes() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_provider_without_a_return_type.rs");
+        described::main()
+    }
+
+    #[test]
+    fn a_provider_returns_its_instance_in_a_box() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_provider_of_a_type_that_is_not_a_box.rs");
+        described::main()
+    }
+
+    #[test]
+    fn every_parameter_of_a_provider_says_what_it_requests() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/an_unmarked_provider_request.rs");
+        described::main()
+    }
+
+    #[cfg(feature = "async")]
+    #[test]
+    fn an_asynchronous_provider_belongs_only_to_an_asynchronous_workflow()
+    -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/an_asynchronous_provider_in_a_synchronous_workflow.rs");
+        described_asynchronous::main()
+    }
+
+    #[cfg(feature = "async")]
+    #[test]
+    fn a_synchronous_provider_requesting_a_reporter_belongs_only_to_a_synchronous_workflow()
+    -> Result<(), Box<dyn Error>> {
+        fails_to_compile(
+            "tests/ui/service/a_synchronous_provider_reporting_in_an_asynchronous_workflow.rs",
+        );
+        described_asynchronous::main()
+    }
+}
+
+/// Services, which only the `unstable` feature offers.
+#[cfg(all(feature = "macros", not(feature = "unstable")))]
+mod without_services {
+    use super::fails_to_compile;
+    use std::error::Error;
+
+    #[test]
+    fn a_service_needs_the_unstable_feature() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_service_without_the_unstable_feature.rs");
+        super::step::described::main()
+    }
+
+    #[test]
+    fn a_service_provider_needs_the_unstable_feature() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_provider_without_the_unstable_feature.rs");
+        super::workflow::described::main()
     }
 }

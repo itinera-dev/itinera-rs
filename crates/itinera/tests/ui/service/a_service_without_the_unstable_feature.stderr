@@ -1,0 +1,5 @@
+error: a service needs the `unstable` feature of `itinera`
+  --> tests/ui/service/a_service_without_the_unstable_feature.rs:13:18
+   |
+13 |     fn run(self, #[service] stock: &dyn StockStore) -> Result<Outcome, Error> {
+   |                  ^^^^^^^^^^

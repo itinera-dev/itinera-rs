@@ -27,7 +27,7 @@ Tier 1 is implemented following the [tier 1 plan](tier-1-plan.md), in stages tra
 | `itinera-conformance` | no | The conformance runner |
 | `xtask` | no | Development tasks, such as `cargo xtask check` |
 
-The `unstable` feature holds API that the specification has not accepted yet, and, before a proposal is listed in `conformance.json`, that proposal's API. It holds nothing for now.
+The `unstable` feature holds API that the specification has not accepted yet, and, before a proposal is listed in `conformance.json`, that proposal's API. It holds services, of proposal 0095, for now.
 
 ## Building and testing
 

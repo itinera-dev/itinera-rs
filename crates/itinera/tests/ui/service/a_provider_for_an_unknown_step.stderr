@@ -1,0 +1,5 @@
+error[E0080]: evaluation panicked: service provider for unknown step: charging on refund
+  --> tests/ui/service/a_provider_for_an_unknown_step.rs:88:48
+   |
+88 |     #[provider(per_attempt, steps = ["charge", "refund"], key = "payments", name = "charging")]
+   |                                                ^^^^^^^^ evaluation of `_::_` failed here

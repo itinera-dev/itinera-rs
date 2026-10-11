@@ -1,5 +1,5 @@
-//! `#[rescue_step]` and `#[derive(RescueStep)]`: a rescue step's `run`, with the handles it uses,
-//! and how it is built from its requests.
+//! `#[rescue_step]` and `#[derive(RescueStep)]`: a rescue step's `run`, with the handles and
+//! services it uses, and how it is built from its requests.
 
 mod derive;
 
@@ -9,7 +9,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::ItemImpl;
 
-use super::attempt::Run;
+use super::attempt::{MARKS, Run};
 use super::{StepKind, is_asynchronous_run, is_run};
 use crate::{block, described};
 
@@ -25,7 +25,7 @@ pub(crate) fn expand(arguments: TokenStream, mut block: ItemImpl) -> TokenStream
     );
     for function in block::functions(&mut block) {
         if is_run(&function) {
-            block::unmark(function, &["contributor", "reporter"]);
+            block::unmark(function, &MARKS);
         }
         block::bring_into_scope(function, &import, &SHORTHANDS);
     }
@@ -72,7 +72,7 @@ fn describe(arguments: TokenStream, block: &mut ItemImpl) -> syn::Result<TokenSt
             "a `#[rescue_step]` block holds the rescue step's `run`",
         ));
     };
-    Ok(run.expand(&block.self_ty))
+    Ok(run.expand(&block.self_ty, &[]))
 }
 
 /// A `DescribedRescueStep` that is never called, in the mode of the block's `run`.

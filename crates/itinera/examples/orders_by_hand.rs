@@ -1,16 +1,19 @@
 //! The workflow of the `orders` example, declared with the builder alone, as an application
 //! without the `macros` feature declares it. Run it with
-//! `cargo run -p itinera --example orders_by_hand --no-default-features`.
+//! `cargo run -p itinera --example orders_by_hand --no-default-features --features unstable`.
+
+use std::num::NonZeroU32;
 
 use itinera::error::Error;
 use itinera::event::Event;
 use itinera::executor::LocalExecutor;
 use itinera::journey::{Contributor, DataBag};
 use itinera::policy::{
-    HookNeeds, InputAdapter, OnStepSuccess, OnSuccess, OnWorkflowSuccess, Provides, Requested,
-    StepPolicyDescriptor, StepSuccess, WorkflowPolicyDescriptor, WorkflowSuccess,
+    HookNeeds, InputAdapter, OnStepSuccess, OnSuccess, OnWorkflowSuccess, Provider, Provides,
+    Requested, StepPolicyDescriptor, StepSuccess, WorkflowPolicyDescriptor, WorkflowSuccess,
 };
 use itinera::report::Reporter;
+use itinera::service::{PerAttempt, Service, ServiceProviderDescriptor};
 use itinera::step::{
     Input, OptionalInput, Outcome, Reason, Resolved, Step, StepDescriptor, StepFactory, StepNeeds,
     step_name,
@@ -22,11 +25,35 @@ const AMOUNT: Input<i64> = Input::new("amount");
 const CHARGED: Input<i64> = Input::new("charged");
 const PRICE: Input<i64> = Input::new("price");
 const DISCOUNT: OptionalInput<i64> = OptionalInput::new("discount");
+const PAYMENT: Input<String> = Input::new("payment");
+const PAYMENTS: Service<dyn PaymentGateway> = Service::new("payments");
 
-/// Charges the amount the workflow's pricing works out. A charge of nothing is declined, which
-/// may be retried.
+/// Takes payments: the service a charge is paid through.
+trait PaymentGateway: Send + Sync {
+    /// Takes the amount, and says how it was paid.
+    fn take(&self, amount: i64) -> String;
+}
+
+/// The shop's card terminal, lent to one attempt to charge.
+struct Terminal {
+    shop: &'static str,
+    attempt: NonZeroU32,
+}
+
+impl PaymentGateway for Terminal {
+    fn take(&self, amount: i64) -> String {
+        format!(
+            "{amount} paid at the {} terminal, attempt {}",
+            self.shop, self.attempt
+        )
+    }
+}
+
+/// Charges the amount the workflow's pricing works out, through the payment gateway. A charge of
+/// nothing is declined, which may be retried.
 struct Charge<'a> {
     amount: i64,
+    payments: &'a dyn PaymentGateway,
     contributor: Contributor<'a>,
 }
 
@@ -35,6 +62,8 @@ impl Step for Charge<'_> {
         if self.amount <= 0 {
             return Ok(Outcome::retriable_failure(Reason::new("declined")));
         }
+        self.contributor
+            .contribute("payment", self.payments.take(self.amount));
         self.contributor.contribute("charged", self.amount);
         Ok(Outcome::success())
     }
@@ -47,12 +76,16 @@ impl StepFactory for Charging {
     type Step<'a> = Charge<'a>;
 
     fn needs(&self) -> StepNeeds {
-        StepNeeds::new().input(&AMOUNT).contributor()
+        StepNeeds::new()
+            .input(&AMOUNT)
+            .contributor()
+            .service(&PAYMENTS)
     }
 
     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge<'a>, Error> {
         Ok(Charge {
             amount: got.input(&AMOUNT)?,
+            payments: got.service(&PAYMENTS)?,
             contributor: got.contributor()?,
         })
     }
@@ -92,7 +125,9 @@ struct Notify;
 
 impl OnWorkflowSuccess<Orders> for Notify {
     fn needs() -> HookNeeds<WorkflowSuccess> {
-        HookNeeds::new().from_workflow(&CHARGED)
+        HookNeeds::new()
+            .from_workflow(&CHARGED)
+            .from_workflow(&PAYMENT)
     }
 
     fn on_workflow_success(
@@ -100,8 +135,12 @@ impl OnWorkflowSuccess<Orders> for Notify {
         mut got: Requested<'_, Orders, WorkflowSuccess>,
     ) -> Result<(), Error> {
         let charged = got.from_workflow(&CHARGED)?;
+        let payment = got.from_workflow(&PAYMENT)?;
         let messages: &dyn Messages = got.role();
-        messages.tell(&format!("order {}: paid {charged}", got.journey_id()));
+        messages.tell(&format!(
+            "order {}: paid {charged}, {payment}",
+            got.journey_id()
+        ));
         Ok(())
     }
 }
@@ -143,6 +182,17 @@ fn pricing(
     Ok(Some(AnyValue::new(price - discount.unwrap_or_default())))
 }
 
+/// Lends each attempt to charge the shop's card terminal.
+fn payments(
+    orders: &Orders,
+    got: Requested<'_, Orders, Provider<PerAttempt>>,
+) -> Result<Box<dyn PaymentGateway>, Error> {
+    Ok(Box::new(Terminal {
+        shop: orders.shop,
+        attempt: got.attempt(),
+    }))
+}
+
 /// Names each journey after the shop and the order.
 fn order_id(orders: &Orders, data: &DataBag) -> Result<String, Error> {
     let order: String = data.required("order")?;
@@ -157,6 +207,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .from_workflow(&PRICE)
             .optional_from_workflow(&DISCOUNT),
     );
+    let payments = ServiceProviderDescriptor::per_attempt("payments", &PAYMENTS, payments)
+        .step(step_name!("charge"));
     let orders = WorkflowDescriptor::builder("orders")
         .step(
             StepDescriptor::new(step_name!("charge"), Charging)
@@ -167,6 +219,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .policy(notify)
         .reporter::<Printer>()
         .input_adapter(adapter)
+        .provider(payments)
         .id_generator(order_id)
         .build()?;
     let mut executor = LocalExecutor::new();

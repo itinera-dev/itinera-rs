@@ -7,8 +7,9 @@ use crate::error::Error;
 /// builds itself from them once they are resolved.
 ///
 /// `#[derive(Step)]` implements it from the step's fields, and `#[step]` from a `new` function
-/// whose parameters are inputs. The handles a step uses while it runs are not inputs: the step
-/// receives them in its `run`, as [`DescribedStep`](super::DescribedStep) says.
+/// whose parameters are inputs, and, with the `unstable` feature, services, which its needs then
+/// declare too. The handles a step uses while it runs are not inputs: the step receives them in
+/// its `run`, as [`DescribedStep`](super::DescribedStep) says.
 ///
 /// # Examples
 ///

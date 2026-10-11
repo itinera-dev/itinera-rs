@@ -116,7 +116,8 @@ impl Attached<'_> {
     }
 }
 
-/// `__itinera_steps`, whose `listed` says whether a name is among the workflow's step names.
+/// `__itinera_steps`, whose `listed` says whether a name is among the workflow's step names, and
+/// whose `same` whether two names are the same.
 pub(super) fn steps() -> TokenStream {
     quote! {
         mod __itinera_steps {
@@ -127,7 +128,7 @@ pub(super) fn steps() -> TokenStream {
                 }
             }
 
-            const fn same(one: &[u8], other: &[u8]) -> bool {
+            pub(super) const fn same(one: &[u8], other: &[u8]) -> bool {
                 match (one, other) {
                     ([], []) => true,
                     ([first, rest @ ..], [second, others @ ..]) => *first == *second && same(rest, others),

@@ -1,0 +1,29 @@
+error[E0277]: a step or rescue step of the workflow `Orders` requests a service as `Gateway`, which no provider of its key makes
+  --> tests/ui/service/a_service_of_another_type_than_its_attached_provider_makes.rs:75:28
+   |
+75 | #[with_step(Charge, name = "charge", retry_budget = 1)]
+   |                            ^^^^^^^^ the step or rescue step listed here requests a service as `Gateway`
+   |
+help: the trait `itinera::service::ProvidesService<(itinera::service::Char<'p'>, (itinera::service::Char<'a'>, (itinera::service::Char<'y'>, (itinera::service::Char<'m'>, (itinera::service::Char<'e'>, (itinera::service::Char<'n'>, (itinera::service::Char<'t'>, (itinera::service::Char<'s'>, ())))))))), Gateway>` is not implemented for `Orders`
+  --> tests/ui/service/a_service_of_another_type_than_its_attached_provider_makes.rs:77:1
+   |
+77 | struct Orders {
+   | ^^^^^^^^^^^^^
+   = note: a provider of the key returns `Result<Box<T>, Error>` for the `T` that the `#[service]` parameter borrows, in a step's `run` or `new` or a rescue step's `run`; when no provider has the key, the error `service not provided` names it
+help: `Orders` implements trait `itinera::service::ProvidesService<K, T>`
+  --> tests/ui/service/a_service_of_another_type_than_its_attached_provider_makes.rs:81:1
+   |
+81 | #[workflow]
+   | ^^^^^^^^^^^
+   | |
+   | `itinera::service::ProvidesService<(itinera::service::Char<'p'>, (itinera::service::Char<'a'>, (itinera::service::Char<'y'>, (itinera::service::Char<'m'>, (itinera::service::Char<'e'>, (itinera::service::Char<'n'>, (itinera::service::Char<'t'>, (itinera::service::Char<'s'>, ())))))))), dyn PaymentGateway>`
+   | `itinera::service::ProvidesService<(itinera::service::Char<'s'>, (itinera::service::Char<'t'>, (itinera::service::Char<'o'>, (itinera::service::Char<'c'>, (itinera::service::Char<'k'>, ()))))), dyn StockStore>`
+note: required by a bound in `_::<impl Charge>::__itinera_services_fit`
+  --> tests/ui/service/a_service_of_another_type_than_its_attached_provider_makes.rs:50:41
+   |
+38 | #[step]
+   | ------- required by a bound in this associated function
+...
+50 |         #[service("payments")] gateway: &Gateway,
+   |                                         ^ required by this bound in `_::<impl Charge>::__itinera_services_fit`
+   = note: this error originates in the attribute macro `workflow` (in Nightly builds, run with -Z macro-backtrace for more info)

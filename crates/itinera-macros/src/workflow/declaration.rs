@@ -11,6 +11,7 @@ use syn::{Attribute, Ident, ItemStruct};
 use super::arguments::Arguments;
 use super::builder::{self, Settable};
 use super::checks::{self, Attached};
+use super::services;
 use super::with_step::WithStep;
 use crate::policy::Kind;
 use crate::{described, marker};
@@ -89,6 +90,7 @@ fn declare(
         .is_some()
         .then(|| checks::hooks(Kind::Workflow));
     let listed = listed(workflow, &steps);
+    let services = services::checked(workflow, &steps);
     let builder = builder::builder(
         workflow,
         &declared.vis,
@@ -105,6 +107,7 @@ fn declare(
             #(#step_checks)*
             #workflow_hooks
             #workflow_checks
+            #services
             #builder
         };
     })

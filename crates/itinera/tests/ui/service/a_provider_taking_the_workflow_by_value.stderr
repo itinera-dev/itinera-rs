@@ -1,0 +1,5 @@
+error: a service provider takes the workflow as `&self`
+  --> tests/ui/service/a_provider_taking_the_workflow_by_value.rs:84:5
+   |
+84 |     fn stock(self, #[journey_id] _journey: &JourneyId) -> Result<Box<dyn StockStore>, Error> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

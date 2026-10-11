@@ -13,6 +13,7 @@ mod local;
 mod marker;
 mod policy;
 mod role;
+mod service_key;
 mod step;
 mod workflow;
 
@@ -20,6 +21,7 @@ use proc_macro::TokenStream;
 use syn::{DeriveInput, Item, ItemImpl, parse_macro_input};
 
 #[doc = include_str!("../docs/step.md")]
+#[cfg_attr(feature = "unstable", doc = include_str!("../docs/step_services.md"))]
 #[proc_macro_attribute]
 pub fn step(arguments: TokenStream, block: TokenStream) -> TokenStream {
     let block = parse_macro_input!(block as ItemImpl);
@@ -27,6 +29,7 @@ pub fn step(arguments: TokenStream, block: TokenStream) -> TokenStream {
 }
 
 #[doc = include_str!("../docs/rescue_step.md")]
+#[cfg_attr(feature = "unstable", doc = include_str!("../docs/rescue_step_services.md"))]
 #[proc_macro_attribute]
 pub fn rescue_step(arguments: TokenStream, block: TokenStream) -> TokenStream {
     let block = parse_macro_input!(block as ItemImpl);
@@ -76,6 +79,7 @@ pub fn derive_output(input: TokenStream) -> TokenStream {
 }
 
 #[doc = include_str!("../docs/workflow.md")]
+#[cfg_attr(feature = "unstable", doc = include_str!("../docs/workflow_providers.md"))]
 #[proc_macro_attribute]
 pub fn workflow(arguments: TokenStream, item: TokenStream) -> TokenStream {
     let item = parse_macro_input!(item as Item);

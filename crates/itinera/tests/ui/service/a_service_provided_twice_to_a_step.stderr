@@ -1,0 +1,5 @@
+error: service provided twice: payments for charge
+  --> tests/ui/service/a_service_provided_twice_to_a_step.rs:93:38
+   |
+93 |     #[provider(per_attempt, steps = ["charge"], key = "payments", name = "charging")]
+   |                                      ^^^^^^^^
