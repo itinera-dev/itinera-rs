@@ -1,5 +1,5 @@
 //! Rules that Rust's types enforce: each program breaking a rule fails to compile, and its twin,
-//! which keeps the rule, compiles and runs.
+//! which keeps the rule, compiles, and runs when it has something to run.
 
 use std::error::Error;
 
