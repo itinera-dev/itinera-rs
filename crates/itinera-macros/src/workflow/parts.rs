@@ -49,6 +49,7 @@ pub(super) fn expand(arguments: TokenStream, mut block: ItemImpl) -> TokenStream
     };
     for function in block::functions(&mut block) {
         block::unmark(function, &marks);
+        adapter::bring_shorthands_into_scope(function);
     }
     match described {
         Ok(parts) => quote! {

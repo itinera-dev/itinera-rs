@@ -140,7 +140,10 @@ impl Payment {
         #[from_workflow] price: Option<i64>,
         #[from_workflow] discount: Option<i64>,
     ) -> Result<Option<AnyValue>, Error> {
-        Ok(price.map(|price| less(price, discount)).map(AnyValue::new))
+        match price {
+            Some(price) => Self::supply(less(price, discount)),
+            None => Self::from_data_bag(),
+        }
     }
 
     #[id_generator]

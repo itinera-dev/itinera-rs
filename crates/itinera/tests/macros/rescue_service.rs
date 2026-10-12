@@ -261,7 +261,7 @@ impl Rerouted {
 
     #[input_adapter(steps = ["charge_rescue"])]
     fn clients(&self, #[from_workflow] client: String) -> Result<Option<AnyValue>, Error> {
-        Ok(Some(AnyValue::new(client)))
+        Self::supply(client)
     }
 
     #[id_generator]

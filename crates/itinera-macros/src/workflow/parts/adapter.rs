@@ -17,6 +17,18 @@ use crate::{block, described};
 pub(super) use request::MARKS;
 use request::Request;
 
+/// The shorthands for what an input adapter returns that `Workflow` gives.
+const SHORTHANDS: [&str; 2] = ["supply", "from_data_bag"];
+
+/// Starts the function's body with an import of `Workflow` when the body writes one of the
+/// shorthands, such as `Self::supply`, so that it finds them.
+pub(super) fn bring_shorthands_into_scope(function: &mut ImplItemFn) {
+    let import = quote!(
+        use ::itinera::workflow::Workflow as _;
+    );
+    block::bring_into_scope(function, &import, &SHORTHANDS);
+}
+
 /// A method marked as an input adapter.
 pub(super) struct Adapter {
     name: LitStr,
