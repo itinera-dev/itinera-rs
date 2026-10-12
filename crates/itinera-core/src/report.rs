@@ -7,16 +7,22 @@ use crate::mode::Mode;
 
 #[cfg(feature = "async")]
 mod asynchronous;
+mod debug_reporter;
 mod default_dispatcher;
 mod dispatcher;
 #[cfg(test)]
 pub(crate) mod fixtures;
+#[cfg(any(test, feature = "testing"))]
+mod recording_reporter;
 pub(crate) mod sealed;
 
 #[cfg(feature = "async")]
 pub use asynchronous::{AsyncDispatcher, AsyncDispatcherFactory, AsyncReporter, BoxedReporter};
+pub use debug_reporter::DebugReporter;
 pub use default_dispatcher::{DefaultDispatcher, DefaultDispatcherFactory};
 pub use dispatcher::{Dispatcher, DispatcherFactory};
+#[cfg(any(test, feature = "testing"))]
+pub use recording_reporter::RecordingReporter;
 
 /// Receives the events of a journey, and decides on its own what to do with each: filter it,
 /// map it, forward it or ignore it.
