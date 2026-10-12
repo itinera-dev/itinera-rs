@@ -83,7 +83,8 @@ impl From<&Event> for Line {
                 }
             }
             EventBody::ContributionCommitted { key, source, .. }
-            | EventBody::DataOverwritten { key, source, .. } => {
+            | EventBody::DataOverwritten { key, source, .. }
+            | EventBody::GlobalMetadataSet { key, source, .. } => {
                 line.set("key", key);
                 line.source(source);
             }

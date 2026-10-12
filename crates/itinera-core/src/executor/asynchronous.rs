@@ -1,4 +1,4 @@
-use super::{Refusal, build_policies};
+use super::{Refusal, build_policies, initial_global_metadata};
 use crate::engine::{self, Awaited, Failures};
 use crate::instance::WorkflowInstance;
 use crate::journey::JourneyResult;
@@ -74,15 +74,20 @@ impl<F: AsyncDispatcherFactory> AsyncLocalExecutor<F> {
 
     /// Runs one journey of the instance and returns its result.
     ///
-    /// Before the journey starts, it builds one instance of each of the workflow's policies, then
-    /// creates the journey's dispatcher and adds the instance's reporters to it. Whatever happens
-    /// inside the journey, failures and aborts included, is in the result. A panic is not caught:
-    /// it reaches the caller, and the journey stops where it was.
+    /// Before the journey starts, it builds one instance of each of the workflow's policies,
+    /// creates the journey's dispatcher and adds the instance's reporters to it, then sets the
+    /// journey's global metadata: the journey ID, under
+    /// [`GlobalMetadata::JOURNEY_ID`](crate::report::GlobalMetadata::JOURNEY_ID), then the
+    /// instance's initial entries. Whatever happens inside the journey, failures and aborts
+    /// included, is in the result. A panic is not caught: it reaches the caller, and the journey
+    /// stops where it was.
     ///
     /// # Errors
     ///
-    /// A [`Refusal`], with no journey and no event, when a workflow policy fails while it is
-    /// built, the dispatcher factory fails, or the dispatcher fails while the reporters are added.
+    /// A [`Refusal`], with no journey and no event, when the initial global metadata sets
+    /// `journey_id`, a workflow policy fails while it is built, the dispatcher factory fails, the
+    /// dispatcher fails while the reporters are added, or a reporter or the dispatcher fails
+    /// while the global metadata is set.
     ///
     /// # Examples
     ///
@@ -110,6 +115,7 @@ impl<F: AsyncDispatcherFactory> AsyncLocalExecutor<F> {
         &mut self,
         mut instance: I,
     ) -> Result<JourneyResult, Refusal> {
+        let metadata = initial_global_metadata(&mut instance)?;
         let policies = build_policies(&instance)?;
         let mut dispatcher = self
             .factory
@@ -123,10 +129,14 @@ impl<F: AsyncDispatcherFactory> AsyncLocalExecutor<F> {
                 .await
                 .map_err(Refusal::Dispatcher)?;
         }
+        let mut delivery = Awaited::from(dispatcher);
+        engine::introduce(&mut delivery, &failures, instance.journey_id(), metadata)
+            .await
+            .map_err(Refusal::GlobalMetadata)?;
         Ok(engine::run(
             instance,
             policies,
-            Awaited::from(dispatcher),
+            delivery,
             failures,
             std::time::SystemTime::now,
         )

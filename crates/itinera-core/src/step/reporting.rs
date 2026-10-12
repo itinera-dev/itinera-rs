@@ -1,9 +1,9 @@
-//! What step and hook reporters of either mode emit through: the journey, with who emits and the
-//! kind of event.
+//! What step and hook reporters of either mode emit through and set global metadata through: the
+//! journey, with who emits and the kind of event.
 
 use super::StepAttempt;
 use crate::engine::{Emitted, Emitting};
-use crate::event::{EventBody, HookSource};
+use crate::event::{EventBody, HookSource, Source};
 use crate::value::AnyValue;
 
 /// What a step or hook reporter of either mode emits through: the journey, while the attempt or
@@ -12,14 +12,7 @@ use crate::value::AnyValue;
 pub(crate) struct Reporting<'a> {
     #[debug(skip)]
     emitting: &'a mut dyn Emitting,
-    stamp: Stamp,
-}
-
-/// Who emits through a reporter, which every event it emits carries: a step's attempt, or a hook.
-#[derive(Clone, Debug, derive_more::From)]
-pub(crate) enum Stamp {
-    Step(StepAttempt),
-    Hook(HookSource),
+    source: Source,
 }
 
 /// The kind of event a step or hook emits.
@@ -31,10 +24,12 @@ pub(crate) enum Level {
 }
 
 impl<'a> Reporting<'a> {
-    pub(crate) fn new(emitting: &'a mut dyn Emitting, stamp: impl Into<Stamp>) -> Self {
+    /// A reporter that emits for `source`, which every event it emits carries, as does every
+    /// entry of global metadata it sets.
+    pub(crate) fn new(emitting: &'a mut dyn Emitting, source: impl Into<Source>) -> Self {
         Self {
             emitting,
-            stamp: stamp.into(),
+            source: source.into(),
         }
     }
 
@@ -44,11 +39,16 @@ impl<'a> Reporting<'a> {
         message: String,
         data: Option<AnyValue>,
     ) -> Emitted<'_> {
-        let body = match self.stamp.clone() {
-            Stamp::Step(step) => step_event(level, step, message, data),
-            Stamp::Hook(hook) => journey_event(level, hook, message, data),
+        let body = match self.source.clone() {
+            Source::Step(step) => step_event(level, step, message, data),
+            Source::Hook(hook) => journey_event(level, hook, message, data),
         };
         self.emitting.relay(body)
+    }
+
+    pub(crate) fn set_global_metadata(&mut self, key: String, value: AnyValue) -> Emitted<'_> {
+        self.emitting
+            .set_global_metadata(self.source.clone(), key, value)
     }
 }
 

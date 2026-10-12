@@ -25,8 +25,9 @@ Status: done in stage 6. Stage 3 added both executors and the engine they share,
 
 ## Tests
 
-- Unit tests in `itinera-core/src/executor.rs`: a journey emits its events in order to every reporter and succeeds with its data; the step runs once; a journey without a step succeeds; an executor runs journeys one after another, each with a new dispatcher; and the refusal and reporter failure tests listed in the tech specs of 0058, 0063 and 0081.
-- Unit tests in `itinera-core/src/executor/asynchronous.rs`: an asynchronous workflow emits its events in order to both kinds of reporter, and its future is `Send`; an asynchronous workflow may list only synchronous reporters.
+- Unit tests in `itinera-core/src/executor/tests.rs`: a journey emits its events in order to every reporter and succeeds with its data; an executor runs journeys one after another, each with a new dispatcher; and the refusal tests listed in the tech specs of 0058 and 0063. The reporter failure tests are listed in the tech spec of 0081.
+- Unit tests in `itinera-core/src/engine/tests.rs`: the step runs once; a journey without a step succeeds.
+- Unit tests in `itinera-core/src/executor/asynchronous/tests.rs`: an asynchronous workflow emits its events in order to both kinds of reporter, and its future is `Send`; an asynchronous workflow may list only synchronous reporters.
 - Unit tests in `itinera-core/src/engine.rs`: events are numbered from 1, and carry the journey ID, the workflow name and the time of the engine's clock.
 - Compile-fail tests in `itinera/tests/ui.rs`, each with a twin that compiles and runs: `an_instance_runs_at_most_one_journey`, where the twin runs a new instance instead, and `an_executor_runs_one_journey_at_a_time`, where two scoped threads call `run` on one executor, and the twin's second journey runs after the first thread.
 - A proof in `itinera/tests/proofs.rs`, `a_synchronous_executor_cannot_run_an_asynchronous_step`: handing `LocalExecutor` an instance of an asynchronous workflow fails to compile, and its twin, which hands it to `AsyncLocalExecutor`, compiles and runs. It covers the scenario tagged `@mode-not-accepted`, as the tech spec of 0042 says.

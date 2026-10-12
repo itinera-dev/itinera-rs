@@ -43,7 +43,7 @@ Status: done in stage 7. Stage 1 shaped the events, stage 3 the result and refus
 - Unit tests in `itinera-core/src/event.rs`: `a_journey_failure_names_its_cause`; `an_abort_while_data_was_resolved_names_the_step_it_was_for_but_no_error`; `a_required_request_for_a_missing_reason_names_the_step_the_hook_acts_on`; `an_abort_by_a_workflow_hooks_request_names_no_step`; `an_abort_caused_by_failing_code_carries_the_errors_message`.
 - Unit tests in `itinera-core/src/journey.rs`: `a_failure_names_its_cause` and `an_abort_names_its_reason`.
 - Unit tests in `itinera-core/src/engine/hooks.rs`: `a_step_hook_receives_what_it_requests_from_the_step_and_the_workflow_before_it_runs`, where `on step failure` receives the reason of a failure and no error; `a_required_request_without_a_value_aborts_the_journey_before_the_hook_runs`, with the cases `the_reason_of_an_abnormal_termination` and `the_error_of_a_failure`; `a_reason_declared_again_replaces_the_earlier_declaration`; `a_hook_that_fails_aborts_the_journey_with_its_error`; `a_step_policy_that_cannot_be_built_aborts_the_journey_before_the_steps_inputs`.
-- Unit tests in `itinera-core/src/executor.rs`: `a_workflow_policy_that_cannot_be_built_refuses_the_journey_before_its_dispatcher`, whose refusal names the policy.
+- Unit tests in `itinera-core/src/executor/tests.rs`: `a_workflow_policy_that_cannot_be_built_refuses_the_journey_before_its_dispatcher`, whose refusal names the policy.
 
 ## Done when
 

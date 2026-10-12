@@ -7,7 +7,8 @@ use crate::step::{Level, Reporting};
 use crate::value::{AnyValue, Value};
 
 /// An asynchronous step's means of emitting its own events, `step_info`, `step_warning` and
-/// `step_error`, each stamped with the step and its attempt.
+/// `step_error`, each stamped with the step and its attempt, and of setting the journey's global
+/// metadata.
 ///
 /// Everything [`StepReporter`](crate::step::StepReporter) says applies to it, except that each
 /// emit call is awaited: the step waits there until every reporter has the event.
@@ -196,5 +197,35 @@ impl AsyncStepReporter<'_> {
     ) -> impl Future<Output = Result<(), Interrupted>> + Send + '_ {
         self.reporting
             .emit(Level::Error, message.into(), Some(AnyValue::new(data)))
+    }
+
+    /// Sets an entry of the journey's global metadata, which every reporter receives before
+    /// the call returns, then emits `global_metadata_set`, which names the key and who set it but
+    /// not the value. The entry stands whatever happens afterwards, and setting the key again
+    /// replaces its value.
+    ///
+    /// # Errors
+    ///
+    /// [`Interrupted`] when a reporter failed, here or earlier in the attempt, or when `key` is
+    /// [`GlobalMetadata::JOURNEY_ID`](crate::report::GlobalMetadata::JOURNEY_ID), which aborts
+    /// the journey with `reserved metadata key`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Interrupted;
+    /// use itinera::step::AsyncStepReporter;
+    ///
+    /// async fn found(reporter: &mut AsyncStepReporter<'_>, user: String) -> Result<(), Interrupted> {
+    ///     reporter.set_global_metadata("user_id", user).await
+    /// }
+    /// ```
+    pub fn set_global_metadata<T: Value>(
+        &mut self,
+        key: impl Into<String>,
+        value: T,
+    ) -> impl Future<Output = Result<(), Interrupted>> + Send + '_ {
+        self.reporting
+            .set_global_metadata(key.into(), AnyValue::new(value))
     }
 }

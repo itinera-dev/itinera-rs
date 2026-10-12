@@ -6,10 +6,10 @@ Status: done in stage 7. Stage 3 added the executors, with their refusals and th
 
 ## API
 
-- **Every call into custom code returns `Result<_, itinera::error::Error>`**: the journey ID generator, reporters' `set_journey_id`, dispatcher factories, dispatchers, reporters, step factories and steps, input adapters, policy factories given to `fallible` or `fallible_async`, hooks, and role operations that can fail, which the hook propagates. A factory that cannot fail is given to `new` or `new_async` instead.
+- **Every call into custom code returns `Result<_, itinera::error::Error>`**: the journey ID generator, dispatcher factories, dispatchers, reporters, step factories and steps, input adapters, policy factories given to `fallible` or `fallible_async`, hooks, and role operations that can fail, which the hook propagates. A factory that cannot fail is given to `new` or `new_async` instead.
 - **`LocalExecutor::run`** and **`AsyncLocalExecutor::run`** return `Result<JourneyResult, Refusal>`: whatever custom code returns inside the journey becomes the result, and never escapes `run`.
-- **`itinera::executor::Refusal`** has a variant for each refusal: `WorkflowPolicy`, with the policy's name and its error, `DispatcherFactory` and `Dispatcher`.
-- **`itinera::instance::InstanceError`** is what `create()` returns when the journey ID generator or a reporter's `set_journey_id` fails, before any executor is involved: `JourneyId(Error)` or `Reporter(Error)`.
+- **`itinera::executor::Refusal`** has a variant for each refusal: `WorkflowPolicy`, with the policy's name and its error, `DispatcherFactory` and `Dispatcher`, and, since [0102](0102-global-metadata.md), `ReservedMetadataKey` and `GlobalMetadata`.
+- **`itinera::instance::InstanceError`** is what `create()` returns when the journey ID generator fails, before any executor is involved: `JourneyId(Error)`.
 
 ## How the rules are enforced
 
@@ -32,7 +32,7 @@ The list is exhaustive: these are the only places where itinera calls code it di
 ## Tests
 
 - Unit tests in `itinera-core/src/instance.rs`: `a_generator_that_fails_makes_creating_the_instance_fail` and `a_reporter_that_cannot_be_made_makes_creating_the_instance_fail`.
-- Unit tests in `itinera-core/src/executor.rs`: `a_dispatcher_factory_that_fails_refuses_the_journey_before_any_event`; `a_dispatcher_that_fails_while_reporters_are_added_refuses_the_journey_before_any_event`; `a_workflow_policy_that_cannot_be_built_refuses_the_journey_before_its_dispatcher`; `a_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others`; `a_dispatcher_that_fails_while_dispatching_aborts_the_journey`; `a_reporter_that_fails_while_journey_aborted_is_delivered_is_ignored`; `a_dispatcher_that_fails_while_journey_aborted_is_delivered_is_ignored`. In `executor/asynchronous.rs`, the same refusals and the reporter's abort for asynchronous dispatchers and reporters.
+- Unit tests in `itinera-core/src/executor/tests.rs`: `a_dispatcher_factory_that_fails_refuses_the_journey_before_any_event`; `a_dispatcher_that_fails_while_reporters_are_added_refuses_the_journey_before_any_event`; `a_workflow_policy_that_cannot_be_built_refuses_the_journey_before_its_dispatcher`. In `engine/guard/tests.rs`: `a_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others`; `a_reporter_that_fails_while_journey_aborted_is_delivered_is_ignored`. In `engine/emitter/tests.rs`: `a_dispatcher_that_fails_while_dispatching_aborts_the_journey`; `a_dispatcher_that_fails_while_journey_aborted_is_delivered_is_ignored`. In `executor/asynchronous/tests.rs`, the same refusals for asynchronous dispatchers, and in `engine/asynchronous.rs` the reporter's abort for asynchronous reporters.
 - Unit tests in `itinera-core/src/engine.rs`: `a_step_whose_factory_fails_aborts_the_journey_as_it_could_not_be_built`; `an_input_adapter_that_fails_aborts_the_journey_as_its_step_could_not_be_built`; `an_abnormal_termination_is_retried_only_when_the_step_allows_it`.
 - Unit tests in `itinera-core/src/engine/hooks.rs`: `a_hook_that_fails_aborts_the_journey_with_its_error` and `a_step_policy_that_cannot_be_built_aborts_the_journey_before_the_steps_inputs`.
 - The conformance scenarios of 0049 run under both executors, with a role operation scripted to fail inside a hook.

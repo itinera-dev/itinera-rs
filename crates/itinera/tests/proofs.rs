@@ -20,8 +20,13 @@ mod contribution_value;
 mod event_data_value;
 #[path = "proofs/invalid-lifecycle/fail_workflow_on_step_failure.rs"]
 mod fail_workflow_on_step_failure;
+#[path = "proofs/non-value/global_metadata_value.rs"]
+#[expect(dead_code, reason = "this twin only has to compile")]
+mod global_metadata_value;
 #[path = "proofs/non-value/initial_data_value.rs"]
 mod initial_data_value;
+#[path = "proofs/non-value/initial_global_metadata_value.rs"]
+mod initial_global_metadata_value;
 #[path = "proofs/non-value/input_adapter_value.rs"]
 mod input_adapter_value;
 #[path = "proofs/non-value/provider_event_data_value.rs"]
@@ -72,6 +77,17 @@ fn a_reasons_details_cannot_be_a_non_value() {
 #[test]
 fn a_step_event_cannot_carry_a_non_value() {
     fails_to_compile("tests/proofs/non-value/event_data.rs");
+}
+
+#[test]
+fn a_step_cannot_set_a_non_value_as_global_metadata() {
+    fails_to_compile("tests/proofs/non-value/global_metadata.rs");
+}
+
+#[test]
+fn initial_global_metadata_cannot_hold_a_non_value() -> Result<(), Box<dyn Error>> {
+    fails_to_compile("tests/proofs/non-value/initial_global_metadata.rs");
+    initial_global_metadata_value::main()
 }
 
 #[test]

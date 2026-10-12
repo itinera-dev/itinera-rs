@@ -27,7 +27,7 @@ Status: done in stage 7, which gave policy descriptors their factories and made 
 ## Tests
 
 - Unit tests in `itinera-core/src/engine/hooks.rs`: `step_policies_are_built_for_every_attempt` and `a_step_policy_that_cannot_be_built_aborts_the_journey_before_the_steps_inputs`.
-- Unit tests in `itinera-core/src/executor.rs`: `each_journey_gets_new_workflow_policy_instances` and `a_workflow_policy_that_cannot_be_built_refuses_the_journey_before_its_dispatcher`. In `executor/asynchronous.rs`: `an_asynchronous_workflow_policy_that_cannot_be_built_refuses_the_journey_before_any_event`.
+- Unit tests in `itinera-core/src/executor/tests.rs`: `each_journey_gets_new_workflow_policy_instances` and `a_workflow_policy_that_cannot_be_built_refuses_the_journey_before_its_dispatcher`. In `executor/asynchronous/tests.rs`: `an_asynchronous_workflow_policy_that_cannot_be_built_refuses_the_journey_before_any_event`.
 - The conformance runner's scripted policies count their own calls and contribute the count, so the cases of 0058 observe how many instances were built, under both executors.
 
 ## Done when

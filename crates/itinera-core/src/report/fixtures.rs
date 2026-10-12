@@ -7,6 +7,7 @@ use crate::error::Error;
 use crate::event::fixtures::event;
 use crate::event::{Event, EventBody, JourneyAbort};
 use crate::report::Reporter;
+use crate::value::AnyValue;
 
 /// What the journey's reporters received, in order, as "reporter kind" lines.
 pub(crate) type Log = Arc<Mutex<Vec<String>>>;
@@ -33,21 +34,27 @@ impl Recording {
         }
     }
 
-    pub(super) fn record(&mut self, event: &Event) -> Result<(), Error> {
-        if self.fails_on == Some(event.kind()) {
+    /// Logs what it received, the kind of an event or the key of an entry of global metadata,
+    /// unless it fails on it.
+    pub(super) fn record(&mut self, received: &str) -> Result<(), Error> {
+        if self.fails_on == Some(received) {
             return Err(Error::msg(format!("{} failed", self.name)));
         }
         self.log
             .lock()
             .unwrap()
-            .push(format!("{} {}", self.name, event.kind()));
+            .push(format!("{} {received}", self.name));
         Ok(())
     }
 }
 
 impl Reporter for Recording {
+    fn set_global_metadata(&mut self, key: &str, _value: &AnyValue) -> Result<(), Error> {
+        self.record(key)
+    }
+
     fn report(&mut self, event: &Event) -> Result<(), Error> {
-        self.record(event)
+        self.record(event.kind())
     }
 }
 

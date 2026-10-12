@@ -19,7 +19,4 @@ pub enum InstanceError {
     /// The workflow's generator failed to produce the journey ID.
     #[error("the journey ID could not be produced: {0}")]
     JourneyId(Error),
-    /// A reporter's `set_journey_id` failed.
-    #[error("a reporter failed to take the journey ID: {0}")]
-    Reporter(Error),
 }

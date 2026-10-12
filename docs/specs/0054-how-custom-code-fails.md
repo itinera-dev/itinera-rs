@@ -1,6 +1,6 @@
 # 0054: How custom code fails
 
-Tech spec for [proposal 0054](https://github.com/itinera-dev/spec/blob/main/proposals/0054-how-custom-code-fails.md), implemented in [#22](https://github.com/itinera-dev/itinera-rs/issues/22). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
+Tech spec for [proposal 0054](https://github.com/itinera-dev/spec/blob/main/proposals/0054-how-custom-code-fails.md), implemented in [#22](https://github.com/itinera-dev/itinera-rs/issues/22). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposal [0102](0102-global-metadata.md) amends it, and its tech spec covers the abort `reserved metadata key` and a reporter that fails on global metadata.
 
 Status: done in stage 7. Stage 1 added the error type, and stages 3 to 7 the executors, steps, hooks and roles that return it. The proofs of the rules made impossible to express landed with their features: those of values and late handles in stage 5, of modes in stage 6, and of lifecycles and roles in stage 7.
 
@@ -46,7 +46,7 @@ The tech specs of the proposals whose scenarios they are say how each proof work
 
 - Unit tests in `itinera-core/src/error.rs`: `an_error_shows_the_message_of_the_error_it_was_made_from` and `an_error_converts_back_into_a_boxed_standard_error`.
 - Unit tests in `itinera-core/src/engine/hooks.rs`: `a_hook_that_fails_aborts_the_journey_with_its_error`.
-- Unit tests in `itinera-core/src/executor.rs`: `a_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others`.
+- Unit tests in `itinera-core/src/engine/guard/tests.rs`: `a_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others`.
 - Unit tests in `itinera-core/src/journey.rs`: `statuses_causes_and_abort_reasons_display_as_the_specification_writes_them`.
 - The eleven proofs above, in `itinera/tests/proofs.rs`.
 

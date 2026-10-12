@@ -5,7 +5,9 @@ mod requests;
 use cucumber::given;
 
 use super::Names;
-use crate::model::{Level, ModelError, Provider, ProviderFailure, Scope, ServiceType};
+use crate::model::{
+    Level, ModelError, Provider, ProviderAction, ProviderFailure, Scope, ServiceType,
+};
 use crate::world::World;
 
 #[given(expr = "step {string} requests the service {string} of type {service}")]
@@ -130,8 +132,8 @@ fn the_service_provider_emits(
     world
         .model
         .provider_mut(&provider)?
-        .emits
-        .push((level, message));
+        .actions
+        .push(ProviderAction::Emit(level, message));
     Ok(())
 }
 

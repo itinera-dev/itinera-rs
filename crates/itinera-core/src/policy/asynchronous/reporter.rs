@@ -7,7 +7,8 @@ use crate::step::{Level, Reporting};
 use crate::value::{AnyValue, Value};
 
 /// An asynchronous hook's means of emitting its own events, `journey_info`, `journey_warning`
-/// and `journey_error`. Everything [`HookReporter`](crate::policy::HookReporter) says applies to it.
+/// and `journey_error`, and of setting the journey's global metadata. Everything
+/// [`HookReporter`](crate::policy::HookReporter) says applies to it.
 ///
 /// # Examples
 ///
@@ -168,5 +169,35 @@ impl AsyncHookReporter<'_> {
     ) -> impl Future<Output = Result<(), Interrupted>> + Send + '_ {
         self.reporting
             .emit(Level::Error, message.into(), Some(AnyValue::new(data)))
+    }
+
+    /// Sets an entry of the journey's global metadata, which every reporter receives before
+    /// the call returns, then emits `global_metadata_set`, which names the key and who set it but
+    /// not the value. The entry stands whatever happens afterwards, and setting the key again
+    /// replaces its value.
+    ///
+    /// # Errors
+    ///
+    /// [`Interrupted`] when a reporter failed, here or earlier in the hook, or when `key` is
+    /// [`GlobalMetadata::JOURNEY_ID`](crate::report::GlobalMetadata::JOURNEY_ID), which aborts
+    /// the journey with `reserved metadata key`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Interrupted;
+    /// use itinera::policy::AsyncHookReporter;
+    ///
+    /// async fn tenant(reporter: &mut AsyncHookReporter<'_>) -> Result<(), Interrupted> {
+    ///     reporter.set_global_metadata("tenant", "acme".to_string()).await
+    /// }
+    /// ```
+    pub fn set_global_metadata<T: Value>(
+        &mut self,
+        key: impl Into<String>,
+        value: T,
+    ) -> impl Future<Output = Result<(), Interrupted>> + Send + '_ {
+        self.reporting
+            .set_global_metadata(key.into(), AnyValue::new(value))
     }
 }

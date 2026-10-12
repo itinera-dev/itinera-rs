@@ -1,9 +1,9 @@
 //! Who did what an event records: the hook that was called, who made an optional request, and
-//! who made a contribution.
+//! who made a contribution or set global metadata.
 
 use crate::policy::{PolicyName, StepHook, WorkflowHook};
 use crate::service::ProviderName;
-use crate::step::StepAttempt;
+use crate::step::{StepAttempt, StepName};
 use crate::workflow::AdapterName;
 
 /// A hook that was called: a step hook, with the step and attempt that triggered it, a workflow
@@ -87,7 +87,8 @@ pub enum RequestSource {
     },
 }
 
-/// Who made a contribution: a step, or a hook.
+/// Who made a contribution, or set an entry of global metadata: a step, or a hook or service
+/// provider.
 ///
 /// # Examples
 ///
@@ -98,11 +99,24 @@ pub enum RequestSource {
 ///     matches!(source, Source::Hook(_))
 /// }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, derive_more::From)]
 #[non_exhaustive]
 pub enum Source {
     /// A step, during this attempt.
     Step(StepAttempt),
-    /// A hook.
+    /// A hook, or a service provider.
     Hook(HookSource),
+}
+
+impl Source {
+    /// The name of the step it was for, if any: none for a workflow hook.
+    pub(crate) fn step(&self) -> Option<StepName> {
+        match self {
+            Self::Step(step)
+            | Self::Hook(HookSource::Step { step, .. } | HookSource::Provider { step, .. }) => {
+                Some(step.step)
+            }
+            Self::Hook(HookSource::Workflow { .. }) => None,
+        }
+    }
 }

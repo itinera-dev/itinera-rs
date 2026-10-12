@@ -46,7 +46,11 @@ fn the_reporter_fails_with_on(
     fails(world, reporter, failure)
 }
 
-fn fails(world: &mut World, reporter: String, failure: ReporterFailure) -> Result<(), ModelError> {
+pub(super) fn fails(
+    world: &mut World,
+    reporter: String,
+    failure: ReporterFailure,
+) -> Result<(), ModelError> {
     if world.model.reporter_failures.contains_key(&reporter) {
         return Err(ModelError::StatedTwice("how the reporter fails"));
     }

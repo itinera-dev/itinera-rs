@@ -6,9 +6,9 @@ use std::pin::Pin;
 use super::AsyncReporter;
 use crate::error::Error;
 use crate::event::Event;
-use crate::journey::JourneyId;
 use crate::report::Reporter;
 use crate::report::sealed::Held;
+use crate::value::AnyValue;
 
 /// A reporter of either kind, synchronous or asynchronous, as an asynchronous dispatcher
 /// holds it.
@@ -117,19 +117,43 @@ impl BoxedReporter {
             Kind::Async(reporter) => reporter.report_boxed(event).await,
         }
     }
+
+    /// Gives one entry of the journey's global metadata to the reporter, of either kind.
+    ///
+    /// # Errors
+    ///
+    /// The reporter's own error, if it fails on the entry.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::report::BoxedReporter;
+    /// use itinera::value::AnyValue;
+    ///
+    /// fn tell(reporter: &mut BoxedReporter, user: &str) -> Result<(), Error> {
+    ///     reporter.set_global_metadata("user_id", &AnyValue::new(user.to_string()))
+    /// }
+    /// ```
+    pub fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        match &mut self.kind {
+            Kind::Sync(reporter) => reporter.set_global_metadata(key, value),
+            Kind::Async(reporter) => reporter.set_global_metadata(key, value),
+        }
+    }
 }
 
 type BoxedFuture<'a> = Pin<Box<dyn Future<Output = Result<(), Error>> + Send + 'a>>;
 
 trait DynAsyncReporter: Send {
-    fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error>;
+    fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error>;
 
     fn report_boxed<'a>(&'a mut self, event: &'a Event) -> BoxedFuture<'a>;
 }
 
 impl<R: AsyncReporter> DynAsyncReporter for R {
-    fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
-        AsyncReporter::set_journey_id(self, journey_id)
+    fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        AsyncReporter::set_global_metadata(self, key, value)
     }
 
     fn report_boxed<'a>(&'a mut self, event: &'a Event) -> BoxedFuture<'a> {
@@ -138,10 +162,7 @@ impl<R: AsyncReporter> DynAsyncReporter for R {
 }
 
 impl Held for BoxedReporter {
-    fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
-        match &mut self.kind {
-            Kind::Sync(reporter) => reporter.set_journey_id(journey_id),
-            Kind::Async(reporter) => reporter.set_journey_id(journey_id),
-        }
+    fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        BoxedReporter::set_global_metadata(self, key, value)
     }
 }

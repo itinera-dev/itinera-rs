@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use super::{Failures, Inline, finish, run};
+use super::{Failures, Inline, finish, introduce, run};
 use crate::error::Error;
 use crate::event::{Event, EventBody, JourneyFailure};
 use crate::executor::build_policies;
@@ -29,20 +29,41 @@ use crate::value::AnyValue;
 use crate::workflow::fixtures::{Orders, orders};
 use crate::workflow::{WorkflowBuilder, WorkflowDescriptor};
 
-/// A reporter that records every event it receives, and fails on one kind if told to.
+/// A reporter that records every event and entry of global metadata it receives, and fails on
+/// one kind of event or key if told to.
 #[derive(Default)]
 pub(super) struct Recording {
     pub(super) events: Arc<Mutex<Vec<Event>>>,
+    pub(super) entries: Entries,
     fails_on: Option<&'static str>,
 }
 
-impl Reporter for Recording {
-    fn report(&mut self, event: &Event) -> Result<(), Error> {
-        self.events.lock().unwrap().push(event.clone());
-        if self.fails_on == Some(event.kind()) {
-            return Err(Error::msg(format!("failed on {}", event.kind())));
+/// The key of each entry of global metadata a recording received, with how many events it had
+/// received before it.
+pub(super) type Entries = Arc<Mutex<Vec<(String, usize)>>>;
+
+impl Recording {
+    fn fail_on(&self, received: &str) -> Result<(), Error> {
+        if self.fails_on == Some(received) {
+            return Err(Error::msg(format!("failed on {received}")));
         }
         Ok(())
+    }
+}
+
+impl Reporter for Recording {
+    fn set_global_metadata(&mut self, key: &str, _value: &AnyValue) -> Result<(), Error> {
+        let received = self.events.lock().unwrap().len();
+        self.entries
+            .lock()
+            .unwrap()
+            .push((key.to_owned(), received));
+        self.fail_on(key)
+    }
+
+    fn report(&mut self, event: &Event) -> Result<(), Error> {
+        self.events.lock().unwrap().push(event.clone());
+        self.fail_on(event.kind())
     }
 }
 
@@ -116,7 +137,7 @@ struct ScriptedStep<'a, S> {
     reporter: StepReporter<'a>,
 }
 
-pub(crate) fn scripted<S>(script: S) -> StepDescriptor<Orders>
+pub(crate) fn scripted<W, S>(script: S) -> StepDescriptor<W>
 where
     S: Fn(&mut Contributor<'_>, &mut StepReporter<'_>) -> Result<Outcome, Error>
         + Send
@@ -179,17 +200,30 @@ pub(super) fn travel_before<I: WorkflowInstance>(
     instance: I,
     after: Option<Recording>,
 ) -> (JourneyStatus, Vec<Event>) {
+    let (status, events, _) = travel_with_entries(instance, after);
+    (status, events)
+}
+
+/// Runs the journey to its end with a recording reporter, before the one given if any, and
+/// returns its status, and the events and entries of global metadata the recording reporter
+/// received.
+pub(super) fn travel_with_entries<I: WorkflowInstance>(
+    instance: I,
+    after: Option<Recording>,
+) -> (JourneyStatus, Vec<Event>, Vec<(String, usize)>) {
     let recording = Recording::default();
     let events = Arc::clone(&recording.events);
+    let entries = Arc::clone(&recording.entries);
     let status = travel_recorded(instance, recording, after);
     let events = events.lock().unwrap().clone();
-    (status, events)
+    let entries = entries.lock().unwrap().clone();
+    (status, events, entries)
 }
 
 /// Runs a journey of the instance, delivering its events to the recording, then to `after`
 /// if given.
 pub(super) fn travel_recorded<I: WorkflowInstance>(
-    instance: I,
+    mut instance: I,
     recording: Recording,
     after: Option<Recording>,
 ) -> JourneyStatus {
@@ -199,14 +233,16 @@ pub(super) fn travel_recorded<I: WorkflowInstance>(
     for reporter in [recording].into_iter().chain(after) {
         dispatcher.add(failures.guard(Box::new(reporter))).unwrap();
     }
-    finish(run(
-        instance,
-        policies,
-        Inline::from(dispatcher),
-        failures,
-        noon,
+    let mut delivery = Inline::from(dispatcher);
+    let metadata = instance.take_global_metadata();
+    finish(introduce(
+        &mut delivery,
+        &failures,
+        instance.journey_id(),
+        metadata,
     ))
-    .status
+    .unwrap();
+    finish(run(instance, policies, delivery, failures, noon)).status
 }
 
 /// The charge step, which needs an amount, may have a discount, and records what it read

@@ -1,7 +1,9 @@
 //! What an executor runs: a workflow instance, whoever made it.
 
+use super::Committed;
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::Mode;
+use crate::report::GlobalMetadata;
 use crate::value::AnyValue;
 use crate::workflow::WorkflowDescriptor;
 
@@ -100,6 +102,30 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     /// ```
     fn take_reporters(&mut self) -> Vec<<Self::Mode as Mode>::Reporter>;
 
+    /// Hands the journey's initial global metadata over. Called once, by the executor, when the
+    /// journey starts, which gives each entry to every reporter after the journey ID. An instance
+    /// that does not say otherwise has none.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::instance::WorkflowInstance;
+    /// use itinera::workflow::WorkflowDescriptor;
+    ///
+    /// struct Orders;
+    ///
+    /// let orders = WorkflowDescriptor::builder("orders").build()?;
+    /// let mut instance = orders
+    ///     .instance(Orders)
+    ///     .global_metadata("tenant", "acme".to_string())
+    ///     .create()?;
+    /// assert!(instance.take_global_metadata().get("tenant").is_some());
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    fn take_global_metadata(&mut self) -> GlobalMetadata {
+        GlobalMetadata::new()
+    }
+
     /// The journey's data bag.
     ///
     /// # Examples
@@ -158,23 +184,4 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     fn commit(&mut self, key: String, value: AnyValue) -> Committed;
-}
-
-/// What committing a contribution did to the data bag.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::instance::Committed;
-///
-/// fn overwrote(committed: Committed) -> bool {
-///     committed == Committed::Overwritten
-/// }
-/// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Committed {
-    /// The data bag had no value under the key.
-    Added,
-    /// The value replaced the one the data bag had under the key.
-    Overwritten,
 }

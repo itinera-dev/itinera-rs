@@ -2,20 +2,21 @@
 //! start.
 
 use crate::engine::{self, Failures, Inline, WorkflowPolicies};
-use crate::error::Error;
 use crate::instance::WorkflowInstance;
 use crate::journey::JourneyResult;
 use crate::mode::Synchronous;
-use crate::policy::{BuiltWorkflowPolicy, PolicyName, WorkflowPolicyEntry};
-use crate::report::{DefaultDispatcherFactory, Dispatcher, DispatcherFactory};
+use crate::policy::{BuiltWorkflowPolicy, WorkflowPolicyEntry};
+use crate::report::{DefaultDispatcherFactory, Dispatcher, DispatcherFactory, GlobalMetadata};
 
 #[cfg(feature = "async")]
 mod asynchronous;
 #[cfg(test)]
 pub(crate) mod fixtures;
+mod refusal;
 
 #[cfg(feature = "async")]
 pub use asynchronous::AsyncLocalExecutor;
+pub use refusal::Refusal;
 
 /// Runs synchronous workflows in process, one journey at a time, with no persistence: a journey
 /// lives only as long as the call to [`run`](LocalExecutor::run).
@@ -78,18 +79,22 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
 
     /// Runs one journey of the instance and returns its result.
     ///
-    /// Before the journey starts, it builds one instance of each of the workflow's policies, then
-    /// creates the journey's dispatcher and adds the instance's reporters to it. Whatever happens
-    /// inside the journey, failures and aborts included, is in the result. A panic is not caught:
-    /// it reaches the caller, and the journey stops where it was.
+    /// Before the journey starts, it builds one instance of each of the workflow's policies,
+    /// creates the journey's dispatcher and adds the instance's reporters to it, then sets the
+    /// journey's global metadata: the journey ID, under [`GlobalMetadata::JOURNEY_ID`], then the
+    /// instance's initial entries. Whatever happens inside the journey, failures and aborts
+    /// included, is in the result. A panic is not caught: it reaches the caller, and the journey
+    /// stops where it was.
     ///
     /// `run` takes the instance, so an instance runs one journey and cannot run again. It borrows
     /// the executor mutably, so an executor runs one journey at a time.
     ///
     /// # Errors
     ///
-    /// A [`Refusal`], with no journey and no event, when a workflow policy fails while it is
-    /// built, the dispatcher factory fails, or the dispatcher fails while the reporters are added.
+    /// A [`Refusal`], with no journey and no event, when the initial global metadata sets
+    /// `journey_id`, a workflow policy fails while it is built, the dispatcher factory fails, the
+    /// dispatcher fails while the reporters are added, or a reporter or the dispatcher fails
+    /// while the global metadata is set.
     ///
     /// # Examples
     ///
@@ -116,6 +121,7 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
         &mut self,
         mut instance: I,
     ) -> Result<JourneyResult, Refusal> {
+        let metadata = initial_global_metadata(&mut instance)?;
         let policies = build_policies(&instance)?;
         let mut dispatcher = self.factory.create().map_err(Refusal::DispatcherFactory)?;
         let failures = Failures::default();
@@ -125,48 +131,34 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
             .map(|reporter| failures.guard(reporter))
             .try_for_each(|reporter| dispatcher.add(reporter))
             .map_err(Refusal::Dispatcher)?;
+        let mut delivery = Inline::from(dispatcher);
+        let journey_id = instance.journey_id();
+        engine::finish(engine::introduce(
+            &mut delivery,
+            &failures,
+            journey_id,
+            metadata,
+        ))
+        .map_err(Refusal::GlobalMetadata)?;
         Ok(engine::finish(engine::run(
             instance,
             policies,
-            Inline::from(dispatcher),
+            delivery,
             failures,
             std::time::SystemTime::now,
         )))
     }
 }
 
-/// Why `run` did not start a journey: custom code called before the journey starts failed. There
-/// is no journey and no event.
-///
-/// It names what refused the journey, and carries its error.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::executor::Refusal;
-///
-/// fn blames_the_dispatcher(refusal: &Refusal) -> bool {
-///     matches!(refusal, Refusal::DispatcherFactory(_) | Refusal::Dispatcher(_))
-/// }
-/// ```
-#[derive(Debug, thiserror::Error)]
-#[non_exhaustive]
-pub enum Refusal {
-    /// A workflow policy failed while it was built for the journey.
-    #[error("the workflow policy {policy} could not be built: {error}")]
-    #[non_exhaustive]
-    WorkflowPolicy {
-        /// The policy's name.
-        policy: PolicyName,
-        /// The error it failed with.
-        error: Error,
-    },
-    /// The dispatcher factory failed to create the journey's dispatcher.
-    #[error("the dispatcher factory failed: {0}")]
-    DispatcherFactory(Error),
-    /// The dispatcher failed while the journey's reporters were added.
-    #[error("the dispatcher failed while the reporters were added: {0}")]
-    Dispatcher(Error),
+/// Takes the instance's initial global metadata, unless it sets the journey ID's own key.
+pub(crate) fn initial_global_metadata<I: WorkflowInstance>(
+    instance: &mut I,
+) -> Result<GlobalMetadata, Refusal> {
+    let metadata = instance.take_global_metadata();
+    if metadata.sets_journey_id() {
+        return Err(Refusal::ReservedMetadataKey);
+    }
+    Ok(metadata)
 }
 
 /// Builds one instance of each of the instance's workflow policies, for its journey, in the order
@@ -196,149 +188,4 @@ fn build_policy<W, M>(
 }
 
 #[cfg(test)]
-mod tests {
-    use std::sync::{Arc, Mutex};
-
-    use super::*;
-    use crate::executor::fixtures::{FailingFactory, Shop, run, run_with, shop_builder};
-    use crate::journey::JourneyStatus;
-    use crate::policy::WorkflowPolicyDescriptor;
-    use crate::policy::fixtures::Quiet;
-    use crate::report::DefaultDispatcher;
-    use crate::report::fixtures::entries;
-    use crate::step::{Outcome, StepDescriptor, StepName};
-
-    #[test]
-    fn a_journey_emits_its_events_in_order_to_every_reporter_and_succeeds_with_its_data() {
-        let (result, log) = run(Shop::new());
-
-        assert_eq!(result.journey_id.to_string(), "order-7");
-        let JourneyStatus::Succeeded { data } = result.status else {
-            panic!("the journey did not succeed: {:?}", result.status);
-        };
-        assert_eq!(data.keys().collect::<Vec<_>>(), ["amount"]);
-        assert_eq!(
-            entries(&log),
-            [
-                "audit journey_started",
-                "fragile journey_started",
-                "metrics journey_started",
-                "audit attempt_started",
-                "fragile attempt_started",
-                "metrics attempt_started",
-                "audit step_succeeded",
-                "fragile step_succeeded",
-                "metrics step_succeeded",
-                "audit journey_succeeded",
-                "fragile journey_succeeded",
-                "metrics journey_succeeded",
-            ]
-        );
-    }
-
-    #[test]
-    fn a_dispatcher_factory_that_fails_refuses_the_journey_before_any_event() {
-        let (result, log) = run_with(FailingFactory { on: None });
-
-        let Err(Refusal::DispatcherFactory(error)) = result else {
-            panic!("the journey was not refused by the factory");
-        };
-        assert_eq!(error.to_string(), "no dispatcher today");
-        assert!(entries(&log).is_empty());
-    }
-
-    #[test]
-    fn a_dispatcher_that_fails_while_reporters_are_added_refuses_the_journey_before_any_event() {
-        let (result, log) = run_with(FailingFactory { on: Some(None) });
-
-        let Err(refusal) = result else {
-            panic!("the journey was not refused");
-        };
-        assert!(matches!(refusal, Refusal::Dispatcher(_)));
-        assert_eq!(
-            refusal.to_string(),
-            "the dispatcher failed while the reporters were added: the dispatcher refuses reporters"
-        );
-        assert!(entries(&log).is_empty());
-    }
-
-    struct Counting {
-        created: usize,
-    }
-
-    impl DispatcherFactory for Counting {
-        type Dispatcher = DefaultDispatcher;
-
-        fn create(&mut self) -> Result<DefaultDispatcher, Error> {
-            self.created += 1;
-            Ok(DefaultDispatcher::new())
-        }
-    }
-
-    #[test]
-    fn an_executor_runs_journeys_one_after_another_each_with_a_new_dispatcher() {
-        let workflow = shop_builder()
-            .step(StepDescriptor::new(StepName::new("charge"), || {
-                Ok(Outcome::success())
-            }))
-            .build()
-            .unwrap();
-        let mut executor = LocalExecutor::with_dispatcher_factory(Counting { created: 0 });
-
-        let first = executor
-            .run(workflow.instance(Shop::new()).create().unwrap())
-            .unwrap();
-        let second = executor
-            .run(workflow.instance(Shop::new()).create().unwrap())
-            .unwrap();
-
-        assert_ne!(first.journey_id, second.journey_id);
-        assert_eq!(executor.factory.created, 2);
-    }
-
-    #[test]
-    fn a_workflow_policy_that_cannot_be_built_refuses_the_journey_before_its_dispatcher() {
-        let broken = WorkflowPolicyDescriptor::fallible("notify", || {
-            Err::<Quiet, _>(Error::msg("no mail server"))
-        })
-        .on_workflow_success();
-        let workflow = shop_builder().policy(broken).build().unwrap();
-        let mut executor = LocalExecutor::with_dispatcher_factory(Counting { created: 0 });
-
-        let refused = executor.run(workflow.instance(Shop::new()).create().unwrap());
-
-        let Err(refusal) = refused else {
-            panic!("the journey was not refused");
-        };
-        assert!(matches!(
-            &refusal,
-            Refusal::WorkflowPolicy { policy, .. } if *policy == PolicyName::from("notify")
-        ));
-        assert_eq!(
-            refusal.to_string(),
-            "the workflow policy notify could not be built: no mail server"
-        );
-        assert_eq!(executor.factory.created, 0);
-    }
-
-    #[test]
-    fn each_journey_gets_new_workflow_policy_instances() {
-        let built = Arc::new(Mutex::new(0));
-        let counting = Arc::clone(&built);
-        let notify = WorkflowPolicyDescriptor::new("notify", move || {
-            *counting.lock().unwrap() += 1;
-            Quiet
-        })
-        .on_workflow_success();
-        let workflow = shop_builder().policy(notify).build().unwrap();
-        let mut executor = LocalExecutor::new();
-
-        for _ in 0..2 {
-            executor
-                .run(workflow.instance(Shop::new()).create().unwrap())
-                .unwrap();
-        }
-
-        assert_eq!(*built.lock().unwrap(), 2);
-    }
-}
+mod tests;

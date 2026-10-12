@@ -2,6 +2,7 @@
 
 use cucumber::then;
 use itinera::event::Event;
+use serde_json::Value;
 
 use crate::model::Level;
 use crate::sentences::{Unmet, expect, stream};
@@ -39,7 +40,19 @@ fn in_sequence(pair: &[Event]) -> bool {
 
 #[then(expr = "no engine event carries the value of {string}")]
 fn no_engine_event_carries_the_value_of(world: &mut World, key: String) -> Result<(), Unmet> {
-    let values = world.model.values_of(&key);
+    no_engine_event_carries(world, &world.model.values_of(&key), &key)
+}
+
+#[then(expr = "no engine event carries the global metadata value of {string}")]
+fn no_engine_event_carries_the_global_metadata_value_of(
+    world: &mut World,
+    key: String,
+) -> Result<(), Unmet> {
+    no_engine_event_carries(world, &world.model.global_metadata_values_of(&key), &key)
+}
+
+/// Holds when no engine event carries any of the values the scenario gives the key.
+fn no_engine_event_carries(world: &World, values: &[&Value], key: &str) -> Result<(), Unmet> {
     if values.is_empty() {
         return Err(Unmet::Case(format!(
             "the scenario gives \"{key}\" no value"
@@ -50,7 +63,7 @@ fn no_engine_event_carries_the_value_of(world: &mut World, key: String) -> Resul
         .iter()
         .zip(&lines)
         .filter(|(event, _)| is_engine_event(event))
-        .any(|(_, line)| line.carries_any(&values));
+        .any(|(_, line)| line.carries_any(values));
     expect(
         !carrying,
         format_args!("no engine event to carry the value of \"{key}\""),

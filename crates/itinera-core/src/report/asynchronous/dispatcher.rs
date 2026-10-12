@@ -7,6 +7,7 @@ use crate::error::Error;
 use crate::event::Event;
 use crate::report::default_dispatcher::Delivery;
 use crate::report::{DefaultDispatcher, DefaultDispatcherFactory};
+use crate::value::AnyValue;
 
 /// A [`Dispatcher`](crate::report::Dispatcher) whose operations are asynchronous, and which
 /// holds reporters of either kind. The asynchronous executor uses one.
@@ -19,6 +20,7 @@ use crate::report::{DefaultDispatcher, DefaultDispatcherFactory};
 /// use itinera::error::Error;
 /// use itinera::event::Event;
 /// use itinera::report::{AsyncDispatcher, BoxedReporter};
+/// use itinera::value::AnyValue;
 ///
 /// struct OnlyMine {
 ///     reporter: BoxedReporter,
@@ -31,6 +33,10 @@ use crate::report::{DefaultDispatcher, DefaultDispatcherFactory};
 ///
 ///     async fn dispatch(&mut self, event: &Event) -> Result<(), Error> {
 ///         self.reporter.report(event).await
+///     }
+///
+///     async fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+///         self.reporter.set_global_metadata(key, value)
 ///     }
 /// }
 /// ```
@@ -69,6 +75,27 @@ pub trait AsyncDispatcher: Send + 'static {
     /// }
     /// ```
     fn dispatch(&mut self, event: &Event) -> impl Future<Output = Result<(), Error>> + Send;
+
+    /// Passes one entry of the journey's global metadata on to the reporters it holds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::report::AsyncDispatcher;
+    /// use itinera::value::AnyValue;
+    ///
+    /// async fn tell(dispatcher: &mut impl AsyncDispatcher, user: &str) -> Result<(), Error> {
+    ///     dispatcher
+    ///         .set_global_metadata("user_id", &AnyValue::new(user.to_string()))
+    ///         .await
+    /// }
+    /// ```
+    fn set_global_metadata(
+        &mut self,
+        key: &str,
+        value: &AnyValue,
+    ) -> impl Future<Output = Result<(), Error>> + Send;
 }
 
 /// Creates a new [`AsyncDispatcher`] for every journey run by the asynchronous executor.
@@ -125,6 +152,10 @@ impl AsyncDispatcher for DefaultDispatcher<BoxedReporter> {
         }
         delivery.finish()
     }
+
+    async fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        self.pass_on(key, value)
+    }
 }
 
 impl AsyncDispatcherFactory for DefaultDispatcherFactory {
@@ -140,8 +171,8 @@ mod tests {
     use futures::executor::block_on;
 
     use super::*;
-    use crate::report::AsyncReporter;
     use crate::report::fixtures::{Log, Recording, aborted, entries, started};
+    use crate::report::{AsyncReporter, Reporter};
 
     #[derive(derive_more::From)]
     struct AsyncRecording {
@@ -149,8 +180,12 @@ mod tests {
     }
 
     impl AsyncReporter for AsyncRecording {
+        fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+            self.recording.set_global_metadata(key, value)
+        }
+
         async fn report(&mut self, event: &Event) -> Result<(), Error> {
-            self.recording.record(event)
+            self.recording.report(event)
         }
     }
 
@@ -178,6 +213,34 @@ mod tests {
         assert_eq!(
             entries(&log),
             ["audit journey_started", "metrics journey_started"]
+        );
+    }
+
+    #[test]
+    fn the_async_default_dispatcher_passes_global_metadata_to_both_kinds_of_reporter_until_one_fails()
+     {
+        let log = Log::default();
+        let mut dispatcher = dispatcher_of(vec![
+            BoxedReporter::from_reporter(Recording::new("audit", &log)),
+            BoxedReporter::from_async_reporter(AsyncRecording::from(Recording::failing_on(
+                "fragile", "tenant", &log,
+            ))),
+            BoxedReporter::from_reporter(Recording::new("metrics", &log)),
+        ]);
+        let value = AnyValue::new("acme".to_string());
+
+        block_on(dispatcher.set_global_metadata("region", &value)).unwrap();
+        let error = block_on(dispatcher.set_global_metadata("tenant", &value)).unwrap_err();
+
+        assert_eq!(error.to_string(), "fragile failed");
+        assert_eq!(
+            entries(&log),
+            [
+                "audit region",
+                "fragile region",
+                "metrics region",
+                "audit tenant"
+            ]
         );
     }
 

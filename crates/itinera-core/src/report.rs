@@ -1,9 +1,10 @@
-//! Reporters, which receive the events of a journey, and dispatchers, which deliver them.
+//! Reporters, which receive the events and the global metadata of a journey, and dispatchers,
+//! which deliver them.
 
 use crate::error::Error;
 use crate::event::Event;
-use crate::journey::JourneyId;
 use crate::mode::Mode;
+use crate::value::AnyValue;
 
 #[cfg(feature = "async")]
 mod asynchronous;
@@ -12,6 +13,7 @@ mod default_dispatcher;
 mod dispatcher;
 #[cfg(test)]
 pub(crate) mod fixtures;
+mod global_metadata;
 #[cfg(any(test, feature = "testing"))]
 mod recording_reporter;
 pub(crate) mod sealed;
@@ -21,6 +23,7 @@ pub use asynchronous::{AsyncDispatcher, AsyncDispatcherFactory, AsyncReporter, B
 pub use debug_reporter::DebugReporter;
 pub use default_dispatcher::{DefaultDispatcher, DefaultDispatcherFactory};
 pub use dispatcher::{Dispatcher, DispatcherFactory};
+pub use global_metadata::GlobalMetadata;
 #[cfg(any(test, feature = "testing"))]
 pub use recording_reporter::RecordingReporter;
 
@@ -29,8 +32,9 @@ pub use recording_reporter::RecordingReporter;
 ///
 /// Each journey gets its own reporters: those its workflow lists, made with `Default` for every
 /// instance, then those the application makes for that one instance and adds as it creates it.
-/// Once the journey ID exists, each is given it with [`set_journey_id`](Reporter::set_journey_id),
-/// before the journey starts.
+/// Besides events, each receives the journey's global metadata with
+/// [`set_global_metadata`](Reporter::set_global_metadata), the journey ID first, before the
+/// journey starts.
 ///
 /// A reporter should never fail. One that cannot report an event, for example because the
 /// service it forwards to is unavailable, should handle that itself (log it, drop the event,
@@ -61,36 +65,42 @@ pub use recording_reporter::RecordingReporter;
 /// let reporter: Box<dyn Reporter> = Box::new(Kinds::default());
 /// ```
 pub trait Reporter: Send + 'static {
-    /// Receives the ID of the journey the reporter is for, once, as the workflow instance is
-    /// created and before the journey starts. It does nothing unless the reporter says otherwise.
+    /// Receives one entry of the journey's global metadata: first the journey ID, under
+    /// [`GlobalMetadata::JOURNEY_ID`], and the instance's initial global metadata, before any
+    /// event, then each entry a step, hook or service provider sets, as soon as it is set. What
+    /// the reporter does with it is its own decision; one that keeps the entries, to use with
+    /// the events that follow, can keep them in a [`GlobalMetadata`]. It does nothing unless the
+    /// reporter says otherwise.
     ///
     /// # Errors
     ///
-    /// An error makes creating the instance fail, with
-    /// [`InstanceError::Reporter`](crate::instance::InstanceError::Reporter).
+    /// An error on an entry set before the journey starts refuses the journey, with
+    /// [`Refusal::GlobalMetadata`](crate::executor::Refusal::GlobalMetadata). An error on an
+    /// entry set while it runs aborts it with `reporter failed`, as on an event.
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::error::Error;
     /// use itinera::event::Event;
-    /// use itinera::journey::JourneyId;
-    /// use itinera::report::Reporter;
+    /// use itinera::report::{GlobalMetadata, Reporter};
+    /// use itinera::value::AnyValue;
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// #[derive(Default)]
     /// struct Audit {
-    ///     journey: Option<JourneyId>,
+    ///     metadata: GlobalMetadata,
     /// }
     ///
     /// impl Reporter for Audit {
-    ///     fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
-    ///         self.journey = Some(journey_id.clone());
+    ///     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+    ///         self.metadata.insert(key, value.clone());
     ///         Ok(())
     ///     }
     ///
     ///     fn report(&mut self, event: &Event) -> Result<(), Error> {
-    ///         eprintln!("{:?} {}", self.journey, event.kind());
+    ///         let journey = self.metadata.get(GlobalMetadata::JOURNEY_ID);
+    ///         eprintln!("{journey:?} {}", event.kind());
     ///         Ok(())
     ///     }
     /// }
@@ -99,7 +109,7 @@ pub trait Reporter: Send + 'static {
     ///
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders").reporter::<Audit>();
     /// ```
-    fn set_journey_id(&mut self, _journey_id: &JourneyId) -> Result<(), Error> {
+    fn set_global_metadata(&mut self, _key: &str, _value: &AnyValue) -> Result<(), Error> {
         Ok(())
     }
 

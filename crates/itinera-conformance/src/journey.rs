@@ -3,6 +3,7 @@
 
 #[cfg(test)]
 pub(crate) mod fixtures;
+mod initial;
 mod runs;
 
 use std::collections::BTreeMap;
@@ -10,9 +11,7 @@ use std::collections::BTreeMap;
 use itinera::executor::{AsyncLocalExecutor, LocalExecutor, Refusal};
 use itinera::instance::{InstanceBuilder, InstanceError, WorkflowInstance as _};
 use itinera::journey::{JourneyId, JourneyResult};
-use itinera::mode::{Asynchronous, Mode, Synchronous};
-use itinera::value::Value as Storable;
-use serde_json::Value;
+use itinera::mode::{Asynchronous, Synchronous};
 
 pub(crate) use runs::Runs;
 
@@ -22,8 +21,8 @@ use crate::fixture::{self, Fixture, RunsFixtures};
 use crate::model::{Dispatching, Holding, Model, ModelError};
 use crate::record::{Behaviour, Recorder, Recorders, RecordingFactory};
 use crate::role::ProvidedRoles;
-use crate::value::{Takes, Typed};
 use crate::world::World;
+use initial::{with_data, with_global_metadata};
 
 /// One journey the scenario ran.
 #[derive(Debug)]
@@ -148,7 +147,12 @@ async fn journey<M: Declares + RunsFixtures, E: Runs<M>>(
         .model
         .initial_data
         .iter()
-        .try_fold(instance, with_entry)?
+        .try_fold(instance, with_data)?;
+    let instance = world
+        .model
+        .initial_global_metadata
+        .iter()
+        .try_fold(instance, with_global_metadata)?
         .create()?;
     let journey_id = instance.journey_id().clone();
     let run = executor.run(instance).await;
@@ -157,28 +161,6 @@ async fn journey<M: Declares + RunsFixtures, E: Runs<M>>(
         reporters,
         run,
     }))
-}
-
-/// The instance builder, with this entry of the initial data.
-fn with_entry<M: Mode>(
-    builder: InstanceBuilder<ScriptedWorkflow, M>,
-    (key, value): &(String, Value),
-) -> Result<InstanceBuilder<ScriptedWorkflow, M>, ModelError> {
-    Ok(Typed::of(value)?.given_to(Entering { builder, key }))
-}
-
-/// Puts a value in the initial data.
-struct Entering<'k, M: Mode> {
-    builder: InstanceBuilder<ScriptedWorkflow, M>,
-    key: &'k str,
-}
-
-impl<M: Mode> Takes for Entering<'_, M> {
-    type Output = InstanceBuilder<ScriptedWorkflow, M>;
-
-    fn take<T: Storable>(self, value: T) -> Self::Output {
-        self.builder.data(self.key, value)
-    }
 }
 
 #[cfg(test)]

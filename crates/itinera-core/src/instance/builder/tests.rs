@@ -3,21 +3,8 @@ use crate::error::Error;
 use crate::event::Event;
 use crate::instance::WorkflowInstance;
 use crate::instance::fixtures::{Audit, Made, Orders, entries, log, orders};
-use crate::journey::{InitialData, JourneyId};
+use crate::journey::InitialData;
 use crate::workflow::WorkflowBuilder;
-
-#[derive(Default)]
-struct Broken;
-
-impl Reporter for Broken {
-    fn set_journey_id(&mut self, _journey_id: &JourneyId) -> Result<(), Error> {
-        Err(Error::msg("the audit log is closed"))
-    }
-
-    fn report(&mut self, _event: &Event) -> Result<(), Error> {
-        Ok(())
-    }
-}
 
 struct Announced;
 
@@ -94,26 +81,30 @@ fn a_generator_that_fails_makes_creating_the_instance_fail() {
 }
 
 #[test]
-fn every_reporter_is_given_the_journey_id_those_the_workflow_lists_first() {
-    let orders = numbered_orders().reporter::<Audit>().build().unwrap();
+fn the_instance_holds_every_reporter_those_the_workflow_lists_first() {
+    let orders = orders().reporter::<Audit>().build().unwrap();
     let mut instance = orders
         .instance(Orders::new())
         .reporter(Made {
             name: "request log",
         })
         .reporter(Made { name: "metrics" })
-        .data("number", 7_i64)
         .create()
         .unwrap();
 
-    assert_eq!(instance.take_reporters().len(), 3);
+    let reporters = instance.take_reporters();
     assert!(instance.take_reporters().is_empty());
+    for mut reporter in reporters {
+        reporter
+            .set_global_metadata("tenant", &AnyValue::new("acme".to_string()))
+            .unwrap();
+    }
     assert_eq!(
         entries(),
         [
-            "audit got order-7",
-            "request log got order-7",
-            "metrics got order-7",
+            "audit got tenant",
+            "request log got tenant",
+            "metrics got tenant"
         ]
     );
 }
@@ -128,22 +119,6 @@ fn a_listed_reporter_is_made_once_the_journey_id_is_produced() {
     orders.instance(Orders::new()).create().unwrap();
 
     assert_eq!(entries(), ["journey ID produced", "announced made"]);
-}
-
-#[test]
-fn a_reporter_that_fails_to_take_the_journey_id_makes_creating_the_instance_fail() {
-    let orders = orders()
-        .reporter::<Audit>()
-        .reporter::<Broken>()
-        .build()
-        .unwrap();
-    let error = orders.instance(Orders::new()).create().unwrap_err();
-
-    assert!(matches!(error, InstanceError::Reporter(_)));
-    assert_eq!(
-        error.to_string(),
-        "a reporter failed to take the journey ID: the audit log is closed"
-    );
 }
 
 struct NewOrder {
@@ -196,8 +171,8 @@ mod asynchronous {
     struct Forward;
 
     impl AsyncReporter for Forward {
-        fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
-            note("forward", journey_id);
+        fn set_global_metadata(&mut self, key: &str, _value: &AnyValue) -> Result<(), Error> {
+            note("forward", key);
             Ok(())
         }
 
@@ -216,7 +191,6 @@ mod asynchronous {
             WorkflowDescriptor::async_builder("orders")
                 .reporter::<Audit>()
                 .async_reporter::<Forward>()
-                .id_generator(|_: &Orders, _| Ok("order-7".to_string()))
                 .build()
                 .unwrap();
         let mut instance = orders
@@ -228,7 +202,8 @@ mod asynchronous {
             .create()
             .unwrap();
 
-        let kinds: Vec<String> = instance.take_reporters().iter().map(kind).collect();
+        let reporters = instance.take_reporters();
+        let kinds: Vec<String> = reporters.iter().map(kind).collect();
         assert_eq!(
             kinds,
             [
@@ -238,13 +213,18 @@ mod asynchronous {
                 r#"BoxedReporter("async")"#,
             ]
         );
+        for mut reporter in reporters {
+            reporter
+                .set_global_metadata("tenant", &AnyValue::new("acme".to_string()))
+                .unwrap();
+        }
         assert_eq!(
             entries(),
             [
-                "audit got order-7",
-                "forward got order-7",
-                "request log got order-7",
-                "forward got order-7",
+                "audit got tenant",
+                "forward got tenant",
+                "request log got tenant",
+                "forward got tenant",
             ]
         );
     }

@@ -7,15 +7,16 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use itinera::error::Error;
 use itinera::event::Event;
-use itinera::journey::JourneyId;
-use itinera::report::Reporter;
+use itinera::report::{GlobalMetadata, Reporter};
+use itinera::value::AnyValue;
 
 pub(crate) use dispatcher::{Behaviour, RecordingFactory};
 pub(crate) use recorders::{NoStream, Recorders};
 
 use crate::model::{Model, ReporterFailure};
 
-/// A scripted reporter that records every event it receives, then fails as its script says.
+/// A scripted reporter that records every event and entry of global metadata it receives, then
+/// fails as its script says.
 ///
 /// Clones share what they record, so the scenario reads what the reporter that the executor
 /// holds received.
@@ -26,11 +27,19 @@ pub(crate) struct Recorder {
 
 #[derive(Debug, Default)]
 struct Received {
-    /// The journey ID the reporter was given as its workflow instance was created.
-    journey_id: Option<JourneyId>,
     events: Vec<Event>,
+    entries: Vec<Entry>,
     failure: Option<ReporterFailure>,
     failed: bool,
+}
+
+/// An entry of global metadata a reporter received, including one it failed on.
+#[derive(Clone, Debug)]
+pub(crate) struct Entry {
+    pub(crate) key: String,
+    pub(crate) value: AnyValue,
+    /// The kind of the last event the reporter received before it, if any.
+    pub(crate) after: Option<&'static str>,
 }
 
 impl Recorder {
@@ -52,9 +61,20 @@ impl Recorder {
         self.shared.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// The journey ID the reporter was given, if a workflow instance gave it one.
-    pub(crate) fn journey_id(&self) -> Option<JourneyId> {
-        self.received().journey_id.clone()
+    /// The journey ID the reporter received, as global metadata before any event, if it
+    /// received one.
+    pub(crate) fn journey_id(&self) -> Option<String> {
+        self.received()
+            .entries
+            .iter()
+            .find(is_the_journey_id)
+            .and_then(text)
+            .cloned()
+    }
+
+    /// The entries of global metadata it received, in order, including those it failed on.
+    pub(crate) fn entries(&self) -> Vec<Entry> {
+        self.received().entries.clone()
     }
 
     /// The events it received, in order, including those it failed on.
@@ -69,9 +89,21 @@ impl Recorder {
 }
 
 impl Reporter for Recorder {
-    fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
-        self.received().journey_id = Some(journey_id.clone());
-        Ok(())
+    fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        let mut received = self.received();
+        let after = received.events.last().map(Event::kind);
+        received.entries.push(Entry {
+            key: key.to_owned(),
+            value: value.clone(),
+            after,
+        });
+        if received.failure != Some(ReporterFailure::OnGlobalMetadata(key.to_owned())) {
+            return Ok(());
+        }
+        received.failed = true;
+        Err(Error::msg(format!(
+            "the scripted reporter fails on the global metadata {key}"
+        )))
     }
 
     fn report(&mut self, event: &Event) -> Result<(), Error> {
@@ -81,6 +113,7 @@ impl Reporter for Recorder {
             None => None,
             Some(ReporterFailure::First) => (received.events.len() == 1).then_some(None),
             Some(ReporterFailure::On(kind, message)) => kind.is_of(event).then(|| message.clone()),
+            Some(ReporterFailure::OnGlobalMetadata(_)) => None,
         };
         match fails {
             None => Ok(()),
@@ -90,6 +123,16 @@ impl Reporter for Recorder {
             }
         }
     }
+}
+
+/// Whether the entry is the journey ID, received before any event.
+fn is_the_journey_id(entry: &&Entry) -> bool {
+    entry.key == GlobalMetadata::JOURNEY_ID && entry.after.is_none()
+}
+
+/// The entry's value, if it is a string.
+fn text(entry: &Entry) -> Option<&String> {
+    entry.value.downcast_ref()
 }
 
 /// What a scripted reporter fails with when its script gives no message.

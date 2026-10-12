@@ -1,6 +1,6 @@
 # 0095: Services provided to steps
 
-Tech spec for [proposal 0095](https://github.com/itinera-dev/spec/issues/95), implemented in [#103](https://github.com/itinera-dev/itinera-rs/issues/103) as stage 10 of the [tier 1 plan](../tier-1-plan.md), which holds what crosses proposals. It amends [0002](0002-foundations.md), [0003](0003-rescue-steps.md), [0011](0011-events.md) and [0042](0042-configuration-errors-before-the-journey.md).
+Tech spec for [proposal 0095](https://github.com/itinera-dev/spec/issues/95), implemented in [#103](https://github.com/itinera-dev/itinera-rs/issues/103) as stage 10 of the [tier 1 plan](../tier-1-plan.md), which holds what crosses proposals. It amends [0002](0002-foundations.md), [0003](0003-rescue-steps.md), [0011](0011-events.md) and [0042](0042-configuration-errors-before-the-journey.md). Proposal [0102](0102-global-metadata.md) amends it, and its tech spec covers how a service provider sets global metadata through its reporter.
 
 Status: done.
 

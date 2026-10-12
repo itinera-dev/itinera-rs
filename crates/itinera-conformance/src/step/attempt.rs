@@ -68,6 +68,14 @@ impl<'a, R: Emits> Attempting<'a, R> {
                         emitted?;
                     }
                 }
+                Action::SetGlobalMetadata(key, value) => {
+                    let set = reporter
+                        .set_global_metadata(key.clone(), value.clone())
+                        .await;
+                    if !script.ignores_failed_emits {
+                        set?;
+                    }
+                }
             }
         }
         for (key, value) in &ending.contributes {

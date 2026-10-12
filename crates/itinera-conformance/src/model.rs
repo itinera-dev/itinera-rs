@@ -23,7 +23,7 @@ pub(crate) use policy::{
     Hook, HookAction, HookRequest, HookReturn, HookScript, Hooks, Lifecycle, Policy, Role,
 };
 pub(crate) use report::{Dispatching, EventKind, Holding, ReporterFailure};
-pub(crate) use service::{Provider, ProviderFailure, Scope, ServiceType};
+pub(crate) use service::{Provider, ProviderAction, ProviderFailure, Scope, ServiceType};
 pub(crate) use step::{
     Attempt, AttemptOutcome, Input, Reason, RescueRequest, Step, StepAction, attempts, rescue_of,
 };
@@ -37,6 +37,8 @@ pub(crate) struct Model {
     workflow: Option<Workflow>,
     /// The initial data of the workflow instance, in the order written.
     pub(crate) initial_data: Vec<(String, Value)>,
+    /// The initial global metadata of the workflow instance, in the order written.
+    pub(crate) initial_global_metadata: Vec<(String, Value)>,
     pub(crate) policies: BTreeMap<String, Policy>,
     /// How the scripted reporters fail, whether the workflow lists them or a dispatcher holds
     /// them; a reporter not here never fails.
@@ -159,6 +161,34 @@ impl Model {
             .chain(hooks)
             .chain(adapters)
             .collect()
+    }
+
+    /// Every value the scenario sets the key of global metadata to: in the initial global
+    /// metadata, or set by a step, a hook or a service provider.
+    pub(crate) fn global_metadata_values_of(&self, key: &str) -> Vec<&Value> {
+        let initial = self
+            .initial_global_metadata
+            .iter()
+            .filter_map(|entry| value_under(entry, key));
+        let steps = self
+            .workflow
+            .iter()
+            .flat_map(|workflow| workflow.scripts.values())
+            .flat_map(|step| &step.actions)
+            .filter_map(|action| action.global_metadata_for(key));
+        let hooks = self
+            .policies
+            .values()
+            .flat_map(Policy::scripts)
+            .flat_map(|script| &script.actions)
+            .filter_map(|action| action.global_metadata_for(key));
+        let providers = self
+            .workflow
+            .iter()
+            .flat_map(|workflow| &workflow.providers)
+            .flat_map(|provider| &provider.actions)
+            .filter_map(|action| action.global_metadata_for(key));
+        initial.chain(steps).chain(hooks).chain(providers).collect()
     }
 
     pub(crate) fn policy_mut(&mut self, policy: &str) -> Result<&mut Policy, ModelError> {

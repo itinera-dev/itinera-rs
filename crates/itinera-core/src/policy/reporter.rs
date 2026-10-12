@@ -5,7 +5,8 @@ use crate::value::{AnyValue, Value};
 
 /// A hook's means of emitting its own events, `journey_info`, `journey_warning` and
 /// `journey_error`, each stamped with the policy and the hook, and with the step and its attempt
-/// for a step hook.
+/// for a step hook, and of setting the journey's global metadata. A service provider is given
+/// one too.
 ///
 /// It is made for one call of the hook and borrows it, so it cannot outlive it. An event is
 /// delivered to every reporter before the call returns. If a reporter fails meanwhile, the
@@ -251,6 +252,38 @@ impl HookReporter<'_> {
         finish(
             self.reporting
                 .emit(Level::Error, message.into(), Some(AnyValue::new(data))),
+        )
+    }
+
+    /// Sets an entry of the journey's global metadata, which every reporter receives before
+    /// the call returns, then emits `global_metadata_set`, which names the key and who set it but
+    /// not the value. The entry stands whatever happens afterwards, and setting the key again
+    /// replaces its value.
+    ///
+    /// # Errors
+    ///
+    /// [`Interrupted`] when a reporter failed, here or earlier in the hook, or when `key` is
+    /// [`GlobalMetadata::JOURNEY_ID`](crate::report::GlobalMetadata::JOURNEY_ID), which aborts
+    /// the journey with `reserved metadata key`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Interrupted;
+    /// use itinera::policy::HookReporter;
+    ///
+    /// fn tenant(reporter: &mut HookReporter<'_>) -> Result<(), Interrupted> {
+    ///     reporter.set_global_metadata("tenant", "acme".to_string())
+    /// }
+    /// ```
+    pub fn set_global_metadata<T: Value>(
+        &mut self,
+        key: impl Into<String>,
+        value: T,
+    ) -> Result<(), Interrupted> {
+        finish(
+            self.reporting
+                .set_global_metadata(key.into(), AnyValue::new(value)),
         )
     }
 }

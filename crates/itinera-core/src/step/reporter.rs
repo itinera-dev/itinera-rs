@@ -4,7 +4,7 @@ use crate::error::Interrupted;
 use crate::value::{AnyValue, Value};
 
 /// A step's means of emitting its own events, `step_info`, `step_warning` and `step_error`, each
-/// stamped with the step and its attempt.
+/// stamped with the step and its attempt, and of setting the journey's global metadata.
 ///
 /// It is made for one attempt and borrows it, so it cannot outlive it. An event is delivered to
 /// every reporter before the call returns. If a reporter fails meanwhile, the journey is aborted
@@ -189,6 +189,38 @@ impl StepReporter<'_> {
         finish(
             self.reporting
                 .emit(Level::Error, message.into(), Some(AnyValue::new(data))),
+        )
+    }
+
+    /// Sets an entry of the journey's global metadata, which every reporter receives before
+    /// the call returns, then emits `global_metadata_set`, which names the key and who set it but
+    /// not the value. The entry stands whatever happens afterwards, and setting the key again
+    /// replaces its value.
+    ///
+    /// # Errors
+    ///
+    /// [`Interrupted`] when a reporter failed, here or earlier in the attempt, or when `key` is
+    /// [`GlobalMetadata::JOURNEY_ID`](crate::report::GlobalMetadata::JOURNEY_ID), which aborts
+    /// the journey with `reserved metadata key`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Interrupted;
+    /// use itinera::step::StepReporter;
+    ///
+    /// fn found(reporter: &mut StepReporter<'_>, user: String) -> Result<(), Interrupted> {
+    ///     reporter.set_global_metadata("user_id", user)
+    /// }
+    /// ```
+    pub fn set_global_metadata<T: Value>(
+        &mut self,
+        key: impl Into<String>,
+        value: T,
+    ) -> Result<(), Interrupted> {
+        finish(
+            self.reporting
+                .set_global_metadata(key.into(), AnyValue::new(value)),
         )
     }
 }

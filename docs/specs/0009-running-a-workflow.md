@@ -30,7 +30,7 @@ Status: done in stage 7. Stage 3 ran the steps in order; stage 5 built each step
 
 - Unit tests in `itinera-core/src/engine/decision.rs`: `a_step_is_retried_only_for_a_retriable_end_while_its_budget_allows_another_attempt`, with a named case for each end and budget, the largest included; `retries_exhausted_carries_what_ended_the_last_attempt`.
 - Unit tests in `itinera-core/src/engine.rs`: `steps_run_in_the_order_they_were_added`; `a_retriable_failure_is_attempted_again_while_the_budget_allows`, each attempt numbered in turn; `a_step_whose_budget_is_spent_is_given_up_with_its_last_failure`; `a_skipped_step_discards_its_contributions_and_the_journey_goes_on`; `step_hooks_are_called_after_each_attempt_in_order_around_the_step_decision`; and the lifecycles a policy's hook returns, which finish or fail the journey as chapter 6 says: `finish_workflow_from_on_step_success_succeeds_the_journey_without_the_steps_left`, `fail_workflow_from_on_step_success_fails_the_journey_after_committing_the_contributions`, `fail_workflow_from_a_hook_before_the_decision_gives_the_step_up_without_on_step_failure` and `fail_workflow_from_on_step_failure_gives_the_journey_its_reason_after_the_step_is_given_up`.
-- Unit tests in `itinera-core/src/executor.rs`: `the_step_runs_once`.
+- Unit tests in `itinera-core/src/engine/tests.rs`: `the_step_runs_once`.
 
 ## Done when
 

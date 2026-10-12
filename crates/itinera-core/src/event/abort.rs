@@ -1,6 +1,6 @@
 //! Why a journey was aborted, as events tell it.
 
-use super::Requester;
+use super::{Requester, Source};
 use crate::journey::AbortReason;
 use crate::policy::PolicyName;
 use crate::service::ProviderName;
@@ -80,6 +80,13 @@ pub enum JourneyAbort {
         /// The error's message.
         error: String,
     },
+    /// A step, hook or service provider set global metadata under `journey_id`, the journey ID's
+    /// own key.
+    #[non_exhaustive]
+    ReservedMetadataKey {
+        /// Who set it.
+        source: Source,
+    },
 }
 impl JourneyAbort {
     /// The abort's reason.
@@ -102,6 +109,7 @@ impl JourneyAbort {
             Self::WrongType { .. } => AbortReason::WrongType,
             Self::HookFailed { .. } => AbortReason::HookFailed,
             Self::ReporterFailed { .. } => AbortReason::ReporterFailed,
+            Self::ReservedMetadataKey { .. } => AbortReason::ReservedMetadataKey,
         }
     }
 
@@ -124,6 +132,7 @@ impl JourneyAbort {
             Self::RequiredDataMissing { missing } => missing.step(),
             Self::WrongType { requester, .. } => requester.step(),
             Self::HookFailed { step, .. } | Self::ReporterFailed { step, .. } => *step,
+            Self::ReservedMetadataKey { source } => source.step(),
         }
     }
 
@@ -144,7 +153,9 @@ impl JourneyAbort {
             | Self::PolicyCouldNotBeBuilt { error, .. }
             | Self::HookFailed { error, .. }
             | Self::ReporterFailed { error, .. } => Some(error),
-            Self::RequiredDataMissing { .. } | Self::WrongType { .. } => None,
+            Self::RequiredDataMissing { .. }
+            | Self::WrongType { .. }
+            | Self::ReservedMetadataKey { .. } => None,
         }
     }
 }

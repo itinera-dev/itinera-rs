@@ -2,8 +2,10 @@
 //! made it.
 
 mod requester;
+mod setter;
 
 pub use requester::{FailureRequester, Requester};
+pub use setter::MetadataSetter;
 
 use super::AbortReason;
 use crate::error::Error;
@@ -52,6 +54,9 @@ pub enum Abort {
     HookFailed(Error),
     /// A reporter, or a dispatcher while dispatching, failed with this error.
     ReporterFailed(Error),
+    /// This step, hook or service provider set global metadata under `journey_id`, the journey
+    /// ID's own key.
+    ReservedMetadataKey(MetadataSetter),
 }
 
 impl Abort {
@@ -74,6 +79,7 @@ impl Abort {
             Self::WrongType { .. } => AbortReason::WrongType,
             Self::HookFailed(_) => AbortReason::HookFailed,
             Self::ReporterFailed(_) => AbortReason::ReporterFailed,
+            Self::ReservedMetadataKey(_) => AbortReason::ReservedMetadataKey,
         }
     }
 }
@@ -162,6 +168,10 @@ mod tests {
     #[case::reporter_failed(
         Abort::ReporterFailed(Error::msg("closed")),
         AbortReason::ReporterFailed
+    )]
+    #[case::reserved_metadata_key(
+        Abort::ReservedMetadataKey(MetadataSetter::Step),
+        AbortReason::ReservedMetadataKey
     )]
     fn an_abort_names_its_reason(#[case] abort: Abort, #[case] reason: AbortReason) {
         assert_eq!(abort.reason(), reason);

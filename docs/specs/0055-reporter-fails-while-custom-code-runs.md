@@ -25,7 +25,7 @@ Status: done in stage 7. Stage 5 added the step reporters, which deliver each ev
 
 - Unit tests in `itinera-core/src/engine.rs`: `a_reporter_failing_on_a_step_event_aborts_the_journey_whatever_the_step_does_next`; `a_reporter_failing_on_an_event_emitted_while_the_step_is_built_aborts_the_journey`; with the `async` feature, `an_asynchronous_step_awaits_its_own_events` and `a_reporter_failing_on_an_asynchronous_steps_event_aborts_the_journey`.
 - Unit tests in `itinera-core/src/engine/hooks.rs`: `a_reporter_failing_on_a_hooks_event_aborts_the_journey_whatever_the_hook_does_next`.
-- Unit tests in `itinera-core/src/executor.rs`: `journey_aborted_names_the_step_during_which_a_reporter_failed`.
+- Unit tests in `itinera-core/src/engine/emitter/tests.rs`: `journey_aborted_names_the_step_during_which_a_reporter_failed`.
 
 ## Done when
 

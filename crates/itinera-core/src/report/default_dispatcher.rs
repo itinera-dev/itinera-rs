@@ -3,13 +3,15 @@
 use super::{Dispatcher, DispatcherFactory, Reporter, sealed};
 use crate::error::Error;
 use crate::event::{Event, EventBody};
+use crate::value::AnyValue;
 
 /// The dispatcher executors use unless they are given another factory.
 ///
 /// It calls its reporters in the order they were added. When a reporter fails, the event stops
 /// there and the error is returned, except for `journey_aborted`, whose delivery goes on past a
 /// failure, returning the first error. The executor, not the dispatcher, keeps `journey_aborted`
-/// from the reporter that failed.
+/// from the reporter that failed. Each entry of global metadata reaches the reporters in the same
+/// order, and stops at the first that fails.
 ///
 /// `DefaultDispatcher` holds synchronous reporters. With the `async` feature,
 /// `DefaultDispatcher<BoxedReporter>` is the asynchronous dispatcher, which holds both kinds.
@@ -61,6 +63,16 @@ impl DefaultDispatcher {
     }
 }
 
+impl<R: sealed::Held> DefaultDispatcher<R> {
+    /// Passes an entry of global metadata to every reporter in order, stopping at the first that
+    /// fails.
+    pub(super) fn pass_on(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        self.reporters
+            .iter_mut()
+            .try_for_each(|reporter| reporter.set_global_metadata(key, value))
+    }
+}
+
 impl<R: sealed::Held> Default for DefaultDispatcher<R> {
     fn default() -> Self {
         Self {
@@ -83,6 +95,10 @@ impl Dispatcher for DefaultDispatcher {
             }
         }
         delivery.finish()
+    }
+
+    fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        self.pass_on(key, value)
     }
 }
 
@@ -190,6 +206,38 @@ mod tests {
 
         assert_eq!(error.to_string(), "fragile failed");
         assert_eq!(entries(&log), ["audit journey_started"]);
+    }
+
+    #[test]
+    fn global_metadata_reaches_every_reporter_in_order_until_one_fails() {
+        let log = Log::default();
+        let mut dispatcher = DefaultDispatcher::new();
+        dispatcher
+            .add(Box::new(Recording::new("audit", &log)))
+            .unwrap();
+        dispatcher
+            .add(Box::new(Recording::failing_on("fragile", "tenant", &log)))
+            .unwrap();
+        dispatcher
+            .add(Box::new(Recording::new("metrics", &log)))
+            .unwrap();
+        let value = AnyValue::new("acme".to_string());
+
+        dispatcher.set_global_metadata("region", &value).unwrap();
+        let error = dispatcher
+            .set_global_metadata("tenant", &value)
+            .unwrap_err();
+
+        assert_eq!(error.to_string(), "fragile failed");
+        assert_eq!(
+            entries(&log),
+            [
+                "audit region",
+                "fragile region",
+                "metrics region",
+                "audit tenant"
+            ]
+        );
     }
 
     #[test]
