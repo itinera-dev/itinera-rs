@@ -6,7 +6,10 @@ use std::marker::PhantomData;
 use super::Instance;
 
 /// A service: a key, unique among the services of a step, and the type `T` of what is lent to the
-/// step, usually a trait object such as `dyn PaymentGateway`.
+/// step. `T` should be a trait object, such as `dyn PaymentGateway`, so that the step depends on
+/// what the service can do rather than on what provides it. No bound of Rust holds only for trait
+/// objects, so a token accepts a concrete type too; a step declared with `#[service]` takes only
+/// a trait object.
 ///
 /// A step declares it in its [`StepNeeds`] and takes it from [`Resolved`] when it is built; a
 /// [`ServiceProviderDescriptor`] supplies it. A service is not a value: it never enters the data

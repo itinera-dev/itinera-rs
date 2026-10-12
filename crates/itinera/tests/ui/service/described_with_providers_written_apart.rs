@@ -31,6 +31,16 @@ impl StockStore for Warehouse {
     }
 }
 
+trait Shelf: Send + Sync {
+    fn reserve(&self) -> bool;
+}
+
+impl Shelf for Warehouse {
+    fn reserve(&self) -> bool {
+        true
+    }
+}
+
 struct Charge {
     amount: i64,
 }
@@ -62,7 +72,7 @@ struct Ship;
 
 #[step]
 impl Ship {
-    fn run(self, #[service] stock: &Warehouse) -> Result<Outcome, Error> {
+    fn run(self, #[service] stock: &dyn Shelf) -> Result<Outcome, Error> {
         if stock.reserve() {
             Self::succeed()
         } else {
@@ -86,7 +96,7 @@ impl Orders {
     }
 
     #[provider(key = "stock", steps = ["ship"])]
-    fn shipping_stock(&self) -> Result<Box<Warehouse>, Error> {
+    fn shipping_stock(&self) -> Result<Box<dyn Shelf>, Error> {
         Ok(Box::new(Warehouse))
     }
 

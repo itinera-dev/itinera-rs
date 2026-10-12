@@ -30,6 +30,9 @@ impl Service {
         if reference.mutability.is_some() {
             return Err(not_borrowed(&parameter.ty));
         }
+        if !is_trait_object(&reference.elem) {
+            return Err(not_a_trait(&reference.elem));
+        }
         Ok(Self {
             key,
             service: (*reference.elem).clone(),
@@ -118,6 +121,24 @@ fn not_borrowed(ty: &Type) -> syn::Error {
     )
 }
 
+/// Whether a type is a trait object, such as `dyn StockStore` or `(dyn StockStore + Send)`.
+fn is_trait_object(ty: &Type) -> bool {
+    match ty {
+        Type::TraitObject(_) => true,
+        Type::Paren(inner) => is_trait_object(&inner.elem),
+        Type::Group(inner) => is_trait_object(&inner.elem),
+        _ => false,
+    }
+}
+
+fn not_a_trait(ty: &Type) -> syn::Error {
+    syn::Error::new_spanned(
+        ty,
+        "a step requests a service by what it can do, as a trait, such as \
+         `&dyn PaymentGateway`, never as a concrete type",
+    )
+}
+
 /// The step's hidden function whose bounds say that a workflow's providers make each of these
 /// services as the type the step requests. The workflow's struct names it for each step it lists,
 /// so that a provider of another type does not compile.
@@ -200,8 +221,12 @@ mod tests {
         r#".service(&::itinera::service::Service::<dyn PaymentGateway>::new("payments"))"#
     )]
     #[case::named_after_a_raw_identifier(
-        "fn run(#[service] r#box: &Warehouse) {}",
-        r#".service(&::itinera::service::Service::<Warehouse>::new("box"))"#
+        "fn run(#[service] r#box: &dyn StockStore) {}",
+        r#".service(&::itinera::service::Service::<dyn StockStore>::new("box"))"#
+    )]
+    #[case::with_bounds_in_parentheses(
+        "fn run(#[service] stock: &(dyn StockStore + Send)) {}",
+        r#".service(&::itinera::service::Service::<(dyn StockStore + Send)>::new("stock"))"#
     )]
     #[case::borrowed_for_a_named_lifetime(
         "fn run(#[service] stock: &'a dyn StockStore) {}",
@@ -223,6 +248,10 @@ mod tests {
     #[case::taken_by_mutable_reference(
         "fn run(#[service] stock: &mut dyn StockStore) {}",
         "a service is lent to the step, taken by shared reference, such as `&dyn PaymentGateway`"
+    )]
+    #[case::of_a_concrete_type(
+        "fn run(#[service] stock: &Warehouse) {}",
+        "a step requests a service by what it can do, as a trait, such as `&dyn PaymentGateway`, never as a concrete type"
     )]
     #[case::named_by_something_other_than_a_string(
         "fn run(#[service(stock)] stock: &dyn StockStore) {}",

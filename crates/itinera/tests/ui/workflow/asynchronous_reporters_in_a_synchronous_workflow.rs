@@ -2,7 +2,7 @@ use itinera::error::Error;
 use itinera::executor::LocalExecutor;
 use itinera::journey::{JourneyStatus, Read};
 use itinera::policy::{OnSuccess, step_policy, workflow_policy};
-use itinera::report::Reporter;
+use itinera::report::AsyncReporter;
 use itinera::step::{Outcome, Step, step};
 use itinera::value::AnyValue;
 use itinera::workflow::{role, workflow};
@@ -76,8 +76,8 @@ impl Alarm {
 #[derive(Default)]
 struct Silent;
 
-impl Reporter for Silent {
-    fn report(&mut self, _event: &itinera::event::Event) -> Result<(), Error> {
+impl AsyncReporter for Silent {
+    async fn report(&mut self, _event: &itinera::event::Event) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -123,6 +123,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Shop::builder()
         .till("front")
         .initial_data(Basket { amount: 40 })
+        .async_reporter(Silent)
         .create()?;
     let result = LocalExecutor::new().run(instance)?;
     assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));

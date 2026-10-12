@@ -1,5 +1,33 @@
-error: asynchronous reporters belong to an asynchronous workflow: add `asynchronous` to `#[workflow(...)]`
+error[E0277]: asynchronous reporters belong to an asynchronous workflow
   --> tests/ui/workflow/asynchronous_reporters_in_a_synchronous_workflow.rs:85:73
    |
 85 | #[workflow(name = "shop", policies = [Close, Alarm], async_reporters = [Silent])]
-   |                                                                         ^^^^^^
+   |                                                                         ^^^^^^ an asynchronous reporter of a workflow whose steps are synchronous
+   |
+help: the trait `__ItineraAsyncReporter<Synchronous>` is not implemented for `Silent`
+  --> tests/ui/workflow/asynchronous_reporters_in_a_synchronous_workflow.rs:77:1
+   |
+77 | struct Silent;
+   | ^^^^^^^^^^^^^
+   = note: a workflow takes its mode from its steps: it is asynchronous when its steps are, their `run` an `async fn`
+
+error[E0277]: asynchronous reporters belong to an asynchronous workflow
+   --> tests/ui/workflow/asynchronous_reporters_in_a_synchronous_workflow.rs:126:25
+    |
+126 |         .async_reporter(Silent)
+    |          -------------- ^^^^^^ an asynchronous reporter of a workflow whose steps are synchronous
+    |          |
+    |          required by a bound introduced by this call
+    |
+help: the trait `__ItineraAsyncReporter<Synchronous>` is not implemented for `Silent`
+   --> tests/ui/workflow/asynchronous_reporters_in_a_synchronous_workflow.rs:77:1
+    |
+ 77 | struct Silent;
+    | ^^^^^^^^^^^^^
+    = note: a workflow takes its mode from its steps: it is asynchronous when its steps are, their `run` an `async fn`
+note: required by a bound in `__ItineraBuilder::<(__ItineraState0, __ItineraState1, __ItineraState2)>::async_reporter`
+   --> tests/ui/workflow/asynchronous_reporters_in_a_synchronous_workflow.rs:85:1
+    |
+ 85 | #[workflow(name = "shop", policies = [Close, Alarm], async_reporters = [Silent])]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `__ItineraBuilder::<(__ItineraState0, __ItineraState1, __ItineraState2)>::async_reporter`
+    = note: this error originates in the attribute macro `workflow` (in Nightly builds, run with -Z macro-backtrace for more info)

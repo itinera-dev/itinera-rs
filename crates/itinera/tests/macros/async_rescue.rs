@@ -75,7 +75,7 @@ fn code(reason: &Reason) -> String {
     reason.code().to_owned()
 }
 
-#[workflow(name = "orders", asynchronous)]
+#[workflow(name = "orders")]
 #[with_step(Charge, name = "charge", rescue = Refresh)]
 struct Refreshing;
 

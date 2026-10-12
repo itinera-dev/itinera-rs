@@ -1,0 +1,8 @@
+error[E0277]: the steps of a workflow are all synchronous or all asynchronous
+  --> tests/ui/workflow/steps_of_both_modes.rs:29:13
+   |
+29 | #[with_step(Dispatch, name = "dispatch")]
+   |             ^^^^^^^^ a step of another mode than the workflow's first step
+   |
+   = help: the trait `__ItineraSameMode<Synchronous>` is not implemented for `Asynchronous`
+   = note: a workflow takes its mode from its first step: it is asynchronous when that step's `run` is an `async fn`, and every other step shares that mode

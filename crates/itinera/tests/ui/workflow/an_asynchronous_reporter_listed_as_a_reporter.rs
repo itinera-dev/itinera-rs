@@ -23,7 +23,7 @@ impl itinera::report::AsyncReporter for Log {
     }
 }
 
-#[workflow(name = "delivery", asynchronous, reporters = [Log])]
+#[workflow(name = "delivery", reporters = [Log])]
 #[with_step(Dispatch, name = "dispatch")]
 struct Delivery;
 

@@ -84,7 +84,7 @@ impl Restock {
     }
 }
 
-#[workflow(name = "orders", asynchronous)]
+#[workflow(name = "orders")]
 #[with_step(Charge, name = "charge", retry_budget = 1)]
 #[with_step(Ship, name = "ship", rescue = Restock)]
 struct Orders {

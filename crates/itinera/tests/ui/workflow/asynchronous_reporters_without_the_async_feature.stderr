@@ -1,0 +1,5 @@
+error: asynchronous reporters need the `async` feature of `itinera`
+  --> tests/ui/workflow/asynchronous_reporters_without_the_async_feature.rs:85:73
+   |
+85 | #[workflow(name = "shop", policies = [Close, Alarm], async_reporters = [Silent])]
+   |                                                                         ^^^^^^

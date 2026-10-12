@@ -11,8 +11,8 @@ use syn::{Attribute, Ident, ItemStruct};
 use super::arguments::Arguments;
 use super::builder::{self, Settable};
 use super::checks::{self, Attached};
-use super::services;
 use super::with_step::WithStep;
+use super::{mode, services};
 use crate::policy::Kind;
 use crate::{described, marker};
 
@@ -27,7 +27,7 @@ pub(super) fn expand(arguments: TokenStream, mut declared: ItemStruct) -> TokenS
     let unreadable = unreadable.into_iter().find_map(Result::err);
     let complete = unreadable.is_none();
     let declaration = match unreadable {
-        None => declare(arguments.clone(), &declared, &marks, &fields),
+        None => declare(arguments, &declared, &marks, &fields),
         Some(error) => Err(error),
     };
     match declaration {
@@ -37,7 +37,7 @@ pub(super) fn expand(arguments: TokenStream, mut declared: ItemStruct) -> TokenS
         },
         Err(error) => {
             let error = error.into_compile_error();
-            let stand_in = stand_in(arguments, &declared, &marks, &fields, complete);
+            let stand_in = stand_in(&declared, &marks, &fields, complete);
             quote! {
                 #declared
                 #error
@@ -68,12 +68,12 @@ fn declare(
         ));
     }
     names::refuse_duplicates(&steps)?;
-    let mode = described::mode(arguments.is_asynchronous());
+    let mode = mode::named(workflow);
     let name = arguments
         .name
         .clone()
         .unwrap_or_else(|| described::named_after(workflow));
-    let descriptor = descriptor::descriptor(workflow, &name, &arguments, &steps, &mode);
+    let descriptor = descriptor::descriptor(workflow, &name, &arguments, &steps);
     let step_checks: Vec<TokenStream> = steps
         .iter()
         .filter_map(|step| step.checked(workflow))
@@ -91,14 +91,7 @@ fn declare(
         .then(|| checks::hooks(Kind::Workflow));
     let listed = listed(workflow, &steps);
     let services = services::checked(workflow, &steps);
-    let builder = builder::builder(
-        workflow,
-        &declared.vis,
-        fields,
-        &mode,
-        arguments.is_asynchronous(),
-        true,
-    );
+    let builder = builder::builder(workflow, &declared.vis, fields, &mode, true);
     Ok(quote! {
         const _: () = {
             #descriptor
@@ -129,10 +122,9 @@ fn listed(workflow: &Ident, steps: &[WithStep]) -> TokenStream {
 
 /// What the workflow would have, as far as it can be read: a `Workflow` that is never called, the
 /// names of the steps that could be read and of their rescue steps, and its instance builder,
-/// with a setter for each field that could be read. A generic workflow gets none, since none of
-/// them could name it.
+/// with a setter for each field that could be read, all in the mode of the first step that could
+/// be read. A generic workflow gets none, since none of them could name it.
 fn stand_in(
-    arguments: TokenStream,
     declared: &ItemStruct,
     marks: &[Attribute],
     fields: &[Settable],
@@ -142,32 +134,27 @@ fn stand_in(
         return TokenStream::new();
     }
     let workflow = &declared.ident;
-    let asynchronous =
-        Arguments::read(arguments).is_ok_and(|arguments| arguments.is_asynchronous());
-    let mode = described::mode(asynchronous);
     let steps: Vec<WithStep> = marks
         .iter()
         .map(WithStep::read)
         .filter_map(Result::ok)
         .collect();
+    let chosen = mode::of(&steps);
+    let flagged = mode::flagged();
+    let mode = mode::named(workflow);
     let listed = listed(workflow, &steps);
-    let builder = builder::builder(
-        workflow,
-        &declared.vis,
-        fields,
-        &mode,
-        asynchronous,
-        complete,
-    );
+    let builder = builder::builder(workflow, &declared.vis, fields, &mode, complete);
     quote! {
         const _: () = {
             impl ::itinera::workflow::Workflow for #workflow {
-                type Mode = #mode;
+                type Mode = #chosen;
 
-                fn descriptor() -> &'static ::itinera::workflow::WorkflowDescriptor<Self, #mode> {
+                fn descriptor() -> &'static ::itinera::workflow::WorkflowDescriptor<Self, Self::Mode> {
                     ::core::unreachable!()
                 }
             }
+
+            #flagged
 
             #listed
             #builder

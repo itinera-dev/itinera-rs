@@ -5,6 +5,7 @@ mod arguments;
 mod builder;
 mod checks;
 mod declaration;
+mod mode;
 mod parts;
 mod services;
 mod with_step;

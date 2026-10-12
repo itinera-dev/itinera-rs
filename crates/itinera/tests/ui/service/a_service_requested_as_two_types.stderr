@@ -1,9 +1,8 @@
 error[E0308]: mismatched types
-  --> tests/ui/service/a_service_requested_as_two_types.rs:51:27
+  --> tests/ui/service/a_service_requested_as_two_types.rs:61:27
    |
-51 |         #[service] stock: &Warehouse,
-   |                           ^ expected `PhantomData<dyn StockStore>`, found `PhantomData<Warehouse>`
+61 |         #[service] stock: &dyn Shelf,
+   |                           ^ expected trait `StockStore`, found trait `Shelf`
    |
    = note: expected struct `PhantomData<dyn StockStore>`
-              found struct `PhantomData<Warehouse>`
-   = help: `Warehouse` implements `StockStore` so you could box the found value and coerce it to the trait object `Box<dyn StockStore>`, you will have to change the expected type as well
+              found struct `PhantomData<dyn Shelf>`

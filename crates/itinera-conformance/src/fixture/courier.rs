@@ -85,7 +85,7 @@ impl Dispatch {
     }
 }
 
-#[workflow(name = "courier", asynchronous)]
+#[workflow(name = "courier")]
 #[with_step(Pack, name = "pack")]
 #[with_step(Dispatch, name = "dispatch", retry_budget = 1)]
 pub(super) struct Couriers;

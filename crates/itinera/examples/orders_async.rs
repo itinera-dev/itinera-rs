@@ -123,7 +123,7 @@ impl AsyncReporter for Printer {
     }
 }
 
-#[workflow(name = "orders", asynchronous, policies = [Notify], async_reporters = [Printer])]
+#[workflow(name = "orders", policies = [Notify], async_reporters = [Printer])]
 #[with_step(Charge, name = "charge", retry_budget = 1, policies = [Audit])]
 #[with_step(Ship, name = "ship")]
 struct Orders {

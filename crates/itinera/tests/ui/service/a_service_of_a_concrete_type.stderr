@@ -1,0 +1,5 @@
+error: a step requests a service by what it can do, as a trait, such as `&dyn PaymentGateway`, never as a concrete type
+  --> tests/ui/service/a_service_of_a_concrete_type.rs:65:37
+   |
+65 |     fn run(self, #[service] stock: &Warehouse) -> Result<Outcome, Error> {
+   |                                     ^^^^^^^^^

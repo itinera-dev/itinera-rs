@@ -82,7 +82,7 @@ impl Reporter for Silent {
     }
 }
 
-#[workflow(name = "shop", asynchronous, policies = [Close, Alarm], reporters = [Silent])]
+#[workflow(name = "shop", policies = [Close, Alarm], async_reporters = [Silent])]
 #[with_step(Charge, name = "charge", retry_budget = 1, policies = [Receipt, Watch])]
 #[with_step(Charge, name = "charge again")]
 struct Shop {

@@ -92,8 +92,9 @@ impl WithStep {
             .then(|| format!("{}_rescue", self.name.value()))
     }
 
-    /// The builder's call that adds the step to a workflow of this type.
-    pub(super) fn declared(&self, workflow: &Ident) -> TokenStream {
+    /// The builder's call that adds the step to a workflow of this type and mode, through a trait
+    /// that takes it only in its own mode, so that a step of another mode is refused at its type.
+    pub(super) fn declared(&self, workflow: &Ident, mode: &TokenStream) -> TokenStream {
         let Self { step, name, .. } = self;
         let retry_budget = self.retry_budget.map(retry_budget);
         let retriable = self.retriable.then(retriable);
@@ -107,7 +108,10 @@ impl WithStep {
                 ::itinera::step::step_name!(#name)
             )
         };
-        quote!(.step(#described #retry_budget #retriable #(#policies)* #rescue))
+        let taken = quote_spanned! {step.span()=>
+            <<#step as ::itinera::step::DescribedStep>::Mode as __ItineraSameMode<#mode>>::__itinera_step
+        };
+        quote!(.step(#taken(#described #retry_budget #retriable #(#policies)* #rescue)))
     }
 
     /// The checks, run as the program compiles, that no two of the step's policies define the
