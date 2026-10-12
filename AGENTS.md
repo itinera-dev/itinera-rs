@@ -7,6 +7,7 @@ How to work in itinera-rs, the Rust implementation of [Itinera](https://github.c
 - Behaviour comes only from the specification in [itinera-dev/spec](https://github.com/itinera-dev/spec), and the conformance cases in [itinera-dev/conformance](https://github.com/itinera-dev/conformance) check it.
 - If the specification has a gap or a contradiction, stop and tell the maintainer. Never decide it in Rust.
 - How Rust implements tier 1 is decided in [docs/tier-1-plan.md](docs/tier-1-plan.md). What concerns a single proposal goes in its tech spec, `docs/specs/NNNN-short-name.md`. Where the plan and the specification disagree, the specification is right and the plan is corrected.
+- [docs/architecture.md](docs/architecture.md) draws how the implementation is put together and how it runs a journey, tier by tier. A change that makes any of its diagrams, lists, tables or "Where it lives" lines untrue updates it in the same pull request, and a tier adds its own section once its stages land. Where the document and the code disagree, the document is corrected.
 
 ## Stages
 

@@ -55,10 +55,11 @@ For each item, the reviewer lists every place in the diff where the item applies
 
 20. The commit message and pull request description, against "Every pull request names an open issue" and "Commit messages and pull request descriptions".
 21. Every document, description and diagram, against the "Writing" section.
+22. Every file the diff changes, against the bullet on `docs/architecture.md`. Follow the [architecture skill](../architecture/SKILL.md) to name each section of that document the diff makes untrue, and check that the diff updates it.
 
 **Checks**
 
-22. The checks under "Running the checks", run in the worktree at the reviewed revision. Report any that fail.
+23. The checks under "Running the checks", run in the worktree at the reviewed revision. Report any that fail.
 
 ## Handling the findings
 
