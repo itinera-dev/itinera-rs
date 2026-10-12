@@ -18,3 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: cargo +beta test --workspace --all-features
+        env:
+          # The expected compiler messages of the compile-fail tests are those of the pinned
+          # toolchain. Overwriting accepts beta's wording, while a program that compiles still fails.
+          TRYBUILD: overwrite
