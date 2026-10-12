@@ -89,3 +89,14 @@ jobs:
       - uses: itinera-dev/actions/run-conformance@v1
         with:
           command: cargo run -p itinera-conformance --release
+
+  book:
+    name: book
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: itinera-dev/actions/check-book@v1
+        with:
+          book-dir: rust
