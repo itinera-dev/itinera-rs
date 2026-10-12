@@ -1,12 +1,10 @@
 //! The actions: admitting, listing and running the workflow, and what admission and the listing
 //! give.
 
-use std::num::NonZeroUsize;
-
 use cucumber::gherkin::Step as Sentence;
 use cucumber::{then, when};
 use itinera::mode::Synchronous;
-use itinera::workflow::{ListedService, ListedStep, Violation};
+use itinera::workflow::Violation;
 
 use super::{Unmet, holds};
 use crate::declaration::{Admission, declared};
@@ -14,6 +12,9 @@ use crate::fixture;
 use crate::journey::{self, Unrunnable};
 use crate::model::{ModelError, Row, rows};
 use crate::world::World;
+use listed::{Columns, Listed};
+
+mod listed;
 
 #[when(expr = "the workflow is admitted")]
 fn the_workflow_is_admitted(world: &mut World) -> Result<(), ModelError> {
@@ -84,15 +85,15 @@ fn kind_name(violation: &Violation) -> String {
 #[then(expr = "the listing is:")]
 fn the_listing_is(world: &mut World, #[step] sentence: &Sentence) -> Result<(), Unmet> {
     let rows = rows(sentence)?;
-    let services = rows.first().is_some_and(lists_services);
+    let columns = rows.first().map(Columns::of).unwrap_or_default();
     let expected = rows
         .iter()
-        .map(|row| Listed::expected(row, services))
+        .map(|row| Listed::expected(row, columns))
         .collect::<Result<Vec<_>, _>>()?;
     let found: Vec<Listed> = match admission(world)? {
         Admission::Admitted(listing) => listing
             .iter()
-            .map(|listed| Listed::found(listed, services))
+            .map(|listed| Listed::found(listed, columns))
             .collect(),
         Admission::Refused(violations) => {
             return Err(Unmet::Expected(format!(
@@ -107,15 +108,6 @@ fn the_listing_is(world: &mut World, #[step] sentence: &Sentence) -> Result<(), 
     )
 }
 
-/// Whether the listing's table has the optional column of services.
-fn lists_services(row: &Row) -> bool {
-    row.columns().any(is_services)
-}
-
-fn is_services(column: &str) -> bool {
-    column == "services"
-}
-
 #[then(expr = "no step ran")]
 fn no_step_ran(world: &mut World) -> Result<(), Unmet> {
     holds(world.steps_run()?.none(), "no step to run", "a step ran")
@@ -126,73 +118,4 @@ fn admission(world: &World) -> Result<&Admission, Unmet> {
         .admission
         .as_ref()
         .ok_or_else(|| Unmet::Case("the workflow was neither admitted nor listed".to_owned()))
-}
-
-/// One line of a listing, as the cases write it. Its services are `None` when the table does
-/// not have their column, which is then not compared.
-#[derive(Debug, PartialEq)]
-struct Listed {
-    step: String,
-    position: NonZeroUsize,
-    policies: String,
-    adapter: String,
-    rescue: String,
-    services: Option<String>,
-}
-
-impl Listed {
-    fn expected(row: &Row, services: bool) -> Result<Self, ModelError> {
-        Ok(Self {
-            step: row.required("step")?.to_owned(),
-            position: row.parse("position")?,
-            policies: cell(row, "policies"),
-            adapter: cell(row, "adapter"),
-            rescue: cell(row, "rescue"),
-            services: services.then(|| cell(row, "services")),
-        })
-    }
-
-    fn found(listed: &ListedStep, services: bool) -> Self {
-        Self {
-            step: listed.step.to_string(),
-            position: listed.position,
-            policies: listed
-                .policies
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .join(", "),
-            adapter: listed
-                .adapter
-                .as_ref()
-                .map(ToString::to_string)
-                .unwrap_or_default(),
-            rescue: listed
-                .rescue
-                .as_ref()
-                .map(ToString::to_string)
-                .unwrap_or_default(),
-            services: services.then(|| services_of(listed)),
-        }
-    }
-}
-
-/// The services a step requests, as the cases write them, separated by commas.
-fn services_of(listed: &ListedStep) -> String {
-    listed
-        .services
-        .iter()
-        .map(served_by)
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-/// A service in the listing, as the cases write it: its key and the provider that serves it.
-fn served_by(service: &ListedService) -> String {
-    format!("{}: {}", service.key, service.provider)
-}
-
-/// The text of a cell, empty when the row leaves it empty.
-fn cell(row: &Row, column: &'static str) -> String {
-    row.optional(column).unwrap_or_default().to_owned()
 }

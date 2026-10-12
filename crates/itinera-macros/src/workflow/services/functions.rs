@@ -16,12 +16,11 @@ pub(super) fn functions() -> TokenStream {
 
             pub(super) type Provided = (&'static str, &'static [&'static str]);
 
-            /// The first key the step requests that no provider serves, if the providers are
-            /// known; the step is not named for a rescue step, which only a provider attached
-            /// to no step serves.
+            /// The first key the step or rescue step of this name requests that no provider
+            /// serves, if the providers are known.
             pub(super) const fn unprovided(
                 providers: ::core::option::Option<&[Provided]>,
-                step: ::core::option::Option<&str>,
+                step: &str,
                 keys: &[&'static str],
             ) -> ::core::option::Option<&'static str> {
                 match providers {
@@ -32,7 +31,7 @@ pub(super) fn functions() -> TokenStream {
 
             const fn first_unserved(
                 providers: &[Provided],
-                step: ::core::option::Option<&str>,
+                step: &str,
                 keys: &[&'static str],
             ) -> ::core::option::Option<&'static str> {
                 match keys {
@@ -47,25 +46,14 @@ pub(super) fn functions() -> TokenStream {
                 }
             }
 
-            const fn served(
-                providers: &[Provided],
-                step: ::core::option::Option<&str>,
-                key: &str,
-            ) -> bool {
+            const fn served(providers: &[Provided], step: &str, key: &str) -> bool {
                 match providers {
                     [] => false,
                     [(provided, steps), rest @ ..] => {
                         (__itinera_steps::same(provided.as_bytes(), key.as_bytes())
-                            && (steps.is_empty() || attached(steps, step)))
+                            && (steps.is_empty() || __itinera_steps::listed(steps, step)))
                             || served(rest, step, key)
                     }
-                }
-            }
-
-            const fn attached(steps: &[&str], step: ::core::option::Option<&str>) -> bool {
-                match step {
-                    ::core::option::Option::Some(step) => __itinera_steps::listed(steps, step),
-                    ::core::option::Option::None => false,
                 }
             }
 

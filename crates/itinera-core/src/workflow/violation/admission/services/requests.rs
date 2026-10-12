@@ -1,7 +1,7 @@
 //! Admission's checks on the services each step and each rescue step requests.
 
 use super::{counted, repeated};
-use crate::service::{ProviderEntry, Served, serving};
+use crate::service::{ProviderEntry, serving};
 use crate::step::{ServiceNeed, StepDescriptor, StepName};
 use crate::workflow::Violation;
 
@@ -12,47 +12,26 @@ pub(super) fn violations<W, M>(
     steps: &[StepDescriptor<W, M>],
     providers: &[Box<dyn ProviderEntry<W, M>>],
 ) -> Vec<Violation> {
-    let requesting: Vec<Requesting<'_, W, M>> = steps.iter().flat_map(requesting).collect();
+    let requesting: Vec<&StepDescriptor<W, M>> = steps.iter().flat_map(requesting).collect();
     requesting
         .iter()
+        .copied()
         .flat_map(services_requested_twice)
         .chain(
             requesting
                 .iter()
-                .flat_map(|requesting| unserved_and_mistyped(requesting, providers)),
+                .flat_map(|step| unserved_and_mistyped(step, providers)),
         )
         .collect()
 }
 
-/// A step or a rescue step, which may request services, and how a provider serves it.
-struct Requesting<'s, W, M> {
-    step: &'s StepDescriptor<W, M>,
-    served: Served,
+/// The step, then its rescue step, if it has one: each may request services, and a provider
+/// serves each by its name.
+fn requesting<W, M>(step: &StepDescriptor<W, M>) -> impl Iterator<Item = &StepDescriptor<W, M>> {
+    std::iter::once(step).chain(step.rescue_step())
 }
 
-/// The step, then its rescue step, if it has one.
-fn requesting<W, M>(step: &StepDescriptor<W, M>) -> impl Iterator<Item = Requesting<'_, W, M>> {
-    std::iter::once(declared(step)).chain(step.rescue_step().map(rescue))
-}
-
-fn declared<W, M>(step: &StepDescriptor<W, M>) -> Requesting<'_, W, M> {
-    Requesting {
-        step,
-        served: Served::Step(step.name()),
-    }
-}
-
-fn rescue<W, M>(step: &StepDescriptor<W, M>) -> Requesting<'_, W, M> {
-    Requesting {
-        step,
-        served: Served::RescueStep,
-    }
-}
-
-fn services_requested_twice<W, M>(
-    requesting: &Requesting<'_, W, M>,
-) -> impl Iterator<Item = Violation> {
-    let step = requesting.step;
+fn services_requested_twice<W, M>(step: &StepDescriptor<W, M>) -> impl Iterator<Item = Violation> {
     let name = step.name();
     counted(step.needs().services().iter().map(ServiceNeed::key))
         .into_iter()
@@ -67,27 +46,24 @@ fn service_requested_twice(step: StepName, key: &'static str) -> Violation {
 /// The services of a step that no provider serves, and those whose provider supplies another
 /// type than the step requests.
 fn unserved_and_mistyped<W, M>(
-    requesting: &Requesting<'_, W, M>,
+    step: &StepDescriptor<W, M>,
     providers: &[Box<dyn ProviderEntry<W, M>>],
 ) -> Vec<Violation> {
-    requesting
-        .step
-        .needs()
+    step.needs()
         .services()
         .iter()
-        .filter_map(|need| served_wrongly(requesting, need, providers))
+        .filter_map(|need| served_wrongly(step.name(), need, providers))
         .collect()
 }
 
 /// The violation of one service a step requests, if the workflow provides it wrongly.
 fn served_wrongly<W, M>(
-    requesting: &Requesting<'_, W, M>,
+    step: StepName,
     need: &ServiceNeed,
     providers: &[Box<dyn ProviderEntry<W, M>>],
 ) -> Option<Violation> {
-    let step = requesting.step.name();
     let key = need.key();
-    match serving(providers, requesting.served, key) {
+    match serving(providers, step, key) {
         None => Some(Violation::ServiceNotProvided { step, key }),
         Some(provider) if provider.service_type() != need.service_type() => {
             Some(Violation::WrongServiceType {
@@ -149,6 +125,16 @@ mod tests {
     )]
     #[case::a_provider_attached_to_no_step_of_another_type_than_a_rescue_step_requests(
         rescued_charge(&[], &[&PAYMENTS]).provider(numbered_payments()),
+        Violation::WrongServiceType {
+            step: StepName::new("charge_rescue"),
+            key: "payments",
+            provider: ProviderName::from("numbers"),
+        },
+    )]
+    #[case::a_provider_attached_to_a_rescue_step_of_another_type_than_it_requests(
+        rescued_charge(&[], &[&PAYMENTS])
+            .provider(payments("payments"))
+            .provider(numbered_payments().step(StepName::new("charge_rescue"))),
         Violation::WrongServiceType {
             step: StepName::new("charge_rescue"),
             key: "payments",

@@ -71,6 +71,15 @@ fn the_input_adapter_returns_read_from_the_data_bag(
     )
 }
 
+#[given(expr = "the input adapter {string} requests the step name and returns it for {string}")]
+fn the_input_adapter_requests_the_step_name_and_returns_it(
+    world: &mut World,
+    adapter: String,
+    key: String,
+) -> Result<(), ModelError> {
+    answers(world, &adapter, key, Answer::StepName)
+}
+
 fn answers(
     world: &mut World,
     adapter: &str,

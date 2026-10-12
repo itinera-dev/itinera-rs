@@ -1,7 +1,7 @@
 //! The checks, run as the program compiles, that the workflow provides each service its steps
-//! and rescue steps request: a provider of its key attached to the step, or one attached to no
-//! step, which alone serves a rescue step; and that its providers of that key make the type the
-//! step requests.
+//! and rescue steps request: a provider of its key attached to the step's or rescue step's name,
+//! or one attached to no step; and that its providers of that key make the type the step
+//! requests.
 //!
 //! The services are read from what the steps' `DescribedStep` and the rescue steps'
 //! `DescribedRescueStep` list, and the providers from what the workflow's `impl` block declares:
@@ -50,7 +50,7 @@ fn provided(workflow: &Ident, step: &WithStep) -> TokenStream {
     let name = &step.name;
     let ty = step.step();
     let services = quote!(<#ty as ::itinera::step::DescribedStep>::SERVICES);
-    let checked = unprovided(workflow, name.span(), &quote!(Some(#name)), name, &services);
+    let checked = unprovided(workflow, name.span(), name, &services);
     let rescue = step
         .rescue()
         .zip(step.rescue_name())
@@ -63,22 +63,16 @@ fn provided(workflow: &Ident, step: &WithStep) -> TokenStream {
 fn rescue_unprovided(workflow: &Ident, rescue: &Type, name: &str) -> TokenStream {
     let services = quote!(<#rescue as ::itinera::step::DescribedRescueStep>::SERVICES);
     let name = LitStr::new(name, rescue.span());
-    unprovided(workflow, rescue.span(), &quote!(None), &name, &services)
+    unprovided(workflow, rescue.span(), &name, &services)
 }
 
-/// The check that the workflow provides each of these services to the step it serves as
-/// `served`, reported where `span` is.
-fn unprovided(
-    workflow: &Ident,
-    span: Span,
-    served: &TokenStream,
-    name: &LitStr,
-    services: &TokenStream,
-) -> TokenStream {
+/// The check that the workflow provides each of these services to the step or rescue step of this
+/// name, reported where `span` is.
+fn unprovided(workflow: &Ident, span: Span, name: &LitStr, services: &TokenStream) -> TokenStream {
     quote_spanned! {span=>
         const _: () = if let ::core::option::Option::Some(key) = __itinera_services::unprovided(
             <#workflow>::__ITINERA_PROVIDERS,
-            ::core::option::Option::#served,
+            #name,
             #services,
         ) {
             ::core::panic!(

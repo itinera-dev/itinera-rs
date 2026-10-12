@@ -1,5 +1,0 @@
-error[E0080]: evaluation panicked: input adapter for unknown step: client on charge_rescue
-  --> tests/ui/workflow/an_input_adapter_for_a_rescue_step.rs:47:30
-   |
-47 |     #[input_adapter(steps = ["charge_rescue"])]
-   |                              ^^^^^^^^^^^^^^^ evaluation of `_::_` failed here

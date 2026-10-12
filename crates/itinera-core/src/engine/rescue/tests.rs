@@ -4,17 +4,20 @@ use rstest::rstest;
 
 use crate::engine::fixtures::{
     CHARGE, Seen, attempting, crashed, data_of, declined, failing_on, instance, kinds, seen,
-    timed_out, travel_before, travel_workflow,
+    timed_out, travel, travel_before, travel_workflow,
 };
 use crate::error::Error;
 use crate::event::{Event, EventBody};
 use crate::journey::{
     Abort, Contributor, FailureCause, FailureRequester, JourneyStatus, MissingData,
 };
+use crate::policy::{InputAdapter, Requested};
 use crate::step::{
     OptionalInput, Outcome, Reason, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved,
     RescueStep, StepDescriptor, StepName,
 };
+use crate::value::AnyValue;
+use crate::workflow::InputAdapterDescriptor;
 use crate::workflow::fixtures::{Orders, orders};
 
 const RESCUE: StepName = StepName::new("charge_rescue");
@@ -313,4 +316,70 @@ mod asynchronous {
             ]
         );
     }
+}
+
+const TOKEN: OptionalInput<i64> = OptionalInput::new("token");
+
+/// A rescue step that records the token it is built with, and succeeds.
+struct ReadingToken {
+    seen: Seen,
+}
+
+struct ReadToken<'a> {
+    token: Option<i64>,
+    seen: &'a Seen,
+}
+
+impl RescueFactory for ReadingToken {
+    type Step<'a> = ReadToken<'a>;
+
+    fn needs(&self) -> RescueNeeds {
+        RescueNeeds::new().optional_input(&TOKEN)
+    }
+
+    fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<ReadToken<'a>, Error> {
+        Ok(ReadToken {
+            token: got.optional_input(&TOKEN)?,
+            seen: &self.seen,
+        })
+    }
+}
+
+impl RescueStep for ReadToken<'_> {
+    fn run(self) -> Result<RescueOutcome, Error> {
+        self.seen.lock().unwrap().push(format!("{:?}", self.token));
+        Ok(RescueOutcome::success())
+    }
+}
+
+/// Supplies a token of 7, and nothing else.
+fn credentials(
+    _: &Orders,
+    got: Requested<'_, Orders, InputAdapter>,
+) -> Result<Option<AnyValue>, Error> {
+    Ok((got.key() == "token").then(|| AnyValue::new(7_i64)))
+}
+
+#[rstest]
+#[case::attached_to_its_name(RESCUE, "Some(7)")]
+#[case::attached_to_the_step_it_rescues(CHARGE, "Some(1)")]
+fn a_rescue_steps_inputs_come_only_from_the_adapter_attached_to_its_name_then_the_data_bag(
+    #[case] adapted: StepName,
+    #[case] received: &str,
+) {
+    let saw = Seen::default();
+    let refresh = ReadingToken {
+        seen: Arc::clone(&saw),
+    };
+    let workflow = orders()
+        .step(attempting(&[declined]).rescue(refresh))
+        .input_adapter(InputAdapterDescriptor::new(
+            "credentials",
+            adapted,
+            credentials,
+        ));
+
+    travel(instance(workflow).data("token", 1_i64).create().unwrap());
+
+    assert_eq!(seen(&saw), [received]);
 }

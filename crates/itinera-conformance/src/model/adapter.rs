@@ -32,6 +32,8 @@ pub(crate) enum Answer {
     /// The value under this key of the data bag, read through its access, when it has this type;
     /// nothing otherwise.
     ReadFromDataBag(String, ValueType),
+    /// The name of the step being built, as a string.
+    StepName,
 }
 
 /// The value an adapter supplies for this key, when its answer is for it and is a value.
@@ -44,7 +46,7 @@ impl Answer {
     pub(crate) fn value(&self) -> Option<&Value> {
         match self {
             Self::Value(value) => Some(value),
-            Self::Nothing | Self::Fails(_) | Self::ReadFromDataBag(..) => None,
+            Self::Nothing | Self::Fails(_) | Self::ReadFromDataBag(..) | Self::StepName => None,
         }
     }
 }

@@ -5,9 +5,8 @@ use crate::error::Error;
 use crate::journey::DataBag;
 use crate::mode::Mode;
 use crate::policy::WorkflowPolicyEntry;
-use crate::service::{ProviderEntry, Served};
+use crate::service::ProviderEntry;
 use crate::step::StepDescriptor;
-use crate::step::StepName;
 
 #[derive(derive_more::Debug)]
 pub(super) struct Declaration<W, M: Mode> {
@@ -20,18 +19,6 @@ pub(super) struct Declaration<W, M: Mode> {
     pub(super) reporters: Vec<MakeReporter<M>>,
     #[debug("{}", id_generator.is_some())]
     pub(super) id_generator: Option<GenerateId<W>>,
-}
-
-impl<W, M: Mode> Declaration<W, M> {
-    /// How a provider serves the step: as a step of the workflow, or, under a name the workflow
-    /// declares no step under, as a rescue step.
-    pub(super) fn served(&self, step: StepName) -> Served {
-        if self.steps.iter().any(|declared| declared.is_named(step)) {
-            Served::Step(step)
-        } else {
-            Served::RescueStep
-        }
-    }
 }
 
 /// Makes one listed reporter for a journey.

@@ -70,6 +70,10 @@ mod tests {
         builder.build().unwrap_err().into_iter().collect()
     }
 
+    fn rescued_charge() -> StepDescriptor<Orders> {
+        step("charge").rescue(|| Ok(RescueOutcome::success()))
+    }
+
     #[rstest]
     #[case::two_adapters_on_one_step(
         orders()
@@ -90,12 +94,22 @@ mod tests {
             step: StepName::new("refund"),
         },
     )]
-    #[case::an_adapter_on_a_rescue_step(
+    #[case::two_adapters_on_one_rescue_step(
         orders()
-            .step(step("charge").rescue(|| Ok(RescueOutcome::success())))
-            .input_adapter(adapter("pricing", "charge_rescue")),
+            .step(rescued_charge())
+            .input_adapter(adapter("credentials", "charge_rescue"))
+            .input_adapter(adapter("accounts", "charge_rescue")),
+        Violation::StepAdaptedTwice {
+            step: StepName::new("charge_rescue"),
+            adapters: vec![AdapterName::from("credentials"), AdapterName::from("accounts")],
+        },
+    )]
+    #[case::an_adapter_on_the_rescue_step_of_a_step_without_one(
+        orders()
+            .step(step("charge"))
+            .input_adapter(adapter("credentials", "charge_rescue")),
         Violation::InputAdapterForUnknownStep {
-            adapter: AdapterName::from("pricing"),
+            adapter: AdapterName::from("credentials"),
             step: StepName::new("charge_rescue"),
         },
     )]
@@ -104,5 +118,13 @@ mod tests {
         #[case] violation: Violation,
     ) {
         assert_eq!(violations(builder), [violation]);
+    }
+
+    #[test]
+    fn an_adapter_may_be_attached_to_a_step_and_to_its_rescue_step() {
+        let builder = orders()
+            .step(rescued_charge())
+            .input_adapter(adapter("credentials", "charge").step(StepName::new("charge_rescue")));
+        assert!(builder.build().is_ok());
     }
 }

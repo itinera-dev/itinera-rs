@@ -133,10 +133,7 @@ mod tests {
     use crate::service::fixtures::{Made, PAYMENTS, STOCK, per_attempt};
     use crate::workflow::WorkflowBuilder;
     use crate::workflow::fixtures::Orders;
-    use fixtures::{
-        charge_requesting_nothing, charging, numbered_payments, payments, rescued_charge,
-        violations,
-    };
+    use fixtures::{charge_requesting_nothing, charging, payments, rescued_charge, violations};
 
     #[rstest]
     #[case::two_providers_attached_to_no_step_though_no_step_requests_them(
@@ -173,12 +170,22 @@ mod tests {
             step: StepName::new("refund"),
         },
     )]
-    #[case::a_provider_attached_to_a_rescue_steps_name(
-        rescued_charge(&[], &[])
+    #[case::a_provider_attached_to_the_rescue_step_of_a_step_without_one(
+        charge_requesting_nothing()
             .provider(payments("payments").step(StepName::new("charge_rescue"))),
         Violation::ServiceProviderForUnknownStep {
             provider: ProviderName::from("payments"),
             step: StepName::new("charge_rescue"),
+        },
+    )]
+    #[case::two_providers_attached_to_one_rescue_step(
+        rescued_charge(&[], &[&PAYMENTS])
+            .provider(payments("main").step(StepName::new("charge_rescue")))
+            .provider(payments("backup").step(StepName::new("charge_rescue"))),
+        Violation::ServiceProvidedTwice {
+            key: "payments",
+            step: Some(StepName::new("charge_rescue")),
+            providers: vec![ProviderName::from("main"), ProviderName::from("backup")],
         },
     )]
     fn a_workflow_whose_providers_are_declared_wrongly_is_refused_with_its_violation(
@@ -196,21 +203,9 @@ mod tests {
     }
 
     #[test]
-    fn a_provider_attached_to_a_rescue_steps_name_never_serves_it() {
+    fn a_provider_attached_to_a_rescue_steps_name_serves_it() {
         let builder = rescued_charge(&[], &[&PAYMENTS])
-            .provider(numbered_payments().step(StepName::new("charge_rescue")));
-        assert_eq!(
-            violations(builder),
-            [
-                Violation::ServiceNotProvided {
-                    step: StepName::new("charge_rescue"),
-                    key: "payments",
-                },
-                Violation::ServiceProviderForUnknownStep {
-                    provider: ProviderName::from("numbers"),
-                    step: StepName::new("charge_rescue"),
-                },
-            ]
-        );
+            .provider(payments("backup").step(StepName::new("charge_rescue")));
+        assert!(builder.build().is_ok());
     }
 }

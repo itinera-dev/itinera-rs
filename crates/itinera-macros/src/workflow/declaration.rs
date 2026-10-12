@@ -113,9 +113,11 @@ fn declare(
     })
 }
 
-/// The names of the steps the workflow lists, which the checks of its input adapters read.
+/// The names of the steps the workflow lists, then those of their rescue steps, which the checks
+/// of its input adapters and providers read.
 fn listed(workflow: &Ident, steps: &[WithStep]) -> TokenStream {
-    let names = steps.iter().map(|step| &step.name);
+    let rescues = steps.iter().filter_map(WithStep::rescue_name);
+    let names = steps.iter().map(|step| step.name.value()).chain(rescues);
     quote! {
         impl #workflow {
             #[doc(hidden)]

@@ -1,17 +1,18 @@
-//! A rescue step that requests a service, declared with the macros, against the same rescue step
-//! and providers written for the builder, in a synchronous workflow.
+//! A rescue step that requests a service, declared with the macros, against the same rescue step,
+//! providers and input adapter written for the builder, in a synchronous workflow.
 
 use std::num::NonZeroU32;
 
 use itinera::error::Error;
 use itinera::journey::{Contributor, InitialData, JourneyId};
-use itinera::policy::{Provider, Requested};
+use itinera::policy::{HookNeeds, InputAdapter, Provider, Requested};
 use itinera::service::{PerAttempt, PerJourney, Service, ServiceProviderDescriptor};
 use itinera::step::{
     DescribedStep, Input, Outcome, Reason, RescueFactory, RescueNeeds, RescueOutcome,
     RescueResolved, RescueStep, Step, StepName, rescue_step, step, step_name,
 };
-use itinera::workflow::{Workflow, WorkflowDescriptor, workflow};
+use itinera::value::AnyValue;
+use itinera::workflow::{InputAdapterDescriptor, Workflow, WorkflowDescriptor, workflow};
 use rstest::rstest;
 
 use super::fixtures::{Journey, Orders, orders, run_created};
@@ -99,7 +100,7 @@ fn vault(journey: &JourneyId) -> Box<dyn TokenService> {
     })
 }
 
-/// The vault lent to the charge, one for each attempt.
+/// A vault lent to one attempt of a step, named after both.
 fn charging_vault(step: StepName, attempt: NonZeroU32) -> Box<dyn TokenService> {
     Box::new(Vault {
         label: format!("{step} vault {attempt}"),
@@ -234,4 +235,106 @@ fn a_rescue_steps_service_the_macros_request_lists_and_runs_as_one_written_for_t
     #[case] account: &str,
 ) {
     assert_eq!(by_macros(account), by_the_builder(account));
+}
+
+/// The vault workflow, whose rescue step has a vault of its own for each attempt, and reads its
+/// account, through an input adapter attached to its name, from the client the journey names.
+#[workflow(name = "orders")]
+#[with_step(Charge, name = "charge", rescue = Refresh)]
+struct Rerouted;
+
+#[workflow]
+impl Rerouted {
+    #[provider]
+    fn tokens(&self, #[journey_id] journey: &JourneyId) -> Result<Box<dyn TokenService>, Error> {
+        Ok(vault(journey))
+    }
+
+    #[provider(per_attempt, steps = ["charge_rescue"], key = "tokens", name = "refreshing")]
+    fn refreshing(
+        &self,
+        #[step_name] step: StepName,
+        #[attempt] attempt: NonZeroU32,
+    ) -> Result<Box<dyn TokenService>, Error> {
+        Ok(charging_vault(step, attempt))
+    }
+
+    #[input_adapter(steps = ["charge_rescue"])]
+    fn clients(&self, #[from_workflow] client: String) -> Result<Option<AnyValue>, Error> {
+        Ok(Some(AnyValue::new(client)))
+    }
+
+    #[id_generator]
+    fn order_id(&self) -> Result<String, Error> {
+        Ok("order-1".to_owned())
+    }
+}
+
+const CLIENT: Input<String> = Input::new("client");
+
+fn hand_clients(
+    _: &Orders,
+    mut got: Requested<'_, Orders, InputAdapter>,
+) -> Result<Option<AnyValue>, Error> {
+    Ok(Some(AnyValue::new(got.from_workflow(&CLIENT)?)))
+}
+
+/// The initial data of a journey of the rerouted workflow: the client, whose account it charges.
+#[derive(InitialData)]
+struct Client {
+    client: String,
+}
+
+fn client(client: &str) -> Client {
+    Client {
+        client: client.to_owned(),
+    }
+}
+
+fn rerouted_by_macros(account: &str) -> Journey {
+    run_created(Rerouted::descriptor(), |recorder| {
+        Rerouted::builder()
+            .initial_data(client(account))
+            .reporter(recorder)
+            .create()
+            .unwrap()
+    })
+}
+
+fn rerouted_by_the_builder(account: &str) -> Journey {
+    let refreshing = ServiceProviderDescriptor::per_attempt("refreshing", &TOKENS, hand_charging)
+        .step(step_name!("charge_rescue"));
+    let clients = InputAdapterDescriptor::new("clients", step_name!("charge_rescue"), hand_clients)
+        .needing(HookNeeds::new().from_workflow(&CLIENT));
+    let workflow: WorkflowDescriptor<Orders> = orders()
+        .step(Charge::descriptor(step_name!("charge")).rescue(RefreshFactory))
+        .provider(ServiceProviderDescriptor::new(
+            "tokens",
+            &TOKENS,
+            hand_tokens,
+        ))
+        .provider(refreshing)
+        .input_adapter(clients)
+        .build()
+        .unwrap();
+    run_created(&workflow, |recorder| {
+        workflow
+            .instance(Orders)
+            .initial_data(client(account))
+            .reporter(recorder)
+            .create()
+            .unwrap()
+    })
+}
+
+#[rstest]
+#[case::rescued("A-7")]
+#[case::not_rescued("blocked")]
+fn a_rescue_steps_adapter_and_provider_the_macros_attach_to_its_name_list_and_run_as_with_the_builder(
+    #[case] account: &str,
+) {
+    assert_eq!(
+        rerouted_by_macros(account),
+        rerouted_by_the_builder(account)
+    );
 }

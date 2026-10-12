@@ -13,7 +13,7 @@ use crate::step::StepName;
 
 mod entry;
 
-pub(crate) use entry::{ProviderEntry, Served, serving};
+pub(crate) use entry::{ProviderEntry, serving};
 
 /// The description of a service provider of workflows `W`, of scope `S`, in mode `M`: its name,
 /// the [`Service`] it supplies, the steps it is attached to, if any, what it needs, and its

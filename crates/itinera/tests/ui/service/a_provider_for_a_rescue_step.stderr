@@ -1,5 +1,0 @@
-error[E0080]: evaluation panicked: service provider for unknown step: charging on charge_rescue
-  --> tests/ui/service/a_provider_for_a_rescue_step.rs:67:48
-   |
-67 |     #[provider(per_attempt, steps = ["charge", "charge_rescue"], key = "tokens", name = "charging")]
-   |                                                ^^^^^^^^^^^^^^^ evaluation of `_::_` failed here
