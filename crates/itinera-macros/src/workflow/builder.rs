@@ -10,6 +10,7 @@ use syn::{Ident, Visibility};
 
 pub(super) use field::{Settable, settable};
 
+use super::mode;
 use crate::local::local;
 
 /// `Workflow::builder()`, the builder's type, and the trait through which `create()` takes each
@@ -20,7 +21,6 @@ pub(super) fn builder(
     visibility: &Visibility,
     fields: &[Settable],
     mode: &TokenStream,
-    asynchronous: bool,
     complete: bool,
 ) -> TokenStream {
     let instance_builder = quote!(::itinera::instance::InstanceBuilder<#workflow, #mode>);
@@ -57,7 +57,8 @@ pub(super) fn builder(
     } else {
         quote!(::core::unreachable!())
     };
-    let async_reporter = asynchronous.then(async_reporter);
+    let async_reporters = mode::asynchronous_reporters(workflow);
+    let async_reporter = async_reporters.is_some().then(|| async_reporter(mode));
     let doc = format!(
         "Starts creating an instance of `{workflow}`, for one journey: set each field it \
          requires, then, if any, its initial data and the reporters made for this journey, and \
@@ -91,6 +92,8 @@ pub(super) fn builder(
         }
 
         #(#traits)*
+
+        #async_reporters
 
         impl<#(#states),*> __ItineraBuilder<(#(#states,)*)> {
             #(#setters)*
@@ -136,11 +139,16 @@ pub(super) fn builder(
     }
 }
 
-fn async_reporter() -> TokenStream {
+/// The builder's `async_reporter`, which only an asynchronous workflow's builder takes a reporter
+/// in.
+fn async_reporter(mode: &TokenStream) -> TokenStream {
     quote! {
-        #[doc = "Adds an asynchronous reporter made for this journey, after the workflow's listed reporters."]
-        pub fn async_reporter(mut self, reporter: impl ::itinera::report::AsyncReporter) -> Self {
-            self.calls.push(::std::boxed::Box::new(move |instance| instance.async_reporter(reporter)));
+        #[doc = "Adds an asynchronous reporter made for this journey, after the workflow's listed reporters, in an asynchronous workflow."]
+        pub fn async_reporter(
+            mut self,
+            reporter: impl __ItineraAsyncReporter<#mode> + 'static,
+        ) -> Self {
+            self.calls.push(::std::boxed::Box::new(move |instance| reporter.__itinera_added(instance)));
             self
         }
     }

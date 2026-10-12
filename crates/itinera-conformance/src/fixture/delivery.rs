@@ -56,7 +56,7 @@ impl Sign {
     }
 }
 
-#[workflow(name = "delivery", asynchronous, policies = [Sign])]
+#[workflow(name = "delivery", policies = [Sign])]
 #[with_step(Dispatch, name = "dispatch", policies = [Track])]
 pub(super) struct Delivery;
 

@@ -8,6 +8,7 @@ use syn::{Ident, LitStr, Type};
 
 use crate::local::local;
 use crate::workflow::arguments::Arguments;
+use crate::workflow::mode;
 use crate::workflow::with_step::WithStep;
 
 pub(super) fn descriptor(
@@ -15,26 +16,27 @@ pub(super) fn descriptor(
     name: &LitStr,
     arguments: &Arguments,
     steps: &[WithStep],
-    mode: &TokenStream,
 ) -> TokenStream {
-    let start = if arguments.is_asynchronous() {
-        quote!(::itinera::workflow::WorkflowDescriptor::<#workflow, #mode>::async_builder)
-    } else {
-        quote!(::itinera::workflow::WorkflowDescriptor::<#workflow>::builder)
-    };
-    let steps = steps.iter().map(|step| step.declared(workflow));
+    let chosen = mode::of(steps);
+    let flagged = mode::flagged();
+    let mode = &mode::named(workflow);
+    let steps = steps.iter().map(|step| step.declared(workflow, mode));
     let policies = arguments
         .policies
         .iter()
         .map(|policy| attached(policy, workflow));
     let reporters = arguments.reporters.iter().map(listed);
-    let async_reporters = arguments.async_reporters.iter().map(listed_async);
     let declared = local("declared");
+    let async_reporters = arguments
+        .async_reporters
+        .iter()
+        .map(|reporter| listed_async(reporter, mode, &declared));
+    let modes = mode::declared(workflow);
     quote! {
         impl ::itinera::workflow::Workflow for #workflow {
-            type Mode = #mode;
+            type Mode = #chosen;
 
-            fn descriptor() -> &'static ::itinera::workflow::WorkflowDescriptor<Self, #mode> {
+            fn descriptor() -> &'static ::itinera::workflow::WorkflowDescriptor<Self, Self::Mode> {
                 static DESCRIPTOR: ::std::sync::LazyLock<
                     ::itinera::workflow::WorkflowDescriptor<#workflow, #mode>,
                 > = ::std::sync::LazyLock::new(__itinera_declared);
@@ -43,11 +45,11 @@ pub(super) fn descriptor(
         }
 
         fn __itinera_declared() -> ::itinera::workflow::WorkflowDescriptor<#workflow, #mode> {
-            let #declared = #start(#name)
+            let #declared = <#mode as __ItineraStart>::__itinera_builder(#name)
                 #(#steps)*
                 #(#policies)*
-                #(#reporters)*
-                #(#async_reporters)*;
+                #(#reporters)*;
+            #(let #declared = #async_reporters;)*
             match <#workflow>::__itinera_parts(#declared).build() {
                 ::core::result::Result::Ok(descriptor) => descriptor,
                 ::core::result::Result::Err(violations) => ::core::panic!(
@@ -66,6 +68,9 @@ pub(super) fn descriptor(
         }
 
         impl __ItineraParts for #workflow {}
+
+        #flagged
+        #modes
     }
 }
 
@@ -79,6 +84,10 @@ fn listed(reporter: &Type) -> TokenStream {
     quote_spanned!(reporter.span()=> .reporter::<#reporter>())
 }
 
-fn listed_async(reporter: &Type) -> TokenStream {
-    quote_spanned!(reporter.span()=> .async_reporter::<#reporter>())
+/// The asynchronous reporter listed on what is declared, through a trait that only a workflow
+/// in the asynchronous mode takes, so that a synchronous one is refused at the reporter.
+fn listed_async(reporter: &Type, mode: &TokenStream, declared: &Ident) -> TokenStream {
+    quote_spanned! {reporter.span()=>
+        <#reporter as __ItineraAsyncReporter<#mode>>::__itinera_listed(#declared)
+    }
 }

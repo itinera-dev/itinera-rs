@@ -1,8 +1,8 @@
 error[E0277]: the service providers of `Orders` do not all belong to a workflow of its mode
   --> tests/ui/service/a_synchronous_provider_reporting_in_an_asynchronous_workflow.rs:56:1
    |
-56 | #[workflow(name = "orders", asynchronous)]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+56 | #[workflow(name = "orders")]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    | |
    | a workflow of a mode some of its providers do not belong to
    | required by a bound introduced by this call

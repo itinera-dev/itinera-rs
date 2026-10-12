@@ -84,7 +84,7 @@ impl AsyncReporter for Log {
     }
 }
 
-#[workflow(name = "delivery", asynchronous, policies = [Sign], async_reporters = [Log])]
+#[workflow(name = "delivery", policies = [Sign], async_reporters = [Log])]
 #[with_step(Dispatch, name = "dispatch", retry_budget = 1, policies = [Track])]
 struct Delivery {
     van: &'static str,

@@ -621,10 +621,11 @@ mod workflow {
         described::main()
     }
 
+    #[cfg(feature = "async")]
     #[test]
     fn asynchronous_reporters_belong_to_an_asynchronous_workflow() -> Result<(), Box<dyn Error>> {
         fails_to_compile("tests/ui/workflow/asynchronous_reporters_in_a_synchronous_workflow.rs");
-        described::main()
+        described_asynchronous::main()
     }
 
     #[test]
@@ -635,16 +636,16 @@ mod workflow {
 
     #[cfg(feature = "async")]
     #[test]
-    fn an_asynchronous_step_belongs_only_to_an_asynchronous_workflow() -> Result<(), Box<dyn Error>>
-    {
-        fails_to_compile("tests/ui/workflow/an_asynchronous_step_in_a_synchronous_workflow.rs");
+    fn the_steps_of_a_workflow_are_all_synchronous_or_all_asynchronous()
+    -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/workflow/steps_of_both_modes.rs");
         described_asynchronous::main()
     }
 
     #[cfg(not(feature = "async"))]
     #[test]
-    fn an_asynchronous_workflow_needs_the_async_feature() -> Result<(), Box<dyn Error>> {
-        fails_to_compile("tests/ui/workflow/asynchronous_without_the_async_feature.rs");
+    fn asynchronous_reporters_need_the_async_feature() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/workflow/asynchronous_reporters_without_the_async_feature.rs");
         described::main()
     }
 }

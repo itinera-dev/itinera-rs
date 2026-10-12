@@ -31,7 +31,7 @@ impl Label {
     }
 }
 
-#[workflow(name = "delivery", asynchronous)]
+#[workflow(name = "delivery")]
 #[with_step(Dispatch, name = "dispatch", rescue = Label)]
 struct Delivery;
 

@@ -104,7 +104,7 @@ impl Dispatch {
     }
 }
 
-#[workflow(name = "parcels", asynchronous)]
+#[workflow(name = "parcels")]
 #[with_step(Dispatch, name = "dispatch", retry_budget = 1)]
 struct Parcels;
 
