@@ -1,6 +1,5 @@
 use super::AdapterName;
 use crate::policy::{PolicyName, StepHook, WorkflowHook};
-#[cfg(feature = "unstable")]
 use crate::service::ProviderName;
 use crate::step::StepName;
 
@@ -83,7 +82,6 @@ pub enum Violation {
         step: StepName,
     },
     /// A step requests a service that no provider serves for it.
-    #[cfg(feature = "unstable")]
     #[display("service not provided: {key} for {step}")]
     #[non_exhaustive]
     ServiceNotProvided {
@@ -93,7 +91,6 @@ pub enum Violation {
         key: &'static str,
     },
     /// A step requests one service twice or more.
-    #[cfg(feature = "unstable")]
     #[display("service requested twice: {key} by {step}")]
     #[non_exhaustive]
     ServiceRequestedTwice {
@@ -103,7 +100,6 @@ pub enum Violation {
         key: &'static str,
     },
     /// Two or more providers of one service are attached to the same step, or to no step.
-    #[cfg(feature = "unstable")]
     #[display("service provided twice: {key}{}", for_step(step))]
     #[non_exhaustive]
     ServiceProvidedTwice {
@@ -115,7 +111,6 @@ pub enum Violation {
         providers: Vec<ProviderName>,
     },
     /// Two or more service providers have this name.
-    #[cfg(feature = "unstable")]
     #[display("duplicate provider name: {provider}")]
     #[non_exhaustive]
     DuplicateProviderName {
@@ -123,7 +118,6 @@ pub enum Violation {
         provider: ProviderName,
     },
     /// A service provider is attached to a step the workflow does not have.
-    #[cfg(feature = "unstable")]
     #[display("service provider for unknown step: {provider} on {step}")]
     #[non_exhaustive]
     ServiceProviderForUnknownStep {
@@ -133,7 +127,6 @@ pub enum Violation {
         step: StepName,
     },
     /// The provider serving a step supplies another type than the step requests.
-    #[cfg(feature = "unstable")]
     #[display("wrong service type: {provider} for {key} of {step}")]
     #[non_exhaustive]
     WrongServiceType {
@@ -167,26 +160,19 @@ impl Violation {
             }
             Self::StepAdaptedTwice { .. } => ViolationKind::StepAdaptedTwice,
             Self::InputAdapterForUnknownStep { .. } => ViolationKind::InputAdapterForUnknownStep,
-            #[cfg(feature = "unstable")]
             Self::ServiceNotProvided { .. } => ViolationKind::ServiceNotProvided,
-            #[cfg(feature = "unstable")]
             Self::ServiceRequestedTwice { .. } => ViolationKind::ServiceRequestedTwice,
-            #[cfg(feature = "unstable")]
             Self::ServiceProvidedTwice { .. } => ViolationKind::ServiceProvidedTwice,
-            #[cfg(feature = "unstable")]
             Self::DuplicateProviderName { .. } => ViolationKind::DuplicateProviderName,
-            #[cfg(feature = "unstable")]
             Self::ServiceProviderForUnknownStep { .. } => {
                 ViolationKind::ServiceProviderForUnknownStep
             }
-            #[cfg(feature = "unstable")]
             Self::WrongServiceType { .. } => ViolationKind::WrongServiceType,
         }
     }
 }
 
 /// What follows the key of a service provided twice: the step the providers are attached to.
-#[cfg(feature = "unstable")]
 fn for_step(step: &Option<StepName>) -> String {
     match step {
         Some(step) => format!(" for {step}"),
@@ -194,7 +180,7 @@ fn for_step(step: &Option<StepName>) -> String {
     }
 }
 
-#[cfg(all(test, feature = "unstable"))]
+#[cfg(test)]
 mod tests {
     use rstest::rstest;
 

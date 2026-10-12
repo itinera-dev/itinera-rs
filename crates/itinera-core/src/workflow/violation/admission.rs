@@ -8,7 +8,6 @@ use crate::workflow::Declaration;
 use tally::{counted, grouped, more_than_once, repeated};
 
 mod adapters;
-#[cfg(feature = "unstable")]
 mod services;
 mod tally;
 
@@ -20,16 +19,14 @@ pub(in crate::workflow) fn check<W, M: Mode>(
 ) -> Result<(), Violations> {
     let steps = &declaration.steps;
     let adapters = &declaration.adapters;
-    #[cfg_attr(not(feature = "unstable"), expect(unused_mut))]
-    let mut violations: Vec<Violation> = duplicate_step_names(steps)
+    let violations: Vec<Violation> = duplicate_step_names(steps)
         .chain(rescued_steps_retried(steps))
         .chain(steps.iter().flat_map(step_hooks_defined_twice))
         .chain(workflow_hooks_defined_twice(&declaration.policies))
         .chain(adapters_for_unknown_steps(steps, adapters))
         .chain(steps_adapted_twice(steps, adapters))
+        .chain(services::violations(steps, &declaration.providers))
         .collect();
-    #[cfg(feature = "unstable")]
-    violations.extend(services::violations(steps, &declaration.providers));
     if violations.is_empty() {
         Ok(())
     } else {

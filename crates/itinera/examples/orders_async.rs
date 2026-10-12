@@ -1,6 +1,6 @@
 //! The workflow of the `orders` example, declared as an asynchronous workflow: its steps, its
 //! policies and its reporter are asynchronous, and it runs on the asynchronous executor. Run it
-//! with `cargo run -p itinera --example orders_async --features async,unstable`.
+//! with `cargo run -p itinera --example orders_async --features async`.
 
 use std::num::NonZeroU32;
 

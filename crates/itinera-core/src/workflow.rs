@@ -9,7 +9,6 @@ use crate::instance::InstanceBuilder;
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::{Mode, Synchronous};
 use crate::policy::WorkflowPolicyEntry;
-#[cfg(feature = "unstable")]
 use crate::service::{self, ProviderEntry};
 use crate::step::{StepDescriptor, StepName};
 
@@ -33,15 +32,13 @@ pub use described::Workflow;
 pub use input_adapter::InputAdapterDescriptor;
 #[cfg(feature = "macros")]
 pub use itinera_macros::{role, workflow};
-#[cfg(feature = "unstable")]
 pub use listing::ListedService;
 pub use listing::ListedStep;
 pub use name::{AdapterName, WorkflowName};
 pub use violation::{Violation, ViolationKind, Violations};
 
 /// A workflow's declaration: its name, its step descriptors in order, its workflow policies, its
-/// input adapters, with the `unstable` feature its service providers, its reporters and how it
-/// produces journey IDs.
+/// input adapters, its service providers, its reporters and how it produces journey IDs.
 ///
 /// It is fixed once built, shared by every instance of the workflow, and cheap to clone. Only
 /// [`WorkflowBuilder::build`] makes one, after checking the declaration. Its mode `M` is
@@ -160,13 +157,11 @@ impl<W, M: Mode> WorkflowDescriptor<W, M> {
     }
 
     /// The workflow's service providers, in the order they were declared.
-    #[cfg(feature = "unstable")]
     pub(crate) fn providers(&self) -> &[Box<dyn ProviderEntry<W, M>>] {
         &self.declaration.providers
     }
 
     /// The service provider that serves the step for the service under `key`, if one does.
-    #[cfg(feature = "unstable")]
     pub(crate) fn provider(&self, step: StepName, key: &str) -> Option<&dyn ProviderEntry<W, M>> {
         service::serving(
             &self.declaration.providers,

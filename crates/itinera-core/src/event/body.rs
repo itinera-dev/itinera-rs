@@ -4,7 +4,6 @@ use super::{
     GiveUpCause, HookSource, JourneyAbort, JourneyFailure, RequestSource, RescueCause, Source,
 };
 use crate::policy::{Lifecycle, PolicyName, RetryCause};
-#[cfg(feature = "unstable")]
 use crate::service::ProviderName;
 use crate::step::{Reason, StepAttempt, StepName};
 use crate::value::AnyValue;
@@ -73,7 +72,6 @@ pub enum EventBody {
         requester: RequestSource,
     },
     /// A service provider made an instance of a step's service.
-    #[cfg(feature = "unstable")]
     #[non_exhaustive]
     ServiceProvided {
         /// The step and attempt being built.
@@ -84,7 +82,6 @@ pub enum EventBody {
         provider: ProviderName,
     },
     /// A service provider failed for a step's service.
-    #[cfg(feature = "unstable")]
     #[non_exhaustive]
     ServiceProviderFailed {
         /// The step and attempt being built.
@@ -296,9 +293,7 @@ impl EventBody {
             Self::InputAdapterSupplied { .. } => "input_adapter_supplied",
             Self::InputAdapterFailed { .. } => "input_adapter_failed",
             Self::OptionalInputAbsent { .. } => "optional_input_absent",
-            #[cfg(feature = "unstable")]
             Self::ServiceProvided { .. } => "service_provided",
-            #[cfg(feature = "unstable")]
             Self::ServiceProviderFailed { .. } => "service_provider_failed",
             Self::StepSucceeded { .. } => "step_succeeded",
             Self::StepFailed { .. } => "step_failed",

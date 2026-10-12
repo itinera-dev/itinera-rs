@@ -36,7 +36,7 @@ pub(super) fn parameter(parameter: &mut PatType, noun: &str) -> syn::Result<Para
         &parameter.pat,
         &format!(
             "every parameter of a {noun}'s `run` after `self` is a `#[contributor]`, a \
-             `#[reporter]` or, with the `unstable` feature, a `#[service]`"
+             `#[reporter]` or a `#[service]`"
         ),
     )?;
     let taken = match marker::name(&mark).as_str() {

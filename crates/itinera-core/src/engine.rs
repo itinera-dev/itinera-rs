@@ -2,7 +2,6 @@
 //! result.
 
 use std::future::Future;
-#[cfg(feature = "unstable")]
 use std::sync::Arc;
 
 use crate::event::EventBody;
@@ -27,7 +26,6 @@ mod outcome;
 mod request;
 mod rescue;
 mod retry;
-#[cfg(feature = "unstable")]
 mod services;
 
 #[cfg(feature = "async")]
@@ -39,7 +37,6 @@ pub(crate) use hooks::WorkflowPolicies;
 use emitter::{Delivery, Emitter};
 use end::{Aborted, End};
 use rescue::LeftForRescue;
-#[cfg(feature = "unstable")]
 use services::Kept;
 
 /// Runs one journey of the instance, with the workflow policies built for it, delivering its
@@ -60,7 +57,6 @@ pub(crate) async fn run<I: WorkflowInstance>(
         failures,
         step: None,
         interrupted: None,
-        #[cfg(feature = "unstable")]
         kept: Arc::new(Kept::of(&descriptor)),
     };
     let status = match journey.travel(&mut instance, &descriptor, &policies).await {
@@ -102,7 +98,6 @@ struct Journey<D> {
     interrupted: Option<Box<Aborted>>,
     /// The instances of journey scope the providers made, which attempts borrow while the
     /// journey lends itself to their handles.
-    #[cfg(feature = "unstable")]
     kept: Arc<Kept>,
 }
 

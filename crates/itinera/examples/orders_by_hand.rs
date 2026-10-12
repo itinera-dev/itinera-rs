@@ -1,6 +1,6 @@
 //! The workflow of the `orders` example, declared with the builder alone, as an application
 //! without the `macros` feature declares it. Run it with
-//! `cargo run -p itinera --example orders_by_hand --no-default-features --features unstable`.
+//! `cargo run -p itinera --example orders_by_hand --no-default-features`.
 
 use std::num::NonZeroU32;
 

@@ -1,7 +1,6 @@
 //! One attempt of a step: building its policies and the step, with its inputs resolved, running
 //! it, and acting on how it ended.
 
-#[cfg(feature = "unstable")]
 use std::sync::Arc;
 
 use super::end::End;
@@ -12,7 +11,6 @@ use crate::event::{EventBody, JourneyAbort};
 use crate::instance::WorkflowInstance;
 use crate::journey::{Abort, Contributions, Contributor};
 use crate::policy::{BuiltStepPolicy, StepHook, StepPolicyEntry};
-#[cfg(feature = "unstable")]
 use crate::service::Instance;
 use crate::step::{
     FromRescued, Got, Outcome, Reporting, StepAttempt, StepDescriptor, StepName, StepRequest,
@@ -68,9 +66,7 @@ impl<D: Delivery> Journey<D> {
         }
         let mut contributed = Contributions::default();
         let ran = {
-            #[cfg(feature = "unstable")]
             let kept = Arc::clone(&self.kept);
-            #[cfg(feature = "unstable")]
             let provided = self
                 .provide(instance.descriptor(), &sources, &kept, step, attempt)
                 .await?;
@@ -78,7 +74,6 @@ impl<D: Delivery> Journey<D> {
                 attempt,
                 inputs,
                 rescued,
-                #[cfg(feature = "unstable")]
                 services: provided.lent(),
             };
             self.build_and_run(step, building, &mut contributed).await
@@ -119,7 +114,6 @@ impl<D: Delivery> Journey<D> {
             None
         };
         let got = Got::new(building.inputs, building.rescued, contributor, reporting);
-        #[cfg(feature = "unstable")]
         let got = got.lending(building.services);
         match step.attempt(got) {
             Ok(running) => Ok(running.await),
@@ -135,7 +129,6 @@ struct Building<'s> {
     attempt: &'s StepAttempt,
     inputs: Vec<(&'static str, Option<AnyValue>)>,
     rescued: FromRescued,
-    #[cfg(feature = "unstable")]
     services: Vec<(&'static str, &'s Instance)>,
 }
 
@@ -169,7 +162,6 @@ fn kept(ran: &Result<Outcome, Error>, contributed: Contributions) -> Contributio
 pub(super) fn could_not_build(step: StepName, error: Error) -> End {
     let reported = JourneyAbort::StepCouldNotBeBuilt {
         step,
-        #[cfg(feature = "unstable")]
         provider: None,
         error: error.to_string(),
     };

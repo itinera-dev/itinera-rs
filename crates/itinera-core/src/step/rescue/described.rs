@@ -113,7 +113,6 @@ pub trait DescribedRescueStep {
     ///
     /// assert_eq!(RefreshToken::SERVICES, ["tokens"]);
     /// ```
-    #[cfg(feature = "unstable")]
     const SERVICES: &'static [&'static str] = &[];
 
     /// Gives `step` this rescue step, replacing any it had.

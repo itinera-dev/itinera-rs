@@ -12,7 +12,6 @@ mod async_policy;
 mod async_rescue;
 #[cfg(test)]
 #[cfg(feature = "async")]
-#[cfg(feature = "unstable")]
 mod async_service;
 #[cfg(test)]
 #[cfg(feature = "async")]
@@ -29,10 +28,8 @@ mod policy;
 #[cfg(test)]
 mod rescue;
 #[cfg(test)]
-#[cfg(feature = "unstable")]
 mod rescue_service;
 #[cfg(test)]
-#[cfg(feature = "unstable")]
 mod service;
 #[cfg(test)]
 mod step;

@@ -114,21 +114,14 @@ mod tests {
             .data("amount", 42_i64)
             .create()
             .unwrap();
-        let providers = if cfg!(feature = "unstable") {
-            "providers: [], "
-        } else {
-            ""
-        };
         assert_eq!(
             format!("{instance:?}"),
-            format!(
-                "Instance {{ \
-                 descriptor: WorkflowDescriptor {{ declaration: Declaration {{ \
-                 name: WorkflowName(\"orders\"), steps: [], policies: [], adapters: [], \
-                 {providers}reporters: 1, id_generator: true }} }}, \
-                 journey_id: JourneyId(\"order-7\"), reporters: 1, \
-                 data: DataBag {{ values: {{\"amount\": AnyValue(\"i64\")}} }}, .. }}"
-            )
+            "Instance { \
+             descriptor: WorkflowDescriptor { declaration: Declaration { \
+             name: WorkflowName(\"orders\"), steps: [], policies: [], adapters: [], \
+             providers: [], reporters: 1, id_generator: true } }, \
+             journey_id: JourneyId(\"order-7\"), reporters: 1, \
+             data: DataBag { values: {\"amount\": AnyValue(\"i64\")} }, .. }"
         );
     }
 }

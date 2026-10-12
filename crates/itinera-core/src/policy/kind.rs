@@ -5,14 +5,12 @@ use std::fmt;
 use crate::step::StepAttempt;
 
 mod input_adapter;
-#[cfg(feature = "unstable")]
 mod provider;
 pub(crate) mod sealed;
 mod step_hook;
 mod workflow_hook;
 
 pub use input_adapter::InputAdapter;
-#[cfg(feature = "unstable")]
 pub use provider::Provider;
 pub use step_hook::{StepAbnormalTermination, StepFailure, StepRetry, StepSuccess};
 pub use workflow_hook::{WorkflowFailure, WorkflowSuccess};
@@ -21,7 +19,7 @@ pub use workflow_hook::{WorkflowFailure, WorkflowSuccess};
 /// make, so a request it may not make does not compile.
 ///
 /// Only itinera's own kinds implement it: one for each of the six hooks of policies, one for
-/// input adapters, and, with the `unstable` feature, one for service providers of each scope.
+/// input adapters, and one for service providers of each scope.
 ///
 /// [`HookNeeds`]: super::HookNeeds
 /// [`Requested`]: super::Requested
@@ -128,11 +126,6 @@ pub trait PolicyHookKind: HookKind {}
 ///
 /// let needs: HookNeeds<StepRetry> = reporting();
 /// ```
-#[cfg(feature = "unstable")]
 pub trait ReportingHookKind: HookKind {}
 
-#[cfg(feature = "unstable")]
 impl<H: PolicyHookKind> ReportingHookKind for H {}
-
-#[cfg(not(feature = "unstable"))]
-pub(crate) use PolicyHookKind as ReportingHookKind;

@@ -3,7 +3,6 @@
 use super::Requester;
 use crate::journey::AbortReason;
 use crate::policy::PolicyName;
-#[cfg(feature = "unstable")]
 use crate::service::ProviderName;
 use crate::step::StepName;
 
@@ -30,14 +29,13 @@ pub use missing_data::MissingData;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum JourneyAbort {
-    /// A step's constructor, the input adapter resolving one of its inputs, or, with the
-    /// `unstable` feature, the service provider for one of its services, failed.
+    /// A step's constructor, the input adapter resolving one of its inputs, or the service
+    /// provider for one of its services, failed.
     #[non_exhaustive]
     StepCouldNotBeBuilt {
         /// The step's name.
         step: StepName,
         /// The service provider that failed, when one did.
-        #[cfg(feature = "unstable")]
         provider: Option<ProviderName>,
         /// The error's message.
         error: String,

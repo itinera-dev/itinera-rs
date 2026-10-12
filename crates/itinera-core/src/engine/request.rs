@@ -60,7 +60,6 @@ impl Requesting {
                 Requester::WorkflowHook { policy, hook },
                 event::Requester::WorkflowHook { policy, hook },
             ),
-            #[cfg(feature = "unstable")]
             HookSource::Provider { provider, ref step } => (
                 Requester::Provider { provider },
                 event::Requester::Provider {

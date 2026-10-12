@@ -1,7 +1,6 @@
 //! Who made a request whose data could not be resolved, as the result tells it.
 
 use crate::policy::{PolicyName, StepHook, WorkflowHook};
-#[cfg(feature = "unstable")]
 use crate::service::ProviderName;
 use crate::workflow::AdapterName;
 
@@ -37,8 +36,8 @@ pub enum FailureRequester {
 }
 
 /// Who made a request whose data could not be resolved: a step for one of its inputs, an input
-/// adapter resolving a step's input, a step hook, a workflow hook, or, with the `unstable`
-/// feature, a service provider supplying a step's service.
+/// adapter resolving a step's input, a step hook, a workflow hook, or a service provider
+/// supplying a step's service.
 ///
 /// It is the result's counterpart of [`event::Requester`](crate::event::Requester), without the
 /// step's name, since the result names no step.
@@ -86,7 +85,6 @@ pub enum Requester {
         hook: WorkflowHook,
     },
     /// A service provider, for a service of a step.
-    #[cfg(feature = "unstable")]
     #[non_exhaustive]
     Provider {
         /// The provider's name.

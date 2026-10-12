@@ -31,8 +31,7 @@
 //!   an application can write by hand.
 //! - `async`: the asynchronous executor, and asynchronous steps, hooks, reporters and
 //!   dispatchers.
-//! - `unstable`: API of a proposal not yet listed in the conformance claims: now services, which
-//!   steps and rescue steps request and the workflow's service providers supply.
+//! - `unstable`: API the specification has not settled yet; empty for now.
 
 #![forbid(unsafe_code)]
 

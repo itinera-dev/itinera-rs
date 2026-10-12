@@ -7,7 +7,6 @@ use super::{FromRescued, Input, OptionalInput, Reporting, StepReporter};
 use crate::error::Error;
 use crate::journey::Contributor;
 use crate::mode::Synchronous;
-#[cfg(feature = "unstable")]
 use crate::service::{Service, lent};
 use crate::value::{AnyValue, Value};
 
@@ -158,7 +157,6 @@ impl<'a, M> Resolved<'a, M> {
     ///     got.service(&PAYMENTS)
     /// }
     /// ```
-    #[cfg(feature = "unstable")]
     pub fn service<T: ?Sized + 'static>(&self, service: &Service<T>) -> Result<&'a T, Error> {
         let key = service.key();
         self.got
@@ -204,7 +202,6 @@ fn undeclared_handle(handle: &str) -> Error {
     ))
 }
 
-#[cfg(feature = "unstable")]
 fn undeclared_service<T: ?Sized>(key: &str) -> Error {
     Error::msg(format!(
         "the step does not declare the service \"{key}\" of type {}",
@@ -290,7 +287,6 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "unstable")]
     mod services {
         use super::*;
         use crate::service::{Instance, Service, erased};

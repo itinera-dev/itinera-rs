@@ -1,5 +1,5 @@
 //! `#[workflow]` on the workflow's `impl` block: the parts of its declaration that are methods,
-//! its input adapters, its ID generator and, with the `unstable` feature, its service providers.
+//! its input adapters, its ID generator and its service providers.
 
 mod adapter;
 mod attached;

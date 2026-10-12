@@ -78,7 +78,7 @@ impl StepKind {
         step: &Type,
         asynchronous: bool,
         factory: &TokenStream,
-        services: Option<TokenStream>,
+        services: TokenStream,
     ) -> TokenStream {
         let mode = described::mode(asynchronous);
         match self {

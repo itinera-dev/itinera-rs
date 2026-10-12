@@ -1,4 +1,4 @@
-Declares a workflow: on its struct, the workflow's name, steps, policies and reporters; on its own `impl` block, its input adapters and ID generator.
+Declares a workflow: on its struct, the workflow's name, steps, policies and reporters; on its own `impl` block, its input adapters, ID generator and service providers.
 
 On the struct, every argument is optional:
 

@@ -7,17 +7,15 @@ use super::input_adapter::attached_to;
 use super::{AdapterName, InputAdapterDescriptor, WorkflowDescriptor};
 use crate::mode::Mode;
 use crate::policy::PolicyName;
-#[cfg(feature = "unstable")]
 use crate::service::{ProviderEntry, ProviderName};
-#[cfg(feature = "unstable")]
 use crate::step::ServiceNeed;
 use crate::step::{StepDescriptor, StepName};
 
 impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     /// Lists the workflow's steps in order, without running anything: each step's name, its
     /// position from 1, the names of its policies in the order they were attached, the names of
-    /// its input adapter and its rescue step, if it has them, and, with the `unstable` feature,
-    /// the services it requests, each with the provider that serves it.
+    /// its input adapter and its rescue step, if it has them, and the services it requests, each
+    /// with the provider that serves it.
     ///
     /// # Examples
     ///
@@ -81,7 +79,6 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
             adapter: attached_to(&self.declaration.adapters, name)
                 .map(InputAdapterDescriptor::<W>::name),
             rescue: step.rescue_step().map(StepDescriptor::name),
-            #[cfg(feature = "unstable")]
             services: step
                 .needs()
                 .services()
@@ -93,7 +90,6 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
 
     /// A service the step requests, with the provider that serves it, which admission made sure
     /// there is.
-    #[cfg(feature = "unstable")]
     fn listed_service(&self, step: StepName, need: &ServiceNeed) -> Option<ListedService> {
         let key = need.key();
         self.provider(step, key)
@@ -127,7 +123,6 @@ pub struct ListedStep {
     /// Its rescue step, if it has one.
     pub rescue: Option<StepName>,
     /// The services it requests, in the order it declares them.
-    #[cfg(feature = "unstable")]
     pub services: Vec<ListedService>,
 }
 
@@ -142,7 +137,6 @@ pub struct ListedStep {
 ///     format!("{}: {}", listed.key, listed.provider)
 /// }
 /// ```
-#[cfg(feature = "unstable")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct ListedService {
@@ -152,7 +146,6 @@ pub struct ListedService {
     pub provider: ProviderName,
 }
 
-#[cfg(feature = "unstable")]
 fn served_by(key: &'static str, provider: ProviderName) -> ListedService {
     ListedService { key, provider }
 }
@@ -214,7 +207,6 @@ mod tests {
                     policies: vec![PolicyName::from("audit"), PolicyName::from("alarm")],
                     adapter: Some(AdapterName::from("pricing")),
                     rescue: Some(StepName::new("charge_rescue")),
-                    #[cfg(feature = "unstable")]
                     services: Vec::new(),
                 },
                 ListedStep {
@@ -223,7 +215,6 @@ mod tests {
                     policies: Vec::new(),
                     adapter: None,
                     rescue: None,
-                    #[cfg(feature = "unstable")]
                     services: Vec::new(),
                 },
             ]
@@ -231,7 +222,6 @@ mod tests {
         assert_eq!(ran.load(Ordering::SeqCst), 0);
     }
 
-    #[cfg(feature = "unstable")]
     mod services {
         use super::*;
         use crate::service::fixtures::{

@@ -17,15 +17,12 @@ use syn::{Ident, LitStr, Type};
 
 use super::with_step::WithStep;
 
-/// The checks for every step of a workflow of this type, with the `unstable` feature.
-pub(super) fn checked(workflow: &Ident, steps: &[WithStep]) -> Option<TokenStream> {
-    if !cfg!(feature = "unstable") {
-        return None;
-    }
+/// The checks for every step of a workflow of this type.
+pub(super) fn checked(workflow: &Ident, steps: &[WithStep]) -> TokenStream {
     let checks = steps.iter().map(|step| provided(workflow, step));
     let fits = steps.iter().map(|step| fit(workflow, step));
     let functions = functions::functions();
-    Some(quote! {
+    quote! {
         trait __ItineraServicesFit {
             fn __itinera_services_fit<__ItineraWorkflow>() {}
         }
@@ -45,7 +42,7 @@ pub(super) fn checked(workflow: &Ident, steps: &[WithStep]) -> Option<TokenStrea
         #functions
 
         #(#checks)*
-    })
+    }
 }
 
 /// The checks that the workflow provides each service the step and its rescue step request.

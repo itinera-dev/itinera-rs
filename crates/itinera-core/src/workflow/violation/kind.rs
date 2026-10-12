@@ -31,27 +31,21 @@ pub enum ViolationKind {
     #[display("input adapter for unknown step")]
     InputAdapterForUnknownStep,
     /// A step requests a service that no provider serves for it.
-    #[cfg(feature = "unstable")]
     #[display("service not provided")]
     ServiceNotProvided,
     /// A step requests one service twice.
-    #[cfg(feature = "unstable")]
     #[display("service requested twice")]
     ServiceRequestedTwice,
     /// Two providers of one service are attached to the same step, or to no step.
-    #[cfg(feature = "unstable")]
     #[display("service provided twice")]
     ServiceProvidedTwice,
     /// Two service providers have the same name.
-    #[cfg(feature = "unstable")]
     #[display("duplicate provider name")]
     DuplicateProviderName,
     /// A service provider is attached to a step the workflow does not have.
-    #[cfg(feature = "unstable")]
     #[display("service provider for unknown step")]
     ServiceProviderForUnknownStep,
     /// The provider serving a step supplies another type than the step requests.
-    #[cfg(feature = "unstable")]
     #[display("wrong service type")]
     WrongServiceType,
 }
@@ -71,42 +65,21 @@ mod tests {
         ViolationKind::InputAdapterForUnknownStep,
         "input adapter for unknown step"
     )]
-    #[cfg_attr(
-        feature = "unstable",
-        case::service_not_provided(ViolationKind::ServiceNotProvided, "service not provided")
+    #[case::service_not_provided(ViolationKind::ServiceNotProvided, "service not provided")]
+    #[case::service_requested_twice(
+        ViolationKind::ServiceRequestedTwice,
+        "service requested twice"
     )]
-    #[cfg_attr(
-        feature = "unstable",
-        case::service_requested_twice(
-            ViolationKind::ServiceRequestedTwice,
-            "service requested twice"
-        )
+    #[case::service_provided_twice(ViolationKind::ServiceProvidedTwice, "service provided twice")]
+    #[case::duplicate_provider_name(
+        ViolationKind::DuplicateProviderName,
+        "duplicate provider name"
     )]
-    #[cfg_attr(
-        feature = "unstable",
-        case::service_provided_twice(
-            ViolationKind::ServiceProvidedTwice,
-            "service provided twice"
-        )
+    #[case::service_provider_for_unknown_step(
+        ViolationKind::ServiceProviderForUnknownStep,
+        "service provider for unknown step"
     )]
-    #[cfg_attr(
-        feature = "unstable",
-        case::duplicate_provider_name(
-            ViolationKind::DuplicateProviderName,
-            "duplicate provider name"
-        )
-    )]
-    #[cfg_attr(
-        feature = "unstable",
-        case::service_provider_for_unknown_step(
-            ViolationKind::ServiceProviderForUnknownStep,
-            "service provider for unknown step"
-        )
-    )]
-    #[cfg_attr(
-        feature = "unstable",
-        case::wrong_service_type(ViolationKind::WrongServiceType, "wrong service type")
-    )]
+    #[case::wrong_service_type(ViolationKind::WrongServiceType, "wrong service type")]
     fn violation_kinds_display_as_the_specification_names_them(
         #[case] kind: ViolationKind,
         #[case] name: &str,

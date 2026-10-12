@@ -35,12 +35,6 @@ pub(super) struct Provider {
 impl Provider {
     /// Reads the provider its mark describes, and removes its parameters' attributes.
     pub(super) fn read(function: &mut ImplItemFn, mark: &Attribute) -> syn::Result<Self> {
-        if !cfg!(feature = "unstable") {
-            return Err(syn::Error::new_spanned(
-                mark,
-                "a service provider needs the `unstable` feature of `itinera`",
-            ));
-        }
         let settings = Settings::read(arguments(mark, settings::MISREAD)?)?;
         if let Some(steps) = &settings.steps {
             if steps.is_empty() {

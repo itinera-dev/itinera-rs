@@ -20,12 +20,6 @@ impl Service {
     /// Reads the service a parameter marked `#[service]` requests, named after the parameter
     /// unless the mark names its key, as in `#[service("payments")]`.
     pub(super) fn read(mark: &Attribute, parameter: &PatType) -> syn::Result<Self> {
-        if !cfg!(feature = "unstable") {
-            return Err(syn::Error::new_spanned(
-                mark,
-                "a service needs the `unstable` feature of `itinera`",
-            ));
-        }
         let key = match &mark.meta {
             Meta::Path(_) => named(&parameter.pat)?,
             _ => mark.parse_args::<LitStr>().map_err(misread)?,
@@ -125,10 +119,10 @@ fn not_borrowed(ty: &Type) -> syn::Error {
 }
 
 /// The step's hidden function whose bounds say that a workflow's providers make each of these
-/// services as the type the step requests, with the `unstable` feature. The workflow's struct
-/// names it for each step it lists, so that a provider of another type does not compile.
+/// services as the type the step requests. The workflow's struct names it for each step it lists,
+/// so that a provider of another type does not compile.
 pub(super) fn fitted(step: &Type, services: &[&Service]) -> Option<TokenStream> {
-    if !cfg!(feature = "unstable") || services.is_empty() {
+    if services.is_empty() {
         return None;
     }
     let workflow = format_ident!("__ItineraWorkflow");
