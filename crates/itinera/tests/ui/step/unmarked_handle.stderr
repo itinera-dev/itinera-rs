@@ -1,4 +1,4 @@
-error: every parameter of a step's `run` after `self` is a `#[contributor]` or a `#[reporter]`
+error: every parameter of a step's `run` after `self` is a `#[contributor]`, a `#[reporter]` or, with the `unstable` feature, a `#[service]`
   --> tests/ui/step/unmarked_handle.rs:19:9
    |
 19 |         mut contributor: Contributor<'_>,

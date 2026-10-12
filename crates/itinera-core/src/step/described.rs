@@ -67,6 +67,68 @@ pub trait DescribedStep {
     /// an asynchronous workflow.
     type Mode: Mode;
 
+    /// The keys of the services the step requests, in the order it declares them: none unless an
+    /// implementation says otherwise. `#[step]` lists them, so that `#[workflow]` refuses to
+    /// compile a workflow that provides no service for one of them; the descriptor's `build()`
+    /// checks every step either way.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::mode::Synchronous;
+    /// use itinera::service::Service;
+    /// use itinera::step::{
+    ///     DescribedStep, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepName, StepNeeds,
+    /// };
+    ///
+    /// trait PaymentGateway: Send + Sync {}
+    ///
+    /// const PAYMENTS: Service<dyn PaymentGateway> = Service::new("payments");
+    ///
+    /// struct Charge<'a> {
+    ///     payments: &'a dyn PaymentGateway,
+    /// }
+    ///
+    /// impl Step for Charge<'_> {
+    ///     fn run(self) -> Result<Outcome, Error> {
+    ///         Ok(Outcome::success())
+    ///     }
+    /// }
+    ///
+    /// struct Charging;
+    ///
+    /// impl StepFactory for Charging {
+    ///     type Step<'a> = Charge<'a>;
+    ///
+    ///     fn needs(&self) -> StepNeeds {
+    ///         StepNeeds::new().service(&PAYMENTS)
+    ///     }
+    ///
+    ///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge<'a>, Error> {
+    ///         Ok(Charge {
+    ///             payments: got.service(&PAYMENTS)?,
+    ///         })
+    ///     }
+    /// }
+    ///
+    /// struct Charged;
+    ///
+    /// impl DescribedStep for Charged {
+    ///     type Mode = Synchronous;
+    ///
+    ///     const SERVICES: &'static [&'static str] = &["payments"];
+    ///
+    ///     fn descriptor<W>(name: StepName) -> StepDescriptor<W> {
+    ///         StepDescriptor::new(name, Charging)
+    ///     }
+    /// }
+    ///
+    /// assert_eq!(Charged::SERVICES, ["payments"]);
+    /// ```
+    #[cfg(feature = "unstable")]
+    const SERVICES: &'static [&'static str] = &[];
+
     /// Describes the step under the name the workflow gives it, with no retries and no policies,
     /// as [`StepDescriptor`]'s constructors do.
     ///

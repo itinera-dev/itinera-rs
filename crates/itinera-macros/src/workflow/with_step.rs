@@ -67,6 +67,16 @@ impl WithStep {
         })
     }
 
+    /// The step's type.
+    pub(super) fn step(&self) -> &Type {
+        &self.step
+    }
+
+    /// Its rescue step's type, if it has one.
+    pub(super) fn rescue(&self) -> Option<&Type> {
+        self.rescue.as_ref()
+    }
+
     pub(super) fn shares_name_with(&self, other: &Self) -> bool {
         self.name.value() == other.name.value()
     }

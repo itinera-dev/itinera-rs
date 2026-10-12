@@ -155,6 +155,12 @@ impl Datum {
 
 /// The type an `Option` holds, if this type is written as one.
 pub(crate) fn option_of(ty: &Type) -> Option<&Type> {
+    held_by(ty, "Option", 1)
+}
+
+/// The first type argument of this type, if it is written as a type of this name with this many
+/// arguments, such as `Option<T>`.
+pub(crate) fn held_by<'a>(ty: &'a Type, name: &str, count: usize) -> Option<&'a Type> {
     let Type::Path(TypePath {
         qself: None, path, ..
     }) = ty
@@ -165,8 +171,8 @@ pub(crate) fn option_of(ty: &Type) -> Option<&Type> {
     let PathArguments::AngleBracketed(arguments) = &last.arguments else {
         return None;
     };
-    match (last.ident == "Option", arguments.args.first()) {
-        (true, Some(GenericArgument::Type(inner))) if arguments.args.len() == 1 => Some(inner),
+    match (last.ident == name, arguments.args.first()) {
+        (true, Some(GenericArgument::Type(inner))) if arguments.args.len() == count => Some(inner),
         _ => None,
     }
 }

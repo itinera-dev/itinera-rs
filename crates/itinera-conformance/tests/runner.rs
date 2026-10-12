@@ -211,6 +211,26 @@ fn the_workflows_the_macros_declare_behave_as_their_features_say() {
                 local
             ),
             scenario(
+                "A provider that fails aborts the journey, since the step could not be built",
+                local
+            ),
+            scenario(
+                "A provider whose optional data is absent emits optional_input_absent naming it",
+                local
+            ),
+            scenario(
+                "A provider's missing required data aborts the journey before it is called",
+                asynchronous
+            ),
+            scenario(
+                "A retried charge is given fresh payments, and the same stock, on each attempt",
+                local
+            ),
+            scenario(
+                "An asynchronous provider that fails aborts the journey, since the step could not be built",
+                asynchronous
+            ),
+            scenario(
                 "An empty parcel fails the journey, and is not signed for",
                 asynchronous
             ),
@@ -219,11 +239,27 @@ fn the_workflows_the_macros_declare_behave_as_their_features_say() {
                 local
             ),
             scenario(
+                "The courier workflow lists its steps, with the provider serving each service",
+                asynchronous
+            ),
+            scenario(
                 "The delivery workflow lists its step, with its policy",
                 asynchronous
             ),
             scenario(
+                "The journey's labels are provided once, and the courier for each attempt",
+                asynchronous
+            ),
+            scenario(
+                "The journey's stock is provided once, and the attached provider serves only its step",
+                local
+            ),
+            scenario(
                 "The payment workflow lists its steps, with their policies, input adapter and rescue step",
+                local
+            ),
+            scenario(
+                "The warehouse workflow lists its steps, with the provider serving each service",
                 local
             ),
         ]

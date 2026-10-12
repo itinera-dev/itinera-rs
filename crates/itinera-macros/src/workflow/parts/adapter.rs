@@ -10,7 +10,7 @@ use syn::{Attribute, Ident, ImplItemFn, LitStr, Type};
 
 mod request;
 
-use super::{refuse_other_receivers_and_modes, returned};
+use super::{arguments, refuse_other_receivers_and_modes, returned};
 use crate::local::local;
 use crate::workflow::{key, list, once};
 use crate::{block, described};
@@ -39,11 +39,9 @@ impl Adapter {
         syn::meta::parser(|meta| match key(&meta).as_str() {
             "name" => once(&mut name, meta.value()?.parse()?, &meta),
             "steps" => once(&mut steps, list::<LitStr>(&meta)?, &meta),
-            _ => Err(meta.error(
-                "`#[input_adapter]` takes `steps = [\"...\"]`, and optionally `name = \"...\"`",
-            )),
+            _ => Err(meta.error(MISREAD)),
         })
-        .parse2(arguments(mark)?)?;
+        .parse2(arguments(mark, MISREAD)?)?;
         let mut steps = steps.into_iter().flatten();
         let Some(first) = steps.next() else {
             return Err(syn::Error::new_spanned(
@@ -140,17 +138,9 @@ impl Adapter {
     }
 }
 
-/// The tokens inside the mark's parentheses, or none when it has none.
-fn arguments(mark: &Attribute) -> syn::Result<TokenStream> {
-    match &mark.meta {
-        syn::Meta::Path(_) => Ok(TokenStream::new()),
-        syn::Meta::List(list) => Ok(list.tokens.clone()),
-        syn::Meta::NameValue(_) => Err(syn::Error::new_spanned(
-            mark,
-            "`#[input_adapter]` takes `steps = [\"...\"]`, and optionally `name = \"...\"`",
-        )),
-    }
-}
+/// What `#[input_adapter]` takes, as its errors say it.
+const MISREAD: &str =
+    "`#[input_adapter]` takes `steps = [\"...\"]`, and optionally `name = \"...\"`";
 
 /// The variable holding the request at this index.
 fn argument(index: usize) -> Ident {

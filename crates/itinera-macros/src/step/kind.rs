@@ -72,12 +72,13 @@ impl StepKind {
     }
 
     /// The implementation through which a workflow lists the step, or gives a step the rescue
-    /// step, with `factory` building it.
+    /// step, with `factory` building it, and with `services` listing what it requests.
     pub(super) fn described(
         self,
         step: &Type,
         asynchronous: bool,
         factory: &TokenStream,
+        services: Option<TokenStream>,
     ) -> TokenStream {
         let mode = described::mode(asynchronous);
         match self {
@@ -90,6 +91,8 @@ impl StepKind {
                 quote! {
                     impl ::itinera::step::DescribedStep for #step {
                         type Mode = #mode;
+
+                        #services
 
                         fn descriptor<W>(
                             name: ::itinera::step::StepName,
@@ -108,6 +111,8 @@ impl StepKind {
                 quote! {
                     impl ::itinera::step::DescribedRescueStep for #step {
                         type Mode = #mode;
+
+                        #services
 
                         fn rescue<W>(
                             step: ::itinera::step::StepDescriptor<W, #mode>,

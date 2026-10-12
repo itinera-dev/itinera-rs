@@ -10,7 +10,7 @@ repository.workspace = true
 [features]
 async = ["itinera-macros?/async"]
 macros = ["dep:itinera-macros"]
-unstable = []
+unstable = ["itinera-macros?/unstable"]
 
 [dependencies]
 serde.workspace = true

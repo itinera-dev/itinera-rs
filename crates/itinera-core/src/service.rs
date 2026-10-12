@@ -6,6 +6,7 @@ use std::any::Any;
 #[cfg(feature = "async")]
 mod asynchronous;
 mod descriptor;
+mod fit;
 #[cfg(test)]
 pub(crate) mod fixtures;
 mod scope;
@@ -15,6 +16,8 @@ mod token;
 pub use asynchronous::AsyncProvide;
 pub use descriptor::ServiceProviderDescriptor;
 pub(crate) use descriptor::{ProviderEntry, Served, serving};
+#[doc(hidden)]
+pub use fit::{Char, ProvidesService};
 pub(crate) use scope::Scope;
 pub use scope::{PerAttempt, PerJourney, ProviderScope};
 pub use token::Service;

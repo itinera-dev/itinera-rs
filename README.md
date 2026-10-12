@@ -14,11 +14,11 @@ Applications depend on one crate, `itinera`. Its features are:
 |---|---|---|
 | `macros` | on | The macros for declaring steps, policies and workflows, which are syntax over the builder |
 | `async` | off | The asynchronous executor, and asynchronous steps, hooks, reporters and dispatchers |
-| `unstable` | off | API the specification has not settled yet, which may change or go; empty for now |
+| `unstable` | off | API of a proposal not yet listed in `conformance.json`, which may change or go: now services, of proposal 0095 |
 
 `itinera` brings in `itinera-core`, which holds the implementation, and, with `macros`, `itinera-macros`. Neither needs to be added directly. The minimum supported Rust version is 1.85.
 
-The crate's documentation opens with a first complete workflow. [crates/itinera/examples](https://github.com/itinera-dev/itinera-rs/tree/main/crates/itinera/examples) holds three runnable ones: `orders`, a synchronous workflow declared with the macros; `orders_async`, the same on the asynchronous executor, which needs the `async` feature; and `orders_by_hand`, the same declared with the builder alone. Run one with `cargo run -p itinera --example orders`.
+The crate's documentation opens with a first complete workflow. [crates/itinera/examples](https://github.com/itinera-dev/itinera-rs/tree/main/crates/itinera/examples) holds three runnable ones: `orders`, a synchronous workflow declared with the macros; `orders_async`, the same on the asynchronous executor, which needs the `async` feature; and `orders_by_hand`, the same declared with the builder alone. Each charges through a payment service, so it needs the `unstable` feature too: run one with `cargo run -p itinera --example orders --features unstable`.
 
 ## Rules made impossible to express
 

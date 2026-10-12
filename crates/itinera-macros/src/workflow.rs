@@ -6,6 +6,7 @@ mod builder;
 mod checks;
 mod declaration;
 mod parts;
+mod services;
 mod with_step;
 
 use proc_macro2::TokenStream;

@@ -53,6 +53,69 @@ pub trait DescribedRescueStep {
     /// rescues a step of an asynchronous workflow.
     type Mode: Mode;
 
+    /// The keys of the services the rescue step requests, in the order it declares them: none
+    /// unless an implementation says otherwise. `#[rescue_step]` lists them, so that
+    /// `#[workflow]` refuses to compile a workflow that provides no service for one of them; the
+    /// descriptor's `build()` checks every rescue step either way.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::error::Error;
+    /// use itinera::mode::Synchronous;
+    /// use itinera::service::Service;
+    /// use itinera::step::{
+    ///     DescribedRescueStep, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved,
+    ///     RescueStep, StepDescriptor,
+    /// };
+    ///
+    /// trait TokenService: Send + Sync {}
+    ///
+    /// const TOKENS: Service<dyn TokenService> = Service::new("tokens");
+    ///
+    /// struct Refresh<'a> {
+    ///     tokens: &'a dyn TokenService,
+    /// }
+    ///
+    /// impl RescueStep for Refresh<'_> {
+    ///     fn run(self) -> Result<RescueOutcome, Error> {
+    ///         Ok(RescueOutcome::success())
+    ///     }
+    /// }
+    ///
+    /// struct Refreshing;
+    ///
+    /// impl RescueFactory for Refreshing {
+    ///     type Step<'a> = Refresh<'a>;
+    ///
+    ///     fn needs(&self) -> RescueNeeds {
+    ///         RescueNeeds::new().service(&TOKENS)
+    ///     }
+    ///
+    ///     fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<Refresh<'a>, Error> {
+    ///         Ok(Refresh {
+    ///             tokens: got.service(&TOKENS)?,
+    ///         })
+    ///     }
+    /// }
+    ///
+    /// struct RefreshToken;
+    ///
+    /// impl DescribedRescueStep for RefreshToken {
+    ///     type Mode = Synchronous;
+    ///
+    ///     const SERVICES: &'static [&'static str] = &["tokens"];
+    ///
+    ///     fn rescue<W>(step: StepDescriptor<W>) -> StepDescriptor<W> {
+    ///         step.rescue(Refreshing)
+    ///     }
+    /// }
+    ///
+    /// assert_eq!(RefreshToken::SERVICES, ["tokens"]);
+    /// ```
+    #[cfg(feature = "unstable")]
+    const SERVICES: &'static [&'static str] = &[];
+
     /// Gives `step` this rescue step, replacing any it had.
     ///
     /// # Examples

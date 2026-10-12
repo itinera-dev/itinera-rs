@@ -1,6 +1,8 @@
 //! The workflow of the `orders` example, declared as an asynchronous workflow: its steps, its
 //! policies and its reporter are asynchronous, and it runs on the asynchronous executor. Run it
-//! with `cargo run -p itinera --example orders_async --features async`.
+//! with `cargo run -p itinera --example orders_async --features async,unstable`.
+
+use std::num::NonZeroU32;
 
 use itinera::error::Error;
 use itinera::event::Event;
@@ -12,8 +14,29 @@ use itinera::step::{Outcome, Step, step};
 use itinera::value::AnyValue;
 use itinera::workflow::{role, workflow};
 
-/// Charges the amount the workflow's pricing works out. A charge of nothing is declined, which
-/// may be retried.
+/// Takes payments: the service a charge is paid through.
+trait PaymentGateway: Send + Sync {
+    /// Takes the amount, and says how it was paid.
+    fn take(&self, amount: i64) -> String;
+}
+
+/// The shop's card terminal, lent to one attempt to charge.
+struct Terminal {
+    shop: &'static str,
+    attempt: NonZeroU32,
+}
+
+impl PaymentGateway for Terminal {
+    fn take(&self, amount: i64) -> String {
+        format!(
+            "{amount} paid at the {} terminal, attempt {}",
+            self.shop, self.attempt
+        )
+    }
+}
+
+/// Charges the amount the workflow's pricing works out, through the payment gateway. A charge of
+/// nothing is declined, which may be retried.
 #[derive(Step)]
 struct Charge {
     #[input]
@@ -22,10 +45,15 @@ struct Charge {
 
 #[step]
 impl Charge {
-    async fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    async fn run(
+        self,
+        #[service] payments: &dyn PaymentGateway,
+        #[contributor] mut contributor: Contributor<'_>,
+    ) -> Result<Outcome, Error> {
         if self.amount <= 0 {
             return Self::fail_retriably("declined");
         }
+        contributor.contribute("payment", payments.take(self.amount));
         contributor.contribute("charged", self.amount);
         Self::succeed()
     }
@@ -76,9 +104,10 @@ impl Notify {
         &self,
         #[journey_id] journey_id: &JourneyId,
         #[from_workflow] charged: i64,
+        #[from_workflow] payment: String,
         #[role] messages: &dyn Messages,
     ) -> Result<(), Error> {
-        messages.tell(&format!("order {journey_id}: paid {charged}"));
+        messages.tell(&format!("order {journey_id}: paid {charged}, {payment}"));
         Ok(())
     }
 }
@@ -118,6 +147,18 @@ impl Orders {
         #[from_workflow] discount: Option<i64>,
     ) -> Result<Option<AnyValue>, Error> {
         Ok(Some(AnyValue::new(price - discount.unwrap_or_default())))
+    }
+
+    /// Lends each attempt to charge the shop's card terminal.
+    #[provider(per_attempt, steps = ["charge"])]
+    async fn payments(
+        &self,
+        #[attempt] attempt: NonZeroU32,
+    ) -> Result<Box<dyn PaymentGateway>, Error> {
+        Ok(Box::new(Terminal {
+            shop: self.shop,
+            attempt,
+        }))
     }
 
     /// Names each journey after the shop and the order.

@@ -1,0 +1,5 @@
+error: service provided twice: stock, by providers attached to no step
+  --> tests/ui/service/a_service_provided_twice.rs:88:42
+   |
+88 |     #[provider(name = "warehouse", key = "stock")]
+   |                                          ^^^^^^^

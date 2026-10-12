@@ -1,0 +1,5 @@
+error: service requested twice: tokens, which another parameter of this function requests already
+  --> tests/ui/service/a_service_requested_twice_by_a_rescue_step.rs:49:19
+   |
+49 |         #[service("tokens")] spare: &dyn TokenService,
+   |                   ^^^^^^^^

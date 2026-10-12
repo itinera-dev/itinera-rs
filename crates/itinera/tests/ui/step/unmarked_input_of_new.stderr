@@ -1,4 +1,4 @@
-error: every parameter of a step's `new` is an `#[input]`
+error: every parameter of a step's `new` is an `#[input]` or, with the `unstable` feature, a `#[service]`
   --> tests/ui/step/unmarked_input_of_new.rs:14:12
    |
 14 |     fn new(gift_note: Option<String>) -> Self {

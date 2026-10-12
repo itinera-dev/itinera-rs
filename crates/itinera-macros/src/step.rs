@@ -6,6 +6,7 @@ mod constructor;
 mod derive;
 mod kind;
 mod rescue;
+mod service;
 
 pub(crate) use derive::expand as expand_derive;
 use kind::StepKind;
@@ -17,9 +18,13 @@ use syn::{ImplItem, ImplItemFn, ItemImpl};
 
 use attempt::Run;
 use constructor::Constructor;
+use service::Service;
 
 use crate::block;
 use crate::described;
+
+/// The attributes that mark the parameters of `run` and `new`.
+const MARKS: [&str; 4] = ["input", "contributor", "reporter", "service"];
 
 /// The shorthands for a step's outcomes that `DescribedStep` gives.
 const SHORTHANDS: [&str; 5] = ["succeed", "fail", "fail_retriably", "skip", "skip_because"];
@@ -34,7 +39,7 @@ pub(crate) fn expand(arguments: TokenStream, mut block: ItemImpl) -> TokenStream
     );
     for function in block::functions(&mut block) {
         if is_run(&function) || is_new(&function) {
-            block::unmark(function, &["input", "contributor", "reporter"]);
+            block::unmark(function, &MARKS);
         }
         block::bring_into_scope(function, &import, &SHORTHANDS);
     }
@@ -84,7 +89,8 @@ fn describe(arguments: TokenStream, block: &mut ItemImpl) -> syn::Result<TokenSt
         ));
     };
     let step = &block.self_ty;
-    let attempt = run.expand(step);
+    let built_with: Vec<&Service> = constructor.iter().flat_map(Constructor::services).collect();
+    let attempt = run.expand(step, &built_with);
     let constructor = constructor.map(|constructor| constructor.expand(step));
     Ok(quote! {
         #constructor
