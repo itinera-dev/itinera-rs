@@ -15,7 +15,7 @@ Bugs and Rust API questions can be opened here directly; changes to behaviour ar
 
 ## The plan being implemented
 
-Tier 1 is implemented following the [tier 1 plan](tier-1-plan.md), in stages tracked in [#7](https://github.com/itinera-dev/itinera-rs/issues/7). The plan holds the architecture, the tests, the order of work and the tooling; each proposal's tech spec holds what concerns that proposal alone.
+Tier 1 is implemented following the [tier 1 plan](tier-1-plan.md), in stages tracked in [#7](https://github.com/itinera-dev/itinera-rs/issues/7). The plan holds the architecture, the tests, the order of work and the tooling; each proposal's tech spec holds what concerns that proposal alone. [architecture.md](architecture.md) draws what has been built, tier by tier, and is kept true by every pull request.
 
 ## The workspace
 

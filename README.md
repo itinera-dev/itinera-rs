@@ -34,6 +34,10 @@ The specification lets an implementation make some rules impossible to express r
 - a contributor or reporter used after its attempt or hook has ended, or an input adapter's access to the data bag used after its call;
 - an input adapter writing to the data bag through its access.
 
+## How it works
+
+[docs/architecture.md](https://github.com/itinera-dev/itinera-rs/blob/main/docs/architecture.md) draws how itinera-rs is put together and how it runs a journey: the crates and the macros, the executor loop, how each step is built and run, how its inputs and services reach it, what follows each outcome, and where policies, hooks, events and reporters come in.
+
 ## Conformance
 
 Each release states the specification version, tier, capabilities and conformance cases it implements, and carries the report of those cases as a release asset.
