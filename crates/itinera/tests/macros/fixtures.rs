@@ -1,8 +1,6 @@
 //! What the equivalence tests compare: what a workflow lists, the result of one of its journeys,
 //! and the events of that journey apart from their timestamps.
 
-use std::sync::{Arc, Mutex};
-
 use itinera::error::Error;
 use itinera::event::Event;
 #[cfg(feature = "async")]
@@ -14,7 +12,7 @@ use itinera::journey::{DataBag, JourneyResult};
 use itinera::mode::Asynchronous;
 use itinera::mode::Mode;
 use itinera::policy::Provides;
-use itinera::report::Reporter;
+use itinera::report::RecordingReporter;
 use itinera::value::AnyValue;
 use itinera::workflow::{WorkflowBuilder, WorkflowDescriptor};
 
@@ -62,26 +60,6 @@ pub(crate) struct Journey {
     result: String,
     output: Vec<String>,
     events: Vec<String>,
-}
-
-/// A reporter whose clones share the events they receive.
-#[derive(Clone, Default)]
-pub(crate) struct Recorder {
-    events: Arc<Mutex<Vec<Event>>>,
-}
-
-impl Reporter for Recorder {
-    fn report(&mut self, event: &Event) -> Result<(), Error> {
-        self.events.lock().unwrap().push(event.clone());
-        Ok(())
-    }
-}
-
-impl Recorder {
-    /// Each event it received, written without its timestamp.
-    fn trace(&self) -> Vec<String> {
-        self.events.lock().unwrap().iter().map(untimed).collect()
-    }
 }
 
 fn untimed(event: &Event) -> String {
@@ -252,9 +230,9 @@ pub(crate) fn run_async(
 /// recorder, on the synchronous executor.
 pub(crate) fn run_created<W: Send + Sync + 'static>(
     workflow: &WorkflowDescriptor<W>,
-    create: impl FnOnce(Recorder) -> Instance<W>,
+    create: impl FnOnce(RecordingReporter) -> Instance<W>,
 ) -> Journey {
-    let recorder = Recorder::default();
+    let recorder = RecordingReporter::default();
     let result = LocalExecutor::new().run(create(recorder.clone()));
     Journey::of(workflow, &result, &recorder)
 }
@@ -264,9 +242,9 @@ pub(crate) fn run_created<W: Send + Sync + 'static>(
 #[cfg(feature = "async")]
 pub(crate) fn run_created_async<W: Send + Sync + 'static>(
     workflow: &WorkflowDescriptor<W, Asynchronous>,
-    create: impl FnOnce(Recorder) -> Instance<W, Asynchronous>,
+    create: impl FnOnce(RecordingReporter) -> Instance<W, Asynchronous>,
 ) -> Journey {
-    let recorder = Recorder::default();
+    let recorder = RecordingReporter::default();
     let mut executor = AsyncLocalExecutor::new();
     let result = futures::executor::block_on(executor.run(create(recorder.clone())));
     Journey::of(workflow, &result, &recorder)
@@ -275,7 +253,7 @@ pub(crate) fn run_created_async<W: Send + Sync + 'static>(
 fn instance<M: Mode>(
     workflow: &WorkflowDescriptor<Orders, M>,
     order: Order,
-    recorder: Recorder,
+    recorder: RecordingReporter,
 ) -> Instance<Orders, M> {
     order
         .given_to(workflow.instance(Orders))
@@ -288,13 +266,13 @@ impl Journey {
     fn of<W: Send + Sync + 'static, M: Mode>(
         workflow: &WorkflowDescriptor<W, M>,
         result: &Result<JourneyResult, Refusal>,
-        recorder: &Recorder,
+        recorder: &RecordingReporter,
     ) -> Self {
         Self {
             listing: format!("{:?}", workflow.listing()),
             result: format!("{result:?}"),
             output: output(result),
-            events: recorder.trace(),
+            events: recorder.events().iter().map(untimed).collect(),
         }
     }
 }

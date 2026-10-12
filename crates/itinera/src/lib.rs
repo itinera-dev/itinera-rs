@@ -31,6 +31,8 @@
 //!   an application can write by hand.
 //! - `async`: the asynchronous executor, and asynchronous steps, hooks, reporters and
 //!   dispatchers.
+//! - `testing`: `report::RecordingReporter`, a reporter that keeps every event for a test to
+//!   read; enable it for tests only, under `[dev-dependencies]`.
 //! - `unstable`: API the specification has not settled yet; empty for now.
 
 #![forbid(unsafe_code)]

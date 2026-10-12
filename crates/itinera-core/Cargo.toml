@@ -10,6 +10,7 @@ repository.workspace = true
 [features]
 async = ["itinera-macros?/async"]
 macros = ["dep:itinera-macros"]
+testing = []
 unstable = []
 
 [dependencies]

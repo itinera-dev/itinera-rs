@@ -1,3 +1,5 @@
+//! A ready-made reporter that prints every event's `Debug`.
+
 use std::io::{self, Write};
 
 use crate::error::Error;
@@ -35,7 +37,8 @@ pub struct DebugReporter;
 
 impl Reporter for DebugReporter {
     fn report(&mut self, event: &Event) -> Result<(), Error> {
-        // A line standard output cannot take is dropped: a reporter never fails a journey for that.
+        // A line standard output cannot take is dropped: a reporter never fails a journey for
+        // that.
         let _ = print(event, &mut io::stdout().lock());
         Ok(())
     }
