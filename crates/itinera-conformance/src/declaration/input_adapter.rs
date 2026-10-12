@@ -59,6 +59,7 @@ enum Answered {
     Nothing,
     Fails(String),
     ReadFromDataBag(String, ValueType),
+    StepName,
 }
 
 impl Answering {
@@ -70,6 +71,7 @@ impl Answering {
             Answer::ReadFromDataBag(key, value_type) => {
                 Answered::ReadFromDataBag(key.clone(), *value_type)
             }
+            Answer::StepName => Answered::StepName,
         };
         Ok(Self {
             key: key.clone(),
@@ -103,6 +105,7 @@ fn answer(
                 key,
             },
         )),
+        Some(Answered::StepName) => Ok(Some(AnyValue::new(got.step_name().to_string()))),
         Some(Answered::Nothing) | None => Ok(None),
     }
 }

@@ -130,8 +130,18 @@ fn defined_by<H>(hook: H, policy: PolicyName) -> (H, PolicyName) {
     (hook, policy)
 }
 
+/// Whether the name is one of the workflow's steps or of their rescue steps, the names adapters
+/// and providers may be attached to.
 fn is_known<W, M>(steps: &[StepDescriptor<W, M>], name: StepName) -> bool {
-    steps.iter().any(|step| step.is_named(name))
+    steps.iter().any(|step| answers_to(step, name))
+}
+
+/// Whether the name is the step's, or its rescue step's if it has one.
+fn answers_to<W, M>(step: &StepDescriptor<W, M>, name: StepName) -> bool {
+    step.is_named(name)
+        || step
+            .rescue_step()
+            .is_some_and(|rescue| rescue.is_named(name))
 }
 
 fn is_unknown<W, M>(steps: &[StepDescriptor<W, M>], name: StepName) -> bool {

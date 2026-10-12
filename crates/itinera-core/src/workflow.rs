@@ -32,8 +32,7 @@ pub use described::Workflow;
 pub use input_adapter::InputAdapterDescriptor;
 #[cfg(feature = "macros")]
 pub use itinera_macros::{role, workflow};
-pub use listing::ListedService;
-pub use listing::ListedStep;
+pub use listing::{ListedRescue, ListedService, ListedStep};
 pub use name::{AdapterName, WorkflowName};
 pub use violation::{Violation, ViolationKind, Violations};
 
@@ -163,11 +162,7 @@ impl<W, M: Mode> WorkflowDescriptor<W, M> {
 
     /// The service provider that serves the step for the service under `key`, if one does.
     pub(crate) fn provider(&self, step: StepName, key: &str) -> Option<&dyn ProviderEntry<W, M>> {
-        service::serving(
-            &self.declaration.providers,
-            self.declaration.served(step),
-            key,
-        )
+        service::serving(&self.declaration.providers, step, key)
     }
 }
 

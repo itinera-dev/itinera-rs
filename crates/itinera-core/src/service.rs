@@ -15,7 +15,7 @@ mod token;
 #[cfg(feature = "async")]
 pub use asynchronous::AsyncProvide;
 pub use descriptor::ServiceProviderDescriptor;
-pub(crate) use descriptor::{ProviderEntry, Served, serving};
+pub(crate) use descriptor::{ProviderEntry, serving};
 #[doc(hidden)]
 pub use fit::{Char, ProvidesService};
 pub(crate) use scope::Scope;

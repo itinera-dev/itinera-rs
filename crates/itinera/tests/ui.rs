@@ -174,6 +174,7 @@ mod rescue {
     use super::fails_to_compile;
     use std::error::Error;
 
+    pub(super) mod adapted;
     #[cfg(feature = "async")]
     mod asynchronous;
     pub(super) mod described;
@@ -487,9 +488,12 @@ mod workflow {
     }
 
     #[test]
-    fn no_input_adapter_is_attached_to_a_rescue_step() -> Result<(), Box<dyn Error>> {
-        fails_to_compile("tests/ui/workflow/an_input_adapter_for_a_rescue_step.rs");
-        super::rescue::described::main()
+    fn an_input_adapter_is_attached_only_to_rescue_steps_the_workflow_has()
+    -> Result<(), Box<dyn Error>> {
+        fails_to_compile(
+            "tests/ui/workflow/an_input_adapter_for_a_rescue_step_the_workflow_does_not_have.rs",
+        );
+        super::rescue::adapted::main()
     }
 
     #[test]
@@ -656,6 +660,7 @@ mod service {
     mod described;
     #[cfg(feature = "async")]
     mod described_asynchronous;
+    mod described_with_a_provider_for_a_rescue_step;
     mod described_with_a_rescue_step;
     mod described_with_providers_written_apart;
 
@@ -717,8 +722,8 @@ mod service {
     }
 
     #[test]
-    fn a_rescue_step_is_served_only_by_a_provider_attached_to_no_step() -> Result<(), Box<dyn Error>>
-    {
+    fn a_rescue_step_is_never_served_by_a_provider_attached_to_the_step_it_rescues()
+    -> Result<(), Box<dyn Error>> {
         fails_to_compile(
             "tests/ui/service/a_rescue_steps_service_only_an_attached_provider_supplies.rs",
         );
@@ -741,9 +746,12 @@ mod service {
     }
 
     #[test]
-    fn a_provider_is_never_attached_to_a_rescue_step() -> Result<(), Box<dyn Error>> {
-        fails_to_compile("tests/ui/service/a_provider_for_a_rescue_step.rs");
-        described_with_a_rescue_step::main()
+    fn a_provider_is_attached_only_to_rescue_steps_the_workflow_has() -> Result<(), Box<dyn Error>>
+    {
+        fails_to_compile(
+            "tests/ui/service/a_provider_for_a_rescue_step_the_workflow_does_not_have.rs",
+        );
+        described_with_a_provider_for_a_rescue_step::main()
     }
 
     #[test]

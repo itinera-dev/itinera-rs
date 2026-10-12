@@ -3,8 +3,8 @@
 use super::{RescueNeeds, RescueResolved};
 use crate::error::Error;
 
-/// A rescue step type built from its requests alone: it says what it requests, from the data bag
-/// and from the step it rescues, and builds itself from them once they are resolved.
+/// A rescue step type built from its requests alone: it says what it requests, its inputs and what
+/// it requests from the step it rescues, and builds itself from them once they are resolved.
 ///
 /// `#[derive(RescueStep)]` implements it from the rescue step's fields. The handles a rescue step
 /// uses while it runs are not requests: the rescue step receives them in its `run`, as

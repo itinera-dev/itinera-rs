@@ -76,27 +76,14 @@ where
     }
 }
 
-/// A step a provider may serve: one the workflow declares, by its name, or a rescue step, under
-/// whose name the workflow declares no step.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Served {
-    Step(StepName),
-    RescueStep,
-}
-
-/// The provider that serves a step for the service under `key`: the provider of that service
-/// attached to the step, or else the one attached to no step. A rescue step is served only by
-/// the one attached to no step.
+/// The provider that serves a step or a rescue step for the service under `key`: the provider of
+/// that service attached to its name, or else the one attached to no step.
 pub(crate) fn serving<'p, W, M>(
     providers: &'p [Box<dyn ProviderEntry<W, M>>],
-    served: Served,
+    step: StepName,
     key: &str,
 ) -> Option<&'p dyn ProviderEntry<W, M>> {
-    let attached = match served {
-        Served::Step(step) => attached(providers, step, key),
-        Served::RescueStep => None,
-    };
-    attached.or_else(|| unattached(providers, key))
+    attached(providers, step, key).or_else(|| unattached(providers, key))
 }
 
 /// The provider of the service under `key` attached to the step, if there is one.
@@ -139,13 +126,16 @@ mod tests {
     use crate::service::fixtures::{Made, PAYMENTS, STOCK, per_attempt, per_journey};
     use crate::workflow::fixtures::Orders;
 
-    /// A provider of payments attached to no step, declared before one attached to charge, and a
-    /// provider of stock attached to reserve only.
+    /// A provider of payments attached to no step, declared before one attached to charge and one
+    /// attached to the rescue step of charge, and a provider of stock attached to reserve only.
     fn providers() -> Vec<Box<dyn ProviderEntry<Orders, Synchronous>>> {
         let made = Made::default();
         vec![
             Box::new(per_journey("payments", &PAYMENTS, &made)),
             Box::new(per_attempt("charging", &PAYMENTS, &made).step(StepName::new("charge"))),
+            Box::new(
+                per_attempt("refreshing", &PAYMENTS, &made).step(StepName::new("charge_rescue")),
+            ),
             Box::new(per_journey("stock", &STOCK, &made).step(StepName::new("reserve"))),
         ]
     }
@@ -154,6 +144,12 @@ mod tests {
     #[case::the_step_it_is_attached_to("charge", "payments", Some("charging"))]
     #[case::a_step_it_is_not_attached_to("ship", "payments", Some("payments"))]
     #[case::a_step_whose_only_provider_is_attached_to_another_step("ship", "stock", None)]
+    #[case::the_rescue_step_it_is_attached_to("charge_rescue", "payments", Some("refreshing"))]
+    #[case::a_rescue_step_whose_only_provider_is_attached_to_its_step(
+        "reserve_rescue",
+        "stock",
+        None
+    )]
     fn a_provider_attached_to_a_step_serves_it_and_the_one_attached_to_no_step_serves_the_rest(
         #[case] step: &'static str,
         #[case] key: &str,
@@ -161,22 +157,7 @@ mod tests {
     ) {
         let providers = providers();
 
-        let serving =
-            serving(&providers, Served::Step(StepName::new(step)), key).map(ProviderEntry::name);
-
-        assert_eq!(serving, provider.map(ProviderName::from));
-    }
-
-    #[rstest]
-    #[case::a_service_with_a_provider_attached_to_no_step("payments", Some("payments"))]
-    #[case::a_service_whose_only_provider_is_attached_to_a_step("stock", None)]
-    fn a_rescue_step_is_served_only_by_the_provider_attached_to_no_step(
-        #[case] key: &str,
-        #[case] provider: Option<&'static str>,
-    ) {
-        let providers = providers();
-
-        let serving = serving(&providers, Served::RescueStep, key).map(ProviderEntry::name);
+        let serving = serving(&providers, StepName::new(step), key).map(ProviderEntry::name);
 
         assert_eq!(serving, provider.map(ProviderName::from));
     }

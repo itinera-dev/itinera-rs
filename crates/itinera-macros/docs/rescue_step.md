@@ -46,8 +46,9 @@ struct Orders;
 let charge = StepDescriptor::<Orders>::new(step_name!("charge"), || Ok(Outcome::success()))
     .rescued_by::<RefreshToken>();
 let orders = WorkflowDescriptor::builder("orders").step(charge).build()?;
-let rescue = orders.listing().first().and_then(|step| step.rescue);
-assert_eq!(rescue, Some(step_name!("charge_rescue")));
+let listing = orders.listing();
+let rescue = listing.first().and_then(|step| step.rescue.as_ref());
+assert_eq!(rescue.map(|rescue| rescue.step), Some(step_name!("charge_rescue")));
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 

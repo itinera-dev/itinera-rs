@@ -1,5 +1,5 @@
 //! The steps the input adapters are attached to: each adapted once, and each one the workflow
-//! lists.
+//! lists or the rescue step of one.
 
 use proc_macro2::TokenStream;
 use quote::quote_spanned;
@@ -71,7 +71,7 @@ fn adapts((_, adapted): &&(&Adapter, &LitStr), step: &LitStr) -> bool {
 }
 
 /// The checks, run as the program compiles, that each step the adapter is attached to is one the
-/// workflow lists.
+/// workflow lists or the rescue step of one.
 pub(super) fn known<'a>(
     adapter: &'a Adapter,
     workflow: &'a Type,

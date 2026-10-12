@@ -113,9 +113,11 @@ fn declare(
     })
 }
 
-/// The names of the steps the workflow lists, which the checks of its input adapters read.
+/// The names of the steps the workflow lists, then those of their rescue steps, which the checks
+/// of its input adapters and providers read.
 fn listed(workflow: &Ident, steps: &[WithStep]) -> TokenStream {
-    let names = steps.iter().map(|step| &step.name);
+    let rescues = steps.iter().filter_map(WithStep::rescue_name);
+    let names = steps.iter().map(|step| step.name.value()).chain(rescues);
     quote! {
         impl #workflow {
             #[doc(hidden)]
@@ -126,8 +128,9 @@ fn listed(workflow: &Ident, steps: &[WithStep]) -> TokenStream {
 }
 
 /// What the workflow would have, as far as it can be read: a `Workflow` that is never called, the
-/// names of the steps that could be read, and its instance builder, with a setter for each field
-/// that could be read. A generic workflow gets none, since none of them could name it.
+/// names of the steps that could be read and of their rescue steps, and its instance builder,
+/// with a setter for each field that could be read. A generic workflow gets none, since none of
+/// them could name it.
 fn stand_in(
     arguments: TokenStream,
     declared: &ItemStruct,

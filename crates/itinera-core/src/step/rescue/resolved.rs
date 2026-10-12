@@ -39,7 +39,7 @@ impl<'a, M> RescueResolved<'a, M> {
         }
     }
 
-    /// Takes the value of a required input from the data bag.
+    /// Takes the value of a required input.
     ///
     /// # Errors
     ///
@@ -61,7 +61,7 @@ impl<'a, M> RescueResolved<'a, M> {
         self.resolved.input(input)
     }
 
-    /// Takes the value of an optional input from the data bag: `None` when there was none.
+    /// Takes the value of an optional input: `None` when there was none.
     ///
     /// # Errors
     ///

@@ -550,4 +550,46 @@ mod rescue_steps {
         assert_eq!(given(&rescued), ["stock 1"]);
         assert_eq!(given(&charged), ["stock 1", "stock 1"]);
     }
+
+    #[test]
+    fn a_provider_attached_to_a_rescue_steps_name_serves_it_instead_of_the_one_attached_to_no_step()
+    {
+        let (charged, rescued) = (Given::default(), Given::default());
+        let workflow = rescued_charge(&PAYMENTS, &charged, &rescued)
+            .provider(per_attempt("payments", &PAYMENTS, &Made::default()))
+            .provider(per_attempt("backup", &PAYMENTS, &Made::default()).step(CHARGE_RESCUE));
+
+        let (status, events) = travel_workflow(workflow);
+
+        assert!(matches!(status, JourneyStatus::Succeeded { .. }));
+        assert_eq!(given(&charged), ["payments 1", "payments 2"]);
+        assert_eq!(given(&rescued), ["backup 1"]);
+        assert_eq!(
+            provided(&events),
+            [
+                (CHARGE, 1, ProviderName::from("payments")),
+                (CHARGE_RESCUE, 1, ProviderName::from("backup")),
+                (CHARGE, 2, ProviderName::from("payments")),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_journey_scoped_provider_attached_to_a_step_and_its_rescue_step_lends_both_one_instance() {
+        let (made_stock, made_warehouse) = (Made::default(), Made::default());
+        let (charged, rescued) = (Given::default(), Given::default());
+        let workflow = rescued_charge(&STOCK, &charged, &rescued)
+            .provider(per_journey("stock", &STOCK, &made_stock))
+            .provider(
+                per_journey("warehouse", &STOCK, &made_warehouse)
+                    .step(CHARGE)
+                    .step(CHARGE_RESCUE),
+            );
+
+        travel_workflow(workflow);
+
+        assert_eq!((made(&made_stock), made(&made_warehouse)), (0, 1));
+        assert_eq!(given(&rescued), ["warehouse 1"]);
+        assert_eq!(given(&charged), ["warehouse 1", "warehouse 1"]);
+    }
 }

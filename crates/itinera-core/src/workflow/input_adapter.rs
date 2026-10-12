@@ -61,7 +61,8 @@ type Adapt<W> = dyn for<'a> Fn(&'a W, Requested<'a, W, InputAdapter>) -> Result<
 
 impl<W> InputAdapterDescriptor<W> {
     /// Describes an input adapter with its name, a step it is attached to, and its function. It
-    /// needs nothing, until [`needing`](Self::needing) says otherwise.
+    /// needs nothing, until [`needing`](Self::needing) says otherwise. A rescue step is attached
+    /// to by its name, such as `charge_rescue`.
     ///
     /// # Examples
     ///
@@ -120,7 +121,8 @@ impl<W> InputAdapterDescriptor<W> {
         self
     }
 
-    /// Attaches the adapter to another step. A step it is already attached to is not added again.
+    /// Attaches the adapter to another step, or to a rescue step by its name, such as
+    /// `charge_rescue`. A step it is already attached to is not added again.
     ///
     /// # Examples
     ///

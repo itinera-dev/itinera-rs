@@ -70,12 +70,20 @@ impl Orders {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Orders::builder()
-        .initial_data(Client { account: "A-7".to_owned() })
+        .initial_data(Client {
+            account: "A-7".to_owned(),
+        })
         .create()?;
     let result = LocalExecutor::new().run(instance)?;
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    let JourneyStatus::Succeeded { data, .. } = result.status else {
+        return Err("the rescue step recovers the journey".into());
+    };
+    assert_eq!(
+        data.required::<String>("token")?,
+        "A-7 from the vault of attempt 1"
+    );
     Ok(())
 }
 

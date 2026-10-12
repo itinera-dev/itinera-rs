@@ -10,6 +10,7 @@ Status: done in stage 7. Stage 4 declared input adapters attached to steps, with
 - **The function** takes the workflow's own value and a `Requested<'_, W, InputAdapter>`, and returns `Result<Option<AnyValue>, Error>`: a value, `None` for "not mine", or the error it failed with. Its signature fits a method of the workflow's own type, such as `Orders::pricing`. It is a plain function in both execution modes, since it emits nothing and has nothing to wait for.
 - **What an adapter may request**: the step's name, with `Requested::step_name()`, the key being resolved, with `Requested::key()`, the journey ID, with `Requested::journey_id()`, and data from the workflow, which it declares with `HookNeeds::from_workflow` or `optional_from_workflow` and takes with `Requested::from_workflow` or `optional_from_workflow`. `HookNeeds<InputAdapter>` offers nothing else, and its `Requested` offers no role, contributor or reporter.
 - **Read access to the data bag**, declared with `HookNeeds::data_bag()` and taken with `Requested::data_bag()`, comes from proposal 0091, which amends this one; its tech spec is [0091](0091-adapters-read-the-data-bag.md).
+- **Attaching an adapter to a rescue step**, by its name, comes from proposal 0098, which amends this one; its tech spec is [0098](0098-rescue-step-adapters-and-providers.md).
 - **The listing** gives each step's input adapter as `ListedStep::adapter`, an `Option<AdapterName>`.
 
 ## How the rules are enforced
@@ -18,7 +19,7 @@ Status: done in stage 7. Stage 4 declared input adapters attached to steps, with
 |---|---|
 | An input adapter is declared on the workflow and attached to one or more of its steps | types: `InputAdapterDescriptor::new` takes its first step, and only `WorkflowBuilder::input_adapter` adds it to a workflow |
 | A step has at most one input adapter | `build()` refuses `step adapted twice` |
-| An adapter attached to a step that does not exist is refused | `build()` refuses `input adapter for unknown step` |
+| An adapter attached to a step that does not exist is refused | `build()` refuses `input adapter for unknown step`; since 0098, the name of a step's rescue step counts as a step's |
 | Every adapter has a name, unique among the workflow's adapters | types: its constructor takes the name; `WorkflowBuilder::input_adapter` panics on a name the workflow already uses, since that is a mistake in a declaration, before any journey |
 | For each input of an adapted step, in order, the adapter is called | the engine, while it resolves the step's inputs |
 | A value is used, and `input_adapter_supplied` names the adapter; a value of another type than the step declared aborts with `wrong type`, naming the adapter | the engine checks the value's exact type against the step's token |

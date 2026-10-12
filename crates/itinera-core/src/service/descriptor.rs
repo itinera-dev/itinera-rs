@@ -13,7 +13,7 @@ use crate::step::StepName;
 
 mod entry;
 
-pub(crate) use entry::{ProviderEntry, Served, serving};
+pub(crate) use entry::{ProviderEntry, serving};
 
 /// The description of a service provider of workflows `W`, of scope `S`, in mode `M`: its name,
 /// the [`Service`] it supplies, the steps it is attached to, if any, what it needs, and its
@@ -216,8 +216,9 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
         self
     }
 
-    /// Attaches the provider to a step, which it then serves instead of a provider of the same
-    /// service attached to no step. A step it is already attached to is not added again.
+    /// Attaches the provider to a step, or to a rescue step by its name, such as `charge_rescue`,
+    /// which it then serves instead of a provider of the same service attached to no step. A step
+    /// it is already attached to is not added again.
     ///
     /// # Examples
     ///

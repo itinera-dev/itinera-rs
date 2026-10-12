@@ -2,7 +2,7 @@ Builds a rescue step from its fields, each time it runs: every field is one of i
 
 Each field carries one of these attributes:
 
-- `#[input]` or `#[input("key")]`: an input from the data bag, whose key is the field's name or the one given, as for a step. No input adapter is ever used for a rescue step.
+- `#[input]` or `#[input("key")]`: an input, whose key is the field's name or the one given, as for a step. The input adapter attached to the rescue step's name, such as `steps = ["charge_rescue"]`, supplies it if it returns a value; otherwise it is read from the data bag. An adapter attached to the step it rescues is never asked.
 - `#[from_rescued_step]` or `#[from_rescued_step("key")]`: data the failed attempt of the step it rescues contributed under the key. That data was never committed to the data bag.
 - `#[reason]`: the reason of the failure that ended the attempt, on a field of type `Reason`.
 - `#[error]`: the error that ended the attempt abnormally, handed over by value, on a field of type `Error`.
@@ -72,7 +72,7 @@ let instance = Orders::builder().create()?;
 let result = LocalExecutor::new().run(instance)?;
 assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
 let listing = Orders::descriptor().listing();
-let rescue = listing.first().and_then(|step| step.rescue);
-assert_eq!(rescue.map(|rescue| rescue.to_string()), Some("charge_rescue".to_owned()));
+let rescue = listing.first().and_then(|step| step.rescue.as_ref());
+assert_eq!(rescue.map(|rescue| rescue.step.to_string()), Some("charge_rescue".to_owned()));
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```

@@ -7,9 +7,9 @@ use crate::step::{
 use crate::value::Value;
 
 /// Everything a rescue step declares it needs, which the executor resolves before it is built:
-/// its inputs from the data bag, what the failed attempt of the step it rescues left (the data it
-/// contributed, the failure's reason and the error), whether it needs a contributor and a step
-/// reporter, and its services.
+/// its inputs, from the input adapter attached to its name or else the data bag, what the failed
+/// attempt of the step it rescues left (the data it contributed, the failure's reason and the
+/// error), whether it needs a contributor and a step reporter, and its services.
 ///
 /// Its requests are resolved in the order they are declared, then its services, in the order they
 /// are declared, and the first required request without a value aborts the journey before the
@@ -49,7 +49,9 @@ impl RescueNeeds {
         Self::default()
     }
 
-    /// Declares a required input from the data bag, after what is already declared.
+    /// Declares a required input, after what is already declared. The input adapter attached to
+    /// the rescue step's name supplies it, if there is one and it returns a value; otherwise it
+    /// is read from the data bag. An adapter attached to the step it rescues is never asked.
     ///
     /// # Examples
     ///
@@ -64,7 +66,7 @@ impl RescueNeeds {
         }
     }
 
-    /// Declares an optional input from the data bag, after what is already declared.
+    /// Declares an optional input, after what is already declared, resolved as a required one is.
     ///
     /// # Examples
     ///
@@ -214,9 +216,9 @@ impl RescueNeeds {
         }
     }
 
-    /// Declares a service the rescue step needs, after those already declared. Only the
-    /// workflow's providers attached to no step serve a rescue step, since the workflow declares
-    /// no step under its name.
+    /// Declares a service the rescue step needs, after those already declared. The workflow's
+    /// provider of its key attached to the rescue step's name serves it, or else the one attached
+    /// to no step; a provider attached to the step it rescues never does.
     ///
     /// # Examples
     ///
