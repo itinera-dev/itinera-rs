@@ -111,10 +111,11 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     }
 
     fn services_of(&self, step: &StepDescriptor<W, M>) -> Vec<ListedService> {
+        let name = step.name();
         step.needs()
             .services()
             .iter()
-            .filter_map(|need| self.listed_service(step.name(), need))
+            .filter_map(|need| self.listed_service(name, need))
             .collect()
     }
 

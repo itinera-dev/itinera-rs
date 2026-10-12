@@ -57,7 +57,10 @@ pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .create()?;
     let result = LocalExecutor::new().run(instance)?;
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    let JourneyStatus::Succeeded { data, .. } = result.status else {
+        return Err("the rescue step recovers the journey".into());
+    };
+    assert_eq!(data.required::<String>("token")?, "C-2-token-expired");
     Ok(())
 }
 

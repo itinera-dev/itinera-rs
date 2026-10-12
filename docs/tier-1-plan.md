@@ -146,7 +146,7 @@ static ORDERS: LazyLock<WorkflowDescriptor<Orders, Synchronous>> = LazyLock::new
 - **Adapter names are unique**: the builder panics when an input adapter is given a name the workflow already uses. The macros refuse two input adapters of one name at compile time (section 11).
 - **Each step descriptor states everything**: the retry budget, a `u16` (0 unless set), `abnormal termination retriable` (false unless set), and its policies in the order attached. A `u16` budget allows at most 65,536 attempts, so every attempt number fits the `NonZeroU32` events carry, and counting attempts can never overflow while a journey runs.
 - **`build()` checks what types cannot**, and returns every violation at once in `Violations`: `duplicate step name`, `hook defined twice`, `input adapter for unknown step` and `step adapted twice`.
-- **`listing()`** gives each step's name, its position from 1, its policy names in order, and its input adapter's name.
+- **`listing()`** gives each step's name, its position from 1, its policy names in order, its input adapter's name, the services it requests with the provider serving each, and, for a step with a rescue step, a rescue section listing the rescue step's name, input adapter and services in the same way.
 - **Input adapters are hooks of the workflow**, written as its own annotated methods and attached to whole steps, at most one per step:
 
   ```rust

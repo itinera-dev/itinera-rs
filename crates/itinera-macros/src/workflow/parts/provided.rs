@@ -1,6 +1,6 @@
 //! The workflow's service providers together: each named once, each service provided once to no
-//! step and once to each step, attached only to steps the workflow lists, and declared on the
-//! workflow in its mode.
+//! step and once to each step, attached only to steps the workflow lists or their rescue steps,
+//! and declared on the workflow in its mode.
 
 mod declaration;
 
@@ -99,7 +99,7 @@ fn lists(provider: &Provider, step: &LitStr) -> bool {
 }
 
 /// The checks, run as the program compiles, that each step the provider is attached to is one
-/// the workflow lists.
+/// the workflow lists or the rescue step of one.
 pub(super) fn known<'a>(
     provider: &'a Provider,
     workflow: &'a Type,

@@ -216,8 +216,9 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
         self
     }
 
-    /// Attaches the provider to a step, which it then serves instead of a provider of the same
-    /// service attached to no step. A step it is already attached to is not added again.
+    /// Attaches the provider to a step, or to a rescue step by its name, such as `charge_rescue`,
+    /// which it then serves instead of a provider of the same service attached to no step. A step
+    /// it is already attached to is not added again.
     ///
     /// # Examples
     ///

@@ -49,10 +49,11 @@ fn unserved_and_mistyped<W, M>(
     step: &StepDescriptor<W, M>,
     providers: &[Box<dyn ProviderEntry<W, M>>],
 ) -> Vec<Violation> {
+    let name = step.name();
     step.needs()
         .services()
         .iter()
-        .filter_map(|need| served_wrongly(step.name(), need, providers))
+        .filter_map(|need| served_wrongly(name, need, providers))
         .collect()
 }
 

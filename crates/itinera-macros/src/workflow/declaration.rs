@@ -128,7 +128,7 @@ fn listed(workflow: &Ident, steps: &[WithStep]) -> TokenStream {
 }
 
 /// What the workflow would have, as far as it can be read: a `Workflow` that is never called, the
-/// names of the steps that could be read, and its instance builder, with a setter for each field
+/// names of the steps that could be read and of their rescue steps, and its instance builder, with a setter for each field
 /// that could be read. A generic workflow gets none, since none of them could name it.
 fn stand_in(
     arguments: TokenStream,
