@@ -23,6 +23,16 @@ impl PaymentGateway for Gateway {
     }
 }
 
+trait Till: Send + Sync {
+    fn charge(&self, amount: i64) -> String;
+}
+
+impl Till for Gateway {
+    fn charge(&self, amount: i64) -> String {
+        format!("{amount} through {}", self.0)
+    }
+}
+
 struct Warehouse;
 
 impl StockStore for Warehouse {
@@ -47,7 +57,7 @@ impl Charge {
 
     fn run(
         self,
-        #[service("payments")] gateway: &Gateway,
+        #[service("payments")] gateway: &dyn Till,
         #[service] stock: &dyn StockStore,
         #[contributor] mut contributor: Contributor<'_>,
     ) -> Result<Outcome, Error> {

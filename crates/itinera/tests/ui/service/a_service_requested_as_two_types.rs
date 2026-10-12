@@ -31,6 +31,16 @@ impl StockStore for Warehouse {
     }
 }
 
+trait Shelf: Send + Sync {
+    fn reserve(&self) -> bool;
+}
+
+impl Shelf for Warehouse {
+    fn reserve(&self) -> bool {
+        true
+    }
+}
+
 struct Charge {
     amount: i64,
 }
@@ -48,7 +58,7 @@ impl Charge {
     fn run(
         self,
         #[service("payments")] gateway: &dyn PaymentGateway,
-        #[service] stock: &Warehouse,
+        #[service] stock: &dyn Shelf,
         #[contributor] mut contributor: Contributor<'_>,
     ) -> Result<Outcome, Error> {
         stock.reserve();

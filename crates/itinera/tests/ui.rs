@@ -677,6 +677,12 @@ mod service {
     }
 
     #[test]
+    fn a_service_is_requested_as_a_trait() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_service_of_a_concrete_type.rs");
+        described::main()
+    }
+
+    #[test]
     fn a_service_new_and_run_both_take_has_one_type() -> Result<(), Box<dyn Error>> {
         fails_to_compile("tests/ui/service/a_service_requested_as_two_types.rs");
         described::main()

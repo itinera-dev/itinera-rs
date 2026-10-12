@@ -18,6 +18,16 @@ impl TokenService for Vault {
     }
 }
 
+trait Safe: Send + Sync {
+    fn token(&self, account: &str) -> String;
+}
+
+impl Safe for Vault {
+    fn token(&self, account: &str) -> String {
+        format!("{account} from {}", self.0)
+    }
+}
+
 #[derive(Step)]
 struct Charge {
     #[input]
@@ -45,7 +55,7 @@ struct Refresh {
 impl Refresh {
     fn run(
         self,
-        #[service] tokens: &Vault,
+        #[service] tokens: &dyn Safe,
         #[contributor] mut contributor: Contributor<'_>,
     ) -> Result<RescueOutcome, Error> {
         contributor.contribute("token", tokens.token(&self.account));
