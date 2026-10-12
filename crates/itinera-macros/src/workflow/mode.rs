@@ -2,8 +2,9 @@
 //! other step shares.
 
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, quote_spanned};
 use syn::Ident;
+use syn::spanned::Spanned as _;
 
 use super::with_step::WithStep;
 use crate::described;
@@ -15,11 +16,12 @@ pub(super) fn of(steps: &[WithStep]) -> TokenStream {
     match steps.first() {
         Some(first) => {
             let step = first.step();
-            quote! {
-                <__ItineraModeOf<{
+            let flag = quote_spanned! {step.span()=>
+                {
                     <<#step as ::itinera::step::DescribedStep>::Mode as __ItineraModeFlag>::ASYNCHRONOUS
-                }> as __ItineraFlaggedMode>::Mode
-            }
+                }
+            };
+            quote!(<__ItineraModeOf<#flag> as __ItineraFlaggedMode>::Mode)
         }
         None => quote!(::itinera::mode::Synchronous),
     }
@@ -35,7 +37,7 @@ pub(super) fn flagged() -> TokenStream {
     let flags = flags();
     let modes = modes();
     quote! {
-        pub trait __ItineraModeFlag {
+        trait __ItineraModeFlag {
             const ASYNCHRONOUS: bool;
         }
 
@@ -60,12 +62,11 @@ pub(super) fn flagged() -> TokenStream {
 /// The traits through which the descriptor starts declaring the workflow in its mode, and takes
 /// each step in that mode, which only a step of the same mode can be taken in.
 pub(super) fn declared(workflow: &Ident) -> TokenStream {
-    let modes = modes();
-    let asynchronous = asynchronous_start(workflow);
+    let asynchronous = cfg!(feature = "async").then(|| asynchronous_start(workflow));
     let builder = quote!(::itinera::workflow::WorkflowBuilder);
     let step = quote!(::itinera::step::StepDescriptor);
     quote! {
-        pub trait __ItineraStart: ::itinera::mode::Mode + ::core::marker::Sized {
+        trait __ItineraStart: ::itinera::mode::Mode + ::core::marker::Sized {
             fn __itinera_builder(name: &'static str) -> #builder<#workflow, Self>;
         }
 
@@ -78,40 +79,38 @@ pub(super) fn declared(workflow: &Ident) -> TokenStream {
         #[diagnostic::on_unimplemented(
             message = "the steps of a workflow are all synchronous or all asynchronous",
             label = "a step of another mode than the workflow's first step",
-            note = "a workflow takes its mode from its steps, and an asynchronous step, whose \
-                    `run` is an `async fn`, belongs only to an asynchronous workflow"
+            note = "a workflow takes its mode from its first step: it is asynchronous when that \
+                    step's `run` is an `async fn`, and every other step shares that mode"
         )]
-        pub trait __ItineraSameMode<__ItineraMode: ::itinera::mode::Mode>:
+        trait __ItineraSameMode<__ItineraMode: ::itinera::mode::Mode>:
             ::itinera::mode::Mode + ::core::marker::Sized
         {
             fn __itinera_step(step: #step<#workflow, Self>) -> #step<#workflow, __ItineraMode>;
         }
 
-        #(
-            impl __ItineraSameMode<#modes> for #modes {
-                fn __itinera_step(step: #step<#workflow, Self>) -> #step<#workflow, Self> {
-                    step
-                }
+        impl<__ItineraMode: ::itinera::mode::Mode> __ItineraSameMode<__ItineraMode>
+            for __ItineraMode
+        {
+            fn __itinera_step(step: #step<#workflow, Self>) -> #step<#workflow, Self> {
+                step
             }
-        )*
+        }
 
         #asynchronous
     }
 }
 
 /// Starting an asynchronous workflow, with the `async` feature.
-fn asynchronous_start(workflow: &Ident) -> Option<TokenStream> {
-    cfg!(feature = "async").then(|| {
-        quote! {
-            impl __ItineraStart for ::itinera::mode::Asynchronous {
-                fn __itinera_builder(
-                    name: &'static str,
-                ) -> ::itinera::workflow::WorkflowBuilder<#workflow, Self> {
-                    ::itinera::workflow::WorkflowDescriptor::<#workflow, Self>::async_builder(name)
-                }
+fn asynchronous_start(workflow: &Ident) -> TokenStream {
+    quote! {
+        impl __ItineraStart for ::itinera::mode::Asynchronous {
+            fn __itinera_builder(
+                name: &'static str,
+            ) -> ::itinera::workflow::WorkflowBuilder<#workflow, Self> {
+                ::itinera::workflow::WorkflowDescriptor::<#workflow, Self>::async_builder(name)
             }
         }
-    })
+    }
 }
 
 /// Whether each mode a workflow may be declared in is asynchronous: `Synchronous`, then
@@ -130,44 +129,46 @@ fn modes() -> Vec<TokenStream> {
 /// its instances, which only a workflow in the asynchronous mode takes, with the `async`
 /// feature.
 pub(super) fn asynchronous_reporters(workflow: &Ident) -> Option<TokenStream> {
-    cfg!(feature = "async").then(|| {
-        let asynchronous = quote!(::itinera::mode::Asynchronous);
-        let declared = quote!(::itinera::workflow::WorkflowBuilder<#workflow, __ItineraMode>);
-        let instance = quote!(::itinera::instance::InstanceBuilder<#workflow, __ItineraMode>);
-        quote! {
-            #[diagnostic::on_unimplemented(
-                message = "asynchronous reporters belong to an asynchronous workflow",
-                label = "an asynchronous reporter of a workflow whose steps are synchronous",
-                note = "a workflow takes its mode from its steps: it is asynchronous when its \
-                        steps are, their `run` an `async fn`"
-            )]
-            pub trait __ItineraAsyncReporter<__ItineraMode: ::itinera::mode::Mode> {
-                fn __itinera_listed(declared: #declared) -> #declared
-                where
-                    Self: ::core::default::Default;
+    cfg!(feature = "async").then(|| asynchronous_reporter_trait(workflow))
+}
 
-                fn __itinera_added(self, instance: #instance) -> #instance;
+fn asynchronous_reporter_trait(workflow: &Ident) -> TokenStream {
+    let asynchronous = quote!(::itinera::mode::Asynchronous);
+    let declared = quote!(::itinera::workflow::WorkflowBuilder<#workflow, __ItineraMode>);
+    let instance = quote!(::itinera::instance::InstanceBuilder<#workflow, __ItineraMode>);
+    quote! {
+        #[diagnostic::on_unimplemented(
+            message = "asynchronous reporters belong to an asynchronous workflow",
+            label = "an asynchronous reporter of a workflow whose steps are synchronous",
+            note = "a workflow takes its mode from its steps: it is asynchronous when its \
+                    steps are, their `run` an `async fn`"
+        )]
+        pub trait __ItineraAsyncReporter<__ItineraMode: ::itinera::mode::Mode> {
+            fn __itinera_listed(declared: #declared) -> #declared
+            where
+                Self: ::core::default::Default;
+
+            fn __itinera_added(self, instance: #instance) -> #instance;
+        }
+
+        impl<__ItineraReporter: ::itinera::report::AsyncReporter>
+            __ItineraAsyncReporter<#asynchronous> for __ItineraReporter
+        {
+            fn __itinera_listed(
+                declared: ::itinera::workflow::WorkflowBuilder<#workflow, #asynchronous>,
+            ) -> ::itinera::workflow::WorkflowBuilder<#workflow, #asynchronous>
+            where
+                Self: ::core::default::Default,
+            {
+                declared.async_reporter::<Self>()
             }
 
-            impl<__ItineraReporter: ::itinera::report::AsyncReporter>
-                __ItineraAsyncReporter<#asynchronous> for __ItineraReporter
-            {
-                fn __itinera_listed(
-                    declared: ::itinera::workflow::WorkflowBuilder<#workflow, #asynchronous>,
-                ) -> ::itinera::workflow::WorkflowBuilder<#workflow, #asynchronous>
-                where
-                    Self: ::core::default::Default,
-                {
-                    declared.async_reporter::<Self>()
-                }
-
-                fn __itinera_added(
-                    self,
-                    instance: ::itinera::instance::InstanceBuilder<#workflow, #asynchronous>,
-                ) -> ::itinera::instance::InstanceBuilder<#workflow, #asynchronous> {
-                    instance.async_reporter(self)
-                }
+            fn __itinera_added(
+                self,
+                instance: ::itinera::instance::InstanceBuilder<#workflow, #asynchronous>,
+            ) -> ::itinera::instance::InstanceBuilder<#workflow, #asynchronous> {
+                instance.async_reporter(self)
             }
         }
-    })
+    }
 }

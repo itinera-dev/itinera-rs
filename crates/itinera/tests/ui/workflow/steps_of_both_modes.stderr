@@ -4,12 +4,5 @@ error[E0277]: the steps of a workflow are all synchronous or all asynchronous
 29 | #[with_step(Dispatch, name = "dispatch")]
    |             ^^^^^^^^ a step of another mode than the workflow's first step
    |
-   = note: a workflow takes its mode from its steps, and an asynchronous step, whose `run` is an `async fn`, belongs only to an asynchronous workflow
-help: the trait `__ItineraSameMode<Synchronous>` is not implemented for `Asynchronous`
-      but trait `__ItineraSameMode<Asynchronous>` is implemented for it
-  --> tests/ui/workflow/steps_of_both_modes.rs:27:1
-   |
-27 | #[workflow(name = "delivery")]
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = help: for that trait implementation, expected `Asynchronous`, found `Synchronous`
-   = note: this error originates in the attribute macro `workflow` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = help: the trait `__ItineraSameMode<Synchronous>` is not implemented for `Asynchronous`
+   = note: a workflow takes its mode from its first step: it is asynchronous when that step's `run` is an `async fn`, and every other step shares that mode

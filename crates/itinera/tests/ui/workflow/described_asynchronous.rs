@@ -14,6 +14,16 @@ impl Dispatch {
     }
 }
 
+#[derive(Step)]
+struct Sign {}
+
+#[step]
+impl Sign {
+    async fn run(self) -> Result<Outcome, Error> {
+        Self::succeed()
+    }
+}
+
 #[derive(Default)]
 struct Log;
 
@@ -25,6 +35,7 @@ impl itinera::report::AsyncReporter for Log {
 
 #[workflow(name = "delivery", async_reporters = [Log])]
 #[with_step(Dispatch, name = "dispatch")]
+#[with_step(Sign, name = "sign")]
 struct Delivery;
 
 pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {

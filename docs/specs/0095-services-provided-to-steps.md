@@ -8,7 +8,7 @@ Status: done.
 
 Everything below is in `itinera::service`, unless another module is named.
 
-- **`Service<T: ?Sized>`**, a typed token holding a key, declared as a constant like `Input<T>`: `const PAYMENTS: Service<dyn PaymentGateway> = Service::new("payments");`. `T` is any `Send + Sync + 'static` type, a trait object or a concrete type.
+- **`Service<T: ?Sized>`**, a typed token holding a key, declared as a constant like `Input<T>`: `const PAYMENTS: Service<dyn PaymentGateway> = Service::new("payments");`. `T` should be a trait object, such as `dyn PaymentGateway`, so that a step depends on what a service can do. Rust has no bound that holds only for trait objects, so the token accepts any `Send + Sync + 'static` type; `#[service]` enforces it.
 - **The step's side.** `StepNeeds::service(&PAYMENTS)` declares a service, and `Resolved::service(&PAYMENTS)` takes it, as `Result<&'a T, Error>`, where `'a` is the attempt. A step may take a service more than once. Taking one it did not declare, or as another type, fails. A rescue step does the same with `RescueNeeds::service(&PAYMENTS)` and `RescueResolved::service(&PAYMENTS)`.
 - **`ProviderName`**, a `&'static str` newtype like `AdapterName`.
 - **The scopes** `PerJourney` and `PerAttempt` are types, and implement the sealed trait `ProviderScope`, whose sealing trait tells the executor which scope it is, so a descriptor does not store it.
