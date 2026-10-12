@@ -33,7 +33,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     ///     OnStepSuccess, OnSuccess, Requested, StepPolicyDescriptor, StepSuccess,
     /// };
     /// use itinera::step::{Outcome, RescueOutcome, StepDescriptor, step_name};
-    /// use itinera::workflow::{InputAdapterDescriptor, WorkflowDescriptor};
+    /// use itinera::workflow::{AdapterName, InputAdapterDescriptor, WorkflowDescriptor};
     ///
     /// struct Audit;
     ///
@@ -72,7 +72,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     /// assert!(charge.adapter.is_some());
     /// let rescue = charge.rescue.as_ref().ok_or("charge has a rescue step")?;
     /// assert_eq!(rescue.step, step_name!("charge_rescue"));
-    /// assert_eq!(rescue.adapter.map(String::from), Some("credentials".to_owned()));
+    /// assert_eq!(rescue.adapter, Some(AdapterName::from("credentials")));
     /// assert!(listing[1].adapter.is_none());
     /// assert!(listing[1].rescue.is_none());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
