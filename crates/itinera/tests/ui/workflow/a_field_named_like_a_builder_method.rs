@@ -110,8 +110,8 @@ impl Shop {
         #[data_bag] data: itinera::journey::DataBagAccess<'_>,
     ) -> Result<Option<AnyValue>, Error> {
         match data.read::<i64>(key) {
-            Read::Present(amount) => Ok(Some(AnyValue::new(amount + self.fee))),
-            _ => Ok(None),
+            Read::Present(amount) => Self::supply(amount + self.fee),
+            _ => Self::from_data_bag(),
         }
     }
 

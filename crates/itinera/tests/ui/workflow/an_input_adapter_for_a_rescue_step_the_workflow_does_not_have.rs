@@ -46,7 +46,7 @@ struct Orders;
 impl Orders {
     #[input_adapter(steps = ["charge again_rescue"])]
     fn client(&self) -> Result<Option<AnyValue>, Error> {
-        Ok(Some(AnyValue::new("C-2".to_owned())))
+        Self::supply("C-2".to_owned())
     }
 }
 

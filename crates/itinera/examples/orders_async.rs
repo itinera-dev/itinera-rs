@@ -146,7 +146,7 @@ impl Orders {
         #[from_workflow] price: i64,
         #[from_workflow] discount: Option<i64>,
     ) -> Result<Option<AnyValue>, Error> {
-        Ok(Some(AnyValue::new(price - discount.unwrap_or_default())))
+        Self::supply(price - discount.unwrap_or_default())
     }
 
     /// Lends each attempt to charge the shop's card terminal.

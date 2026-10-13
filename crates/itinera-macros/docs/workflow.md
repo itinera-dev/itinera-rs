@@ -20,6 +20,8 @@ On the workflow's own `impl` block, `#[workflow]` takes no arguments and adds th
 1. `#[input_adapter(steps = ["a", "b"])]` makes the method an input adapter of the listed steps, which may name a rescue step, such as `"charge_rescue"` for the rescue step of `charge`. It is named after the method unless `name = "..."` is given. Its parameters request what it reads, each marked with its attribute: `#[step_name]` with `StepName`, `#[key]` with `&str`, `#[from_workflow]` with a value's type or an `Option` of it, `#[journey_id]` with `&JourneyId`, and `#[data_bag]` with `DataBagAccess<'_>`. `#[from_workflow]` reads the key named after the parameter, or the one it names, as in `#[from_workflow("price")]`; an `Option` is a key that may be absent, unless `#[from_workflow(required)]` makes the key hold the `Option` itself. It returns `Result<Option<AnyValue>, Error>`.
 2. `#[id_generator]` makes the method the workflow's ID generator. It may take the initial data as `&DataBag`, and returns `Result<String, Error>`.
 
+Every function of the block may use the shorthands for what an input adapter returns that `Workflow` gives: `Self::supply(value)` for the value it supplies, and `Self::from_data_bag()` to leave the input to the data bag.
+
 # Examples
 
 A workflow with a field the builder requires, one it may leave unset, an input adapter and an ID generator:
@@ -62,7 +64,7 @@ impl Orders {
     #[input_adapter(steps = ["charge"])]
     fn pricing(&self, #[from_workflow] price: i64) -> Result<Option<AnyValue>, Error> {
         let discount = self.discount.unwrap_or_default();
-        Ok(Some(AnyValue::new(price - discount)))
+        Self::supply(price - discount)
     }
 
     #[id_generator]
