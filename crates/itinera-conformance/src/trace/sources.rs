@@ -2,6 +2,7 @@
 //! service provider, the requester and the source of a contribution.
 
 use itinera::event::{HookSource, Requester, Source};
+use itinera::service::ProviderName;
 use itinera::step::StepAttempt;
 
 use super::Line;
@@ -10,6 +11,12 @@ impl Line {
     pub(super) fn attempt(&mut self, step: &StepAttempt) {
         self.set("step", step.step);
         self.set("attempt", step.attempt);
+    }
+
+    pub(super) fn service(&mut self, step: &StepAttempt, key: &str, provider: &ProviderName) {
+        self.attempt(step);
+        self.set("key", key);
+        self.set("provider", provider);
     }
 
     pub(super) fn hook(&mut self, hook: &HookSource) {

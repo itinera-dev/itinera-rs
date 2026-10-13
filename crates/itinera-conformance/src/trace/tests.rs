@@ -7,7 +7,7 @@ fn line(event: &str, cells: &[(&'static str, &str)]) -> Line {
     Line {
         event: event.to_owned(),
         cells: cells.iter().map(owned).collect(),
-        data: None,
+        data: Data::Unstated,
         carried: Vec::new(),
     }
 }
@@ -67,9 +67,23 @@ fn only_an_event_without_an_adapter_names_no_adapter(
 #[case::another_object(r#"{"ms": 1300}"#, false)]
 fn data_is_compared_as_json(#[case] data: &str, #[case] matches: bool) {
     let mut event = line("step_warning", &[]);
-    event.data = Some(json!({"ms": 1200, "slow": true}));
+    event.data = Data::Is(json!({"ms": 1200, "slow": true}));
     let mut expected = line("step_warning", &[]);
-    expected.data = Some(json(data).unwrap());
+    expected.data = Data::Is(json(data).unwrap());
+    assert_eq!(expected.matches(&event), matches);
+}
+
+#[rstest]
+#[case::an_event_without_data(Data::Absent, true)]
+#[case::an_event_with_data(Data::Is(json!({"bank": "sandbox"})), false)]
+fn a_data_cell_of_none_matches_only_an_event_without_data(
+    #[case] carried: Data,
+    #[case] matches: bool,
+) {
+    let mut event = line("service_provided", &[]);
+    event.data = carried;
+    let mut expected = line("service_provided", &[]);
+    expected.data = Data::Absent;
     assert_eq!(expected.matches(&event), matches);
 }
 

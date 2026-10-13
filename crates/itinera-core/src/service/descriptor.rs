@@ -4,7 +4,8 @@
 use std::future;
 
 use super::{
-    Instance, PerAttempt, PerJourney, ProviderName, ProviderScope, Service, ServiceType, erased,
+    AnyProvided, PerAttempt, PerJourney, Provided, ProviderName, ProviderScope, Service,
+    ServiceType,
 };
 use crate::error::Error;
 use crate::mode::Synchronous;
@@ -42,7 +43,7 @@ pub(crate) use entry::{ProviderEntry, serving};
 /// ```
 /// use itinera::error::Error;
 /// use itinera::policy::{Provider, Requested};
-/// use itinera::service::{PerAttempt, Service, ServiceProviderDescriptor};
+/// use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
 /// use itinera::step::step_name;
 ///
 /// trait PaymentGateway: Send + Sync {}
@@ -61,11 +62,11 @@ pub(crate) use entry::{ProviderEntry, serving};
 ///     fn payments(
 ///         &self,
 ///         got: Requested<'_, Self, Provider<PerAttempt>>,
-///     ) -> Result<Box<dyn PaymentGateway>, Error> {
+///     ) -> Result<Provided<dyn PaymentGateway>, Error> {
 ///         if got.attempt().get() == 1 {
-///             Ok(Box::new(Main))
+///             Ok(provide!(Main))
 ///         } else {
-///             Ok(Box::new(Backup))
+///             Ok(provide!(Backup))
 ///         }
 ///     }
 /// }
@@ -85,9 +86,10 @@ pub struct ServiceProviderDescriptor<W, S: ProviderScope, M = Synchronous> {
     provide: Box<Provide<W, S, M>>,
 }
 
-/// How the executor calls a provider, which ends with the instance it made.
-pub(super) type Provide<W, S, M> =
-    dyn for<'a> Fn(&'a W, Requested<'a, W, Provider<S>, M>) -> HookCall<'a, Instance> + Send + Sync;
+/// How the executor calls a provider, which ends with what it made.
+pub(super) type Provide<W, S, M> = dyn for<'a> Fn(&'a W, Requested<'a, W, Provider<S>, M>) -> HookCall<'a, AnyProvided>
+    + Send
+    + Sync;
 
 impl<W> ServiceProviderDescriptor<W, PerJourney> {
     /// Describes a provider of scope [`PerJourney`] with its name, the service it supplies and
@@ -97,7 +99,7 @@ impl<W> ServiceProviderDescriptor<W, PerJourney> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::service::{Service, ServiceProviderDescriptor};
+    /// use itinera::service::{Service, ServiceProviderDescriptor, provide};
     ///
     /// trait StockStore: Send + Sync {}
     ///
@@ -110,13 +112,16 @@ impl<W> ServiceProviderDescriptor<W, PerJourney> {
     /// struct Orders;
     ///
     /// let stock = ServiceProviderDescriptor::new("stock", &STOCK, |_: &Orders, _| {
-    ///     Ok(Box::new(Warehouse) as Box<dyn StockStore>)
+    ///     Ok(provide!(Warehouse))
     /// });
     /// ```
     pub fn new<T: ?Sized + Send + Sync + 'static>(
         name: impl Into<ProviderName>,
         service: &Service<T>,
-        provide: impl for<'a> Fn(&'a W, Requested<'a, W, Provider<PerJourney>>) -> Result<Box<T>, Error>
+        provide: impl for<'a> Fn(
+            &'a W,
+            Requested<'a, W, Provider<PerJourney>>,
+        ) -> Result<Provided<T>, Error>
         + Send
         + Sync
         + 'static,
@@ -133,7 +138,7 @@ impl<W> ServiceProviderDescriptor<W, PerAttempt> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::service::{Service, ServiceProviderDescriptor};
+    /// use itinera::service::{Service, ServiceProviderDescriptor, provide};
     ///
     /// trait PaymentGateway: Send + Sync {}
     ///
@@ -146,13 +151,16 @@ impl<W> ServiceProviderDescriptor<W, PerAttempt> {
     /// struct Orders;
     ///
     /// let payments = ServiceProviderDescriptor::per_attempt("payments", &PAYMENTS, |_: &Orders, _| {
-    ///     Ok(Box::new(Main) as Box<dyn PaymentGateway>)
+    ///     Ok(provide!(Main))
     /// });
     /// ```
     pub fn per_attempt<T: ?Sized + Send + Sync + 'static>(
         name: impl Into<ProviderName>,
         service: &Service<T>,
-        provide: impl for<'a> Fn(&'a W, Requested<'a, W, Provider<PerAttempt>>) -> Result<Box<T>, Error>
+        provide: impl for<'a> Fn(
+            &'a W,
+            Requested<'a, W, Provider<PerAttempt>>,
+        ) -> Result<Provided<T>, Error>
         + Send
         + Sync
         + 'static,
@@ -185,7 +193,7 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
     /// ```
     /// use itinera::error::Error;
     /// use itinera::policy::{HookNeeds, Provider, Requested};
-    /// use itinera::service::{PerAttempt, Service, ServiceProviderDescriptor};
+    /// use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
     /// use itinera::step::Input;
     ///
     /// trait PaymentGateway: Send + Sync {}
@@ -203,8 +211,8 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
     ///     fn payments(
     ///         &self,
     ///         mut got: Requested<'_, Self, Provider<PerAttempt>>,
-    ///     ) -> Result<Box<dyn PaymentGateway>, Error> {
-    ///         Ok(Box::new(Gateway(got.from_workflow(&GATEWAY)?)))
+    ///     ) -> Result<Provided<dyn PaymentGateway>, Error> {
+    ///         Ok(provide!(Gateway(got.from_workflow(&GATEWAY)?)))
     ///     }
     /// }
     ///
@@ -223,7 +231,7 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::service::{Service, ServiceProviderDescriptor};
+    /// use itinera::service::{Service, ServiceProviderDescriptor, provide};
     /// use itinera::step::step_name;
     ///
     /// trait StockStore: Send + Sync {}
@@ -237,7 +245,7 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
     /// struct Orders;
     ///
     /// let shipping_stock = ServiceProviderDescriptor::new("shipping stock", &STOCK, |_: &Orders, _| {
-    ///     Ok(Box::new(Warehouse) as Box<dyn StockStore>)
+    ///     Ok(provide!(Warehouse))
     /// })
     /// .step(step_name!("reserve"))
     /// .step(step_name!("ship"));
@@ -254,7 +262,7 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::service::{Service, ServiceProviderDescriptor};
+    /// use itinera::service::{Service, ServiceProviderDescriptor, provide};
     ///
     /// trait StockStore: Send + Sync {}
     ///
@@ -267,7 +275,7 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
     /// struct Orders;
     ///
     /// let stock = ServiceProviderDescriptor::new("stock", &STOCK, |_: &Orders, _| {
-    ///     Ok(Box::new(Warehouse) as Box<dyn StockStore>)
+    ///     Ok(provide!(Warehouse))
     /// });
     /// assert_eq!(stock.name().to_string(), "stock");
     /// ```
@@ -278,10 +286,12 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
 
 /// A synchronous provider's function, as the executor calls it: its instance is ready at once.
 fn synchronously<W, S: ProviderScope, T: ?Sized + Send + Sync + 'static>(
-    provide: impl for<'a> Fn(&'a W, Requested<'a, W, Provider<S>>) -> Result<Box<T>, Error>
+    provide: impl for<'a> Fn(&'a W, Requested<'a, W, Provider<S>>) -> Result<Provided<T>, Error>
     + Send
     + Sync
     + 'static,
 ) -> Box<Provide<W, S, Synchronous>> {
-    Box::new(move |workflow, got| Box::pin(future::ready(provide(workflow, got).map(erased))))
+    Box::new(move |workflow, got| {
+        Box::pin(future::ready(provide(workflow, got).map(Provided::erased)))
+    })
 }

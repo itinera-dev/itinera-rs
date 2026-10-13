@@ -1,0 +1,19 @@
+error[E0271]: expected `__itinera_provider_stock` to return `Result<Provided<_>, Error>`, but it returns `Result<Warehouse, Error>`
+  --> tests/ui/service/a_provider_returning_a_bare_instance.rs:85:8
+   |
+82 | #[workflow]
+   | ----------- required by a bound introduced by this call
+...
+85 |     fn stock(&self, #[journey_id] _journey: &JourneyId) -> Result<Warehouse, Error> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<Provided<_>, Error>`, found `Result<Warehouse, Error>`
+   |
+   = note: expected enum `Result<itinera::service::Provided<_>, itinera::error::Error>`
+              found enum `Result<Warehouse, itinera::error::Error>`
+note: required by a bound in `ServiceProviderDescriptor::<W, PerJourney>::new`
+  --> $WORKSPACE/crates/itinera-core/src/service/descriptor.rs
+   |
+   |     pub fn new<T: ?Sized + Send + Sync + 'static>(
+   |            --- required by a bound in this associated function
+...
+   |         ) -> Result<Provided<T>, Error>
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ServiceProviderDescriptor::<W, PerJourney>::new`

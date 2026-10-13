@@ -96,8 +96,8 @@ fn first_of_its_key<'a>(
     (!earlier).then_some(provider)
 }
 
-/// What the providers of this provider's key make: exactly the type their return types box, when
-/// every one of them writes its return type as `Result<Box<T>, ...>` with the same `T`, and
+/// What the providers of this provider's key make: exactly the type their return types provide, when
+/// every one of them writes its return type as `Result<Provided<T>, ...>` with the same `T`, and
 /// otherwise any type, which leaves the steps they serve to `build()`.
 fn made_of_key(workflow: &Type, providers: &[&Provider], first: &Provider) -> TokenStream {
     let key = key_type(first.key());

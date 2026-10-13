@@ -9,6 +9,8 @@ mod descriptor;
 mod fit;
 #[cfg(test)]
 pub(crate) mod fixtures;
+mod implementation;
+mod provided;
 mod scope;
 mod token;
 
@@ -18,18 +20,19 @@ pub use descriptor::ServiceProviderDescriptor;
 pub(crate) use descriptor::{ProviderEntry, serving};
 #[doc(hidden)]
 pub use fit::{Char, ProvidesService};
+pub use implementation::Implementation;
+pub use provided::{Provided, provide};
 pub(crate) use scope::Scope;
 pub use scope::{PerAttempt, PerJourney, ProviderScope};
 pub use token::Service;
 pub(crate) use token::{ServiceType, lent};
 
-/// A service as the executor keeps it, whatever its type: the `Box<T>` a provider returned.
+/// A service as the executor keeps it, whatever its type: the `Box<T>` holding the instance a
+/// provider made.
 pub(crate) type Instance = Box<dyn Any + Send + Sync>;
 
-/// Erases the type of the instance a provider made, for the executor to keep.
-pub(crate) fn erased<T: ?Sized + Send + Sync + 'static>(service: Box<T>) -> Instance {
-    Box::new(service)
-}
+/// What a provider made, as the executor keeps it, whatever the service's type.
+pub(crate) type AnyProvided = Provided<dyn Any + Send + Sync>;
 
 /// A service provider's name, unique among the workflow's providers.
 ///

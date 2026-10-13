@@ -112,13 +112,16 @@ impl<D: Delivery> Journey<D> {
         let key = provider.key().to_owned();
         match provided {
             Ok(made) => {
+                let (instance, implementation, data) = made.into_parts();
                 self.emit(EventBody::ServiceProvided {
                     step: attempt.clone(),
                     key,
                     provider: name,
+                    implementation,
+                    data,
                 })
                 .await?;
-                Ok(made)
+                Ok(instance)
             }
             Err(error) => {
                 self.emit(EventBody::ServiceProviderFailed {

@@ -13,7 +13,7 @@ use itinera::policy::{
     Requested, StepPolicyDescriptor, StepSuccess, WorkflowPolicyDescriptor, WorkflowSuccess,
 };
 use itinera::report::Reporter;
-use itinera::service::{PerAttempt, Service, ServiceProviderDescriptor};
+use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
 use itinera::step::{
     Input, OptionalInput, Outcome, Reason, Resolved, Step, StepDescriptor, StepFactory, StepNeeds,
     step_name,
@@ -186,8 +186,8 @@ fn pricing(
 fn payments(
     orders: &Orders,
     got: Requested<'_, Orders, Provider<PerAttempt>>,
-) -> Result<Box<dyn PaymentGateway>, Error> {
-    Ok(Box::new(Terminal {
+) -> Result<Provided<dyn PaymentGateway>, Error> {
+    Ok(provide!(Terminal {
         shop: orders.shop,
         attempt: got.attempt(),
     }))

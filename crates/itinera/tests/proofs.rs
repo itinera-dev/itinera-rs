@@ -29,6 +29,8 @@ mod initial_data_value;
 mod initial_global_metadata_value;
 #[path = "proofs/non-value/input_adapter_value.rs"]
 mod input_adapter_value;
+#[path = "proofs/non-value/provider_data_value.rs"]
+mod provider_data_value;
 #[path = "proofs/non-value/provider_event_data_value.rs"]
 mod provider_event_data_value;
 #[path = "proofs/no-instance/provider_returning_an_instance.rs"]
@@ -147,6 +149,12 @@ fn a_journey_scoped_provider_cannot_request_the_attempt() {
 fn a_provider_cannot_return_nothing() {
     fails_to_compile("tests/proofs/no-instance/provider_returning_nothing.rs");
     provider_returning_an_instance::main();
+}
+
+#[test]
+fn a_providers_data_cannot_be_a_non_value() {
+    fails_to_compile("tests/proofs/non-value/provider_data.rs");
+    provider_data_value::main();
 }
 
 #[test]

@@ -6,7 +6,7 @@ Status: done in stage 5. Stage 1 added the event data and reason details, and st
 
 ## API
 
-- The data of `step_info`, `step_warning`, `step_error`, `journey_info`, `journey_warning` and `journey_error` is an `Option<AnyValue>`.
+- The data of `step_info`, `step_warning`, `step_error`, `journey_info`, `journey_warning` and `journey_error` is an `Option<AnyValue>`, and so, since proposal [0104](0104-service-implementation-on-events.md), is the data a service provider supplies on `service_provided`.
 - `Reason::with_details` takes any `T: Value`, captured when the reason is made.
 - A step reporter's `info_with`, `warning_with` and `error_with` take any `T: Value`, captured when the event is emitted.
 - Itinera never serializes either. Events carry no format; a reporter that writes them serializes the data with `AnyValue`'s `Serialize`, which writes the value itself, in whatever format it chooses.

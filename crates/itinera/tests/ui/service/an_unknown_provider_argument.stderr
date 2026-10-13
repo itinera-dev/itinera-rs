@@ -1,5 +1,5 @@
 error: `#[provider]` takes, each optional, `per_attempt`, `steps = ["..."]`, `key = "..."` and `name = "..."`
-  --> tests/ui/service/an_unknown_provider_argument.rs:83:16
+  --> tests/ui/service/an_unknown_provider_argument.rs:84:16
    |
-83 |     #[provider(scope = "journey")]
+84 |     #[provider(scope = "journey")]
    |                ^^^^^

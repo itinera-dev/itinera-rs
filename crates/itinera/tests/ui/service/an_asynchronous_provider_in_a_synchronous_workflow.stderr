@@ -1,26 +1,26 @@
 error[E0277]: the service providers of `Orders` do not all belong to a workflow of its mode
-  --> tests/ui/service/an_asynchronous_provider_in_a_synchronous_workflow.rs:74:1
+  --> tests/ui/service/an_asynchronous_provider_in_a_synchronous_workflow.rs:75:1
    |
-74 | #[workflow(name = "orders")]
+75 | #[workflow(name = "orders")]
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    | |
    | a workflow of a mode some of its providers do not belong to
    | required by a bound introduced by this call
    |
 help: the trait `__ItineraProviders<_>` is not implemented for `Orders`
-  --> tests/ui/service/an_asynchronous_provider_in_a_synchronous_workflow.rs:77:1
+  --> tests/ui/service/an_asynchronous_provider_in_a_synchronous_workflow.rs:78:1
    |
-77 | struct Orders {
+78 | struct Orders {
    | ^^^^^^^^^^^^^
    = note: an asynchronous provider belongs only to an asynchronous workflow, and a synchronous one that requests a reporter only to a synchronous workflow
 help: this trait has no implementations, consider adding one
-  --> tests/ui/service/an_asynchronous_provider_in_a_synchronous_workflow.rs:81:1
+  --> tests/ui/service/an_asynchronous_provider_in_a_synchronous_workflow.rs:82:1
    |
-81 | #[workflow]
+82 | #[workflow]
    | ^^^^^^^^^^^
 note: required by a bound in `_::<impl Orders>::__itinera_parts`
-  --> tests/ui/service/an_asynchronous_provider_in_a_synchronous_workflow.rs:81:1
+  --> tests/ui/service/an_asynchronous_provider_in_a_synchronous_workflow.rs:82:1
    |
-81 | #[workflow]
+82 | #[workflow]
    | ^^^^^^^^^^^ required by this bound in `_::<impl Orders>::__itinera_parts`
    = note: this error originates in the attribute macro `workflow` (in Nightly builds, run with -Z macro-backtrace for more info)

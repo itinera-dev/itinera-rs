@@ -6,7 +6,9 @@ use std::num::NonZeroU32;
 use itinera::error::Error;
 use itinera::journey::{Contributor, InitialData, JourneyId};
 use itinera::policy::{HookNeeds, InputAdapter, Provider, Requested};
-use itinera::service::{PerAttempt, PerJourney, Service, ServiceProviderDescriptor};
+use itinera::service::{
+    PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
+};
 use itinera::step::{
     DescribedStep, Input, Outcome, Reason, RescueFactory, RescueNeeds, RescueOutcome,
     RescueResolved, RescueStep, Step, StepName, rescue_step, step, step_name,
@@ -94,15 +96,15 @@ fn refreshed(
 }
 
 /// The vault every step without a provider of its own is lent.
-fn vault(journey: &JourneyId) -> Box<dyn TokenService> {
-    Box::new(Vault {
+fn vault(journey: &JourneyId) -> Provided<dyn TokenService> {
+    provide!(Vault {
         label: format!("vault of {journey}"),
     })
 }
 
 /// A vault lent to one attempt of a step, named after both.
-fn charging_vault(step: StepName, attempt: NonZeroU32) -> Box<dyn TokenService> {
-    Box::new(Vault {
+fn charging_vault(step: StepName, attempt: NonZeroU32) -> Provided<dyn TokenService> {
+    provide!(Vault {
         label: format!("{step} vault {attempt}"),
     })
 }
@@ -114,7 +116,10 @@ struct Vaulted;
 #[workflow]
 impl Vaulted {
     #[provider]
-    fn tokens(&self, #[journey_id] journey: &JourneyId) -> Result<Box<dyn TokenService>, Error> {
+    fn tokens(
+        &self,
+        #[journey_id] journey: &JourneyId,
+    ) -> Result<Provided<dyn TokenService>, Error> {
         Ok(vault(journey))
     }
 
@@ -123,7 +128,7 @@ impl Vaulted {
         &self,
         #[step_name] step: StepName,
         #[attempt] attempt: NonZeroU32,
-    ) -> Result<Box<dyn TokenService>, Error> {
+    ) -> Result<Provided<dyn TokenService>, Error> {
         Ok(charging_vault(step, attempt))
     }
 
@@ -172,14 +177,14 @@ impl RescueFactory for RefreshFactory {
 fn hand_tokens(
     _: &Orders,
     got: Requested<'_, Orders, Provider<PerJourney>>,
-) -> Result<Box<dyn TokenService>, Error> {
+) -> Result<Provided<dyn TokenService>, Error> {
     Ok(vault(got.journey_id()))
 }
 
 fn hand_charging(
     _: &Orders,
     got: Requested<'_, Orders, Provider<PerAttempt>>,
-) -> Result<Box<dyn TokenService>, Error> {
+) -> Result<Provided<dyn TokenService>, Error> {
     Ok(charging_vault(got.step_name(), got.attempt()))
 }
 
@@ -246,7 +251,10 @@ struct Rerouted;
 #[workflow]
 impl Rerouted {
     #[provider]
-    fn tokens(&self, #[journey_id] journey: &JourneyId) -> Result<Box<dyn TokenService>, Error> {
+    fn tokens(
+        &self,
+        #[journey_id] journey: &JourneyId,
+    ) -> Result<Provided<dyn TokenService>, Error> {
         Ok(vault(journey))
     }
 
@@ -255,7 +263,7 @@ impl Rerouted {
         &self,
         #[step_name] step: StepName,
         #[attempt] attempt: NonZeroU32,
-    ) -> Result<Box<dyn TokenService>, Error> {
+    ) -> Result<Provided<dyn TokenService>, Error> {
         Ok(charging_vault(step, attempt))
     }
 

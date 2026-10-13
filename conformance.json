@@ -1,6 +1,6 @@
 {
-  "cases": "v0.1.0-rc.12",
-  "proposals": [2, 3, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85, 91, 95, 98, 102],
+  "cases": "v0.1.0-rc.13",
+  "proposals": [2, 3, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85, 91, 95, 98, 102, 104],
   "capabilities": ["sync", "async"],
   "impossible": {
     "invalid-lifecycle": [
@@ -68,6 +68,11 @@
         "feature": "cases/tier-1/0095-services-provided-to-steps/failures.feature",
         "scenario": "A provider's event data that is not a value aborts the journey, and the event is not delivered",
         "proof": { "test": "a_providers_event_cannot_carry_a_non_value", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0095-services-provided-to-steps/implementation.feature",
+        "scenario": "A provider's data that is not a value aborts the journey, and no service event follows",
+        "proof": { "test": "a_providers_data_cannot_be_a_non_value", "file": "crates/itinera/tests/proofs.rs" }
       },
       {
         "feature": "cases/tier-1/0102-global-metadata/failures.feature",

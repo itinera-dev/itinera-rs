@@ -5,7 +5,7 @@ use crate::service::fixtures::{
     Given, Labeller, Made, PAYMENTS, PAYMENTS_AS_NUMBER, per_journey, requesting,
     rescued_requesting,
 };
-use crate::service::{PerJourney, Service, ServiceProviderDescriptor};
+use crate::service::{PerJourney, Service, ServiceProviderDescriptor, provide};
 use crate::step::StepDescriptor;
 use crate::workflow::fixtures::{Orders, orders};
 use crate::workflow::{Violation, WorkflowBuilder};
@@ -24,7 +24,7 @@ pub(super) fn payments(name: &'static str) -> ServiceProviderDescriptor<Orders, 
 /// A provider of the payments service as a number, another type than steps request.
 pub(super) fn numbered_payments() -> ServiceProviderDescriptor<Orders, PerJourney> {
     ServiceProviderDescriptor::new("numbers", &PAYMENTS_AS_NUMBER, |_: &Orders, _| {
-        Ok(Box::new(1))
+        Ok(provide!(1))
     })
 }
 

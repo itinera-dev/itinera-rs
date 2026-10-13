@@ -1,5 +1,5 @@
 error: duplicate provider name: stock, which another service provider of the workflow has
-  --> tests/ui/service/a_provider_named_like_another.rs:88:74
+  --> tests/ui/service/a_provider_named_like_another.rs:89:74
    |
-88 |     #[provider(per_attempt, steps = ["charge"], key = "payments", name = "stock")]
+89 |     #[provider(per_attempt, steps = ["charge"], key = "payments", name = "stock")]
    |                                                                          ^^^^^^^

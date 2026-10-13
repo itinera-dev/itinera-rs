@@ -8,11 +8,14 @@ use crate::event::Event;
 use crate::journey::{DataBag, JourneyStatus, MissingData, Requester};
 use crate::policy::{HookNeeds, Provider, Requested};
 use crate::service::fixtures::{
-    Given, Labeller, Made, PAYMENTS, STOCK, given, labelled, made, per_attempt, per_journey,
+    Given, Label, Labeller, Made, PAYMENTS, STOCK, given, labelled, made, per_attempt, per_journey,
     requesting,
 };
-use crate::service::{PerAttempt, PerJourney, ServiceProviderDescriptor};
+use crate::service::{
+    Implementation, PerAttempt, PerJourney, Provided, ServiceProviderDescriptor, provide,
+};
 use crate::step::{Input, OptionalInput};
+use crate::value::AnyValue;
 use crate::workflow::WorkflowBuilder;
 use crate::workflow::fixtures::{Orders, orders};
 
@@ -156,6 +159,66 @@ fn a_steps_services_are_supplied_in_the_order_it_declares_them() {
     );
 }
 
+struct Sandbox;
+
+impl Labeller for Sandbox {
+    fn label(&self) -> String {
+        "sandbox".to_owned()
+    }
+}
+
+fn sandbox(
+    _: &Orders,
+    _: Requested<'_, Orders, Provider<PerJourney>>,
+) -> Result<Provided<dyn Labeller>, Error> {
+    Ok(provide!(Sandbox, "north".to_owned()))
+}
+
+/// The implementation of every `service_provided`, in order, with the data it carries when that
+/// is a string.
+fn implementations(events: &[Event]) -> Vec<(Implementation, Option<String>)> {
+    events.iter().filter_map(implementation).collect()
+}
+
+fn implementation(event: &Event) -> Option<(Implementation, Option<String>)> {
+    match &event.body {
+        EventBody::ServiceProvided {
+            implementation,
+            data,
+            ..
+        } => Some((*implementation, data.as_ref().and_then(as_string).cloned())),
+        _ => None,
+    }
+}
+
+fn as_string(data: &AnyValue) -> Option<&String> {
+    data.downcast_ref()
+}
+
+#[test]
+fn service_provided_names_the_type_each_provider_made_and_carries_the_data_it_supplied() {
+    let workflow = orders()
+        .step(requesting("reserve", &[&STOCK], &[], &Given::default()))
+        .step(requesting("charge", &[&PAYMENTS], &[], &Given::default()))
+        .provider(per_journey("stock", &STOCK, &Made::default()))
+        .provider(ServiceProviderDescriptor::new(
+            "sandbox", &PAYMENTS, sandbox,
+        ));
+
+    let (_, events) = travel_workflow(workflow);
+
+    assert_eq!(
+        implementations(&events),
+        [
+            (Implementation::of_type::<Label>(), None),
+            (
+                Implementation::of_type::<Sandbox>(),
+                Some("north".to_owned())
+            ),
+        ]
+    );
+}
+
 #[test]
 fn a_provider_attached_to_a_step_that_does_not_request_its_service_is_never_called() {
     let made_payments = Made::default();
@@ -183,7 +246,7 @@ fn telling(told: &Told) -> ServiceProviderDescriptor<Orders, PerAttempt> {
 fn tell(
     told: &Told,
     got: &Requested<'_, Orders, Provider<PerAttempt>>,
-) -> Result<Box<dyn Labeller>, Error> {
+) -> Result<Provided<dyn Labeller>, Error> {
     told.lock().unwrap().push((
         got.step_name(),
         got.attempt().get(),
@@ -228,7 +291,7 @@ fn gateways() -> ServiceProviderDescriptor<Orders, PerJourney> {
 fn gateway(
     _: &Orders,
     mut got: Requested<'_, Orders, Provider<PerJourney>>,
-) -> Result<Box<dyn Labeller>, Error> {
+) -> Result<Provided<dyn Labeller>, Error> {
     let gateway = got.from_workflow(&GATEWAY)?;
     let region = got.optional_from_workflow(&REGION)?.unwrap_or_default();
     Ok(labelled(&format!("{gateway}{region}"), &Made::default()))
@@ -282,7 +345,7 @@ fn a_providers_required_data_missing_aborts_the_journey_naming_the_provider() {
 fn failing(
     _: &Orders,
     _: Requested<'_, Orders, Provider<PerAttempt>>,
-) -> Result<Box<dyn Labeller>, Error> {
+) -> Result<Provided<dyn Labeller>, Error> {
     Err(Error::msg("the gateway is down"))
 }
 
@@ -331,7 +394,7 @@ fn is_the_payments_failure(event: &Event) -> bool {
 fn announcing(
     _: &Orders,
     mut got: Requested<'_, Orders, Provider<PerAttempt>>,
-) -> Result<Box<dyn Labeller>, Error> {
+) -> Result<Provided<dyn Labeller>, Error> {
     got.reporter()?.info("connecting")?;
     Ok(labelled("payments", &Made::default()))
 }
@@ -432,7 +495,7 @@ mod asynchronous {
     async fn stock(
         _: &Orders,
         mut got: Requested<'_, Orders, Provider<PerJourney>, Asynchronous>,
-    ) -> Result<Box<dyn Labeller>, Error> {
+    ) -> Result<Provided<dyn Labeller>, Error> {
         got.reporter()?.info("counting").await?;
         Ok(labelled("stock", &Made::default()))
     }

@@ -257,7 +257,7 @@ Where it lives: `travel`, `scan` and `run_step` in `engine/scan.rs`, four of the
 ```mermaid
 sequenceDiagram
     accTitle: One attempt of a step
-    accDescr: The engine emits attempt started and builds the step's policies. For each request, in the order declared, it resolves an input through the input adapter and the data bag, or a rescue step's request from what the rescued step left. It then provides each service, calling a provider with what it requested unless its instance is kept for the journey, builds the step with what it resolved, and runs it. A reporter failing while the step is built or runs aborts the journey; otherwise the outcome or error goes on to what follows.
+    accDescr: The engine emits attempt started and builds the step's policies. For each request, in the order declared, it resolves an input through the input adapter and the data bag, or a rescue step's request from what the rescued step left. It then provides each service, calling a provider with what it requested unless its instance is kept for the journey, which returns the instance with its implementation and data, builds the step with what it resolved, and runs it. A reporter failing while the step is built or runs aborts the journey; otherwise the outcome or error goes on to what follows.
     participant Engine as Engine
     participant Policies as Step policies
     participant Adapter as Input adapter
@@ -284,7 +284,7 @@ sequenceDiagram
     loop each service
         alt not kept for the journey yet
             Engine->>Providers: call it, with what it requested
-            Providers-->>Engine: the instance, or an error
+            Providers-->>Engine: the instance with its implementation and data, or an error
             Engine->>Engine: emit service_provided, or service_provider_failed
         end
     end
@@ -298,7 +298,7 @@ sequenceDiagram
 1. The engine emits `attempt_started`, naming the step and the attempt number, from 1.
 2. It builds the step's policies, new for every attempt. A policy that cannot be built aborts the journey with `policy could not be built`.
 3. It resolves the step's requests in the order they were declared, as "Parameter injection" shows. An input goes first to the step's input adapter, if it has one, and then, if the adapter has no value for it, to the data bag. A rescue step's request for the rescued step's data, reason or error is answered from what the rescued step left.
-4. It provides each service the step asks for. A provider of attempt scope is called for this attempt. One of journey scope is called at the first request only, and its instance is kept until the journey ends. Each call first resolves what the provider requested, then emits `service_provided`, or `service_provider_failed` before the journey aborts with `step could not be built`.
+4. It provides each service the step asks for. A provider of attempt scope is called for this attempt. One of journey scope is called at the first request only, and its instance is kept until the journey ends. Each call first resolves what the provider requested, then emits `service_provided`, naming the implementation the provider made and carrying the data it supplied with it, or `service_provider_failed` before the journey aborts with `step could not be built`.
 5. It builds the step with the factory, handing it what it resolved, and a contributor and a reporter if the step asked for them. An error from the factory, an input adapter or a provider aborts the journey with `step could not be built`.
 6. It runs the step, which returns an outcome, or an error, which is an abnormal termination.
 7. If a reporter failed while the step was built or ran, the journey is already aborted: the step's outcome is ignored.

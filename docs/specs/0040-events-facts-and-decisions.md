@@ -19,7 +19,7 @@ Status: done in stage 7. Stage 1 added the events, and stages 3 to 6 the engine 
 
 | Rule | Enforced by |
 |---|---|
-| Engine events carry keys, never data values | types: no engine event has a field of type `AnyValue`, apart from the details of a reason |
+| Engine events carry keys, never data values | types: no engine event has a field of type `AnyValue`, apart from the details of a reason and, since proposal [0104](0104-service-implementation-on-events.md), the data a service provider supplies on `service_provided` |
 | A decision says who decided it | types: the deciding hook is held by the `FailWorkflow` causes and by `JourneySucceeded`; every other decision is by default |
 | Only a hook that may return the deciding lifecycle is named | types: `DecidingHook` holds a `StepHook` or a `GiveUpHook`, and `JourneySucceeded` names only the policy of `on step success` |
 

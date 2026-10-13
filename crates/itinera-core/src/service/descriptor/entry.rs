@@ -5,7 +5,7 @@ use std::fmt;
 use super::ServiceProviderDescriptor;
 use crate::journey::JourneyId;
 use crate::policy::{Answers, HookCall, Needs, Requested};
-use crate::service::{Instance, ProviderName, ProviderScope, Scope, ServiceType};
+use crate::service::{AnyProvided, ProviderName, ProviderScope, Scope, ServiceType};
 use crate::step::{StepAttempt, StepName};
 
 /// A service provider of a workflow, whatever its scope.
@@ -31,7 +31,7 @@ pub(crate) trait ProviderEntry<W, M>: Send + Sync + fmt::Debug {
         journey_id: &'a JourneyId,
         attempt: StepAttempt,
         answers: Answers<'a>,
-    ) -> HookCall<'a, Instance>;
+    ) -> HookCall<'a, AnyProvided>;
 }
 
 impl<W, S: ProviderScope, M> ProviderEntry<W, M> for ServiceProviderDescriptor<W, S, M>
@@ -68,7 +68,7 @@ where
         journey_id: &'a JourneyId,
         attempt: StepAttempt,
         answers: Answers<'a>,
-    ) -> HookCall<'a, Instance> {
+    ) -> HookCall<'a, AnyProvided> {
         (self.provide)(
             workflow,
             Requested::new(workflow, journey_id, attempt, answers),

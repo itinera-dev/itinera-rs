@@ -5,6 +5,7 @@ use itinera::error::Error;
 use itinera::event::Level;
 use itinera::journey::{Contributions, Contributor, DataBag, DataBagAccess, Read};
 use itinera::policy::{HookEventReporter, HookReporter, OnSuccess, step_policy};
+use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, Reason, Step, StepEventReporter, StepReporter, step};
 use itinera::value::AnyValue;
 use itinera::workflow::workflow;
@@ -88,8 +89,8 @@ impl Shop {
     }
 
     #[provider(per_attempt, steps = ["charge"])]
-    fn payments(&self) -> Result<Box<dyn PaymentGateway>, Error> {
-        Ok(Box::new(FakeGateway { limit: 50 }))
+    fn payments(&self) -> Result<Provided<dyn PaymentGateway>, Error> {
+        Ok(provide!(FakeGateway { limit: 50 }))
     }
 }
 

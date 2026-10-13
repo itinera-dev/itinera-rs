@@ -1,6 +1,6 @@
 use itinera::error::Error;
 use itinera::policy::{Provider, Requested};
-use itinera::service::{PerAttempt, Service, ServiceProviderDescriptor};
+use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
 
 trait PaymentGateway: Send + Sync {}
 
@@ -16,9 +16,9 @@ impl Orders {
     fn payments(
         &self,
         got: Requested<'_, Self, Provider<PerAttempt>>,
-    ) -> Result<Box<dyn PaymentGateway>, Error> {
+    ) -> Result<Provided<dyn PaymentGateway>, Error> {
         let _attempt = got.attempt();
-        Ok(Box::new(Gateway))
+        Ok(provide!(Gateway))
     }
 }
 

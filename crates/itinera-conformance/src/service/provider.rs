@@ -11,12 +11,12 @@ use futures::executor::block_on;
 use itinera::error::Error;
 use itinera::mode::{Asynchronous, Synchronous};
 use itinera::policy::{HookNeeds, Provider, Requested};
-use itinera::service::AsyncProvide;
+use itinera::service::{AsyncProvide, Provided};
 use serde_json::Value;
 
 use super::{Got, Made, Scope, Supplied};
 use crate::declaration::{ScriptedWorkflow, leaked};
-use crate::model::{self, ModelError, ProviderAction, ProviderFailure};
+use crate::model::{self, Implementation, ModelError, ProviderAction, ProviderFailure};
 use crate::policy::{Emits, Request};
 use crate::value::Typed;
 use crate::witness::{Provision, Received, Witness};
@@ -31,6 +31,9 @@ pub(crate) struct ScriptedProvider {
     failure: Option<ProviderFailure>,
     actions: Vec<ProviderAction>,
     fails_when_used: Option<String>,
+    implementation: Implementation,
+    /// The data it supplies with each instance.
+    data: Option<Value>,
     /// How many instances it made in the journey.
     made: AtomicU32,
     witness: Witness,
@@ -45,6 +48,8 @@ impl ScriptedProvider {
             failure: provider.failure.clone(),
             actions: provider.actions.clone(),
             fails_when_used: provider.fails_when_used.clone(),
+            implementation: provider.implementation,
+            data: provider.data.clone(),
             made: AtomicU32::new(0),
             witness: witness.clone(),
         }
@@ -68,13 +73,13 @@ impl ScriptedProvider {
         ModelError::ProviderRequestNotAllowed(self.name.to_owned(), request)
     }
 
-    /// Takes what it requested, emits what its script says, then makes an instance, unless it
-    /// fails.
-    async fn provide<'a, S: Scope, M, R: Emits>(
+    /// Takes what it requested, emits what its script says, then makes an instance of its
+    /// implementation, with its data, unless it fails.
+    async fn provide<'a, S: Scope, M, R: Emits, T: Supplied + ?Sized>(
         &self,
         mut got: Got<'a, S, M>,
         reporter: fn(&mut Got<'a, S, M>) -> Result<R, Error>,
-    ) -> Result<Made, Error> {
+    ) -> Result<Provided<T>, Error> {
         let mut received = Received::default();
         self.requests
             .iter()
@@ -95,11 +100,12 @@ impl ScriptedProvider {
             return Err(Error::msg(failure.message.clone()));
         }
         let number = NonZeroU32::MIN.saturating_add(self.made.fetch_add(1, Ordering::SeqCst));
-        Ok(Made {
+        let made = Made {
             label: self.label(&received, number)?,
             number,
             failure: self.fails_when_used.clone(),
-        })
+        };
+        Ok(T::supplied(made, self.implementation, self.data.clone()))
     }
 
     /// The label of the instance of this number: the string received for the request it labels
@@ -158,8 +164,8 @@ fn received_string<'r>(received: &'r Received, key: &str) -> Option<&'r str> {
 pub(crate) fn provided_now<S: Scope, T: Supplied + ?Sized>(
     provider: &ScriptedProvider,
     got: Got<'_, S>,
-) -> Result<Box<T>, Error> {
-    block_on(provider.provide(got, Requested::<_, _, Synchronous>::reporter)).map(T::supplied)
+) -> Result<Provided<T>, Error> {
+    block_on(provider.provide(got, Requested::<_, _, Synchronous>::reporter))
 }
 
 /// A scripted provider of an asynchronous workflow, whose calls are awaited.
@@ -169,7 +175,7 @@ pub(crate) struct Awaiting {
 }
 
 impl<'a, S: Scope, T: Supplied + ?Sized> AsyncProvide<'a, ScriptedWorkflow, S, T> for Awaiting {
-    type Future = Pin<Box<dyn Future<Output = Result<Box<T>, Error>> + Send + 'a>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Provided<T>, Error>> + Send + 'a>>;
 
     fn provide(&self, _: &'a ScriptedWorkflow, got: Got<'a, S, Asynchronous>) -> Self::Future {
         Box::pin(awaited(Arc::clone(&self.provider), got))
@@ -179,11 +185,10 @@ impl<'a, S: Scope, T: Supplied + ?Sized> AsyncProvide<'a, ScriptedWorkflow, S, T
 async fn awaited<S: Scope, T: Supplied + ?Sized>(
     provider: Arc<ScriptedProvider>,
     got: Got<'_, S, Asynchronous>,
-) -> Result<Box<T>, Error> {
+) -> Result<Provided<T>, Error> {
     provider
         .provide(got, Requested::<_, _, Asynchronous>::reporter)
         .await
-        .map(T::supplied)
 }
 
 #[cfg(test)]

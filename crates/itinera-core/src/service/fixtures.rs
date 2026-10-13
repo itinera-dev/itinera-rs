@@ -5,7 +5,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use super::{PerAttempt, PerJourney, Service, ServiceProviderDescriptor};
+use super::{PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide};
 use crate::error::Error;
 use crate::step::{
     Outcome, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved, RescueStep, Resolved, Step,
@@ -18,7 +18,8 @@ pub(crate) trait Labeller: Send + Sync {
     fn label(&self) -> String;
 }
 
-struct Label {
+/// The instance [`labelled`] makes.
+pub(crate) struct Label {
     label: String,
 }
 
@@ -62,9 +63,9 @@ pub(crate) fn per_attempt(
     ServiceProviderDescriptor::per_attempt(name, service, move |_, _| Ok(labelled(name, &made)))
 }
 
-pub(crate) fn labelled(name: &str, made: &AtomicUsize) -> Box<dyn Labeller> {
+pub(crate) fn labelled(name: &str, made: &AtomicUsize) -> Provided<dyn Labeller> {
     let count = made.fetch_add(1, Ordering::SeqCst) + 1;
-    Box::new(Label {
+    provide!(Label {
         label: format!("{name} {count}"),
     })
 }
@@ -77,8 +78,8 @@ pub(crate) fn drops(dropped: &Dropped) -> usize {
 }
 
 /// An instance that counts itself in `dropped` once it is dropped.
-pub(crate) fn dropping(dropped: &Dropped) -> Box<dyn Labeller> {
-    Box::new(Dropping {
+pub(crate) fn dropping(dropped: &Dropped) -> Provided<dyn Labeller> {
+    provide!(Dropping {
         dropped: Arc::clone(dropped),
     })
 }

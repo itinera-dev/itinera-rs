@@ -4,6 +4,7 @@ use itinera::error::Error;
 use itinera::executor::LocalExecutor;
 use itinera::journey::{Contributor, JourneyId, JourneyStatus};
 use itinera::policy::HookReporter;
+use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, Step, StepName, step};
 use itinera::workflow::workflow;
 
@@ -81,8 +82,8 @@ struct Orders {
 #[workflow]
 impl Orders {
     #[provider(scope = "journey")]
-    fn stock(&self, #[journey_id] _journey: &JourneyId) -> Result<Box<dyn StockStore>, Error> {
-        Ok(Box::new(Warehouse))
+    fn stock(&self, #[journey_id] _journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
+        Ok(provide!(Warehouse))
     }
 
     #[provider(per_attempt, steps = ["charge"], key = "payments", name = "charging")]
@@ -92,10 +93,10 @@ impl Orders {
         #[attempt] attempt: NonZeroU32,
         #[from_workflow] currency: Option<String>,
         #[reporter] mut reporter: HookReporter<'_>,
-    ) -> Result<Box<dyn PaymentGateway>, Error> {
+    ) -> Result<Provided<dyn PaymentGateway>, Error> {
         reporter.info(format!("{step} attempt {attempt}"))?;
         let currency = currency.unwrap_or_default();
-        Ok(Box::new(Gateway(format!("{} {currency}", self.gateway))))
+        Ok(provide!(Gateway(format!("{} {currency}", self.gateway))))
     }
 }
 
