@@ -153,6 +153,11 @@ impl<F: AsyncRescueFactory> Attempts for AsyncRescues<F> {
         let rescue = self.factory.build(&mut RescueResolved::new(got))?;
         Ok(Box::pin(rescued(rescue)))
     }
+
+    #[cfg(any(test, feature = "testing"))]
+    fn build<'a>(&'a self, got: Got<'a>) -> Result<(), Error> {
+        self.factory.build(&mut RescueResolved::new(got)).map(drop)
+    }
 }
 
 /// Runs an asynchronous rescue step, and reports its outcome as a step's.

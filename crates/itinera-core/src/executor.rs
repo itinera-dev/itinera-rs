@@ -1,22 +1,27 @@
 //! Executors, which run workflow instances, and the refusals they give when a journey cannot
 //! start.
 
-use crate::engine::{self, Failures, Inline, WorkflowPolicies};
+use crate::engine::{self, Failures, Inline};
 use crate::instance::WorkflowInstance;
 use crate::journey::JourneyResult;
 use crate::mode::Synchronous;
-use crate::policy::{BuiltWorkflowPolicy, WorkflowPolicyEntry};
-use crate::report::{DefaultDispatcherFactory, Dispatcher, DispatcherFactory, GlobalMetadata};
+use crate::report::{DefaultDispatcherFactory, Dispatcher, DispatcherFactory};
+#[cfg(any(test, feature = "testing"))]
+use crate::step::Script;
 
 #[cfg(feature = "async")]
 mod asynchronous;
 #[cfg(test)]
 pub(crate) mod fixtures;
 mod refusal;
+mod started;
 
 #[cfg(feature = "async")]
 pub use asynchronous::AsyncLocalExecutor;
 pub use refusal::Refusal;
+pub(crate) use started::{Started, build_policies};
+
+use started::initial_global_metadata;
 
 /// Runs synchronous workflows in process, one journey at a time, with no persistence: a journey
 /// lives only as long as the call to [`run`](LocalExecutor::run).
@@ -86,6 +91,8 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
     /// included, is in the result. A panic is not caught: it reaches the caller, and the journey
     /// stops where it was.
     ///
+    /// [`GlobalMetadata::JOURNEY_ID`]: crate::report::GlobalMetadata::JOURNEY_ID
+    ///
     /// `run` takes the instance, so an instance runs one journey and cannot run again. It borrows
     /// the executor mutably, so an executor runs one journey at a time.
     ///
@@ -119,8 +126,33 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
     /// ```
     pub fn run<I: WorkflowInstance<Mode = Synchronous>>(
         &mut self,
-        mut instance: I,
+        instance: I,
     ) -> Result<JourneyResult, Refusal> {
+        let started = self.start(instance)?;
+        Ok(engine::finish(engine::run(
+            started,
+            std::time::SystemTime::now,
+        )))
+    }
+
+    /// Runs one journey of the instance as [`run`](Self::run) does, with each attempt the script
+    /// plays played instead of running its step.
+    #[cfg(any(test, feature = "testing"))]
+    pub(crate) fn run_scripted<I: WorkflowInstance<Mode = Synchronous>>(
+        &mut self,
+        instance: I,
+        script: Script,
+    ) -> Result<JourneyResult, Refusal> {
+        let started = self.start(instance)?;
+        Ok(engine::finish(engine::run_scripted(started, script)))
+    }
+
+    /// Prepares the instance's journey: builds the workflow's policies, creates the dispatcher
+    /// with the instance's reporters, and sets the initial global metadata.
+    fn start<I: WorkflowInstance<Mode = Synchronous>>(
+        &mut self,
+        mut instance: I,
+    ) -> Result<Started<I, Inline<F::Dispatcher>>, Refusal> {
         let metadata = initial_global_metadata(&mut instance)?;
         let policies = build_policies(&instance)?;
         let mut dispatcher = self.factory.create().map_err(Refusal::DispatcherFactory)?;
@@ -140,50 +172,12 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
             metadata,
         ))
         .map_err(Refusal::GlobalMetadata)?;
-        Ok(engine::finish(engine::run(
+        Ok(Started {
             instance,
             policies,
             delivery,
             failures,
-            std::time::SystemTime::now,
-        )))
-    }
-}
-
-/// Takes the instance's initial global metadata, unless it sets the journey ID's own key.
-pub(crate) fn initial_global_metadata<I: WorkflowInstance>(
-    instance: &mut I,
-) -> Result<GlobalMetadata, Refusal> {
-    let metadata = instance.take_global_metadata();
-    if metadata.sets_journey_id() {
-        return Err(Refusal::ReservedMetadataKey);
-    }
-    Ok(metadata)
-}
-
-/// Builds one instance of each of the instance's workflow policies, for its journey, in the order
-/// they were attached.
-pub(crate) fn build_policies<I: WorkflowInstance>(
-    instance: &I,
-) -> Result<WorkflowPolicies<I::Workflow, I::Mode>, Refusal> {
-    instance
-        .descriptor()
-        .policies()
-        .iter()
-        .map(Box::as_ref)
-        .map(build_policy)
-        .collect()
-}
-
-fn build_policy<W, M>(
-    policy: &dyn WorkflowPolicyEntry<W, M>,
-) -> Result<Box<dyn BuiltWorkflowPolicy<W, M>>, Refusal> {
-    match policy.build() {
-        Ok(built) => Ok(built),
-        Err(error) => Err(Refusal::WorkflowPolicy {
-            policy: policy.name(),
-            error,
-        }),
+        })
     }
 }
 

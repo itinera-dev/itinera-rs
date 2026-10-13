@@ -91,7 +91,7 @@ impl Contributed {
         self.contributions.iter().map(Contribution::key)
     }
 
-    fn add(&mut self, key: String, value: AnyValue) {
+    pub(crate) fn add(&mut self, key: String, value: AnyValue) {
         match self
             .contributions
             .iter_mut()

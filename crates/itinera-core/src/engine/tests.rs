@@ -8,7 +8,7 @@ use crate::engine::fixtures::{
     travel_workflow,
 };
 use crate::error::Error;
-use crate::event::Event;
+use crate::event::{Event, EventBody};
 use crate::executor::LocalExecutor;
 use crate::executor::fixtures::{Recorder, Shop, shop_builder};
 use crate::policy::{

@@ -5,17 +5,14 @@ use std::sync::Arc;
 
 use super::end::End;
 use super::inputs::Sources;
+use super::runner::{Attempt, Building};
 use super::{Delivery, Journey, LeftForRescue, Next};
 use crate::error::Error;
 use crate::event::{EventBody, JourneyAbort};
 use crate::instance::WorkflowInstance;
-use crate::journey::{Abort, Contributed, Contributor};
+use crate::journey::{Abort, Contributed};
 use crate::policy::{BuiltStepPolicy, StepHook, StepPolicyEntry};
-use crate::service::Instance;
-use crate::step::{
-    FromRescued, Got, Outcome, Reporting, StepAttempt, StepDescriptor, StepName, StepRequest,
-};
-use crate::value::AnyValue;
+use crate::step::{FromRescued, Outcome, StepAttempt, StepDescriptor, StepName, StepRequest};
 use policies::build_policies;
 
 mod policies;
@@ -94,42 +91,28 @@ impl<D: Delivery> Journey<D> {
         }
     }
 
-    /// Builds the step for its attempt, with what was resolved for it and the handles it
-    /// declares, and runs it.
+    /// Runs the attempt with the journey's runner: builds its step, with what was resolved for
+    /// it and the handles it declares, and runs it.
     async fn build_and_run<W, M>(
         &mut self,
         step: &StepDescriptor<W, M>,
         building: Building<'_>,
         contributions: &mut Contributed,
     ) -> Result<Result<Outcome, Error>, End> {
-        let needs = step.needs();
-        let contributor = if needs.wants_contributor() {
-            Some(Contributor::new(contributions))
-        } else {
-            None
+        let runner = Arc::clone(&self.runner);
+        let name = step.name();
+        let attempt = Attempt {
+            factory: step.factory(),
+            needs: step.needs(),
+            building,
+            contributions,
+            emitting: self,
         };
-        let reporting = if needs.wants_reporter() {
-            Some(Reporting::new(self, building.attempt.clone()))
-        } else {
-            None
-        };
-        let got = Got::new(building.inputs, building.rescued, contributor, reporting);
-        let got = got.lending(building.services);
-        match step.attempt(got) {
-            Ok(running) => Ok(running.await),
-            Err(error) => Err(could_not_build(step.name(), error)),
-        }
+        runner
+            .run(attempt)
+            .await
+            .map_err(|error| could_not_build(name, error))
     }
-}
-
-/// An attempt about to be built, with what was resolved for it: the step's inputs, in the order
-/// it declares them, absent ones as `None`, what a rescue step requested from the step it
-/// rescues, and the services lent to it.
-struct Building<'s> {
-    attempt: &'s StepAttempt,
-    inputs: Vec<(&'static str, Option<AnyValue>)>,
-    rescued: FromRescued,
-    services: Vec<(&'static str, &'s Instance)>,
 }
 
 /// A policy attached to a step, with its instance built for the attempt.

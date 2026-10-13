@@ -1,9 +1,12 @@
-use super::{Refusal, build_policies, initial_global_metadata};
+use super::started::initial_global_metadata;
+use super::{Refusal, Started, build_policies};
 use crate::engine::{self, Awaited, Failures};
 use crate::instance::WorkflowInstance;
 use crate::journey::JourneyResult;
 use crate::mode::Asynchronous;
 use crate::report::{AsyncDispatcher, AsyncDispatcherFactory, DefaultDispatcherFactory};
+#[cfg(any(test, feature = "testing"))]
+use crate::step::Script;
 
 /// Runs asynchronous workflows in process, one journey at a time, with no persistence: everything
 /// asynchronous is awaited, and synchronous reporters are called inline.
@@ -113,8 +116,30 @@ impl<F: AsyncDispatcherFactory> AsyncLocalExecutor<F> {
     /// ```
     pub async fn run<I: WorkflowInstance<Mode = Asynchronous>>(
         &mut self,
-        mut instance: I,
+        instance: I,
     ) -> Result<JourneyResult, Refusal> {
+        let started = self.start(instance).await?;
+        Ok(engine::run(started, std::time::SystemTime::now).await)
+    }
+
+    /// Runs one journey of the instance as [`run`](Self::run) does, with each attempt the script
+    /// plays played instead of running its step.
+    #[cfg(any(test, feature = "testing"))]
+    pub(crate) async fn run_scripted<I: WorkflowInstance<Mode = Asynchronous>>(
+        &mut self,
+        instance: I,
+        script: Script,
+    ) -> Result<JourneyResult, Refusal> {
+        let started = self.start(instance).await?;
+        Ok(engine::run_scripted(started, script).await)
+    }
+
+    /// Prepares the instance's journey: builds the workflow's policies, creates the dispatcher
+    /// with the instance's reporters, and sets the initial global metadata.
+    async fn start<I: WorkflowInstance<Mode = Asynchronous>>(
+        &mut self,
+        mut instance: I,
+    ) -> Result<Started<I, Awaited<F::Dispatcher>>, Refusal> {
         let metadata = initial_global_metadata(&mut instance)?;
         let policies = build_policies(&instance)?;
         let mut dispatcher = self
@@ -133,14 +158,12 @@ impl<F: AsyncDispatcherFactory> AsyncLocalExecutor<F> {
         engine::introduce(&mut delivery, &failures, instance.journey_id(), metadata)
             .await
             .map_err(Refusal::GlobalMetadata)?;
-        Ok(engine::run(
+        Ok(Started {
             instance,
             policies,
             delivery,
             failures,
-            std::time::SystemTime::now,
-        )
-        .await)
+        })
     }
 }
 

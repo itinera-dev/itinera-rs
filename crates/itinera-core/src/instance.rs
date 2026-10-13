@@ -11,11 +11,15 @@ mod committed;
 mod error;
 #[cfg(test)]
 mod fixtures;
+#[cfg(any(test, feature = "testing"))]
+mod scripted;
 mod workflow_instance;
 
 pub use builder::InstanceBuilder;
 pub use committed::Committed;
 pub use error::InstanceError;
+#[cfg(any(test, feature = "testing"))]
+pub use scripted::{Acting, AttemptScripting, Named, Opened, Scripted, StepScripting};
 pub use workflow_instance::WorkflowInstance;
 
 /// The workflow instance itinera makes, with [`WorkflowDescriptor::instance`].

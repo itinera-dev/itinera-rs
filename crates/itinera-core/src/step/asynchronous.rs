@@ -72,6 +72,11 @@ impl<F: AsyncStepFactory> Attempts for Asynchronously<F> {
         let step = self.factory.build(&mut Resolved::new(got))?;
         Ok(Box::pin(step.run()))
     }
+
+    #[cfg(any(test, feature = "testing"))]
+    fn build<'a>(&'a self, got: Got<'a>) -> Result<(), Error> {
+        self.factory.build(&mut Resolved::new(got)).map(drop)
+    }
 }
 
 impl<W> StepDescriptor<W, Asynchronous> {
