@@ -35,15 +35,15 @@ pub(in crate::workflow) fn check<W, M: Mode>(
 }
 
 fn duplicate_step_names<W, M>(steps: &[StepDescriptor<W, M>]) -> impl Iterator<Item = Violation> {
-    counted(steps.iter().flat_map(names))
-        .into_iter()
-        .filter(repeated)
-        .map(duplicate_step_name)
-}
-
-/// The step's name, then its rescue step's, if it has one.
-fn names<W, M>(step: &StepDescriptor<W, M>) -> impl Iterator<Item = StepName> {
-    std::iter::once(step.name()).chain(step.rescue_step().map(StepDescriptor::name))
+    counted(
+        steps
+            .iter()
+            .flat_map(StepDescriptor::with_rescue_step)
+            .map(StepDescriptor::name),
+    )
+    .into_iter()
+    .filter(repeated)
+    .map(duplicate_step_name)
 }
 
 fn duplicate_step_name((step, _): (StepName, usize)) -> Violation {

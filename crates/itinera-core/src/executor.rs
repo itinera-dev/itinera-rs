@@ -4,6 +4,8 @@
 use crate::engine::{self, Failures, Inline};
 use crate::instance::WorkflowInstance;
 use crate::journey::JourneyResult;
+#[cfg(any(test, feature = "testing"))]
+use crate::journey::ScriptedRun;
 use crate::mode::Synchronous;
 use crate::report::{DefaultDispatcherFactory, Dispatcher, DispatcherFactory};
 #[cfg(any(test, feature = "testing"))]
@@ -136,13 +138,14 @@ impl<F: DispatcherFactory> LocalExecutor<F> {
     }
 
     /// Runs one journey of the instance as [`run`](Self::run) does, with each attempt the script
-    /// plays played instead of running its step.
+    /// plays played instead of running its step, and gives back its result with what every
+    /// attempt's step was built with.
     #[cfg(any(test, feature = "testing"))]
     pub(crate) fn run_scripted<I: WorkflowInstance<Mode = Synchronous>>(
         &mut self,
         instance: I,
         script: Script,
-    ) -> Result<JourneyResult, Refusal> {
+    ) -> Result<ScriptedRun, Refusal> {
         let started = self.start(instance)?;
         Ok(engine::finish(engine::run_scripted(started, script)))
     }

@@ -29,6 +29,15 @@ impl Received {
         self.key == key
     }
 
+    /// The key with its value, present or absent, unless it was already taken.
+    #[cfg(any(test, feature = "testing"))]
+    fn untaken(&self) -> Option<(&'static str, Option<AnyValue>)> {
+        match &self.value {
+            Slot::Untaken(value) => Some((self.key, value.clone())),
+            Slot::Taken => None,
+        }
+    }
+
     /// Takes the value, present or absent, unless it was already taken.
     fn take(&mut self) -> Option<Option<AnyValue>> {
         match mem::replace(&mut self.value, Slot::Taken) {
@@ -55,6 +64,12 @@ impl Slots {
             .iter_mut()
             .find(|received| received.is(key))
             .and_then(Received::take)
+    }
+
+    /// Every value not taken yet, present or absent, with its key, in the order they were held.
+    #[cfg(any(test, feature = "testing"))]
+    pub(crate) fn untaken(&self) -> impl Iterator<Item = (&'static str, Option<AnyValue>)> {
+        self.received.iter().filter_map(Received::untaken)
     }
 }
 

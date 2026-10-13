@@ -316,6 +316,11 @@ impl<W, M> StepDescriptor<W, M> {
         self.rescue.as_deref()
     }
 
+    /// The step, then its rescue step, if it has one.
+    pub(crate) fn with_rescue_step(&self) -> impl Iterator<Item = &Self> {
+        std::iter::once(self).chain(self.rescue_step())
+    }
+
     /// Whether the step allows any retry.
     pub(crate) fn allows_retries(&self) -> bool {
         self.retry_budget > 0

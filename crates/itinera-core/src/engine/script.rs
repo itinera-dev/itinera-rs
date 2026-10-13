@@ -1,19 +1,98 @@
 //! The script's runner, in a test's scripted run: each attempt the script plays has its step
 //! built, then dropped unrun, and does what the script says instead. Every other attempt runs its
-//! step.
+//! step. Either way, it records what the step is built with.
 
-use super::runner::{Attempt, Ran, Runner, Steps, lend};
+use std::mem;
+use std::sync::{Arc, Mutex, PoisonError};
+
+use super::runner::{Attempt, Building, Ran, Runner, Steps, lend};
+use super::{Delivery, run_with};
 use crate::error::{Error, Interrupted};
-use crate::journey::Contributed;
-use crate::step::{Action, Outcome, Played, Reporting, Script};
+use crate::executor::Started;
+use crate::instance::WorkflowInstance;
+use crate::journey::{AttemptRecord, Contributed, ScriptedRun};
+use crate::step::{Action, Outcome, Played, Reporting, Script, StepDescriptor, StepName};
+use crate::value::AnyValue;
 
-impl Runner for Script {
+/// Runs the journey of the started instance as [`run`](super::run) does, with each attempt the
+/// script plays played instead of running its step, and records what every attempt handed to the
+/// construction of its step was given.
+pub(crate) async fn run_scripted<I: WorkflowInstance>(
+    started: Started<I, impl Delivery>,
+    script: Script,
+) -> ScriptedRun {
+    let names: Vec<StepName> = started
+        .instance
+        .descriptor()
+        .steps()
+        .iter()
+        .flat_map(StepDescriptor::with_rescue_step)
+        .map(StepDescriptor::name)
+        .collect();
+    let runner = Arc::new(ScriptRunner::new(script));
+    let result = run_with(
+        started,
+        std::time::SystemTime::now,
+        Arc::<ScriptRunner>::clone(&runner),
+    )
+    .await;
+    ScriptedRun::new(result, names, &runner.recorded())
+}
+
+/// Plays each attempt the script plays and hands every other to [`Steps`], recording what each
+/// attempt's step is built with, whether or not its construction succeeds.
+struct ScriptRunner {
+    script: Script,
+    /// A record of each attempt handed to it, in order.
+    recorded: Mutex<Vec<AttemptRecord>>,
+}
+
+impl ScriptRunner {
+    fn new(script: Script) -> Self {
+        Self {
+            script,
+            recorded: Mutex::default(),
+        }
+    }
+
+    /// The records of the attempts handed to it so far, which it no longer keeps.
+    fn recorded(&self) -> Vec<AttemptRecord> {
+        mem::take(&mut *self.recorded.lock().unwrap_or_else(PoisonError::into_inner))
+    }
+
+    fn record(&self, building: &Building<'_>) {
+        let record = AttemptRecord::new(building.attempt.clone(), built_with(building));
+        self.recorded
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(record);
+    }
+}
+
+impl Runner for ScriptRunner {
     fn run<'a>(&'a self, attempt: Attempt<'a>) -> Ran<'a> {
-        match self.played(attempt.building.attempt).cloned() {
+        self.record(&attempt.building);
+        match self.script.played(attempt.building.attempt).cloned() {
             None => Steps.run(attempt),
             Some(played) => Box::pin(play(attempt, played)),
         }
     }
+}
+
+/// The values the attempt's step is built with: its inputs that have one, then the contributions
+/// a rescue step requested from the failed attempt.
+fn built_with(building: &Building<'_>) -> Vec<(&'static str, AnyValue)> {
+    building
+        .inputs
+        .iter()
+        .cloned()
+        .chain(building.rescued.contributed.untaken())
+        .filter_map(present)
+        .collect()
+}
+
+fn present((key, value): (&'static str, Option<AnyValue>)) -> Option<(&'static str, AnyValue)> {
+    Some(key).zip(value)
 }
 
 /// Builds the attempt's step and drops it, then does what the script says the attempt does, in

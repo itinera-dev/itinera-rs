@@ -245,8 +245,7 @@ impl<I: WorkflowInstance<Mode = Synchronous>> Scripted<I, Synchronous> {
     /// ```
     pub fn run(self) -> Result<ScriptedRun, Refusal> {
         let (instance, script) = self.checked();
-        let result = LocalExecutor::new().run_scripted(instance, script)?;
-        Ok(ScriptedRun { result })
+        LocalExecutor::new().run_scripted(instance, script)
     }
 }
 
@@ -286,10 +285,9 @@ impl<I: WorkflowInstance<Mode = Asynchronous>> Scripted<I, Asynchronous> {
     /// ```
     pub async fn run(self) -> Result<ScriptedRun, Refusal> {
         let (instance, script) = self.checked();
-        let result = AsyncLocalExecutor::new()
+        AsyncLocalExecutor::new()
             .run_scripted(instance, script)
-            .await?;
-        Ok(ScriptedRun { result })
+            .await
     }
 }
 

@@ -12,7 +12,10 @@ pub(super) fn violations<W, M>(
     steps: &[StepDescriptor<W, M>],
     providers: &[Box<dyn ProviderEntry<W, M>>],
 ) -> Vec<Violation> {
-    let requesting: Vec<&StepDescriptor<W, M>> = steps.iter().flat_map(requesting).collect();
+    let requesting: Vec<&StepDescriptor<W, M>> = steps
+        .iter()
+        .flat_map(StepDescriptor::with_rescue_step)
+        .collect();
     requesting
         .iter()
         .copied()
@@ -23,12 +26,6 @@ pub(super) fn violations<W, M>(
                 .flat_map(|step| unserved_and_mistyped(step, providers)),
         )
         .collect()
-}
-
-/// The step, then its rescue step, if it has one: each may request services, and a provider
-/// serves each by its name.
-fn requesting<W, M>(step: &StepDescriptor<W, M>) -> impl Iterator<Item = &StepDescriptor<W, M>> {
-    std::iter::once(step).chain(step.rescue_step())
 }
 
 fn services_requested_twice<W, M>(step: &StepDescriptor<W, M>) -> impl Iterator<Item = Violation> {
