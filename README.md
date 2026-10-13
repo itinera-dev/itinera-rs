@@ -14,7 +14,7 @@ Applications depend on one crate, `itinera`. Its features are:
 |---|---|---|
 | `macros` | on | The macros for declaring steps, policies and workflows, which are syntax over the builder |
 | `async` | off | The asynchronous executor, and asynchronous steps, hooks, reporters and dispatchers |
-| `testing` | off | `RecordingReporter`, which keeps every event of a journey for a test to read, and recorders that lend a test the contributor and reporters a step or hook takes, with a data bag built from values for an input adapter, so that a test calls them directly; enable it under `[dev-dependencies]` |
+| `testing` | off | `RecordingReporter`, which keeps every event of a journey for a test to read; enable it under `[dev-dependencies]` |
 | `unstable` | off | API the specification has not settled yet, which may change or go; empty for now |
 
 `itinera` brings in `itinera-core`, which holds the implementation, and, with `macros`, `itinera-macros`. Neither needs to be added directly. The minimum supported Rust version is 1.85.

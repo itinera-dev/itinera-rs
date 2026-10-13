@@ -31,11 +31,8 @@
 //!   an application can write by hand.
 //! - `async`: the asynchronous executor, and asynchronous steps, hooks, reporters and
 //!   dispatchers.
-//! - `testing`: `report::RecordingReporter`, a reporter that keeps every event of a journey for
-//!   a test to read, and the recorders that lend a test the handles a step or hook takes, so that
-//!   it calls them directly: `journey::Contributions`, `step::StepEventReporter` and
-//!   `policy::HookEventReporter`, and `journey::DataBag::with` and `access` to build the data bag
-//!   an input adapter reads; enable it for tests only, under `[dev-dependencies]`.
+//! - `testing`: `report::RecordingReporter`, a reporter that keeps every event for a test to
+//!   read; enable it for tests only, under `[dev-dependencies]`.
 //! - `unstable`: API the specification has not settled yet; empty for now.
 
 #![forbid(unsafe_code)]
