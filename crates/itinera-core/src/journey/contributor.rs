@@ -44,11 +44,11 @@ use crate::value::{AnyValue, Value};
 /// ```
 #[derive(Debug)]
 pub struct Contributor<'a> {
-    contributions: &'a mut Contributions,
+    contributions: &'a mut Contributed,
 }
 
 impl<'a> Contributor<'a> {
-    pub(crate) fn new(contributions: &'a mut Contributions) -> Self {
+    pub(crate) fn new(contributions: &'a mut Contributed) -> Self {
         Self { contributions }
     }
 
@@ -72,17 +72,23 @@ impl<'a> Contributor<'a> {
 /// contributed.
 #[derive(Clone, Debug, Default, derive_more::IntoIterator)]
 #[into_iterator(owned, ref)]
-pub(crate) struct Contributions {
+pub(crate) struct Contributed {
     contributions: Vec<Contribution>,
 }
 
-impl Contributions {
+impl Contributed {
     /// The value contributed under the key, if any.
     pub(crate) fn get(&self, key: &str) -> Option<&AnyValue> {
         self.contributions
             .iter()
             .find(|contribution| contribution.is(key))
             .map(|contribution| &contribution.value)
+    }
+
+    /// The keys contributed, in the order they were first contributed.
+    #[cfg(any(test, feature = "testing"))]
+    pub(crate) fn keys(&self) -> impl Iterator<Item = &str> {
+        self.contributions.iter().map(Contribution::key)
     }
 
     fn add(&mut self, key: String, value: AnyValue) {
@@ -108,13 +114,18 @@ impl Contribution {
     fn is(&self, key: &str) -> bool {
         self.key == key
     }
+
+    #[cfg(any(test, feature = "testing"))]
+    fn key(&self) -> &str {
+        &self.key
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn keys_and_numbers(contributions: Contributions) -> Vec<(String, i64)> {
+    fn keys_and_numbers(contributions: Contributed) -> Vec<(String, i64)> {
         contributions.into_iter().map(key_and_number).collect()
     }
 
@@ -125,13 +136,14 @@ mod tests {
 
     #[test]
     fn a_key_contributed_twice_keeps_its_last_value_in_its_first_place() {
-        let mut contributions = Contributions::default();
+        let mut contributions = Contributed::default();
         let mut contributor = Contributor::new(&mut contributions);
 
         contributor.contribute("amount", 1_i64);
         contributor.contribute("fee", 2_i64);
         contributor.contribute("amount", 3_i64);
 
+        assert_eq!(contributions.keys().collect::<Vec<_>>(), ["amount", "fee"]);
         assert_eq!(
             keys_and_numbers(contributions),
             [("amount".to_string(), 3), ("fee".to_string(), 2)]
@@ -140,7 +152,7 @@ mod tests {
 
     #[test]
     fn a_value_is_captured_when_it_is_contributed() {
-        let mut contributions = Contributions::default();
+        let mut contributions = Contributed::default();
         let mut contributor = Contributor::new(&mut contributions);
         let mut tags = vec!["new".to_string()];
 

@@ -30,21 +30,21 @@ flowchart LR
 5. `itinera-conformance`, which is not published, depends on `itinera` and runs the conformance cases of [itinera-dev/conformance](https://github.com/itinera-dev/conformance) against it.
 6. `xtask`, which is not published either, runs every required check on the workspace with `cargo xtask check`.
 
-The features are `macros` (on by default), `async`, which adds the asynchronous executor and the asynchronous traits, and `unstable`, which holds API the specification has not settled yet.
+The features are `macros` (on by default), `async`, which adds the asynchronous executor and the asynchronous traits, `testing`, which adds `RecordingReporter` and the recorders that lend a test the handles of steps, hooks and input adapters, and `unstable`, which holds API the specification has not settled yet.
 
 `itinera-core` has one public module per concept, and one private module, `engine`:
 
 | Module | Holds |
 |---|---|
 | `value` | `AnyValue`, the type-erased value of the data bag, event data and reasons' details |
-| `journey` | The data bag, journey IDs, contributors, the result, failures and aborts |
-| `step` | Step names, needs and their tokens, factories, steps, outcomes, reasons, attempts, step reporters, rescue steps |
-| `policy` | Policy descriptors, the hook traits, hook needs, what a hook receives, lifecycles, roles |
+| `journey` | The data bag, journey IDs, contributors, the result, failures and aborts; with `testing`, `Contributions` |
+| `step` | Step names, needs and their tokens, factories, steps, outcomes, reasons, attempts, step reporters, rescue steps; with `testing`, `StepEventReporter` |
+| `policy` | Policy descriptors, the hook traits, hook needs, what a hook receives, hook reporters, lifecycles, roles; with `testing`, `HookEventReporter` |
 | `workflow` | Workflow descriptors, their builder, the `Workflow` trait, input adapters, violations, the listing |
 | `service` | Service tokens and service providers, of journey or attempt scope |
 | `instance` | The `WorkflowInstance` trait, `Instance` and its builder |
 | `executor` | `LocalExecutor`, `AsyncLocalExecutor` and refusals |
-| `event` | `Event`, its bodies, and who did or decided what |
+| `event` | `Event`, its bodies, who did or decided what, and the `Level` of the events steps and hooks emit; with `testing`, `Emitted` |
 | `report` | Reporters, dispatchers and their factories, `DefaultDispatcher`, `GlobalMetadata` |
 | `mode` | `Synchronous` and `Asynchronous` |
 | `error` | `Error` and `Interrupted` |
@@ -355,7 +355,9 @@ What each requester may ask for, and where it comes from:
 
 A request a requester may not make does not compile. Roles come from the workflow's own value through `Provides<dyn Role>`, so a role it does not provide does not compile either. Received data is each receiver's own copy, never a reference into the data bag, and a contributor or reporter cannot outlive its attempt or hook.
 
-Where it lives: `engine/inputs.rs`, `engine/request.rs`, `engine/services.rs`, `answer` in `engine/hooks.rs`, a hook's reason and error in `engine/hooks/step/left.rs`, `rescue_request` in `engine/rescue.rs`; what each requester may request in `policy/kind/`; the tokens and needs in `step/input.rs`, `step/needs.rs`, `policy/needs/` and `service/token.rs`.
+In a test, behind the `testing` feature, the handles can come from recorders instead of the engine: `Contributions` lends a contributor, `StepEventReporter` and `HookEventReporter` lend reporters, and a `DataBag` built from values lends read access. A test then calls `run`, a hook or an input adapter itself, with plain values for everything else, and reads back what was contributed and emitted. A reporter lent this way emits into its recorder through the same `Reporting` the engine's reporters use.
+
+Where it lives: `engine/inputs.rs`, `engine/request.rs`, `engine/services.rs`, `answer` in `engine/hooks.rs`, a hook's reason and error in `engine/hooks/step/left.rs`, `rescue_request` in `engine/rescue.rs`; what each requester may request in `policy/kind/`; the tokens and needs in `step/input.rs`, `step/needs.rs`, `policy/needs/` and `service/token.rs`; the recorders in `journey/contributions.rs`, `step/event_reporter.rs`, `policy/event_reporter.rs` and `event/emitted.rs`, and `DataBag::with` in `journey/data_bag.rs`.
 
 ### Outcomes
 

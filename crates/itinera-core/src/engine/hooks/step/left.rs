@@ -4,7 +4,7 @@ use crate::engine::decision::Failed;
 use crate::engine::end::End;
 use crate::error::Error;
 use crate::event::{self, JourneyAbort};
-use crate::journey::{Abort, Contributions, FailureRequester, MissingData};
+use crate::journey::{Abort, Contributed, FailureRequester, MissingData};
 use crate::policy::{PolicyName, StepHook};
 use crate::step::{Reason, Requirement, StepName};
 use crate::value::AnyValue;
@@ -15,7 +15,7 @@ pub(crate) struct Left<'s> {
     pub(super) hook: StepHook,
     pub(super) step: StepName,
     /// What the attempt contributed, committed or not.
-    pub(super) contributed: &'s Contributions,
+    pub(super) contributed: &'s Contributed,
     /// How the attempt failed, if it did.
     pub(super) failed: Option<&'s Failed>,
 }

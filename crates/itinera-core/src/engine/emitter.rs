@@ -83,16 +83,16 @@ impl<D: Dispatcher> Delivery for Inline<D> {
 }
 
 /// An event a step or hook emitted, delivered once awaited.
-pub(crate) type Emitted<'a> = Pin<Box<dyn Future<Output = Result<(), Interrupted>> + Send + 'a>>;
+pub(crate) type Relayed<'a> = Pin<Box<dyn Future<Output = Result<(), Interrupted>> + Send + 'a>>;
 
 /// The journey, as the handles of steps and hooks emit through it.
 pub(crate) trait Emitting: Send {
     /// Delivers an event a step or hook emitted, unless a reporter failed while it ran.
-    fn relay(&mut self, body: EventBody) -> Emitted<'_>;
+    fn relay(&mut self, body: EventBody) -> Relayed<'_>;
 
     /// Sets an entry of global metadata for a step or hook, unless a reporter failed while it
     /// ran.
-    fn set_global_metadata(&mut self, source: Source, key: String, value: AnyValue) -> Emitted<'_>;
+    fn set_global_metadata(&mut self, source: Source, key: String, value: AnyValue) -> Relayed<'_>;
 }
 
 impl<D: Delivery> Journey<D> {
@@ -141,11 +141,11 @@ impl<D: Delivery> Journey<D> {
 }
 
 impl<D: Delivery> Emitting for Journey<D> {
-    fn relay(&mut self, body: EventBody) -> Emitted<'_> {
+    fn relay(&mut self, body: EventBody) -> Relayed<'_> {
         Box::pin(self.relay_interruptibly(body))
     }
 
-    fn set_global_metadata(&mut self, source: Source, key: String, value: AnyValue) -> Emitted<'_> {
+    fn set_global_metadata(&mut self, source: Source, key: String, value: AnyValue) -> Relayed<'_> {
         Box::pin(self.set_interruptibly(source, key, value))
     }
 }

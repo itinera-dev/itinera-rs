@@ -9,6 +9,8 @@ mod asynchronous;
 mod attempt;
 mod described;
 mod descriptor;
+#[cfg(any(test, feature = "testing"))]
+mod event_reporter;
 mod factory;
 mod from_inputs;
 mod input;
@@ -27,6 +29,8 @@ pub use asynchronous::{AsyncStep, AsyncStepFactory, AsyncStepReporter};
 pub use attempt::StepAttempt;
 pub use described::DescribedStep;
 pub use descriptor::StepDescriptor;
+#[cfg(any(test, feature = "testing"))]
+pub use event_reporter::StepEventReporter;
 pub use factory::StepFactory;
 use factory::{Attempts, Running};
 pub use from_inputs::FromInputs;
@@ -41,7 +45,7 @@ pub use outcome::Outcome;
 pub(crate) use outcome::OutcomeKind;
 pub use reason::Reason;
 pub use reporter::StepReporter;
-pub(crate) use reporting::{Level, Reporting};
+pub(crate) use reporting::Reporting;
 #[cfg(feature = "async")]
 pub use rescue::{AsyncRescueFactory, AsyncRescueStep};
 pub use rescue::{

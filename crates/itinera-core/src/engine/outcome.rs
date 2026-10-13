@@ -9,7 +9,7 @@ use super::{Delivery, Journey, Next};
 use crate::error::Error;
 use crate::event::{EventBody, GiveUpHook, Source};
 use crate::instance::{Committed, WorkflowInstance};
-use crate::journey::{Contribution, Contributions};
+use crate::journey::{Contributed, Contribution};
 use crate::policy::{OnSuccess, StepHook};
 use crate::step::OutcomeKind;
 
@@ -76,7 +76,7 @@ impl<D: Delivery> Journey<D> {
         &mut self,
         instance: &mut I,
         source: Source,
-        contributions: &Contributions,
+        contributions: &Contributed,
     ) -> Result<(), End> {
         for Contribution { key, value } in contributions {
             let committed = instance.commit(key.clone(), value.clone());

@@ -6,6 +6,8 @@ use crate::step::Reason;
 
 mod abort;
 mod access;
+#[cfg(any(test, feature = "testing"))]
+mod contributions;
 mod contributor;
 mod data_bag;
 mod failure;
@@ -17,8 +19,10 @@ mod result;
 
 pub use abort::{Abort, FailureRequester, MetadataSetter, MissingData, Requester};
 pub use access::{DataBagAccess, Read};
+#[cfg(any(test, feature = "testing"))]
+pub use contributions::Contributions;
 pub use contributor::Contributor;
-pub(crate) use contributor::{Contribution, Contributions};
+pub(crate) use contributor::{Contributed, Contribution};
 pub use data_bag::DataBag;
 pub use failure::Failure;
 pub use initial_data::InitialData;

@@ -9,7 +9,7 @@ use super::{Delivery, Journey, LeftForRescue, Next};
 use crate::error::Error;
 use crate::event::{EventBody, JourneyAbort};
 use crate::instance::WorkflowInstance;
-use crate::journey::{Abort, Contributions, Contributor};
+use crate::journey::{Abort, Contributed, Contributor};
 use crate::policy::{BuiltStepPolicy, StepHook, StepPolicyEntry};
 use crate::service::Instance;
 use crate::step::{
@@ -26,7 +26,7 @@ pub(super) struct Attempting<'s, W, M> {
     pub(super) step: &'s StepDescriptor<W, M>,
     pub(super) attempt: StepAttempt,
     policies: Vec<Box<dyn BuiltStepPolicy<W, M>>>,
-    pub(super) contributed: Contributions,
+    pub(super) contributed: Contributed,
 }
 
 impl<D: Delivery> Journey<D> {
@@ -64,7 +64,7 @@ impl<D: Delivery> Journey<D> {
                 }
             }
         }
-        let mut contributed = Contributions::default();
+        let mut contributed = Contributed::default();
         let ran = {
             let kept = Arc::clone(&self.kept);
             let provided = self
@@ -100,7 +100,7 @@ impl<D: Delivery> Journey<D> {
         &mut self,
         step: &StepDescriptor<W, M>,
         building: Building<'_>,
-        contributions: &mut Contributions,
+        contributions: &mut Contributed,
     ) -> Result<Result<Outcome, Error>, End> {
         let needs = step.needs();
         let contributor = if needs.wants_contributor() {
@@ -152,10 +152,10 @@ impl<W, M> Attempting<'_, W, M> {
 }
 
 /// What an attempt that ended this way contributed: nothing, after an abnormal termination.
-fn kept(ran: &Result<Outcome, Error>, contributed: Contributions) -> Contributions {
+fn kept(ran: &Result<Outcome, Error>, contributed: Contributed) -> Contributed {
     match ran {
         Ok(_) => contributed,
-        Err(_) => Contributions::default(),
+        Err(_) => Contributed::default(),
     }
 }
 

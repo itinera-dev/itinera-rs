@@ -3,7 +3,8 @@
 use std::future::Future;
 
 use crate::error::Interrupted;
-use crate::step::{Level, Reporting};
+use crate::event::Level;
+use crate::step::Reporting;
 use crate::value::{AnyValue, Value};
 
 /// An asynchronous step's means of emitting its own events, `step_info`, `step_warning` and

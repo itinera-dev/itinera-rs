@@ -8,7 +8,8 @@ use crate::value::{AnyValue, Value};
 /// The data of one journey: a map from string keys to values.
 ///
 /// It starts with the instance's initial data. At the end of a journey that succeeded or failed,
-/// the result carries it as the journey's output. Its keys are listed in order.
+/// the result carries it as the journey's output. Its keys are listed in order. With the `testing`
+/// feature it implements `Default`, so that a test builds one with `with`.
 ///
 /// # Examples
 ///
@@ -29,6 +30,7 @@ use crate::value::{AnyValue, Value};
 /// }
 /// ```
 #[derive(Clone, Debug, derive_more::IntoIterator)]
+#[cfg_attr(any(test, feature = "testing"), derive(Default))]
 #[into_iterator(owned, ref)]
 pub struct DataBag {
     values: BTreeMap<String, AnyValue>,
@@ -44,6 +46,41 @@ impl DataBag {
     /// Puts a value under a key, and returns the value it replaced, if any.
     pub(crate) fn insert(&mut self, key: String, value: AnyValue) -> Option<AnyValue> {
         self.values.insert(key, value)
+    }
+
+    /// The data bag with a value put under a key, replacing what it held there, for a test to
+    /// build the data bag an input adapter reads. It is available with the `testing` feature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::journey::DataBag;
+    ///
+    /// let data = DataBag::default().with("quantity", 3_i64).with("coupon", "SPRING".to_string());
+    /// assert_eq!(data.keys().collect::<Vec<_>>(), ["coupon", "quantity"]);
+    /// ```
+    #[cfg(any(test, feature = "testing"))]
+    #[must_use]
+    pub fn with<T: Value>(mut self, key: impl Into<String>, value: T) -> Self {
+        self.insert(key.into(), AnyValue::new(value));
+        self
+    }
+
+    /// Lends read access to the data bag, for a test to pass to an input adapter. It is
+    /// available with the `testing` feature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::journey::{DataBag, Read};
+    ///
+    /// let data = DataBag::default().with("quantity", 3_i64);
+    /// assert_eq!(data.access().read::<i64>("quantity"), Read::Present(3));
+    /// ```
+    #[cfg(any(test, feature = "testing"))]
+    #[must_use]
+    pub fn access(&self) -> super::DataBagAccess<'_> {
+        super::DataBagAccess::new(self)
     }
 
     /// The value under a key, if there is one.
@@ -82,7 +119,7 @@ impl DataBag {
 
     /// What the data bag holds under a key, read as a value of this type.
     pub(crate) fn read<T: Value>(&self, key: &str) -> Read<T> {
-        self.get(key).map_or(Read::Absent, as_read)
+        Read::of(self.get(key))
     }
 
     /// The value under a key, which an output requires.
@@ -134,13 +171,6 @@ impl DataBag {
     }
 }
 
-fn as_read<T: Value>(value: &AnyValue) -> Read<T> {
-    value
-        .downcast_ref::<T>()
-        .cloned()
-        .map_or(Read::OtherType, Read::Present)
-}
-
 fn wrong_type<T>(key: &str) -> OutputError {
     OutputError::WrongType {
         key: key.to_owned(),
@@ -175,14 +205,6 @@ mod tests {
     fn a_data_bag_iterates_over_its_keys_and_values() {
         let keys: Vec<String> = bag().into_iter().map(|(key, _)| key).collect();
         assert_eq!(keys, ["amount", "customer"]);
-    }
-
-    #[rstest]
-    #[case::a_value_of_the_type_asked_for("amount", Read::Present(42))]
-    #[case::a_key_the_data_bag_does_not_hold("discount", Read::Absent)]
-    #[case::a_value_of_another_type("customer", Read::OtherType)]
-    fn a_read_reports_what_the_data_bag_holds(#[case] key: &str, #[case] expected: Read<i64>) {
-        assert_eq!(bag().read::<i64>(key), expected);
     }
 
     #[rstest]

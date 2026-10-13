@@ -1,6 +1,7 @@
-use super::{Level, Reporting};
+use super::Reporting;
 use crate::engine::finish;
 use crate::error::Interrupted;
+use crate::event::Level;
 use crate::value::{AnyValue, Value};
 
 /// A step's means of emitting its own events, `step_info`, `step_warning` and `step_error`, each

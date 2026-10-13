@@ -5,6 +5,8 @@
 mod asynchronous;
 mod described;
 mod descriptor;
+#[cfg(any(test, feature = "testing"))]
+mod event_reporter;
 #[cfg(test)]
 pub(crate) mod fixtures;
 mod hook;
@@ -24,6 +26,8 @@ pub(crate) use descriptor::{
     BuiltStepPolicy, BuiltWorkflowPolicy, Call, HookCall, StepPolicyEntry, WorkflowPolicyEntry,
 };
 pub use descriptor::{Hooked, Hookless, StepPolicyDescriptor, WorkflowPolicyDescriptor};
+#[cfg(any(test, feature = "testing"))]
+pub use event_reporter::HookEventReporter;
 pub use hook::{
     OnStepAbnormalTermination, OnStepFailure, OnStepRetry, OnStepSuccess, OnWorkflowFailure,
     OnWorkflowSuccess,
