@@ -8,8 +8,6 @@ use crate::executor::Started;
 use crate::instance::WorkflowInstance;
 use crate::journey::{JourneyResult, JourneyStatus};
 use crate::policy::PolicyName;
-#[cfg(any(test, feature = "testing"))]
-use crate::step::Script;
 use crate::step::{StepDescriptor, StepName};
 
 #[cfg(feature = "async")]
@@ -40,6 +38,8 @@ pub(crate) use emitter::{Clock, Emitting, Inline, Relayed};
 pub(crate) use guard::Failures;
 pub(crate) use hooks::WorkflowPolicies;
 pub(crate) use metadata::introduce;
+#[cfg(any(test, feature = "testing"))]
+pub(crate) use script::run_scripted;
 
 use emitter::{Delivery, Emitter};
 use end::{Aborted, End};
@@ -54,16 +54,6 @@ pub(crate) async fn run<I: WorkflowInstance>(
     clock: Clock,
 ) -> JourneyResult {
     run_with(started, clock, Arc::new(Steps)).await
-}
-
-/// Runs the journey of the started instance as [`run`] does, with each attempt the script plays
-/// played instead of running its step.
-#[cfg(any(test, feature = "testing"))]
-pub(crate) async fn run_scripted<I: WorkflowInstance>(
-    started: Started<I, impl Delivery>,
-    script: Script,
-) -> JourneyResult {
-    run_with(started, std::time::SystemTime::now, Arc::new(script)).await
 }
 
 async fn run_with<I: WorkflowInstance>(

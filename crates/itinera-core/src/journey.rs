@@ -33,7 +33,7 @@ pub use itinera_macros::{InitialData, Output};
 pub use output::{Output, OutputError};
 pub use result::{JourneyResult, JourneyStatus, StatusKind};
 #[cfg(any(test, feature = "testing"))]
-pub use scripted_run::ScriptedRun;
+pub use scripted_run::{AttemptRecord, ScriptedRun, StepRecord};
 
 /// The identifier of one journey, unique to it. It is made when the journey's instance is
 /// created, and cheap to clone.

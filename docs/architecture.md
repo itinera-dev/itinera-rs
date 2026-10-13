@@ -37,7 +37,7 @@ The features are `macros` (on by default), `async`, which adds the asynchronous 
 | Module | Holds |
 |---|---|
 | `value` | `AnyValue`, the type-erased value of the data bag, event data and reasons' details |
-| `journey` | The data bag, journey IDs, contributors, the result, failures and aborts; with `testing`, `Contributions` and `ScriptedRun` |
+| `journey` | The data bag, journey IDs, contributors, the result, failures and aborts; with `testing`, `Contributions`, and `ScriptedRun` with its records of steps and attempts |
 | `step` | Step names, needs and their tokens, factories, steps, outcomes, reasons, attempts, step reporters, rescue steps; with `testing`, `StepEventReporter` |
 | `policy` | Policy descriptors, the hook traits, hook needs, what a hook receives, hook reporters, lifecycles, roles; with `testing`, `HookEventReporter` |
 | `workflow` | Workflow descriptors, their builder, the `Workflow` trait, input adapters, violations, the listing |
@@ -310,15 +310,16 @@ Where it lives: `engine/attempt.rs`, `engine/attempt/policies.rs`, `engine/input
 
 #### A scripted attempt
 
-Behind the `testing` feature, a test runs an instance with a script, written with `instance.scripted()`, which says what some attempts do instead of running their steps. Nothing changes in the executor: the scripted run prepares the journey as `run` does, through the same crate-private start, and hands the engine the script, which is the journey's runner instead of the one that builds and runs each step.
+Behind the `testing` feature, a test runs an instance with a script, written with `instance.scripted()`, which says what some attempts do instead of running their steps. Nothing changes in the executor: the scripted run prepares the journey as `run` does, through the same crate-private start, and hands the engine the script's runner, which holds the script and records each attempt, instead of the runner that builds and runs each step.
 
 1. While the script is written, a contribution, emit or entry of global metadata for a step that declares no contributor or reporter panics, since the real step could not do it. Before the journey, the script is checked: each scripted step covers every attempt it can have, the rescue step of a scripted step that can fail on attempt 1 is scripted, and, when the test asks for it, every step is scripted. A script that leaves anything out panics, listing it.
 2. An attempt the script plays goes through steps 1 to 4 above as any other: its policies, its requests and its services.
 3. The script's runner has the factory build the step and drops it without running it, so a missing input, a failing provider or a failing constructor aborts the journey as it would otherwise.
 4. The runner then plays the script: each contribution goes to the attempt's contributions, and each emit and entry of global metadata goes through the same `Reporting` a step's reporter uses, so a reporter failure interrupts the script and aborts the journey. The script's ending stands for the step's outcome, or its error.
 5. From there, the attempt goes on to step 7 above. An attempt the script does not play, an unscripted step's or one scripted to run for real, is handed to the runner that builds and runs the step.
+6. Whichever it does, the script's runner first records what the attempt's step is built with: its inputs that have a value and, for a rescue step, the contributions it requested from the failed attempt. When the journey is over, the scripted run gives back the journey's result with a record of every step and rescue step of the workflow, holding the attempts handed to the runner, in order. An attempt that ended before it reached the runner, such as one whose required input was missing or whose service provider failed, is not in it; one whose step's constructor failed is.
 
-Where it lives: the builder and its checks in `instance/scripted.rs` and `instance/scripted/`, the engine's script in `step/script.rs`, the script's runner in `engine/script.rs`, and `ScriptedRun` in `journey/scripted_run.rs`.
+Where it lives: the builder and its checks in `instance/scripted.rs` and `instance/scripted/`, the engine's script in `step/script.rs`, the script's runner in `engine/script.rs`, and `ScriptedRun` with its records in `journey/scripted_run.rs` and `journey/scripted_run/`.
 
 ### Parameter injection
 
