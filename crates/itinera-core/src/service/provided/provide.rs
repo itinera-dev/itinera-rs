@@ -9,6 +9,7 @@
 /// a provider: Rust turns a box of the instance into a box of a trait object only there. A
 /// `Provided` bound by `let` names its type, as in `let made: Provided<dyn PaymentGateway>`.
 ///
+/// [`Provided`]: crate::service::Provided
 /// [`Value`]: crate::value::Value
 ///
 /// # Examples

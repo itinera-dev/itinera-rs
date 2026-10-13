@@ -32,7 +32,9 @@ use std::any;
     Clone, Copy, Debug, PartialEq, Eq, derive_more::Display, derive_more::Into, derive_more::AsRef,
 )]
 #[as_ref(forward)]
-pub struct Implementation(&'static str);
+pub struct Implementation {
+    name: &'static str,
+}
 
 impl Implementation {
     /// What [`provide!`] expands to: the implementation that `value` is, by the name of its type.
@@ -52,12 +54,16 @@ impl Implementation {
     /// ```
     #[doc(hidden)]
     pub fn __of<V>(value: &V) -> Self {
-        Self(any::type_name_of_val(value))
+        Self {
+            name: any::type_name_of_val(value),
+        }
     }
 
     /// The implementation named by the type `T`.
     pub(crate) fn of_type<T: ?Sized>() -> Self {
-        Self(any::type_name::<T>())
+        Self {
+            name: any::type_name::<T>(),
+        }
     }
 }
 
