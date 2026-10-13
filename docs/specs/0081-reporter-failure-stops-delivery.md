@@ -24,7 +24,9 @@ Status: done in stage 7. Stage 1 made the default dispatcher follow the rule, an
 ## Tests
 
 - Unit tests in `itinera-core/src/report.rs`: delivery of an event stops at the reporter that failed, and a failure while `journey_aborted` is delivered does not stop its delivery, for both the synchronous and the asynchronous dispatcher.
-- Unit tests in `itinera-core/src/executor.rs`: a reporter that fails aborts the journey and only `journey_aborted` reaches the others; it does so whatever the dispatcher, even one that ignores errors; a reporter that fails on the last decision still aborts the journey; a failure while `journey_aborted` is delivered is ignored; a dispatcher that fails while dispatching aborts the journey, and one that fails while `journey_aborted` is delivered is ignored; `journey_aborted` reaches every reporter but the one that failed, even through a dispatcher that stops at the first error; `journey_aborted` names the step during which a reporter failed. In `executor/asynchronous.rs`: an asynchronous reporter that fails aborts the journey, and only `journey_aborted` reaches the others.
+- Unit tests in `itinera-core/src/engine/guard/tests.rs`: a reporter that fails aborts the journey and only `journey_aborted` reaches the others, whatever the dispatcher, even one that ignores errors or one that stops at the first error; a failure while `journey_aborted` is delivered is ignored.
+- Unit tests in `itinera-core/src/engine/emitter/tests.rs`: a reporter that fails on the last decision still aborts the journey; a dispatcher that fails while dispatching aborts the journey, and one that fails while `journey_aborted` is delivered is ignored; `journey_aborted` names the step during which a reporter failed.
+- Unit tests in `itinera-core/src/engine/asynchronous.rs`: an asynchronous reporter that fails aborts the journey, and only `journey_aborted` reaches the others.
 - Unit tests in `itinera-core/src/engine.rs` and `engine/hooks.rs`: `a_reporter_failing_on_a_step_event_aborts_the_journey_whatever_the_step_does_next` and `a_reporter_failing_on_a_hooks_event_aborts_the_journey_whatever_the_hook_does_next`.
 
 ## Done when

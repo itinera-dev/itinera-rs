@@ -1,6 +1,6 @@
 # 0008: Steps
 
-Tech spec for [proposal 0008](https://github.com/itinera-dev/spec/blob/main/proposals/0008-steps.md), implemented in [#10](https://github.com/itinera-dev/itinera-rs/issues/10). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposals 0024, 0056, 0057, 0064 and 0083 amend it, and their tech specs cover what they change.
+Tech spec for [proposal 0008](https://github.com/itinera-dev/spec/blob/main/proposals/0008-steps.md), implemented in [#10](https://github.com/itinera-dev/itinera-rs/issues/10). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposals 0024, 0056, 0057, 0064 and 0083 amend it, and their tech specs cover what they change. Proposal [0102](0102-global-metadata.md) amends it too, and its tech spec covers how a step sets global metadata through its reporter.
 
 Status: done in stage 7. Stage 5 built a new step for every attempt from its factory, with the inputs and handles it declares, and acted on its outcome and contributions. Stage 6 added retries, skips and abnormal terminations to the scan. Stage 7 added the hooks that receive an attempt's reason, cause, error and contributions.
 

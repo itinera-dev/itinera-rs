@@ -95,6 +95,11 @@ impl ScriptedPolicy {
             }
             Action::Emit(level, message) => reporter.emit(*level, message.clone()).await?,
             Action::CallRole { role, operation } => roles.call(role, operation)?,
+            Action::SetGlobalMetadata(key, value) => {
+                reporter
+                    .set_global_metadata(key.clone(), value.clone())
+                    .await?;
+            }
         }
         Ok(())
     }

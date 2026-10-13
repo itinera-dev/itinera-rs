@@ -7,6 +7,7 @@ use itinera::report::{
     AsyncDispatcher, AsyncDispatcherFactory, BoxedReporter, DefaultDispatcher, Dispatcher,
     DispatcherFactory, Reporter,
 };
+use itinera::value::AnyValue;
 
 use super::Recorder;
 use crate::model::Holding;
@@ -101,6 +102,10 @@ impl Dispatcher for RecordingDispatcher<DefaultDispatcher> {
         self.refuses(event)?;
         self.delivery.dispatch(event)
     }
+
+    fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        self.delivery.set_global_metadata(key, value)
+    }
 }
 
 impl AsyncDispatcher for RecordingDispatcher<DefaultDispatcher<BoxedReporter>> {
@@ -114,6 +119,10 @@ impl AsyncDispatcher for RecordingDispatcher<DefaultDispatcher<BoxedReporter>> {
     async fn dispatch(&mut self, event: &Event) -> Result<(), Error> {
         self.refuses(event)?;
         self.delivery.dispatch(event).await
+    }
+
+    async fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        self.delivery.set_global_metadata(key, value).await
     }
 }
 

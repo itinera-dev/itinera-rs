@@ -5,7 +5,7 @@ use itinera::event::Event;
 use super::ModelError;
 
 /// The kinds of event of the catalogue, by the names the cases use.
-const EVENT_KINDS: [&str; 28] = [
+const EVENT_KINDS: [&str; 29] = [
     "journey_started",
     "attempt_started",
     "input_adapter_supplied",
@@ -34,6 +34,7 @@ const EVENT_KINDS: [&str; 28] = [
     "journey_info",
     "journey_warning",
     "journey_error",
+    "global_metadata_set",
 ];
 
 /// The name of a kind of event of the catalogue, as `Event::kind` returns it.
@@ -74,6 +75,8 @@ pub(crate) enum ReporterFailure {
     First,
     /// Whenever it receives an event of this kind, with this message when one is given.
     On(EventKind, Option<String>),
+    /// Whenever it receives an entry of global metadata under this key.
+    OnGlobalMetadata(String),
 }
 
 /// The dispatchers the executor gets, which hold the reporter the runner records with.

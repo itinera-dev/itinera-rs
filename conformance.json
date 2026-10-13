@@ -1,6 +1,6 @@
 {
-  "cases": "v0.1.0-rc.11",
-  "proposals": [2, 3, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85, 91, 95, 98],
+  "cases": "v0.1.0-rc.12",
+  "proposals": [2, 3, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85, 91, 95, 98, 102],
   "capabilities": ["sync", "async"],
   "impossible": {
     "invalid-lifecycle": [
@@ -68,6 +68,16 @@
         "feature": "cases/tier-1/0095-services-provided-to-steps/failures.feature",
         "scenario": "A provider's event data that is not a value aborts the journey, and the event is not delivered",
         "proof": { "test": "a_providers_event_cannot_carry_a_non_value", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0102-global-metadata/failures.feature",
+        "scenario": "A step's entry that is not a value aborts the journey with \"not a value\" and reaches no reporter",
+        "proof": { "test": "a_step_cannot_set_a_non_value_as_global_metadata", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0102-global-metadata/failures.feature",
+        "scenario": "Initial global metadata that is not a value is refused by run",
+        "proof": { "test": "initial_global_metadata_cannot_hold_a_non_value", "file": "crates/itinera/tests/proofs.rs" }
       }
     ],
     "mode-not-accepted": [

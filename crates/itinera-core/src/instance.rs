@@ -2,18 +2,21 @@
 
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::{Mode, Synchronous};
+use crate::report::GlobalMetadata;
 use crate::value::AnyValue;
 use crate::workflow::WorkflowDescriptor;
 
 mod builder;
+mod committed;
 mod error;
 #[cfg(test)]
 mod fixtures;
 mod workflow_instance;
 
 pub use builder::InstanceBuilder;
+pub use committed::Committed;
 pub use error::InstanceError;
-pub use workflow_instance::{Committed, WorkflowInstance};
+pub use workflow_instance::WorkflowInstance;
 
 /// The workflow instance itinera makes, with [`WorkflowDescriptor::instance`].
 ///
@@ -39,6 +42,7 @@ pub struct Instance<W, M: Mode = Synchronous> {
     #[debug("{}", reporters.len())]
     reporters: Vec<M::Reporter>,
     data: DataBag,
+    global_metadata: GlobalMetadata,
 }
 
 impl<W: Send + Sync + 'static, M: Mode> WorkflowInstance for Instance<W, M> {
@@ -59,6 +63,10 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowInstance for Instance<W, M> {
 
     fn take_reporters(&mut self) -> Vec<M::Reporter> {
         std::mem::take(&mut self.reporters)
+    }
+
+    fn take_global_metadata(&mut self) -> GlobalMetadata {
+        std::mem::take(&mut self.global_metadata)
     }
 
     fn data_bag(&self) -> &DataBag {
@@ -83,6 +91,25 @@ mod tests {
     use crate::instance::fixtures::{Audit, Orders, orders};
 
     #[test]
+    fn an_instance_hands_its_initial_global_metadata_over_once() {
+        let orders = orders().build().unwrap();
+        let mut instance = orders
+            .instance(Orders::new())
+            .global_metadata("tenant", "acme".to_string())
+            .create()
+            .unwrap();
+
+        let tenant = instance.take_global_metadata();
+        assert_eq!(
+            tenant
+                .get("tenant")
+                .and_then(AnyValue::downcast_ref::<String>),
+            Some(&"acme".to_string())
+        );
+        assert!(instance.take_global_metadata().get("tenant").is_none());
+    }
+
+    #[test]
     fn the_instance_holds_the_workflows_value_and_its_initial_data() {
         let orders = orders().build().unwrap();
         let instance = orders
@@ -103,7 +130,8 @@ mod tests {
     }
 
     #[test]
-    fn an_instance_shows_its_journey_its_data_and_how_many_reporters_it_has_but_not_its_workflow() {
+    fn an_instance_shows_its_journey_its_data_its_global_metadata_and_how_many_reporters_it_has_but_not_its_workflow()
+     {
         let workflow = orders()
             .reporter::<Audit>()
             .id_generator(|_: &Orders, _| Ok("order-7".to_string()))
@@ -121,7 +149,8 @@ mod tests {
              name: WorkflowName(\"orders\"), steps: [], policies: [], adapters: [], \
              providers: [], reporters: 1, id_generator: true } }, \
              journey_id: JourneyId(\"order-7\"), reporters: 1, \
-             data: DataBag { values: {\"amount\": AnyValue(\"i64\")} }, .. }"
+             data: DataBag { values: {\"amount\": AnyValue(\"i64\")} }, \
+             global_metadata: GlobalMetadata { entries: [] }, .. }"
         );
     }
 }

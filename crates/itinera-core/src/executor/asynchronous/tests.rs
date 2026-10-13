@@ -12,6 +12,7 @@ use crate::policy::{PolicyName, WorkflowPolicyDescriptor};
 use crate::report::fixtures::entries;
 use crate::report::{BoxedReporter, DefaultDispatcher};
 use crate::step::{Outcome, StepDescriptor, StepName};
+use crate::value::AnyValue;
 use crate::workflow::WorkflowDescriptor;
 
 fn assert_send<T: Send>(value: T) -> T {
@@ -29,6 +30,9 @@ fn an_asynchronous_workflow_emits_its_events_in_order_to_both_kinds_of_reporter(
     assert_eq!(
         entries(&log),
         [
+            "audit journey_id",
+            "fragile journey_id",
+            "metrics journey_id",
             "audit journey_started",
             "fragile journey_started",
             "metrics journey_started",
@@ -40,7 +44,7 @@ fn an_asynchronous_workflow_emits_its_events_in_order_to_both_kinds_of_reporter(
             "metrics step_succeeded",
             "audit journey_succeeded",
             "fragile journey_succeeded",
-            "metrics journey_succeeded",
+            "metrics journey_succeeded"
         ]
     );
 }
@@ -70,7 +74,7 @@ fn an_asynchronous_workflow_may_have_only_synchronous_reporters() {
 
     assert_eq!(result.journey_id.to_string(), "order-7");
     assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
-    assert_eq!(entries(&log).len(), 8);
+    assert_eq!(entries(&log).len(), 10);
 }
 
 struct Refusing;
@@ -91,6 +95,10 @@ impl AsyncDispatcher for Closed {
     }
 
     async fn dispatch(&mut self, _event: &Event) -> Result<(), Error> {
+        Ok(())
+    }
+
+    async fn set_global_metadata(&mut self, _key: &str, _value: &AnyValue) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -151,4 +159,17 @@ fn an_asynchronous_dispatcher_factory_that_fails_refuses_the_journey_before_any_
 
     assert!(matches!(result, Err(Refusal::DispatcherFactory(_))));
     assert!(entries(&log).is_empty());
+}
+
+#[test]
+fn an_asynchronous_reporter_that_fails_on_the_journey_id_refuses_the_journey() {
+    let (instance, log) = mixed_instance(Shop::failing("fragile", "journey_id"));
+
+    let result = block_on(AsyncLocalExecutor::new().run(instance));
+
+    let Err(Refusal::GlobalMetadata(error)) = result else {
+        panic!("the journey was not refused for its global metadata");
+    };
+    assert_eq!(error.to_string(), "fragile failed on journey_id");
+    assert_eq!(entries(&log), ["audit journey_id", "fragile journey_id"]);
 }

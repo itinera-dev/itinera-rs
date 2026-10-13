@@ -2,7 +2,7 @@ use std::future::Future;
 
 use crate::error::Error;
 use crate::event::Event;
-use crate::journey::JourneyId;
+use crate::value::AnyValue;
 
 mod boxed_reporter;
 mod dispatcher;
@@ -32,32 +32,32 @@ pub use dispatcher::{AsyncDispatcher, AsyncDispatcherFactory};
 /// }
 /// ```
 pub trait AsyncReporter: Send + 'static {
-    /// Receives the ID of the journey the reporter is for, once, as the workflow instance is
-    /// created and before the journey starts. It does nothing unless the reporter says otherwise.
-    /// It is synchronous, since creating an instance is.
+    /// Receives one entry of the journey's global metadata, as
+    /// [`Reporter::set_global_metadata`](super::Reporter::set_global_metadata) does. It does
+    /// nothing unless the reporter says otherwise. It is synchronous: the entry is for the events
+    /// that follow, which are asynchronous.
     ///
     /// # Errors
     ///
-    /// An error makes creating the instance fail, with
-    /// [`InstanceError::Reporter`](crate::instance::InstanceError::Reporter).
+    /// As for [`Reporter::set_global_metadata`](super::Reporter::set_global_metadata).
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::error::Error;
     /// use itinera::event::Event;
-    /// use itinera::journey::JourneyId;
-    /// use itinera::report::AsyncReporter;
+    /// use itinera::report::{AsyncReporter, GlobalMetadata};
+    /// use itinera::value::AnyValue;
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// #[derive(Default)]
     /// struct Forward {
-    ///     journey: Option<JourneyId>,
+    ///     metadata: GlobalMetadata,
     /// }
     ///
     /// impl AsyncReporter for Forward {
-    ///     fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
-    ///         self.journey = Some(journey_id.clone());
+    ///     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+    ///         self.metadata.insert(key, value.clone());
     ///         Ok(())
     ///     }
     ///
@@ -71,7 +71,7 @@ pub trait AsyncReporter: Send + 'static {
     /// let orders = WorkflowDescriptor::<Orders, _>::async_builder("orders")
     ///     .async_reporter::<Forward>();
     /// ```
-    fn set_journey_id(&mut self, _journey_id: &JourneyId) -> Result<(), Error> {
+    fn set_global_metadata(&mut self, _key: &str, _value: &AnyValue) -> Result<(), Error> {
         Ok(())
     }
 

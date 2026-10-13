@@ -1,18 +1,20 @@
-//! Creating an instance: its initial data, then its journey ID and its reporters.
+//! Creating an instance: its initial data and global metadata, then its journey ID and its
+//! reporters.
 
 use super::{Instance, InstanceError};
 use crate::journey::{DataBag, InitialData};
 use crate::mode::{Mode, Synchronous};
-use crate::report::sealed::Held as _;
-use crate::report::{Reporter, held};
+use crate::report::{GlobalMetadata, Reporter, held};
 use crate::value::{AnyValue, Value};
 use crate::workflow::WorkflowDescriptor;
 
 #[cfg(feature = "async")]
 mod asynchronous;
 
-/// Creates an [`Instance`]: takes its initial data and the reporters made for it alone, then
-/// produces its journey ID and gives it to each of its reporters, in that order.
+/// Creates an [`Instance`]: takes its initial data, its initial global metadata and the reporters
+/// made for it alone, then produces its journey ID and makes the reporters the workflow lists.
+/// The executor gives the journey ID and the global metadata to every reporter, before the
+/// journey starts.
 ///
 /// # Examples
 ///
@@ -37,6 +39,7 @@ pub struct InstanceBuilder<W, M: Mode = Synchronous> {
     #[debug(skip)]
     workflow: W,
     data: DataBag,
+    global_metadata: GlobalMetadata,
     #[debug("{}", reporters.len())]
     reporters: Vec<M::Reporter>,
 }
@@ -47,6 +50,7 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
             descriptor,
             workflow,
             data: DataBag::new(),
+            global_metadata: GlobalMetadata::new(),
             reporters: Vec::new(),
         }
     }
@@ -110,6 +114,31 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
         self
     }
 
+    /// Adds an entry of initial global metadata, which every reporter receives before the
+    /// journey starts, right after the journey ID. Setting a key again replaces its value, and
+    /// the entries reach the reporters in the order their keys were first set. The key
+    /// [`GlobalMetadata::JOURNEY_ID`] is the executor's own: setting it here makes `run` refuse
+    /// the journey.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::workflow::WorkflowDescriptor;
+    ///
+    /// struct Orders;
+    ///
+    /// let orders = WorkflowDescriptor::builder("orders").build()?;
+    /// let instance = orders
+    ///     .instance(Orders)
+    ///     .global_metadata("tenant", "acme".to_string())
+    ///     .create()?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn global_metadata<T: Value>(mut self, key: impl Into<String>, value: T) -> Self {
+        self.global_metadata.insert(key, AnyValue::new(value));
+        self
+    }
+
     /// Adds a reporter made for this journey alone, such as one that knows the request the
     /// journey serves. It receives events after the reporters the workflow lists, and after
     /// those added before it.
@@ -148,12 +177,12 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
     }
 
     /// Creates the instance: produces the journey ID, with the workflow's generator or as a UUID
-    /// v4, then makes each reporter the workflow lists, then gives the journey ID to every
-    /// reporter, those the workflow lists first, in the order they receive events.
+    /// v4, then makes each reporter the workflow lists, which receive events before those made
+    /// for this journey alone.
     ///
     /// # Errors
     ///
-    /// [`InstanceError`] when the generator or a reporter's `set_journey_id` fails.
+    /// [`InstanceError`] when the generator fails.
     ///
     /// # Examples
     ///
@@ -176,6 +205,7 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
             descriptor,
             workflow,
             data,
+            global_metadata,
             reporters: made_for_it,
         } = self;
         let journey_id = descriptor
@@ -183,16 +213,13 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
             .map_err(InstanceError::JourneyId)?;
         let mut reporters = descriptor.reporters();
         reporters.extend(made_for_it);
-        reporters
-            .iter_mut()
-            .try_for_each(|reporter| reporter.set_journey_id(&journey_id))
-            .map_err(InstanceError::Reporter)?;
         Ok(Instance {
             descriptor,
             workflow,
             journey_id,
             reporters,
             data,
+            global_metadata,
         })
     }
 }

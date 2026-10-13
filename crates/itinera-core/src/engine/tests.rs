@@ -88,7 +88,11 @@ fn a_journey_without_a_step_succeeds() {
     assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
     assert_eq!(
         entries(&log),
-        ["audit journey_started", "audit journey_succeeded"]
+        [
+            "audit journey_id",
+            "audit journey_started",
+            "audit journey_succeeded"
+        ]
     );
 }
 

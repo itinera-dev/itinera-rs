@@ -5,6 +5,7 @@ use super::{Delivery, Failures};
 use crate::error::Error;
 use crate::event::Event;
 use crate::report::{AsyncDispatcher, AsyncReporter, BoxedReporter};
+use crate::value::AnyValue;
 
 /// An asynchronous dispatcher, awaited.
 #[derive(derive_more::From)]
@@ -15,6 +16,14 @@ pub(crate) struct Awaited<D> {
 impl<D: AsyncDispatcher> Delivery for Awaited<D> {
     fn deliver(&mut self, event: &Event) -> impl Future<Output = Result<(), Error>> + Send {
         self.dispatcher.dispatch(event)
+    }
+
+    fn set_global_metadata(
+        &mut self,
+        key: &str,
+        value: &AnyValue,
+    ) -> impl Future<Output = Result<(), Error>> + Send {
+        self.dispatcher.set_global_metadata(key, value)
     }
 }
 
@@ -40,6 +49,14 @@ impl AsyncReporter for Guarded {
         }
         let reported = self.reporter.report(event).await;
         self.guard.record(event, reported)
+    }
+
+    fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        if !self.guard.admits_metadata() {
+            return Ok(());
+        }
+        let reported = self.reporter.set_global_metadata(key, value);
+        self.guard.fail_on_error(reported)
     }
 }
 
@@ -69,10 +86,13 @@ mod tests {
         assert_eq!(
             entries(&log),
             [
+                "audit journey_id",
+                "fragile journey_id",
+                "metrics journey_id",
                 "audit journey_started",
                 "fragile journey_started",
                 "audit journey_aborted",
-                "metrics journey_aborted",
+                "metrics journey_aborted"
             ]
         );
     }

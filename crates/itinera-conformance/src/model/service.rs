@@ -1,5 +1,7 @@
 //! The services the scenario's steps request, and the service providers that make them.
 
+use serde_json::Value;
+
 use super::{HookRequest, Level};
 
 /// A type of service the cases define: a `labeller`, whose one operation returns its instance's
@@ -35,8 +37,8 @@ pub(crate) struct Provider {
     /// of its name and count.
     pub(crate) labelled_by: Option<String>,
     pub(crate) failure: Option<ProviderFailure>,
-    /// What it emits before returning, in the order written.
-    pub(crate) emits: Vec<(Level, String)>,
+    /// What it does before returning, in the order written.
+    pub(crate) actions: Vec<ProviderAction>,
     /// The message the operation of every instance it makes fails with.
     pub(crate) fails_when_used: Option<String>,
 }
@@ -52,13 +54,30 @@ impl Provider {
             requests: Vec::new(),
             labelled_by: None,
             failure: None,
-            emits: Vec::new(),
+            actions: Vec::new(),
             fails_when_used: None,
         }
     }
 
     pub(crate) fn is_named(&self, name: &str) -> bool {
         self.name == name
+    }
+}
+
+/// Something a provider does on every call, before it returns.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum ProviderAction {
+    Emit(Level, String),
+    SetGlobalMetadata { key: String, value: Value },
+}
+
+impl ProviderAction {
+    /// The value this action sets the key of global metadata to, if it sets it.
+    pub(crate) fn global_metadata_for(&self, key: &str) -> Option<&Value> {
+        match self {
+            Self::SetGlobalMetadata { key: name, value } if name == key => Some(value),
+            _ => None,
+        }
     }
 }
 

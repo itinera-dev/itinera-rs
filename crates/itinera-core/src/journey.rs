@@ -15,7 +15,7 @@ mod initial_data;
 mod output;
 mod result;
 
-pub use abort::{Abort, FailureRequester, MissingData, Requester};
+pub use abort::{Abort, FailureRequester, MetadataSetter, MissingData, Requester};
 pub use access::{DataBagAccess, Read};
 pub use contributor::Contributor;
 pub(crate) use contributor::{Contribution, Contributions};
@@ -143,6 +143,9 @@ pub enum AbortReason {
     /// A reporter, or a dispatcher while dispatching, failed.
     #[display("reporter failed")]
     ReporterFailed,
+    /// A step, hook or service provider set global metadata under the journey ID's own key.
+    #[display("reserved metadata key")]
+    ReservedMetadataKey,
 }
 
 #[cfg(test)]
@@ -165,6 +168,7 @@ mod tests {
     )]
     #[case::reason_required_data_missing(&AbortReason::RequiredDataMissing, "required data missing")]
     #[case::reason_wrong_type(&AbortReason::WrongType, "wrong type")]
+    #[case::reason_reserved_metadata_key(&AbortReason::ReservedMetadataKey, "reserved metadata key")]
     #[case::reason_hook_failed(&AbortReason::HookFailed, "hook failed")]
     #[case::reason_reporter_failed(&AbortReason::ReporterFailed, "reporter failed")]
     fn causes_and_abort_reasons_display_as_the_specification_writes_them(

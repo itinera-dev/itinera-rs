@@ -1,6 +1,6 @@
 # 0011: Events
 
-Tech spec for [proposal 0011](https://github.com/itinera-dev/spec/blob/main/proposals/0011-events.md), implemented in [#13](https://github.com/itinera-dev/itinera-rs/issues/13). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposal 0095 amends it, and its tech spec covers what it changes: the events `service_provided` and `service_provider_failed`, and service providers as hooks that emit `journey_*` events and make requests.
+Tech spec for [proposal 0011](https://github.com/itinera-dev/spec/blob/main/proposals/0011-events.md), implemented in [#13](https://github.com/itinera-dev/itinera-rs/issues/13). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposal 0095 amends it, and its tech spec covers what it changes: the events `service_provided` and `service_provider_failed`, and service providers as hooks that emit `journey_*` events and make requests. Proposal [0102](0102-global-metadata.md) amends it too, and its tech spec covers the fact `global_metadata_set` and the second operation of a reporter.
 
 Status: done in stage 7. Stage 1 added the events, reporters and dispatchers. Stages 3 to 6 made the engine emit the events of steps and decisions, and stage 7 those of hooks, with the reporters hooks emit through.
 
@@ -40,7 +40,7 @@ Status: done in stage 7. Stage 1 added the events, reporters and dispatchers. St
 - Unit tests in `itinera-core/src/report.rs`: `with_no_reporter_dispatching_succeeds_and_goes_nowhere`.
 - Unit tests in `itinera-core/src/engine.rs`: `events_are_numbered_from_one_and_carry_the_journey_the_workflow_and_the_time`; `a_step_emits_its_own_events_stamped_with_its_attempt_before_its_outcome`; `a_reporter_failing_on_a_step_event_aborts_the_journey_whatever_the_step_does_next`; with the `async` feature, `an_asynchronous_step_awaits_its_own_events` and `a_reporter_failing_on_an_asynchronous_steps_event_aborts_the_journey`.
 - Unit tests in `itinera-core/src/engine/hooks.rs`: `a_hooks_contributions_are_committed_once_it_returns_with_the_hook_as_their_source` and `a_reporter_failing_on_a_hooks_event_aborts_the_journey_whatever_the_hook_does_next`.
-- Unit tests in `itinera-core/src/executor.rs`: `a_journey_emits_its_events_in_order_to_every_reporter_and_succeeds_with_its_data` and `a_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others`.
+- Unit tests in `itinera-core/src/executor/tests.rs`: `a_journey_emits_its_events_in_order_to_every_reporter_and_succeeds_with_its_data`. In `engine/guard/tests.rs`: `a_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others`.
 
 ## Excluded scenarios
 

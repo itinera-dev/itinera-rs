@@ -16,6 +16,8 @@ pub(crate) type Emitted<'r> = Pin<Box<dyn Future<Output = Result<(), Interrupted
 /// A step's reporter, of either mode, as the script uses it.
 pub(crate) trait Emits: Send {
     fn emit(&mut self, level: Level, message: String, data: Option<Typed>) -> Emitted<'_>;
+
+    fn set_global_metadata(&mut self, key: String, value: Typed) -> Emitted<'_>;
 }
 
 impl Emits for StepReporter<'_> {
@@ -33,6 +35,27 @@ impl Emits for StepReporter<'_> {
             }),
         };
         Box::pin(ready(emitted))
+    }
+
+    fn set_global_metadata(&mut self, key: String, value: Typed) -> Emitted<'_> {
+        Box::pin(ready(value.given_to(Setting {
+            reporter: self,
+            key,
+        })))
+    }
+}
+
+/// Sets an entry of global metadata from a synchronous step.
+struct Setting<'r, 'a> {
+    reporter: &'r mut StepReporter<'a>,
+    key: String,
+}
+
+impl Takes for Setting<'_, '_> {
+    type Output = Result<(), Interrupted>;
+
+    fn take<T: Storable>(self, value: T) -> Result<(), Interrupted> {
+        self.reporter.set_global_metadata(self.key, value)
     }
 }
 
@@ -69,6 +92,27 @@ impl Emits for AsyncStepReporter<'_> {
                 message,
             }),
         }
+    }
+
+    fn set_global_metadata(&mut self, key: String, value: Typed) -> Emitted<'_> {
+        value.given_to(AsyncSetting {
+            reporter: self,
+            key,
+        })
+    }
+}
+
+/// Sets an entry of global metadata from an asynchronous step.
+struct AsyncSetting<'r, 'a> {
+    reporter: &'r mut AsyncStepReporter<'a>,
+    key: String,
+}
+
+impl<'r> Takes for AsyncSetting<'r, '_> {
+    type Output = Emitted<'r>;
+
+    fn take<T: Storable>(self, value: T) -> Emitted<'r> {
+        Box::pin(self.reporter.set_global_metadata(self.key, value))
     }
 }
 

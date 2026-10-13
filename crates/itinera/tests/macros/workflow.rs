@@ -13,7 +13,7 @@ use itinera::policy::{
     FailWorkflow, HookNeeds, InputAdapter, OnSuccess, Provides, Requested, StepPolicy,
     WorkflowPolicy, step_policy, workflow_policy,
 };
-use itinera::report::Reporter;
+use itinera::report::{GlobalMetadata, Reporter};
 use itinera::step::{DescribedStep, OptionalInput, Outcome, Step, StepName, step, step_name};
 use itinera::value::AnyValue;
 use itinera::workflow::{InputAdapterDescriptor, Workflow, WorkflowDescriptor, role, workflow};
@@ -115,17 +115,21 @@ static TALLIED: Mutex<Vec<String>> = Mutex::new(Vec::new());
 /// A listed reporter, made for every journey, which tallies the journeys it sees.
 #[derive(Default)]
 struct Tally {
-    journey_id: Option<JourneyId>,
+    metadata: GlobalMetadata,
 }
 
 impl Reporter for Tally {
-    fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
-        self.journey_id = Some(journey_id.clone());
+    fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        self.metadata.insert(key, value.clone());
         Ok(())
     }
 
     fn report(&mut self, event: &Event) -> Result<(), Error> {
-        let seen = format!("{:?} {}", self.journey_id, event.sequence);
+        let journey_id = self
+            .metadata
+            .get(GlobalMetadata::JOURNEY_ID)
+            .and_then(AnyValue::downcast_ref::<String>);
+        let seen = format!("{journey_id:?} {}", event.sequence);
         TALLIED.lock().unwrap().push(seen);
         Ok(())
     }
@@ -376,8 +380,8 @@ fn a_listed_reporter_is_made_for_every_journey_and_given_its_id() {
     tallied("first");
     tallied("second");
     let tallied = TALLIED.lock().unwrap();
-    assert!(tallied.contains(&r#"Some(JourneyId("south-first")) 1"#.to_owned()));
-    assert!(tallied.contains(&r#"Some(JourneyId("south-second")) 1"#.to_owned()));
+    assert!(tallied.contains(&r#"Some("south-first") 1"#.to_owned()));
+    assert!(tallied.contains(&r#"Some("south-second") 1"#.to_owned()));
 }
 
 #[workflow]

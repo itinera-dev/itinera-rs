@@ -138,6 +138,7 @@ pub(super) enum Action {
         role: String,
         operation: String,
     },
+    SetGlobalMetadata(String, Typed),
 }
 
 impl Action {
@@ -151,10 +152,15 @@ impl Action {
                 role: role.clone(),
                 operation: operation.clone(),
             })),
+            HookAction::SetGlobalMetadata { key, value } => Some(global_metadata(key, value)),
         }
     }
 }
 
 fn contribution(key: &str, value: &Value) -> Result<Action, ModelError> {
     Ok(Action::Contribute(key.to_owned(), Typed::of(value)?))
+}
+
+fn global_metadata(key: &str, value: &Value) -> Result<Action, ModelError> {
+    Ok(Action::SetGlobalMetadata(key.to_owned(), Typed::of(value)?))
 }

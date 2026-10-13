@@ -16,7 +16,7 @@ Each section of a tier ends with a "Where it lives" line. The table below repeat
 | The crates | `Cargo.toml` of each crate, `crates/itinera/src/lib.rs`, `crates/itinera-core/src/lib.rs` | a crate, a feature or a public module of `itinera-core` is added, removed or renamed |
 | What a workflow is made of | `workflow/builder.rs`, `step/descriptor.rs`, `policy/descriptor/`, `workflow/input_adapter.rs`, `service/descriptor.rs`, `instance.rs`, `instance/` | a descriptor gains or loses a part |
 | How the macros go into the mix | `crates/itinera-macros/src/`, `step/described.rs`, `step/factory.rs`, `step/from_inputs.rs`, `step/descriptor.rs`, `step/rescue/described.rs`, `step/rescue/factory.rs`, `step/rescue/from_requests.rs`, `policy/described.rs`, `policy/role.rs`, `workflow/described.rs`, `journey/initial_data.rs`, `journey/output.rs` | a macro is added, or generates another trait or call |
-| From declaration to result | `workflow/builder.rs`, `instance/builder.rs`, `executor.rs`, `executor/asynchronous.rs`, `run` and `finish` in `engine.rs` | a refusal, an instance error or an executor is added |
+| From declaration to result | `workflow/builder.rs`, `instance/builder.rs`, `executor.rs`, `executor/refusal.rs`, `executor/asynchronous.rs`, `run` and `finish` in `engine.rs`, `introduce` in `engine/metadata.rs` | a refusal, an instance error or an executor is added |
 | The executor loop | `travel`, `scan`, `run_step` and `Next` in `engine.rs`, `engine/hooks/workflow.rs`, `engine/end.rs` | a way on from an attempt, or a workflow hook, is added |
 | One attempt | `engine/attempt.rs`, `engine/attempt/policies.rs`, `engine/inputs.rs`, `engine/services.rs`, `step/factory.rs` | the order of what an attempt does changes |
 | Parameter injection | `engine/inputs.rs`, `engine/request.rs`, `engine/services.rs`, `answer` in `engine/hooks.rs`, `engine/hooks/step/left.rs`, `rescue_request` in `engine/rescue.rs`, `policy/kind/`, `step/input.rs`, `step/needs.rs`, `policy/needs/`, `service/token.rs` | a requester, a kind of request or a source of values is added |
@@ -24,8 +24,8 @@ Each section of a tier ends with a "Where it lives" line. The table below repeat
 | The decision | `decide` in `engine/decision.rs`, `engine/retry.rs`, `workflow/violation/admission.rs` | a decision or a give-up cause is added |
 | Rescue | `engine/rescue.rs`, `step/rescue/`, `workflow/violation/admission.rs` | what a rescue step may request or attach changes |
 | Policies and hooks | `call_hook` in `engine/hooks.rs`, `engine/hooks/step.rs`, `engine/hooks/workflow.rs`, `policy/`, `policy/lifecycle.rs`, `workflow/violation/admission.rs` | a hook, a lifecycle or when policies are built changes |
-| Events and delivery | `engine/emitter.rs`, `engine/guard.rs`, `engine/asynchronous.rs`, `report/`, `step/reporting.rs`, `event/` | an event, a handle or the delivery rules change |
-| How a journey ends | `engine/end.rs`, `journey/result.rs`, `journey/abort.rs`, `Refusal` in `executor.rs` | a status, a failure, an abort reason or a refusal is added |
+| Events and delivery | `engine/emitter.rs`, `engine/metadata.rs`, `engine/guard.rs`, `engine/asynchronous.rs`, `report/`, `step/reporting.rs`, `event/` | an event, a handle or the delivery rules change |
+| How a journey ends | `engine/end.rs`, `journey/result.rs`, `journey/abort.rs`, `journey/abort/`, `executor/refusal.rs` | a status, a failure, an abort reason or a refusal is added |
 
 Paths under `engine/`, `step/` and the like are in `crates/itinera-core/src/`.
 

@@ -1,13 +1,13 @@
 use super::Reporter;
 use crate::error::Error;
-use crate::journey::JourneyId;
+use crate::value::AnyValue;
 
 pub trait Held {
-    fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error>;
+    fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error>;
 }
 
 impl Held for Box<dyn Reporter> {
-    fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
-        Reporter::set_journey_id(self.as_mut(), journey_id)
+    fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        Reporter::set_global_metadata(self.as_mut(), key, value)
     }
 }

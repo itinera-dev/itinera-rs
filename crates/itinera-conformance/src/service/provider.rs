@@ -16,8 +16,9 @@ use serde_json::Value;
 
 use super::{Got, Made, Scope, Supplied};
 use crate::declaration::{ScriptedWorkflow, leaked};
-use crate::model::{self, Level, ModelError, ProviderFailure};
+use crate::model::{self, ModelError, ProviderAction, ProviderFailure};
 use crate::policy::{Emits, Request};
+use crate::value::Typed;
 use crate::witness::{Provision, Received, Witness};
 
 /// One of the scenario's service providers, made anew for each journey, which records each of
@@ -28,7 +29,7 @@ pub(crate) struct ScriptedProvider {
     requests: Vec<Request>,
     labelled_by: Option<String>,
     failure: Option<ProviderFailure>,
-    emits: Vec<(Level, String)>,
+    actions: Vec<ProviderAction>,
     fails_when_used: Option<String>,
     /// How many instances it made in the journey.
     made: AtomicU32,
@@ -42,7 +43,7 @@ impl ScriptedProvider {
             requests: provider.requests.iter().filter_map(Request::of).collect(),
             labelled_by: provider.labelled_by.clone(),
             failure: provider.failure.clone(),
-            emits: provider.emits.clone(),
+            actions: provider.actions.clone(),
             fails_when_used: provider.fails_when_used.clone(),
             made: AtomicU32::new(0),
             witness: witness.clone(),
@@ -83,8 +84,8 @@ impl ScriptedProvider {
             received: received.clone(),
         });
         let mut reporter = reporter(&mut got)?;
-        for (level, message) in &self.emits {
-            reporter.emit(*level, message.clone()).await?;
+        for action in &self.actions {
+            act(&mut reporter, action).await?;
         }
         if let Some(failure) = self
             .failure
@@ -116,6 +117,19 @@ impl ScriptedProvider {
     fn unlabelled(&self, key: &str) -> Error {
         Error::msg(format!("{} received no string for \"{key}\"", self.name))
     }
+}
+
+/// Does one thing the provider's script says, through its reporter.
+async fn act<R: Emits>(reporter: &mut R, action: &ProviderAction) -> Result<(), Error> {
+    match action {
+        ProviderAction::Emit(level, message) => reporter.emit(*level, message.clone()).await?,
+        ProviderAction::SetGlobalMetadata { key, value } => {
+            reporter
+                .set_global_metadata(key.clone(), Typed::of(value)?)
+                .await?;
+        }
+    }
+    Ok(())
 }
 
 /// Whether the provider fails on a call that received this.

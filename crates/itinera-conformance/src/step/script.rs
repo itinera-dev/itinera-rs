@@ -40,6 +40,7 @@ pub(super) enum Action {
         message: String,
         data: Option<Typed>,
     },
+    SetGlobalMetadata(String, Typed),
 }
 
 impl Script {
@@ -112,12 +113,17 @@ impl Action {
                 message,
                 data,
             } => Some(emit(*level, message, data.as_ref())),
+            StepAction::SetGlobalMetadata { key, value } => Some(global_metadata(key, value)),
         }
     }
 }
 
 fn contribution(key: &str, value: &serde_json::Value) -> Result<Action, ModelError> {
     Ok(Action::Contribute(key.to_owned(), Typed::of(value)?))
+}
+
+fn global_metadata(key: &str, value: &serde_json::Value) -> Result<Action, ModelError> {
+    Ok(Action::SetGlobalMetadata(key.to_owned(), Typed::of(value)?))
 }
 
 fn emit(

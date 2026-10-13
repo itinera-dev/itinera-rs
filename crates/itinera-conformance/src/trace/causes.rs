@@ -1,7 +1,8 @@
 //! The columns that say why: a reason, the abort of a journey, or its failure.
 
-use itinera::event::{FailureRequester, JourneyAbort, JourneyFailure, MissingData};
+use itinera::event::{FailureRequester, JourneyAbort, JourneyFailure, MissingData, Source};
 use itinera::journey::LastFailure;
+use itinera::report::GlobalMetadata;
 use itinera::step::Reason;
 use serde_json::Value;
 
@@ -64,6 +65,12 @@ impl Line {
             JourneyAbort::WrongType { key, requester, .. } => {
                 self.set("key", key);
                 self.requester(requester);
+            }
+            JourneyAbort::ReservedMetadataKey { source, .. } => {
+                self.set("key", GlobalMetadata::JOURNEY_ID);
+                if let Source::Hook(hook) = source {
+                    self.hook(hook);
+                }
             }
             _ => {}
         }

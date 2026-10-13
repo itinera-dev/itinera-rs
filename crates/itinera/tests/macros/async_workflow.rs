@@ -6,11 +6,12 @@ use std::sync::Mutex;
 use itinera::error::Error;
 use itinera::event::Event;
 use itinera::executor::AsyncLocalExecutor;
-use itinera::journey::{Contributor, InitialData, JourneyId, JourneyStatus};
+use itinera::journey::{Contributor, InitialData, JourneyStatus};
 use itinera::mode::Asynchronous;
 use itinera::policy::{OnSuccess, StepPolicy, WorkflowPolicy, step_policy, workflow_policy};
-use itinera::report::AsyncReporter;
+use itinera::report::{AsyncReporter, GlobalMetadata};
 use itinera::step::{DescribedStep, Outcome, Step, step, step_name};
+use itinera::value::AnyValue;
 use itinera::workflow::{Workflow, WorkflowDescriptor, workflow};
 use rstest::rstest;
 
@@ -68,17 +69,21 @@ static LOGGED: Mutex<Vec<String>> = Mutex::new(Vec::new());
 /// A listed asynchronous reporter, made for every journey.
 #[derive(Default)]
 struct Log {
-    journey_id: Option<JourneyId>,
+    metadata: GlobalMetadata,
 }
 
 impl AsyncReporter for Log {
-    fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
-        self.journey_id = Some(journey_id.clone());
+    fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        self.metadata.insert(key, value.clone());
         Ok(())
     }
 
     async fn report(&mut self, event: &Event) -> Result<(), Error> {
-        let seen = format!("{:?} {}", self.journey_id, event.sequence);
+        let journey_id = self
+            .metadata
+            .get(GlobalMetadata::JOURNEY_ID)
+            .and_then(AnyValue::downcast_ref::<String>);
+        let seen = format!("{journey_id:?} {}", event.sequence);
         LOGGED.lock().unwrap().push(seen);
         Ok(())
     }
@@ -170,8 +175,10 @@ struct Witness {
 }
 
 impl AsyncReporter for Witness {
-    fn set_journey_id(&mut self, journey_id: &JourneyId) -> Result<(), Error> {
-        self.seen.lock().unwrap().push(journey_id.to_string());
+    fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+        if let Some(value) = value.downcast_ref::<String>() {
+            self.seen.lock().unwrap().push(format!("{key} {value}"));
+        }
         Ok(())
     }
 
@@ -198,7 +205,7 @@ fn delivered(van: &'static str, seen: &'static Mutex<Vec<String>>) {
 fn an_asynchronous_reporter_made_for_one_journey_is_given_its_id() {
     static SEEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
     delivered("red van", &SEEN);
-    assert_eq!(*SEEN.lock().unwrap(), ["red van-1"]);
+    assert_eq!(*SEEN.lock().unwrap(), ["journey_id red van-1"]);
 }
 
 #[test]
@@ -206,8 +213,11 @@ fn a_listed_asynchronous_reporter_is_made_for_every_journey_and_given_its_id() {
     static SEEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
     delivered("green van", &SEEN);
     delivered("white van", &SEEN);
-    assert_eq!(*SEEN.lock().unwrap(), ["green van-1", "white van-1"]);
+    assert_eq!(
+        *SEEN.lock().unwrap(),
+        ["journey_id green van-1", "journey_id white van-1"]
+    );
     let logged = LOGGED.lock().unwrap();
-    assert!(logged.contains(&r#"Some(JourneyId("green van-1")) 1"#.to_owned()));
-    assert!(logged.contains(&r#"Some(JourneyId("white van-1")) 1"#.to_owned()));
+    assert!(logged.contains(&r#"Some("green van-1") 1"#.to_owned()));
+    assert!(logged.contains(&r#"Some("white van-1") 1"#.to_owned()));
 }

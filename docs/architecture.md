@@ -45,7 +45,7 @@ The features are `macros` (on by default), `async`, which adds the asynchronous 
 | `instance` | The `WorkflowInstance` trait, `Instance` and its builder |
 | `executor` | `LocalExecutor`, `AsyncLocalExecutor` and refusals |
 | `event` | `Event`, its bodies, and who did or decided what |
-| `report` | Reporters, dispatchers and their factories, `DefaultDispatcher` |
+| `report` | Reporters, dispatchers and their factories, `DefaultDispatcher`, `GlobalMetadata` |
 | `mode` | `Synchronous` and `Asynchronous` |
 | `error` | `Error` and `Interrupted` |
 | `engine` | Private: the one engine both executors share |
@@ -57,7 +57,7 @@ Where it lives: `crates/`, and each module in `crates/itinera-core/src/`.
 ```mermaid
 flowchart TD
     accTitle: What a workflow descriptor holds
-    accDescr: A workflow descriptor holds its name, its step descriptors in order, its workflow policies, its input adapters, its service providers, its reporters and its ID generator. A step descriptor holds a factory, a retry budget, whether an abnormal termination is retriable, its step policies and an optional rescue step. An instance holds the descriptor, the workflow's own value, a journey ID, the data bag and the reporters, and an executor runs it.
+    accDescr: A workflow descriptor holds its name, its step descriptors in order, its workflow policies, its input adapters, its service providers, its reporters and its ID generator. A step descriptor holds a factory, a retry budget, whether an abnormal termination is retriable, its step policies and an optional rescue step. An instance holds the descriptor, the workflow's own value, a journey ID, the data bag, its initial global metadata and the reporters, and an executor runs it.
     descriptor["WorkflowDescriptor"] --> name["WorkflowName"]
     descriptor --> steps["StepDescriptor, one per step, in order"]
     descriptor --> wpolicies["WorkflowPolicyDescriptor, with workflow hooks"]
@@ -73,6 +73,7 @@ flowchart TD
     instance --> workflow["The workflow's own value, which provides roles"]
     instance --> id["JourneyId"]
     instance --> bag["DataBag"]
+    instance --> metadata["GlobalMetadata, its initial entries"]
     instance --> ireporters["Its reporters"]
     executor["LocalExecutor or AsyncLocalExecutor"] -->|"runs"| instance
 ```
@@ -82,10 +83,10 @@ flowchart TD
 3. Each `StepDescriptor` holds the factory that builds the step for each attempt, its retry budget, whether an abnormal termination is retriable, its step policies in the order attached, and, optionally, a rescue step with its own factory.
 4. Each policy descriptor names the hooks it defines; a step policy holds step hooks and a workflow policy holds workflow hooks.
 5. An input adapter is attached to whole steps, at most one per step. A service provider is attached to steps, or to no step, and is of journey or attempt scope.
-6. An `Instance` holds the descriptor, the workflow's own value, the journey ID, the data bag and the reporters made for this journey. The workflow's own value is the type `W` every part is generic over, and it provides the workflow's roles.
+6. An `Instance` holds the descriptor, the workflow's own value, the journey ID, the data bag, the initial global metadata the reporters will receive, and the reporters made for this journey. The workflow's own value is the type `W` every part is generic over, and it provides the workflow's roles.
 7. An executor runs an instance. It relies only on the `WorkflowInstance` trait, so it runs any instance, however it was made.
 
-Where it lives: `workflow/builder.rs`, `step/descriptor.rs`, `policy/descriptor/`, `workflow/input_adapter.rs`, `service/descriptor.rs`, `instance.rs`, `instance/workflow_instance.rs`.
+Where it lives: `workflow/builder.rs`, `step/descriptor.rs`, `policy/descriptor/`, `workflow/input_adapter.rs`, `service/descriptor.rs`, `instance.rs`, `instance/workflow_instance.rs`, `instance/committed.rs`.
 
 ### How the macros go into the mix
 
@@ -178,7 +179,7 @@ Where it lives: `crates/itinera-macros/src/`, with `step.rs`, `policy.rs`, `role
 ```mermaid
 sequenceDiagram
     accTitle: From a declaration to a journey's result
-    accDescr: The application declares the workflow and build checks it. The application makes an instance, whose creation makes the journey ID and gives it to every reporter. The executor builds the workflow policies, creates a dispatcher and adds the guarded reporters, any of which can refuse the journey. Then the engine runs the journey and the executor returns its result.
+    accDescr: The application declares the workflow and build checks it. The application makes an instance, whose creation makes the journey ID. The executor takes the instance's initial global metadata, builds the workflow policies, creates a dispatcher, adds the guarded reporters, and sets the journey ID and then the initial global metadata through the dispatcher, any of which can refuse the journey. Then the engine runs the journey and the executor returns its result.
     participant App as Application
     participant Builder as Builder
     participant IB as Instance builder
@@ -188,14 +189,15 @@ sequenceDiagram
     participant Engine as Engine
     App->>Builder: declare the workflow, by hand or with the macros
     Builder-->>App: WorkflowDescriptor, or Violations
-    App->>IB: instance, with the workflow's value and initial data
-    Note over IB: create makes the journey ID, then calls set_journey_id on every reporter
+    App->>IB: instance, with the workflow's value, initial data and initial global metadata
+    Note over IB: create makes the journey ID
     IB-->>App: Instance, or InstanceError
     App->>Exec: run the instance
-    Exec->>Exec: build every workflow policy
+    Exec->>Exec: check the initial global metadata, build every workflow policy
     Exec->>Factory: create a dispatcher
     Factory-->>Exec: the dispatcher
     Exec->>Dispatcher: add each reporter, wrapped in a guard
+    Exec->>Dispatcher: set journey_id, then each initial entry of global metadata
     Note over Exec: any failure so far is a Refusal, before the journey starts
     Exec->>Engine: run the journey
     Engine-->>Exec: JourneyResult
@@ -203,17 +205,18 @@ sequenceDiagram
 ```
 
 1. The application declares the workflow, with the builder or the macros. `build()` checks what types cannot, and returns the descriptor or every `Violations` at once.
-2. The application makes an instance with the workflow's own value and the initial data. `create()` makes the journey ID, with the workflow's ID generator or a UUID version 4, and gives it to every reporter with `set_journey_id`, the listed ones first. A failure there is an `InstanceError`.
+2. The application makes an instance with the workflow's own value, the initial data and, if it wants, initial global metadata. `create()` makes the journey ID, with the workflow's ID generator or a UUID version 4. A failure there is an `InstanceError`.
 3. The application gives the instance to an executor's `run`.
-4. The executor builds every workflow policy, once for this journey.
+4. The executor takes the instance's initial global metadata, which may not set `journey_id`, and builds every workflow policy, once for this journey.
 5. It asks its dispatcher factory for a new dispatcher, and adds each of the instance's reporters to it, wrapped in a guard (see "Events and delivery").
-6. A failure in any of these three is a `Refusal`, and the journey never starts.
-7. The executor hands the instance, the policies and the dispatcher to the engine, which runs the journey.
-8. The executor returns the `JourneyResult`.
+6. Through the dispatcher, it sets the journey ID under `journey_id`, then each entry of the initial global metadata, in the order its keys were first set. Neither emits an event.
+7. A failure in any of these is a `Refusal`, and the journey never starts.
+8. The executor hands the instance, the policies and the dispatcher to the engine, which runs the journey.
+9. The executor returns the `JourneyResult`.
 
 Both executors share the one engine, which is written once, as asynchronous code. `LocalExecutor` drives it to the end with a waker that does nothing, since a `Synchronous` workflow has nothing to wait for. `AsyncLocalExecutor` awaits it, and its dispatcher's delivery, on whatever runtime the application uses. The engine never spawns, sleeps or sets timers.
 
-Where it lives: `workflow/builder.rs`, `instance/builder.rs`, `executor.rs`, `executor/asynchronous.rs`, and `run` and `finish` in `engine.rs`.
+Where it lives: `workflow/builder.rs`, `instance/builder.rs`, `executor.rs`, `executor/refusal.rs`, `executor/asynchronous.rs`, `run` and `finish` in `engine.rs`, and `introduce` in `engine/metadata.rs`.
 
 ### The executor loop
 
@@ -534,25 +537,27 @@ sequenceDiagram
 5. `journey_aborted` goes to every reporter except the one that failed: its guard keeps it out. An error while `journey_aborted` itself is delivered is ignored.
 6. Steps and hooks emit through the handles they asked for: a `StepReporter` emits `step_info`, `step_warning` and `step_error`, and the reporter of a hook or a service provider emits `journey_info`, `journey_warning` and `journey_error`. Delivery finishes before the call returns.
 7. When a reporter fails during such a delivery, the call returns `Interrupted`, and nothing the step, hook or provider emits afterwards is delivered. When it returns, what it returned is ignored, and the journey ends aborted.
+8. The same handles set entries of the journey's global metadata with `set_global_metadata`. The engine passes the entry to the dispatcher, which passes it to every reporter through its guard, as it does an event, then emits `global_metadata_set`, which names the key and who set it, never the value. A reporter that fails on an entry fails the journey exactly as on an event. A key of `journey_id` reaches no reporter, and aborts the journey with `reserved metadata key`. Either way the call returns `Interrupted`.
+9. An entry stands from the moment it is set: no later outcome, retry or abort takes it back. Each reporter decides what to keep; `GlobalMetadata` keeps the latest value of each key, for a reporter that wants it.
 
 Events carry no format: reporters write them as they choose. The synchronous executor delivers inline; the asynchronous one awaits the dispatcher, whose reporters may be of either kind.
 
-Where it lives: `engine/emitter.rs`, `engine/guard.rs`, `engine/asynchronous.rs`, `report/`, `step/reporting.rs`, and the events in `event/`.
+Where it lives: `engine/emitter.rs`, `engine/metadata.rs`, `engine/guard.rs`, `engine/asynchronous.rs`, `report/`, `step/reporting.rs`, and the events in `event/`.
 
 ### How a journey ends
 
 ```mermaid
 flowchart LR
     accTitle: How a journey ends
-    accDescr: Before the journey starts, an executor may refuse it. Once it starts, it ends succeeded with its data bag, failed with a failure and its data bag, or aborted with an abort and no data bag.
-    run["executor run"] -->|"before the journey"| refusal(["Refusal: a workflow policy, the dispatcher factory or the dispatcher"])
+    accDescr: Before the journey starts, an executor may refuse it, for the reserved key in the initial global metadata, a workflow policy, the dispatcher factory, the dispatcher, or a failure while the global metadata is set. Once it starts, it ends succeeded with its data bag, failed with a failure and its data bag, or aborted with an abort and no data bag.
+    run["executor run"] -->|"before the journey"| refusal(["Refusal: the reserved key, a workflow policy, the dispatcher factory, the dispatcher or the global metadata"])
     run --> journey["the journey"]
     journey --> succeeded(["Succeeded, with the data bag"])
     journey --> failed(["Failed, with the failure and the data bag"])
     journey --> aborted(["Aborted, with the abort, and no data bag"])
 ```
 
-1. Before the journey starts, the executor refuses it when a workflow policy cannot be built, the dispatcher factory fails, or the dispatcher fails while the reporters are added. No event is emitted.
+1. Before the journey starts, the executor refuses it when the initial global metadata sets `journey_id`, a workflow policy cannot be built, the dispatcher factory fails, the dispatcher fails while the reporters are added, or a reporter or the dispatcher fails while the journey ID or the initial global metadata is set. No event is emitted.
 2. A journey that started ends in one of three statuses, each carrying only what it may: `Succeeded`, with the data bag; `Failed`, with the failure and the data bag; or `Aborted`, with the abort and no data bag.
 
 A failure has one variant per cause:
@@ -574,7 +579,8 @@ An abort has one variant per reason:
 | `WrongType` | a value was of another type than declared |
 | `HookFailed` | a hook returned an error |
 | `ReporterFailed` | a reporter, or the dispatcher, returned an error |
+| `ReservedMetadataKey` | a step, hook or service provider set the global metadata `journey_id` |
 
 The result holds the error itself, where events carry only its message. Step statuses and attempt counts are not in the result: they are in the event stream.
 
-Where it lives: `engine/end.rs`, `journey/result.rs`, `journey/abort.rs`, and `Refusal` in `executor.rs`.
+Where it lives: `engine/end.rs`, `journey/result.rs`, `journey/abort.rs` and `journey/abort/`, and `executor/refusal.rs`.

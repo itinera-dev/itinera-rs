@@ -22,6 +22,7 @@ pub(crate) mod fixtures;
 mod guard;
 mod hooks;
 mod inputs;
+mod metadata;
 mod outcome;
 mod request;
 mod rescue;
@@ -33,6 +34,7 @@ pub(crate) use asynchronous::Awaited;
 pub(crate) use emitter::{Clock, Emitted, Emitting, Inline};
 pub(crate) use guard::Failures;
 pub(crate) use hooks::WorkflowPolicies;
+pub(crate) use metadata::introduce;
 
 use emitter::{Delivery, Emitter};
 use end::{Aborted, End};

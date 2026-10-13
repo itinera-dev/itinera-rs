@@ -88,7 +88,7 @@ fn the_reporter_was_made_with_the_journey_id(
     id: String,
 ) -> Result<(), Unmet> {
     let given = world.recorders.get(&reporter)?.journey_id();
-    let found = given.as_ref().map(AsRef::<str>::as_ref);
+    let found = given.as_deref();
     holds(
         found == Some(id.as_str()),
         format_args!("\"{reporter}\" made with the journey ID \"{id}\""),

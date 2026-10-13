@@ -82,7 +82,7 @@ fn a_reporter_that_fails_on_the_last_decision_still_aborts_the_journey() {
         JourneyStatus::Aborted(Abort::ReporterFailed(_))
     ));
     assert_eq!(
-        entries(&log)[9..],
+        entries(&log)[12..],
         [
             "audit journey_succeeded",
             "fragile journey_succeeded",
@@ -144,7 +144,7 @@ fn a_dispatcher_that_fails_while_dispatching_aborts_the_journey() {
     };
     assert_eq!(error.to_string(), "the dispatcher failed on step_succeeded");
     assert_eq!(
-        entries(&log)[6..],
+        entries(&log)[9..],
         [
             "audit step_succeeded",
             "fragile step_succeeded",
@@ -172,10 +172,13 @@ fn a_dispatcher_that_fails_while_journey_aborted_is_delivered_is_ignored() {
     assert_eq!(
         entries(&log),
         [
+            "audit journey_id",
+            "fragile journey_id",
+            "metrics journey_id",
             "audit journey_started",
             "fragile journey_started",
             "audit journey_aborted",
-            "metrics journey_aborted",
+            "metrics journey_aborted"
         ]
     );
 }

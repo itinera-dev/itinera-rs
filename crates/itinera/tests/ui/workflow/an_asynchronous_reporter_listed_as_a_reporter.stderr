@@ -1,15 +1,15 @@
-error[E0277]: the trait bound `Log: itinera::report::Reporter` is not satisfied
+error[E0277]: the trait bound `Log: Reporter` is not satisfied
   --> tests/ui/workflow/an_asynchronous_reporter_listed_as_a_reporter.rs:26:44
    |
 26 | #[workflow(name = "delivery", reporters = [Log])]
    |                                            ^^^ unsatisfied trait bound
    |
-help: the trait `itinera::report::Reporter` is not implemented for `Log`
+help: the trait `Reporter` is not implemented for `Log`
   --> tests/ui/workflow/an_asynchronous_reporter_listed_as_a_reporter.rs:18:1
    |
 18 | struct Log;
    | ^^^^^^^^^^
-help: the following other types implement trait `itinera::report::Reporter`
+help: the following other types implement trait `Reporter`
   --> $WORKSPACE/crates/itinera-core/src/report/debug_reporter.rs
    |
    | impl Reporter for DebugReporter {

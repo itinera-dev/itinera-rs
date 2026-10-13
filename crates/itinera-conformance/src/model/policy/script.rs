@@ -61,6 +61,10 @@ pub(crate) enum HookAction {
         role: String,
         operation: String,
     },
+    SetGlobalMetadata {
+        key: String,
+        value: Value,
+    },
 }
 
 impl HookAction {
@@ -72,6 +76,14 @@ impl HookAction {
             {
                 Some(value)
             }
+            _ => None,
+        }
+    }
+
+    /// The value this action sets the key of global metadata to, if it sets it.
+    pub(crate) fn global_metadata_for(&self, key: &str) -> Option<&Value> {
+        match self {
+            Self::SetGlobalMetadata { key: name, value } if name == key => Some(value),
             _ => None,
         }
     }
