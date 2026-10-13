@@ -9,7 +9,7 @@ Status: done.
 - **`itinera::report::GlobalMetadata`** holds entries of a key, a `String`, and a value, an `AnyValue`: one entry per key, in the order the keys were first set, the latest value of each. `insert` sets an entry, `get` reads one, and it iterates over its entries. `GlobalMetadata::JOURNEY_ID` is the key `journey_id`. A reporter that keeps the entries may keep them in one.
 - **`Reporter::set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error>`** receives one entry. It does nothing by default, so a reporter that has no use for global metadata needs no code. `AsyncReporter::set_global_metadata` is the same, and synchronous, since receiving an entry is keeping it. It replaces `set_journey_id`.
 - **`Dispatcher::set_global_metadata`** and **`AsyncDispatcher::set_global_metadata`** have the same signature, and every dispatcher must write one. `DefaultDispatcher` passes the entry to every reporter, in the order they were added, and stops at the first that fails.
-- **`InstanceBuilder::global_metadata<T: Value>(key, value)`** sets an entry of the initial global metadata. `WorkflowInstance::take_global_metadata` gives it to the executor once, and is empty by default for a hand-written instance.
+- **`InstanceBuilder::global_metadata<T: Value>(key, value)`** sets an entry of the initial global metadata, and so does `global_metadata` on the builder `#[workflow]` generates, such as `Orders::builder()`. `WorkflowInstance::take_global_metadata` gives it to the executor once, and is empty by default for a hand-written instance.
 - **`StepReporter::set_global_metadata<T: Value>(key, value)`**, and the same on `AsyncStepReporter`, `HookReporter` and `AsyncHookReporter`, set an entry while the journey runs. A service provider sets one through the `HookReporter` or `AsyncHookReporter` it requests. Each returns `Result<(), Interrupted>`, or a future of it, like an emit call.
 - **`EventBody::GlobalMetadataSet { key, source }`** is the fact `global_metadata_set`. Its `source` is an `itinera::event::Source`: the step and attempt, or the hook or service provider, with the step and attempt when there is one.
 - **`Abort::ReservedMetadataKey(MetadataSetter)`**, `JourneyAbort::ReservedMetadataKey { source }` and `AbortReason::ReservedMetadataKey` are the abort `reserved metadata key`. The result's `itinera::journey::MetadataSetter` names the step, hook or service provider without the step's name or attempt, since the result names no step; the event's `source` names them.
@@ -45,6 +45,7 @@ Status: done.
 - Unit tests in `itinera-core/src/journey/abort/setter.rs`: the setter names who set the key but not the step.
 - Unit tests in `itinera-core/src/executor/tests.rs` and `executor/asynchronous/tests.rs`: initial global metadata that sets the journey ID is refused before the dispatcher is made; a dispatcher, or an asynchronous reporter, that fails on global metadata refuses the journey before any event.
 - Unit tests in `itinera-core/src/instance.rs`: an instance hands its initial global metadata over once.
+- A test in `crates/itinera/tests/macros/workflow.rs`: `initial_global_metadata_set_through_the_builder_reaches_the_reporters`.
 
 ## Excluded scenarios
 

@@ -1,6 +1,6 @@
 //! The instance builder `#[workflow]` gives the workflow: one setter per field of its struct,
-//! then its initial data and reporters, and `create()`, which compiles only once every required
-//! field is set.
+//! then its initial data, initial global metadata and reporters, and `create()`, which compiles
+//! only once every required field is set.
 
 mod field;
 
@@ -61,8 +61,8 @@ pub(super) fn builder(
     let async_reporter = async_reporters.is_some().then(|| async_reporter(mode));
     let doc = format!(
         "Starts creating an instance of `{workflow}`, for one journey: set each field it \
-         requires, then, if any, its initial data and the reporters made for this journey, and \
-         create it."
+         requires, then, if any, its initial data, its initial global metadata and the reporters made \
+         for this journey, and create it."
     );
     quote! {
         impl #workflow {
@@ -109,6 +109,19 @@ pub(super) fn builder(
                 self
             }
 
+            #[doc = "Adds an entry of initial global metadata, which every reporter receives before the journey starts, right after the journey ID. Setting a key again replaces its value; setting `journey_id` makes `run` refuse the journey."]
+            pub fn global_metadata<__ItineraValue: ::itinera::value::Value>(
+                mut self,
+                key: impl ::core::convert::Into<::std::string::String>,
+                value: __ItineraValue,
+            ) -> Self {
+                let key = key.into();
+                self.calls.push(::std::boxed::Box::new(move |instance: #instance_builder| {
+                    instance.global_metadata(key, value)
+                }));
+                self
+            }
+
             #[doc = "Adds a reporter made for this journey, after the workflow's listed reporters."]
             pub fn reporter(mut self, reporter: impl ::itinera::report::Reporter) -> Self {
                 self.calls.push(::std::boxed::Box::new(move |instance: #instance_builder| {
@@ -123,7 +136,7 @@ pub(super) fn builder(
             #[doc = ""]
             #[doc = "# Errors"]
             #[doc = ""]
-            #[doc = "When the journey ID cannot be produced, or a reporter fails to take it."]
+            #[doc = "When the journey ID cannot be produced."]
             pub fn create(
                 self,
             ) -> ::core::result::Result<

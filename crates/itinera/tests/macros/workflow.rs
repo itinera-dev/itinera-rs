@@ -13,7 +13,7 @@ use itinera::policy::{
     FailWorkflow, HookNeeds, InputAdapter, OnSuccess, Provides, Requested, StepPolicy,
     WorkflowPolicy, step_policy, workflow_policy,
 };
-use itinera::report::{GlobalMetadata, Reporter};
+use itinera::report::{GlobalMetadata, RecordingReporter, Reporter};
 use itinera::step::{DescribedStep, OptionalInput, Outcome, Step, StepName, step, step_name};
 use itinera::value::AnyValue;
 use itinera::workflow::{InputAdapterDescriptor, Workflow, WorkflowDescriptor, role, workflow};
@@ -398,6 +398,22 @@ fn a_workflow_without_fields_is_created_without_setters() {
     let instance = Courier::builder().create().unwrap();
     let result = LocalExecutor::new().run(instance).unwrap();
     assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+}
+
+#[test]
+fn initial_global_metadata_set_through_the_builder_reaches_the_reporters() {
+    let recorder = RecordingReporter::default();
+    let instance = Courier::builder()
+        .global_metadata("tenant", "acme".to_string())
+        .reporter(recorder.clone())
+        .create()
+        .unwrap();
+    LocalExecutor::new().run(instance).unwrap();
+    let metadata = recorder.global_metadata();
+    let tenant = metadata
+        .get("tenant")
+        .and_then(AnyValue::downcast_ref::<String>);
+    assert_eq!(tenant, Some(&"acme".to_string()));
 }
 
 #[workflow]

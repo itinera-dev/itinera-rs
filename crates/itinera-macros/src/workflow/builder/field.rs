@@ -10,7 +10,13 @@ use crate::datum::option_of;
 use crate::marker;
 
 /// The builder's own methods, which no field may be named after.
-const METHODS: [&str; 4] = ["initial_data", "reporter", "async_reporter", "create"];
+const METHODS: [&str; 5] = [
+    "initial_data",
+    "global_metadata",
+    "reporter",
+    "async_reporter",
+    "create",
+];
 
 /// A field of the workflow's struct, which its builder sets.
 pub(in crate::workflow) struct Settable {
