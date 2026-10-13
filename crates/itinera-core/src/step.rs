@@ -10,6 +10,8 @@ mod attempt;
 mod described;
 mod descriptor;
 #[cfg(any(test, feature = "testing"))]
+mod ending;
+#[cfg(any(test, feature = "testing"))]
 mod event_reporter;
 mod factory;
 mod from_inputs;
@@ -31,6 +33,8 @@ pub use asynchronous::{AsyncStep, AsyncStepFactory, AsyncStepReporter};
 pub use attempt::StepAttempt;
 pub use described::DescribedStep;
 pub use descriptor::StepDescriptor;
+#[cfg(any(test, feature = "testing"))]
+pub use ending::Ending;
 #[cfg(any(test, feature = "testing"))]
 pub use event_reporter::StepEventReporter;
 pub(crate) use factory::Attempts;
@@ -59,7 +63,7 @@ pub(crate) use rescue::{FromRescued, Rescues};
 pub(crate) use resolved::Got;
 pub use resolved::Resolved;
 #[cfg(any(test, feature = "testing"))]
-pub(crate) use script::{Action, AttemptScript, Ending, Played, Script, StepScript};
+pub(crate) use script::{Action, AttemptScript, Played, Script, StepScript};
 pub(crate) use slots::Slots;
 
 /// A step: built for one attempt, it does its work when run, and reports an [`Outcome`].

@@ -6,9 +6,9 @@ use std::num::NonZeroU32;
 use futures::executor::block_on;
 use itinera::error::Error;
 use itinera::journey::Contributor;
-use itinera::step::{AsyncStep, AsyncStepReporter, Outcome, Step, StepReporter};
+use itinera::step::{AsyncStep, AsyncStepReporter, Ending, Outcome, Step, StepReporter};
 
-use super::ending::{End, Ending};
+use super::attempt_end::AttemptEnd;
 use super::reporter::Emits;
 use super::script::{Action, Script};
 use super::service::Lent;
@@ -23,7 +23,7 @@ pub(crate) struct Attempting<'a, R> {
     /// The services it was lent, in the order it requests them.
     pub(super) services: Vec<Lent<'a>>,
     pub(super) script: &'a Script,
-    pub(super) ending: &'a Ending,
+    pub(super) end: &'a AttemptEnd,
     pub(super) contributor: Contributor<'a>,
     #[debug(skip)]
     pub(super) reporter: R,
@@ -32,15 +32,15 @@ pub(crate) struct Attempting<'a, R> {
 }
 
 impl<'a, R: Emits> Attempting<'a, R> {
-    /// Uses each service it was lent, does what the script says, then contributes what the
-    /// attempt's ending says, and returns how it ends.
-    pub(super) async fn perform(self) -> Result<&'a End, Error> {
+    /// Uses each service it was lent, does what the script says, then makes the contributions
+    /// its end states, and returns its ending.
+    pub(super) async fn perform(self) -> Result<&'a Ending, Error> {
         let Self {
             step,
             attempt,
             services,
             script,
-            ending,
+            end,
             mut contributor,
             mut reporter,
             runs,
@@ -78,21 +78,21 @@ impl<'a, R: Emits> Attempting<'a, R> {
                 }
             }
         }
-        for (key, value) in &ending.contributes {
+        for (key, value) in &end.contributes {
             contribute(&mut contributor, key, value);
         }
-        Ok(&ending.end)
+        Ok(&end.ending)
     }
 }
 
 impl Step for Attempting<'_, StepReporter<'_>> {
     fn run(self) -> Result<Outcome, Error> {
-        block_on(self.perform()).and_then(End::outcome)
+        block_on(self.perform()).and_then(Ending::outcome)
     }
 }
 
 impl AsyncStep for Attempting<'_, AsyncStepReporter<'_>> {
     async fn run(self) -> Result<Outcome, Error> {
-        self.perform().await.and_then(End::outcome)
+        self.perform().await.and_then(Ending::outcome)
     }
 }

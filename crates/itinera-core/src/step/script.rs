@@ -2,8 +2,7 @@
 
 use std::num::NonZeroU32;
 
-use super::{Outcome, Reason, StepAttempt, StepName};
-use crate::error::Error;
+use super::{Ending, StepAttempt, StepName};
 use crate::event::Level;
 use crate::value::AnyValue;
 
@@ -105,28 +104,4 @@ pub(crate) enum Action {
         key: String,
         value: AnyValue,
     },
-}
-
-/// How a scripted attempt ends.
-#[derive(Clone, Debug)]
-pub(crate) enum Ending {
-    Success,
-    Failure(Reason),
-    RetriableFailure(Reason),
-    Skipped(Option<Reason>),
-    AbnormalTermination(String),
-}
-
-impl Ending {
-    /// What the attempt returns, as the step's `run` would.
-    pub(crate) fn outcome(self) -> Result<Outcome, Error> {
-        match self {
-            Self::Success => Ok(Outcome::success()),
-            Self::Failure(reason) => Ok(Outcome::failure(reason)),
-            Self::RetriableFailure(reason) => Ok(Outcome::retriable_failure(reason)),
-            Self::Skipped(None) => Ok(Outcome::skipped()),
-            Self::Skipped(Some(reason)) => Ok(Outcome::skipped_because(reason)),
-            Self::AbnormalTermination(message) => Err(Error::msg(message)),
-        }
-    }
 }

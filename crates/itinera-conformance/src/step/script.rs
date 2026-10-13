@@ -2,8 +2,8 @@
 
 use itinera::step::{RescueNeeds, StepNeeds};
 
+use super::attempt_end::AttemptEnd;
 use super::building::Needs;
-use super::ending::Ending;
 use super::input::{needing, requested};
 use super::rescue::{RescueData, needing_rescued, requested_from_rescued};
 use super::service::{self, Token};
@@ -25,9 +25,9 @@ pub(super) struct Script {
     /// What every attempt does before it ends, in order.
     pub(super) actions: Vec<Action>,
     /// How the attempts before the last stated one end, in order.
-    endings: Vec<Ending>,
+    ends: Vec<AttemptEnd>,
     /// How the last stated attempt ends, and every attempt after it.
-    last: Ending,
+    last: AttemptEnd,
     pub(super) construction_failure: Option<String>,
     pub(super) ignores_failed_emits: bool,
 }
@@ -45,12 +45,12 @@ pub(super) enum Action {
 
 impl Script {
     pub(super) fn of(step: &model::Step) -> Result<Self, ModelError> {
-        let (endings, last) = match step.attempts.as_deref().and_then(<[_]>::split_last) {
-            Some((last, endings)) => (
-                endings.iter().map(Ending::of).collect::<Result<_, _>>()?,
-                Ending::of(last)?,
+        let (ends, last) = match step.attempts.as_deref().and_then(<[_]>::split_last) {
+            Some((last, ends)) => (
+                ends.iter().map(AttemptEnd::of).collect::<Result<_, _>>()?,
+                AttemptEnd::of(last)?,
             ),
-            None => (Vec::new(), Ending::success()),
+            None => (Vec::new(), AttemptEnd::success()),
         };
         Ok(Self {
             inputs: step.inputs.iter().map(requested).collect(),
@@ -65,7 +65,7 @@ impl Script {
                 .iter()
                 .filter_map(Action::of)
                 .collect::<Result<_, _>>()?,
-            endings,
+            ends,
             last,
             construction_failure: step.construction_failure.clone(),
             ignores_failed_emits: step.ignores_failed_emits,
@@ -92,12 +92,12 @@ impl Script {
 
     /// Whether any of its attempts skips.
     pub(super) fn skips(&self) -> bool {
-        self.endings.iter().chain([&self.last]).any(Ending::skips)
+        self.ends.iter().chain([&self.last]).any(AttemptEnd::skips)
     }
 
     /// How the attempt that comes after `before` others ends.
-    pub(super) fn ending(&self, before: usize) -> &Ending {
-        self.endings.get(before).unwrap_or(&self.last)
+    pub(super) fn end(&self, before: usize) -> &AttemptEnd {
+        self.ends.get(before).unwrap_or(&self.last)
     }
 }
 
@@ -145,7 +145,7 @@ mod tests {
     use super::*;
     use crate::journey::fixtures::{attempt, timed_out};
     use crate::model::AttemptOutcome;
-    use crate::step::ending::End;
+    use itinera::step::Ending;
 
     fn declined() -> AttemptOutcome {
         AttemptOutcome::Failure {
@@ -158,9 +158,9 @@ mod tests {
         }
     }
 
-    fn code(end: &End) -> Option<&str> {
-        match end {
-            End::Failure(reason) | End::RetriableFailure(reason) => Some(reason.code()),
+    fn code(ending: &Ending) -> Option<&str> {
+        match ending {
+            Ending::Failure(reason) | Ending::RetriableFailure(reason) => Some(reason.code()),
             _ => None,
         }
     }
@@ -178,13 +178,13 @@ mod tests {
             ..model::Step::default()
         };
         let script = Script::of(&step).unwrap();
-        assert_eq!(code(&script.ending(before).end), Some(expected));
+        assert_eq!(code(&script.end(before).ending), Some(expected));
     }
 
     #[test]
     fn a_step_whose_attempts_are_not_stated_succeeds() {
         let script = Script::of(&model::Step::default()).unwrap();
-        assert!(matches!(script.ending(0).end, End::Success));
+        assert!(matches!(script.end(0).ending, Ending::Success));
     }
 
     #[test]

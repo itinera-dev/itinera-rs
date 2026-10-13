@@ -1,8 +1,8 @@
 //! The scenario's scripted steps: what each attempt of a step does, as the scenario says.
 
 mod attempt;
+mod attempt_end;
 mod building;
-mod ending;
 mod input;
 mod reporter;
 mod rescue;
@@ -128,7 +128,7 @@ impl Scripted {
             attempt: number,
             services,
             script: &self.script,
-            ending: self.script.ending(attempt),
+            end: self.script.end(attempt),
             contributor: got.contributor()?,
             reporter: got.reporter()?,
             runs: &self.runs,

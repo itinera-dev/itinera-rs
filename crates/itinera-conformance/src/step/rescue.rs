@@ -5,15 +5,14 @@ use futures::executor::block_on;
 use itinera::error::Error;
 use itinera::mode::Asynchronous;
 use itinera::step::{
-    AsyncRescueFactory, AsyncRescueStep, AsyncStepReporter, Input, OptionalInput, RescueFactory,
-    RescueNeeds, RescueOutcome, RescueResolved, RescueStep, StepReporter,
+    AsyncRescueFactory, AsyncRescueStep, AsyncStepReporter, Ending, Input, OptionalInput,
+    RescueFactory, RescueNeeds, RescueOutcome, RescueResolved, RescueStep, StepReporter,
 };
 use itinera::value::Value as Storable;
 use serde_json::Value;
 
 use super::Scripted;
 use super::attempt::Attempting;
-use super::ending::End;
 use super::input::requested;
 use crate::model::{self, RescueRequest};
 use crate::value::{Data, ForType, for_type, json};
@@ -122,16 +121,28 @@ pub(crate) struct RescueAttempt<'a, R> {
 
 impl RescueStep for RescueAttempt<'_, StepReporter<'_>> {
     fn run(self) -> Result<RescueOutcome, Error> {
-        block_on(self.attempting.perform()).and_then(End::rescue_outcome)
+        block_on(self.attempting.perform()).and_then(rescue_outcome)
     }
 }
 
 impl AsyncRescueStep for RescueAttempt<'_, AsyncStepReporter<'_>> {
     async fn run(self) -> Result<RescueOutcome, Error> {
-        self.attempting
-            .perform()
-            .await
-            .and_then(End::rescue_outcome)
+        self.attempting.perform().await.and_then(rescue_outcome)
+    }
+}
+
+/// What a rescue step's `run` returns to end this way. A rescue step's script never skips, since
+/// a rescue step cannot.
+fn rescue_outcome(ending: &Ending) -> Result<RescueOutcome, Error> {
+    match ending {
+        Ending::Success => Ok(RescueOutcome::success()),
+        Ending::Failure(reason) => Ok(RescueOutcome::failure(reason.clone())),
+        Ending::RetriableFailure(reason) => Ok(RescueOutcome::retriable_failure(reason.clone())),
+        Ending::Skipped(_) => Err(Error::msg("a rescue step cannot skip")),
+        Ending::AbnormalTermination(message) => Err(Error::msg(message.clone())),
+        _ => Err(Error::msg(
+            "the scripted rescue step ends in a way it cannot",
+        )),
     }
 }
 
