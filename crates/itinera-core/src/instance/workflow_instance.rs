@@ -117,7 +117,7 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     /// let orders = WorkflowDescriptor::builder("orders").build()?;
     /// let mut instance = orders
     ///     .instance(Orders)
-    ///     .global_metadata("tenant", "acme".to_string())
+    ///     .reporters_global_metadata("tenant", "acme".to_string())
     ///     .create()?;
     /// assert!(instance.take_global_metadata().get("tenant").is_some());
     /// # Ok::<(), Box<dyn std::error::Error>>(())

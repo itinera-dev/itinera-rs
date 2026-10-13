@@ -130,11 +130,11 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
     /// let orders = WorkflowDescriptor::builder("orders").build()?;
     /// let instance = orders
     ///     .instance(Orders)
-    ///     .global_metadata("tenant", "acme".to_string())
+    ///     .reporters_global_metadata("tenant", "acme".to_string())
     ///     .create()?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn global_metadata<T: Value>(mut self, key: impl Into<String>, value: T) -> Self {
+    pub fn reporters_global_metadata<T: Value>(mut self, key: impl Into<String>, value: T) -> Self {
         self.global_metadata.insert(key, AnyValue::new(value));
         self
     }

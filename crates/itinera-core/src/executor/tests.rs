@@ -153,7 +153,7 @@ fn initial_global_metadata_that_sets_the_journey_id_is_refused_before_the_dispat
     let mut executor = LocalExecutor::with_dispatcher_factory(Counting { created: 0 });
     let instance = workflow
         .instance(Shop::new())
-        .global_metadata("journey_id", "mine".to_string())
+        .reporters_global_metadata("journey_id", "mine".to_string())
         .create()
         .unwrap();
 
