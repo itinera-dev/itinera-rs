@@ -95,7 +95,7 @@ mod tests {
         let orders = orders().build().unwrap();
         let mut instance = orders
             .instance(Orders::new())
-            .global_metadata("tenant", "acme".to_string())
+            .reporters_global_metadata("tenant", "acme".to_string())
             .create()
             .unwrap();
 

@@ -38,8 +38,8 @@ fn keys(entries: &[(String, usize)]) -> Vec<&str> {
 #[test]
 fn the_journey_id_then_the_initial_entries_reach_the_reporters_before_any_event() {
     let journey = instance(orders().step(StepDescriptor::new(CHARGE, succeed)))
-        .global_metadata("tenant", "acme".to_string())
-        .global_metadata("region", "eu-west".to_string())
+        .reporters_global_metadata("tenant", "acme".to_string())
+        .reporters_global_metadata("region", "eu-west".to_string())
         .create()
         .unwrap();
 

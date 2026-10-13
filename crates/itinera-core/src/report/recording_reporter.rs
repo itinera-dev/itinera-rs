@@ -82,7 +82,7 @@ impl RecordingReporter {
     /// let recorder = RecordingReporter::default();
     /// let instance = orders
     ///     .instance(Orders)
-    ///     .global_metadata("tenant", "acme".to_string())
+    ///     .reporters_global_metadata("tenant", "acme".to_string())
     ///     .reporter(recorder.clone())
     ///     .create()?;
     /// LocalExecutor::new().run(instance)?;

@@ -404,7 +404,7 @@ fn a_workflow_without_fields_is_created_without_setters() {
 fn initial_global_metadata_set_through_the_builder_reaches_the_reporters() {
     let recorder = RecordingReporter::default();
     let instance = Courier::builder()
-        .global_metadata("tenant", "acme".to_string())
+        .reporters_global_metadata("tenant", "acme".to_string())
         .reporter(recorder.clone())
         .create()
         .unwrap();

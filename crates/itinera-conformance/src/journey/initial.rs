@@ -54,7 +54,7 @@ impl<M: Mode> Takes for Entering<'_, M> {
     fn take<T: Storable>(self, value: T) -> Self::Output {
         match self.into {
             Initial::Data => self.builder.data(self.key, value),
-            Initial::GlobalMetadata => self.builder.global_metadata(self.key, value),
+            Initial::GlobalMetadata => self.builder.reporters_global_metadata(self.key, value),
         }
     }
 }

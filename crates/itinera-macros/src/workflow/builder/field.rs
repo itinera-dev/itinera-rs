@@ -12,7 +12,7 @@ use crate::marker;
 /// The builder's own methods, which no field may be named after.
 const METHODS: [&str; 5] = [
     "initial_data",
-    "global_metadata",
+    "reporters_global_metadata",
     "reporter",
     "async_reporter",
     "create",

@@ -110,14 +110,14 @@ pub(super) fn builder(
             }
 
             #[doc = "Adds an entry of initial global metadata, which every reporter receives before the journey starts, right after the journey ID. Setting a key again replaces its value; setting `journey_id` makes `run` refuse the journey."]
-            pub fn global_metadata<__ItineraValue: ::itinera::value::Value>(
+            pub fn reporters_global_metadata<__ItineraValue: ::itinera::value::Value>(
                 mut self,
                 key: impl ::core::convert::Into<::std::string::String>,
                 value: __ItineraValue,
             ) -> Self {
                 let key = key.into();
                 self.calls.push(::std::boxed::Box::new(move |instance: #instance_builder| {
-                    instance.global_metadata(key, value)
+                    instance.reporters_global_metadata(key, value)
                 }));
                 self
             }
