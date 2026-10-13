@@ -67,6 +67,12 @@ impl StepName {
         Self { name }
     }
 
+    /// Whether this is the name written as `name`.
+    #[cfg(any(test, feature = "testing"))]
+    pub(crate) fn is(self, name: &str) -> bool {
+        self.name == name
+    }
+
     /// The name of this step's rescue step: this name followed by `_rescue`.
     ///
     /// Each rescue step's name is made once for the whole program and kept, as step names are

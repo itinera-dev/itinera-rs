@@ -8,7 +8,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use super::{Failures, Inline, finish, introduce, run};
 use crate::error::Error;
 use crate::event::{Event, EventBody, JourneyFailure};
-use crate::executor::build_policies;
+use crate::executor::{Started, build_policies};
 use crate::instance::{InstanceBuilder, WorkflowInstance};
 use crate::journey::{Contributor, Failure, JourneyStatus};
 #[cfg(feature = "async")]
@@ -242,7 +242,13 @@ pub(super) fn travel_recorded<I: WorkflowInstance>(
         metadata,
     ))
     .unwrap();
-    finish(run(instance, policies, delivery, failures, noon)).status
+    let started = Started {
+        instance,
+        policies,
+        delivery,
+        failures,
+    };
+    finish(run(started, noon)).status
 }
 
 /// The charge step, which needs an amount, may have a discount, and records what it read

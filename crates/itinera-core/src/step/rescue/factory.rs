@@ -119,4 +119,9 @@ impl<F: RescueFactory> Attempts for Rescues<F> {
             rescue.run().map(Outcome::from),
         )))
     }
+
+    #[cfg(any(test, feature = "testing"))]
+    fn build<'a>(&'a self, got: Got<'a>) -> Result<(), Error> {
+        self.factory.build(&mut RescueResolved::new(got)).map(drop)
+    }
 }

@@ -16,6 +16,8 @@ mod fixtures;
 mod initial_data;
 mod output;
 mod result;
+#[cfg(any(test, feature = "testing"))]
+mod scripted_run;
 
 pub use abort::{Abort, FailureRequester, MetadataSetter, MissingData, Requester};
 pub use access::{DataBagAccess, Read};
@@ -30,6 +32,8 @@ pub use initial_data::InitialData;
 pub use itinera_macros::{InitialData, Output};
 pub use output::{Output, OutputError};
 pub use result::{JourneyResult, JourneyStatus, StatusKind};
+#[cfg(any(test, feature = "testing"))]
+pub use scripted_run::ScriptedRun;
 
 /// The identifier of one journey, unique to it. It is made when the journey's instance is
 /// created, and cheap to clone.

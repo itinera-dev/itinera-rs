@@ -30,19 +30,19 @@ flowchart LR
 5. `itinera-conformance`, which is not published, depends on `itinera` and runs the conformance cases of [itinera-dev/conformance](https://github.com/itinera-dev/conformance) against it.
 6. `xtask`, which is not published either, runs every required check on the workspace with `cargo xtask check`.
 
-The features are `macros` (on by default), `async`, which adds the asynchronous executor and the asynchronous traits, `testing`, which adds `RecordingReporter` and the recorders that lend a test the handles of steps, hooks and input adapters, and `unstable`, which holds API the specification has not settled yet.
+The features are `macros` (on by default), `async`, which adds the asynchronous executor and the asynchronous traits, `testing`, which adds `RecordingReporter`, the recorders that lend a test the handles of steps, hooks and input adapters, and scripted runs, and `unstable`, which holds API the specification has not settled yet.
 
 `itinera-core` has one public module per concept, and one private module, `engine`:
 
 | Module | Holds |
 |---|---|
 | `value` | `AnyValue`, the type-erased value of the data bag, event data and reasons' details |
-| `journey` | The data bag, journey IDs, contributors, the result, failures and aborts; with `testing`, `Contributions` |
+| `journey` | The data bag, journey IDs, contributors, the result, failures and aborts; with `testing`, `Contributions` and `ScriptedRun` |
 | `step` | Step names, needs and their tokens, factories, steps, outcomes, reasons, attempts, step reporters, rescue steps; with `testing`, `StepEventReporter` |
 | `policy` | Policy descriptors, the hook traits, hook needs, what a hook receives, hook reporters, lifecycles, roles; with `testing`, `HookEventReporter` |
 | `workflow` | Workflow descriptors, their builder, the `Workflow` trait, input adapters, violations, the listing |
 | `service` | Service tokens and service providers, of journey or attempt scope |
-| `instance` | The `WorkflowInstance` trait, `Instance` and its builder |
+| `instance` | The `WorkflowInstance` trait, `Instance` and its builder; with `testing`, `Scripted` and the builder of its script |
 | `executor` | `LocalExecutor`, `AsyncLocalExecutor` and refusals |
 | `event` | `Event`, its bodies, who did or decided what, and the `Level` of the events steps and hooks emit; with `testing`, `Emitted` |
 | `report` | Reporters, dispatchers and their factories, `DefaultDispatcher`, `GlobalMetadata` |
@@ -216,7 +216,7 @@ sequenceDiagram
 
 Both executors share the one engine, which is written once, as asynchronous code. `LocalExecutor` drives it to the end with a waker that does nothing, since a `Synchronous` workflow has nothing to wait for. `AsyncLocalExecutor` awaits it, and its dispatcher's delivery, on whatever runtime the application uses. The engine never spawns, sleeps or sets timers.
 
-Where it lives: `workflow/builder.rs`, `instance/builder.rs`, `executor.rs`, `executor/refusal.rs`, `executor/asynchronous.rs`, `run` and `finish` in `engine.rs`, and `introduce` in `engine/metadata.rs`.
+Where it lives: `workflow/builder.rs`, `instance/builder.rs`, `executor.rs`, `executor/started.rs`, `executor/refusal.rs`, `executor/asynchronous.rs`, `run` and `finish` in `engine.rs`, and `introduce` in `engine/metadata.rs`.
 
 ### The executor loop
 
@@ -250,7 +250,7 @@ flowchart TD
 6. When the journey fails, because a step was given up or a hook returned `FailWorkflow`, the engine calls the `on workflow failure` hook, if a workflow policy defines it, and emits `journey_failed`. The result is `Failed`, with the failure and the data bag.
 7. An abort can come from any point of the journey, including the workflow hooks. The engine emits `journey_aborted` and the result is `Aborted`, which carries no data bag. Workflow hooks are not called for an abort.
 
-Where it lives: `travel`, `scan` and `run_step` in `engine.rs`, four of the five ways on as `Next` there and the journey failing as `End::Failed` in `engine/end.rs`, and `engine/hooks/workflow.rs`.
+Where it lives: `travel`, `scan` and `run_step` in `engine/scan.rs`, four of the five ways on as `Next` in `engine.rs` and the journey failing as `End::Failed` in `engine/end.rs`, and `engine/hooks/workflow.rs`.
 
 ### One attempt
 
@@ -304,7 +304,21 @@ sequenceDiagram
 7. If a reporter failed while the step was built or ran, the journey is already aborted: the step's outcome is ignored.
 8. Otherwise the contributions the step made are kept for this attempt's hooks when it returned an outcome, and dropped when it returned an error, and the engine goes on to "Outcomes".
 
-Where it lives: `engine/attempt.rs`, `engine/attempt/policies.rs`, `engine/inputs.rs`, `engine/services.rs`, and the factories in `step/factory.rs`.
+Steps 5 and 6 are the work of the journey's runner, which the engine hands each attempt once everything is resolved. A journey that an executor runs has the runner that builds the step and runs it; a test's scripted run has another, described below. Each runner returns an error building the step, or what the attempt ended with.
+
+Where it lives: `engine/attempt.rs`, `engine/attempt/policies.rs`, `engine/inputs.rs`, `engine/services.rs`, the `Runner` trait and `Steps`, the runner that builds and runs the step, in `engine/runner.rs`, and the factories in `step/factory.rs`.
+
+#### A scripted attempt
+
+Behind the `testing` feature, a test runs an instance with a script, written with `instance.scripted()`, which says what some attempts do instead of running their steps. Nothing changes in the executor: the scripted run prepares the journey as `run` does, through the same crate-private start, and hands the engine the script, which is the journey's runner instead of the one that builds and runs each step.
+
+1. While the script is written, a contribution, emit or entry of global metadata for a step that declares no contributor or reporter panics, since the real step could not do it. Before the journey, the script is checked: each scripted step covers every attempt it can have, the rescue step of a scripted step that can fail on attempt 1 is scripted, and, when the test asks for it, every step is scripted. A script that leaves anything out panics, listing it.
+2. An attempt the script plays goes through steps 1 to 4 above as any other: its policies, its requests and its services.
+3. The script's runner has the factory build the step and drops it without running it, so a missing input, a failing provider or a failing constructor aborts the journey as it would otherwise.
+4. The runner then plays the script: each contribution goes to the attempt's contributions, and each emit and entry of global metadata goes through the same `Reporting` a step's reporter uses, so a reporter failure interrupts the script and aborts the journey. The script's ending stands for the step's outcome, or its error.
+5. From there, the attempt goes on to step 7 above. An attempt the script does not play, an unscripted step's or one scripted to run for real, is handed to the runner that builds and runs the step.
+
+Where it lives: the builder and its checks in `instance/scripted.rs` and `instance/scripted/`, the engine's script in `step/script.rs`, the script's runner in `engine/script.rs`, and `ScriptedRun` in `journey/scripted_run.rs`.
 
 ### Parameter injection
 

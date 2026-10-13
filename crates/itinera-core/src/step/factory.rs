@@ -109,4 +109,8 @@ pub(crate) type Running<'a> = Pin<Box<dyn Future<Output = Result<Outcome, Error>
 pub(crate) trait Attempts: Send + Sync {
     /// Builds the step for one attempt and starts it, or fails to build it.
     fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Running<'a>, Error>;
+
+    /// Builds the step for one attempt and drops it without running it, or fails to build it.
+    #[cfg(any(test, feature = "testing"))]
+    fn build<'a>(&'a self, got: Got<'a>) -> Result<(), Error>;
 }

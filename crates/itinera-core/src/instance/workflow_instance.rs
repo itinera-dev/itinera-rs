@@ -1,6 +1,8 @@
 //! What an executor runs: a workflow instance, whoever made it.
 
 use super::Committed;
+#[cfg(any(test, feature = "testing"))]
+use super::Scripted;
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::Mode;
 use crate::report::GlobalMetadata;
@@ -184,4 +186,38 @@ pub trait WorkflowInstance: Send + Sized + 'static {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     fn commit(&mut self, key: String, value: AnyValue) -> Committed;
+
+    /// Starts a script for a test's run of the instance: what some attempts do instead of
+    /// running their steps. See [`Scripted`].
+    ///
+    /// It is available with the `testing` feature, which an application enables under
+    /// `[dev-dependencies]`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::instance::WorkflowInstance;
+    /// use itinera::journey::StatusKind;
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
+    /// use itinera::workflow::WorkflowDescriptor;
+    ///
+    /// struct Orders;
+    ///
+    /// let orders = WorkflowDescriptor::builder("orders")
+    ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
+    ///     .build()?;
+    /// let run = orders
+    ///     .instance(Orders)
+    ///     .create()?
+    ///     .scripted()
+    ///     .step("charge")
+    ///     .will_fail("declined")
+    ///     .run()?;
+    /// assert_eq!(run.result.status.kind(), StatusKind::Failed);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[cfg(any(test, feature = "testing"))]
+    fn scripted(self) -> Scripted<Self> {
+        Scripted::new(self)
+    }
 }

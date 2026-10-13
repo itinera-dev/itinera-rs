@@ -21,6 +21,11 @@ impl<F: StepFactory> Attempts for Synchronously<F> {
         let step = self.factory.build(&mut Resolved::new(got))?;
         Ok(Box::pin(std::future::ready(step.run())))
     }
+
+    #[cfg(any(test, feature = "testing"))]
+    fn build<'a>(&'a self, got: Got<'a>) -> Result<(), Error> {
+        self.factory.build(&mut Resolved::new(got)).map(drop)
+    }
 }
 
 /// What a workflow holds for one step: its name, what it needs, how to build it for each
@@ -287,6 +292,12 @@ impl<W, M> StepDescriptor<W, M> {
         &self.needs
     }
 
+    /// How many attempts the retry budget allows: one more than the retries.
+    #[cfg(any(test, feature = "testing"))]
+    pub(crate) fn attempts_allowed(&self) -> NonZeroU32 {
+        NonZeroU32::MIN.saturating_add(u32::from(self.retry_budget))
+    }
+
     /// Whether the retry budget allows another attempt after this one.
     pub(crate) fn budget_allows_after(&self, attempt: NonZeroU32) -> bool {
         attempt.get() <= u32::from(self.retry_budget)
@@ -310,9 +321,9 @@ impl<W, M> StepDescriptor<W, M> {
         self.retry_budget > 0
     }
 
-    /// Builds the step for one attempt and starts it, or fails to build it.
-    pub(crate) fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Running<'a>, Error> {
-        self.factory.attempt(got)
+    /// The factory that builds the step for each attempt.
+    pub(crate) fn factory(&self) -> &dyn Attempts {
+        self.factory.as_ref()
     }
 
     pub(crate) fn is_named(&self, name: StepName) -> bool {
