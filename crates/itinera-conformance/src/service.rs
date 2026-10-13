@@ -112,11 +112,13 @@ pub(crate) trait Supplied: Send + Sync + 'static {
 
 impl Supplied for dyn Labeller {
     fn supplied(made: Made, implementation: Implementation, data: Option<Value>) -> Provided<Self> {
-        match (implementation, data) {
-            (Implementation::FirstLabeller, None) => provide!(FirstLabeller { made }),
-            (Implementation::FirstLabeller, Some(data)) => provide!(FirstLabeller { made }, data),
-            (Implementation::SecondLabeller, None) => provide!(SecondLabeller { made }),
-            (Implementation::SecondLabeller, Some(data)) => provide!(SecondLabeller { made }, data),
+        match implementation {
+            Implementation::FirstLabeller => {
+                supplying::<Self>(provide!(FirstLabeller { made }), data)
+            }
+            Implementation::SecondLabeller => {
+                supplying::<Self>(provide!(SecondLabeller { made }), data)
+            }
         }
     }
 }
@@ -124,10 +126,15 @@ impl Supplied for dyn Labeller {
 /// A `meter` has no implementations of its own in the cases: every one is the runner's `Made`.
 impl Supplied for dyn Meter {
     fn supplied(made: Made, _: Implementation, data: Option<Value>) -> Provided<Self> {
-        match data {
-            None => provide!(made),
-            Some(data) => provide!(made, data),
-        }
+        supplying::<Self>(provide!(made), data)
+    }
+}
+
+/// The instance a provider made, with the data it supplies, if any.
+fn supplying<T: ?Sized>(provided: Provided<T>, data: Option<Value>) -> Provided<T> {
+    match data {
+        Some(data) => provided.with_data(data),
+        None => provided,
     }
 }
 

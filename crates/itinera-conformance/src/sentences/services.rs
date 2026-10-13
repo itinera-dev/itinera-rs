@@ -89,7 +89,11 @@ fn the_service_provider_makes_instances_of(
     provider: String,
     implementation: Implementation,
 ) -> Result<(), ModelError> {
-    world.model.provider_mut(&provider)?.implementation = implementation;
+    let provider = world.model.provider_mut(&provider)?;
+    if provider.service_type != ServiceType::Labeller {
+        return Err(ModelError::NoImplementations(provider.name.clone()));
+    }
+    provider.implementation = implementation;
     Ok(())
 }
 
@@ -168,4 +172,43 @@ fn the_services_the_provider_makes_fail_when_used(
 ) -> Result<(), ModelError> {
     world.model.provider_mut(&provider)?.fails_when_used = Some(message);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::a_labeller(ServiceType::Labeller, Ok(()))]
+    #[case::a_meter(
+        ServiceType::Meter,
+        Err(ModelError::NoImplementations("counting".to_owned()))
+    )]
+    fn only_a_provider_of_a_labeller_makes_instances_of_an_implementation(
+        #[case] service_type: ServiceType,
+        #[case] chosen: Result<(), ModelError>,
+    ) {
+        let mut world = World::default();
+        world
+            .model
+            .declare("orders".to_owned(), vec!["charge".to_owned()])
+            .unwrap();
+        the_workflow_declares_the_service_provider_once_per_journey(
+            &mut world,
+            "counting".to_owned(),
+            "usage".to_owned(),
+            service_type,
+        )
+        .unwrap();
+
+        let made = the_service_provider_makes_instances_of(
+            &mut world,
+            "counting".to_owned(),
+            Implementation::SecondLabeller,
+        );
+
+        assert_eq!(made, chosen);
+    }
 }

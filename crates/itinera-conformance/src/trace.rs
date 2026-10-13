@@ -1,6 +1,7 @@
 //! The event stream as the cases' event tables describe it.
 
 mod causes;
+mod data;
 mod from_event;
 mod sources;
 
@@ -8,6 +9,7 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
+use self::data::Data;
 use crate::model::{EventKind, ModelError, Row, json};
 
 /// The columns an event table may have besides `event`.
@@ -38,9 +40,7 @@ const COLUMNS: [&str; 18] = [
 pub(crate) struct Line {
     pub(crate) event: String,
     cells: BTreeMap<&'static str, String>,
-    data: Option<Value>,
-    /// Whether the table says the event carries no data.
-    no_data: bool,
+    data: Data,
     /// What else the event carries that no column shows: reasons' messages and details, and
     /// the message of an abnormal termination.
     carried: Vec<Value>,
@@ -58,8 +58,8 @@ impl Line {
         }
         for column in COLUMNS {
             match (column, row.optional(column)) {
-                ("data", Some("none")) => line.no_data = true,
-                ("data", Some(data)) => line.data = Some(json(data)?),
+                ("data", Some("none")) => line.data = Data::Absent,
+                ("data", Some(data)) => line.data = Data::Is(json(data)?),
                 (_, Some(cell)) => {
                     line.cells.insert(column, cell.to_owned());
                 }
@@ -76,8 +76,7 @@ impl Line {
                 .cells
                 .iter()
                 .all(|(column, cell)| event.has_cell(column, cell))
-            && self.data.as_ref().is_none_or(|data| event.has_data(data))
-            && (!self.no_data || event.data.is_none())
+            && self.data.admits(&event.data)
     }
 
     /// Whether the event names no input adapter.
@@ -88,11 +87,6 @@ impl Line {
     /// Whether the event has this text in this column.
     pub(crate) fn has_cell(&self, column: &str, cell: &str) -> bool {
         self.cells.get(column).map(String::as_str) == Some(cell)
-    }
-
-    /// Whether the event's data is this JSON.
-    fn has_data(&self, data: &Value) -> bool {
-        self.data.as_ref() == Some(data)
     }
 
     fn set(&mut self, column: &'static str, cell: impl ToString) {
@@ -120,7 +114,7 @@ impl Line {
             Value::String(text) => text.clone(),
             other => other.to_string(),
         };
-        let mut values = self.data.iter().chain(&self.carried);
+        let mut values = self.data.value().into_iter().chain(&self.carried);
         let mut texts = ["message", "error"]
             .iter()
             .filter_map(|column| self.cells.get(column));

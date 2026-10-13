@@ -1,36 +1,12 @@
 //! What a service provider returns: the instance it made, with the name of its implementation
 //! and the data it supplies with it.
 
-use super::{AnyProvided, Instance};
+use super::{AnyProvided, Implementation, Instance};
 use crate::value::{AnyValue, Value};
 
-/// The implementation a service provider made: the name of the instance's concrete type, as Rust
-/// describes it, such as `orders::Bank`. It is for reading: its format is the compiler's own and
-/// may change from one version to the next, so nothing should compare it.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::service::Implementation;
-///
-/// let bank = Implementation::from("orders::Bank");
-/// let text: &str = bank.as_ref();
-/// assert_eq!(text, "orders::Bank");
-/// assert_eq!(bank.to_string(), "orders::Bank");
-/// ```
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    derive_more::Display,
-    derive_more::From,
-    derive_more::Into,
-    derive_more::AsRef,
-)]
-#[as_ref(forward)]
-pub struct Implementation(&'static str);
+mod provide;
+
+pub use provide::provide;
 
 /// What a service provider returns for the service `T`: the instance it made, the
 /// [`Implementation`] that instance is, and the data the provider supplies with it, if any, which
@@ -72,15 +48,15 @@ pub struct Provided<T: ?Sized> {
 }
 
 impl<T: ?Sized> Provided<T> {
-    /// What [`provide!`] expands to: the instance, already boxed as `T`, with the name of its
-    /// concrete type and the provider's data. Applications write [`provide!`] instead.
+    /// What [`provide!`] expands to: the instance, already boxed as `T`, with the implementation
+    /// it is and the provider's data. Applications write [`provide!`] instead.
     ///
     /// [`provide!`]: crate::service::provide
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::service::Provided;
+    /// use itinera::service::{Implementation, Provided};
     ///
     /// trait StockStore: Send + Sync {}
     ///
@@ -88,14 +64,15 @@ impl<T: ?Sized> Provided<T> {
     ///
     /// impl StockStore for Warehouse {}
     ///
-    /// let stock: Provided<dyn StockStore> =
-    ///     Provided::__new(std::any::type_name::<Warehouse>(), Box::new(Warehouse), None);
+    /// let warehouse = Warehouse;
+    /// let implementation = Implementation::__of(&warehouse);
+    /// let stock: Provided<dyn StockStore> = Provided::__new(implementation, Box::new(warehouse), None);
     /// assert!(stock.implementation().to_string().ends_with("Warehouse"));
     /// ```
     #[doc(hidden)]
-    pub fn __new(implementation: &'static str, service: Box<T>, data: Option<AnyValue>) -> Self {
+    pub fn __new(implementation: Implementation, service: Box<T>, data: Option<AnyValue>) -> Self {
         Self {
-            implementation: implementation.into(),
+            implementation,
             service,
             data,
         }
@@ -130,7 +107,7 @@ impl<T: ?Sized> Provided<T> {
     /// assert!(payments.data().is_some());
     /// ```
     pub fn from_box(service: Box<T>) -> Self {
-        Self::__new(std::any::type_name::<T>(), service, None)
+        Self::__new(Implementation::of_type::<T>(), service, None)
     }
 
     /// The same instance, with `data` supplied with it, which must be a [`Value`] and which
@@ -250,83 +227,6 @@ impl AnyProvided {
     }
 }
 
-/// Makes the [`Provided`] a service provider returns from an instance, reading the name of the
-/// instance's concrete type before the instance becomes the service's type, such as
-/// `dyn PaymentGateway`. Written `provide!(instance)`, or `provide!(instance, data)` to supply
-/// data with it, which must be a [`Value`] and which `service_provided` carries for the reporters.
-///
-/// It is written where the service's type is known, such as in `Ok(provide!(Sandbox))` returned by
-/// a provider: Rust turns a box of the instance into a box of a trait object only there. A
-/// `Provided` bound by `let` names its type, as in `let made: Provided<dyn PaymentGateway>`.
-///
-/// [`Value`]: crate::value::Value
-///
-/// # Examples
-///
-/// ```
-/// use itinera::error::Error;
-/// use itinera::service::{Provided, provide};
-///
-/// trait PaymentGateway: Send + Sync {}
-///
-/// struct Bank;
-/// struct Sandbox;
-///
-/// impl PaymentGateway for Bank {}
-/// impl PaymentGateway for Sandbox {}
-///
-/// fn payments(testing: bool) -> Result<Provided<dyn PaymentGateway>, Error> {
-///     if testing {
-///         Ok(provide!(Sandbox, "sandbox".to_string()))
-///     } else {
-///         Ok(provide!(Bank))
-///     }
-/// }
-///
-/// let made = payments(true)?;
-/// assert!(made.implementation().to_string().ends_with("Sandbox"));
-/// assert!(made.data().is_some());
-/// # Ok::<(), Error>(())
-/// ```
-///
-/// Data that is not a value does not compile:
-///
-/// ```compile_fail,E0277
-/// use itinera::service::{Provided, provide};
-///
-/// trait PaymentGateway: Send + Sync {}
-///
-/// struct Bank;
-///
-/// impl PaymentGateway for Bank {}
-///
-/// let made: Provided<dyn PaymentGateway> = provide!(Bank, std::sync::Mutex::new(1));
-/// ```
-#[doc(hidden)]
-#[macro_export]
-macro_rules! __provide {
-    ($service:expr $(,)?) => {
-        $crate::__provide!(@made $service, ::core::option::Option::None)
-    };
-    ($service:expr, $data:expr $(,)?) => {
-        $crate::__provide!(
-            @made $service,
-            ::core::option::Option::Some($crate::value::AnyValue::new($data))
-        )
-    };
-    (@made $service:expr, $data:expr) => {{
-        let service = $service;
-        $crate::service::Provided::__new(
-            ::core::any::type_name_of_val(&service),
-            ::std::boxed::Box::new(service),
-            $data,
-        )
-    }};
-}
-
-#[doc(inline)]
-pub use crate::__provide as provide;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -346,10 +246,7 @@ mod tests {
     fn the_implementation_is_the_concrete_type_of_the_instance_not_the_service_type() {
         let made = bank();
 
-        assert_eq!(
-            made.implementation(),
-            Implementation::from(std::any::type_name::<Bank>())
-        );
+        assert_eq!(made.implementation(), Implementation::of_type::<Bank>());
     }
 
     #[test]
@@ -358,7 +255,7 @@ mod tests {
 
         assert_eq!(
             Provided::from_box(boxed).implementation(),
-            Implementation::from(std::any::type_name::<dyn PaymentGateway>())
+            Implementation::of_type::<dyn PaymentGateway>()
         );
     }
 
@@ -367,10 +264,7 @@ mod tests {
         let (instance, implementation, data) = bank().erased().into_parts();
 
         assert!(lent::<dyn PaymentGateway>(&instance).is_some());
-        assert_eq!(
-            implementation,
-            Implementation::from(std::any::type_name::<Bank>())
-        );
+        assert_eq!(implementation, Implementation::of_type::<Bank>());
         assert!(data.is_none());
     }
 }

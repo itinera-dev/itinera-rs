@@ -4,12 +4,14 @@ use itinera::event::{Event, EventBody, GiveUpCause, RequestSource};
 use serde_json::Value;
 
 use super::Line;
+use super::data::Data;
 use crate::service::implementation_named;
 
 impl From<&Event> for Line {
     fn from(event: &Event) -> Self {
         let mut line = Self {
             event: event.kind().to_owned(),
+            data: Data::Absent,
             ..Self::default()
         };
         match &event.body {
@@ -40,7 +42,7 @@ impl From<&Event> for Line {
             } => {
                 line.service(step, key, provider);
                 line.set("implementation", implementation_named(*implementation));
-                line.data = data.as_ref().and_then(as_json);
+                line.data = Data::carried(data.as_ref());
             }
             EventBody::ServiceProviderFailed {
                 step,
@@ -188,11 +190,6 @@ impl From<&Event> for Line {
 impl Line {
     fn emitted(&mut self, message: &str, data: Option<&itinera::value::AnyValue>) {
         self.set("message", message);
-        self.data = data.and_then(as_json);
+        self.data = Data::carried(data);
     }
-}
-
-/// Event data as JSON, to compare with what a table writes.
-fn as_json(data: &itinera::value::AnyValue) -> Option<Value> {
-    serde_json::to_value(data).ok()
 }

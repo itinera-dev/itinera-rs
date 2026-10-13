@@ -1,4 +1,3 @@
-use std::any::type_name;
 use std::sync::{Arc, Mutex};
 
 use super::*;
@@ -211,9 +210,9 @@ fn service_provided_names_the_type_each_provider_made_and_carries_the_data_it_su
     assert_eq!(
         implementations(&events),
         [
-            (Implementation::from(type_name::<Label>()), None),
+            (Implementation::of_type::<Label>(), None),
             (
-                Implementation::from(type_name::<Sandbox>()),
+                Implementation::of_type::<Sandbox>(),
                 Some("north".to_owned())
             ),
         ]

@@ -9,6 +9,7 @@ mod descriptor;
 mod fit;
 #[cfg(test)]
 pub(crate) mod fixtures;
+mod implementation;
 mod provided;
 mod scope;
 mod token;
@@ -19,7 +20,8 @@ pub use descriptor::ServiceProviderDescriptor;
 pub(crate) use descriptor::{ProviderEntry, serving};
 #[doc(hidden)]
 pub use fit::{Char, ProvidesService};
-pub use provided::{Implementation, Provided, provide};
+pub use implementation::Implementation;
+pub use provided::{Provided, provide};
 pub(crate) use scope::Scope;
 pub use scope::{PerAttempt, PerJourney, ProviderScope};
 pub use token::Service;

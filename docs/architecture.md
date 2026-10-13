@@ -257,7 +257,7 @@ Where it lives: `travel`, `scan` and `run_step` in `engine/scan.rs`, four of the
 ```mermaid
 sequenceDiagram
     accTitle: One attempt of a step
-    accDescr: The engine emits attempt started and builds the step's policies. For each request, in the order declared, it resolves an input through the input adapter and the data bag, or a rescue step's request from what the rescued step left. It then provides each service, calling a provider with what it requested unless its instance is kept for the journey, builds the step with what it resolved, and runs it. A reporter failing while the step is built or runs aborts the journey; otherwise the outcome or error goes on to what follows.
+    accDescr: The engine emits attempt started and builds the step's policies. For each request, in the order declared, it resolves an input through the input adapter and the data bag, or a rescue step's request from what the rescued step left. It then provides each service, calling a provider with what it requested unless its instance is kept for the journey, which returns the instance with its implementation and data, builds the step with what it resolved, and runs it. A reporter failing while the step is built or runs aborts the journey; otherwise the outcome or error goes on to what follows.
     participant Engine as Engine
     participant Policies as Step policies
     participant Adapter as Input adapter
@@ -284,7 +284,7 @@ sequenceDiagram
     loop each service
         alt not kept for the journey yet
             Engine->>Providers: call it, with what it requested
-            Providers-->>Engine: the instance, or an error
+            Providers-->>Engine: the instance with its implementation and data, or an error
             Engine->>Engine: emit service_provided, or service_provider_failed
         end
     end
