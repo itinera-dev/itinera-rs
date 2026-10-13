@@ -7,6 +7,7 @@ use itinera::error::Error;
 use itinera::instance::{Instance, InstanceError};
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::policy::HookReporter;
+use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, Step, StepName, step};
 use itinera::workflow::workflow;
 
@@ -115,16 +116,16 @@ pub(super) struct Warehouse;
 impl Warehouse {
     /// The journey's stock, made once and lent to every step and attempt.
     #[provider]
-    fn stock(&self, #[journey_id] journey_id: &JourneyId) -> Result<Box<dyn Stock>, Error> {
-        Ok(Box::new(Shelf {
+    fn stock(&self, #[journey_id] journey_id: &JourneyId) -> Result<Provided<dyn Stock>, Error> {
+        Ok(provide!(Shelf {
             label: format!("stock of {journey_id}"),
         }))
     }
 
     /// The payments of every step without a provider of its own for them.
     #[provider]
-    fn payments(&self) -> Result<Box<dyn Payments>, Error> {
-        Ok(Box::new(Gateway {
+    fn payments(&self) -> Result<Provided<dyn Payments>, Error> {
+        Ok(provide!(Gateway {
             label: "payments".to_owned(),
             reachable: true,
         }))
@@ -140,7 +141,7 @@ impl Warehouse {
         #[attempt] attempt: NonZeroU32,
         #[from_workflow] gateway: Option<String>,
         #[reporter] reporter: HookReporter<'_>,
-    ) -> Result<Box<dyn Payments>, Error> {
+    ) -> Result<Provided<dyn Payments>, Error> {
         let gateway = gateway.unwrap_or_else(|| "main".to_owned());
         chosen(&gateway, step, attempt, reporter)
     }
@@ -157,12 +158,12 @@ fn chosen(
     step: StepName,
     attempt: NonZeroU32,
     mut reporter: HookReporter<'_>,
-) -> Result<Box<dyn Payments>, Error> {
+) -> Result<Provided<dyn Payments>, Error> {
     if gateway == "down" {
         return Err(Error::msg("gateway down"));
     }
     reporter.info(format!("choosing the {gateway} gateway"))?;
-    Ok(Box::new(Gateway {
+    Ok(provide!(Gateway {
         label: format!("{gateway} gateway for {step}, attempt {attempt}"),
         reachable: gateway != "flaky" || attempt.get() > 1,
     }))

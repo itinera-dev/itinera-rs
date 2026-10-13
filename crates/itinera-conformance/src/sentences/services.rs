@@ -6,7 +6,8 @@ use cucumber::given;
 
 use super::Names;
 use crate::model::{
-    Level, ModelError, Provider, ProviderAction, ProviderFailure, Scope, ServiceType,
+    Implementation, Level, ModelError, Provider, ProviderAction, ProviderFailure, Scope,
+    ServiceType, json,
 };
 use crate::world::World;
 
@@ -79,6 +80,28 @@ fn the_service_provider_labels_each_instance(
     key: String,
 ) -> Result<(), ModelError> {
     world.model.provider_mut(&provider)?.labelled_by = Some(key);
+    Ok(())
+}
+
+#[given(expr = "the service provider {string} makes instances of {implementation}")]
+fn the_service_provider_makes_instances_of(
+    world: &mut World,
+    provider: String,
+    implementation: Implementation,
+) -> Result<(), ModelError> {
+    world.model.provider_mut(&provider)?.implementation = implementation;
+    Ok(())
+}
+
+#[given(
+    regex = r#"^the service provider "([^"]*)" supplies the data ([\[{"0-9-].*|true|false|null) with each instance$"#
+)]
+fn the_service_provider_supplies_the_data(
+    world: &mut World,
+    provider: String,
+    data: String,
+) -> Result<(), ModelError> {
+    world.model.provider_mut(&provider)?.data = Some(json(&data)?);
     Ok(())
 }
 

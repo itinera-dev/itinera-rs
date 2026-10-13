@@ -10,6 +10,7 @@ use itinera::executor::LocalExecutor;
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::policy::{OnSuccess, step_policy, workflow_policy};
 use itinera::report::Reporter;
+use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, Step, step};
 use itinera::value::AnyValue;
 use itinera::workflow::{role, workflow};
@@ -150,8 +151,11 @@ impl Orders {
 
     /// Lends each attempt to charge the shop's card terminal.
     #[provider(per_attempt, steps = ["charge"])]
-    fn payments(&self, #[attempt] attempt: NonZeroU32) -> Result<Box<dyn PaymentGateway>, Error> {
-        Ok(Box::new(Terminal {
+    fn payments(
+        &self,
+        #[attempt] attempt: NonZeroU32,
+    ) -> Result<Provided<dyn PaymentGateway>, Error> {
+        Ok(provide!(Terminal {
             shop: self.shop,
             attempt,
         }))

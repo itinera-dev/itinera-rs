@@ -289,7 +289,7 @@ mod tests {
 
     mod services {
         use super::*;
-        use crate::service::{Instance, Service, erased};
+        use crate::service::{Instance, Service};
 
         const COUNTER: Service<i64> = Service::new("counter");
 
@@ -302,7 +302,7 @@ mod tests {
 
         #[test]
         fn a_service_may_be_taken_more_than_once() {
-            let counter = erased::<i64>(Box::new(7));
+            let counter: Instance = Box::new(Box::new(7_i64));
             let got = lending_a_counter(&counter);
 
             assert_eq!(got.service(&COUNTER).unwrap(), &7);
@@ -321,7 +321,7 @@ mod tests {
 
         #[test]
         fn a_service_taken_as_another_type_than_declared_cannot_be_taken() {
-            let counter = erased::<i64>(Box::new(7));
+            let counter: Instance = Box::new(Box::new(7_i64));
             let got = lending_a_counter(&counter);
 
             assert!(got.service(&Service::<i32>::new("counter")).is_err());

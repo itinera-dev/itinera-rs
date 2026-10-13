@@ -23,7 +23,9 @@ pub(crate) use policy::{
     Hook, HookAction, HookRequest, HookReturn, HookScript, Hooks, Lifecycle, Policy, Role,
 };
 pub(crate) use report::{Dispatching, EventKind, Holding, ReporterFailure};
-pub(crate) use service::{Provider, ProviderAction, ProviderFailure, Scope, ServiceType};
+pub(crate) use service::{
+    Implementation, Provider, ProviderAction, ProviderFailure, Scope, ServiceType,
+};
 pub(crate) use step::{
     Attempt, AttemptOutcome, Input, Reason, RescueRequest, Step, StepAction, attempts, rescue_of,
 };

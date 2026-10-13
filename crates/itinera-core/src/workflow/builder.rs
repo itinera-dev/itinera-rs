@@ -161,7 +161,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     ///
     /// ```
     /// use itinera::error::Error;
-    /// use itinera::service::{Service, ServiceProviderDescriptor};
+    /// use itinera::service::{Service, ServiceProviderDescriptor, provide};
     /// use itinera::step::{Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds, step_name};
     /// use itinera::workflow::WorkflowDescriptor;
     ///
@@ -209,7 +209,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
     ///     .step(StepDescriptor::new(step_name!("reserve"), Reserving))
     ///     .provider(ServiceProviderDescriptor::new("stock", &STOCK, |_, _| {
-    ///         Ok(Box::new(Warehouse) as Box<dyn StockStore>)
+    ///         Ok(provide!(Warehouse))
     ///     }))
     ///     .build()?;
     /// # Ok::<(), itinera::workflow::Violations>(())

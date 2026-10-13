@@ -7,7 +7,9 @@ use itinera::error::Error;
 use itinera::journey::{Contributor, DataBag, InitialData};
 use itinera::mode::Asynchronous;
 use itinera::policy::{AsyncHookReporter, HookNeeds, Provider, Requested};
-use itinera::service::{PerAttempt, PerJourney, Service, ServiceProviderDescriptor};
+use itinera::service::{
+    PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
+};
 use itinera::step::{
     AsyncStep, AsyncStepFactory, Outcome, Reason, Resolved, StepDescriptor, StepNeeds, step,
     step_name,
@@ -68,13 +70,13 @@ fn dispatched(
 async fn courier(
     attempt: NonZeroU32,
     mut reporter: AsyncHookReporter<'_>,
-) -> Result<Box<dyn Courier>, Error> {
+) -> Result<Provided<dyn Courier>, Error> {
     reporter.info(format!("attempt {attempt}")).await?;
     let (name, reach) = match attempt.get() {
         1 => ("van", 5),
         _ => ("lorry", usize::MAX),
     };
-    Ok(Box::new(Van {
+    Ok(provide!(Van {
         name: name.to_owned(),
         reach,
     }))
@@ -111,8 +113,8 @@ struct Parcels;
 #[workflow]
 impl Parcels {
     #[provider]
-    fn labeller(&self) -> Result<Box<dyn Labeller>, Error> {
-        Ok(Box::new(Printer))
+    fn labeller(&self) -> Result<Provided<dyn Labeller>, Error> {
+        Ok(provide!(Printer))
     }
 
     #[provider(per_attempt)]
@@ -120,7 +122,7 @@ impl Parcels {
         &self,
         #[attempt] attempt: NonZeroU32,
         #[reporter] reporter: AsyncHookReporter<'_>,
-    ) -> Result<Box<dyn Courier>, Error> {
+    ) -> Result<Provided<dyn Courier>, Error> {
         courier(attempt, reporter).await
     }
 
@@ -184,14 +186,14 @@ impl AsyncStepFactory for DispatchFactory {
 async fn hand_labeller(
     _: &HandParcels,
     _: Requested<'_, HandParcels, Provider<PerJourney>, Asynchronous>,
-) -> Result<Box<dyn Labeller>, Error> {
-    Ok(Box::new(Printer))
+) -> Result<Provided<dyn Labeller>, Error> {
+    Ok(provide!(Printer))
 }
 
 async fn hand_courier(
     _: &HandParcels,
     mut got: Requested<'_, HandParcels, Provider<PerAttempt>, Asynchronous>,
-) -> Result<Box<dyn Courier>, Error> {
+) -> Result<Provided<dyn Courier>, Error> {
     let reporter = got.reporter()?;
     courier(got.attempt(), reporter).await
 }

@@ -3,6 +3,7 @@ use std::num::NonZeroU32;
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
 use itinera::journey::{Contributor, JourneyStatus};
+use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, RescueOutcome, RescueStep, Step, rescue_step, step};
 use itinera::workflow::workflow;
 
@@ -60,8 +61,8 @@ struct Orders;
 #[workflow]
 impl Orders {
     #[provider(per_attempt, steps = ["charge"], key = "tokens", name = "charging")]
-    fn charging(&self, #[attempt] attempt: NonZeroU32) -> Result<Box<dyn TokenService>, Error> {
-        Ok(Box::new(Vault(format!("the vault of attempt {attempt}"))))
+    fn charging(&self, #[attempt] attempt: NonZeroU32) -> Result<Provided<dyn TokenService>, Error> {
+        Ok(provide!(Vault(format!("the vault of attempt {attempt}"))))
     }
 }
 

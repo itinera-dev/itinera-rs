@@ -8,6 +8,7 @@ fn line(event: &str, cells: &[(&'static str, &str)]) -> Line {
         event: event.to_owned(),
         cells: cells.iter().map(owned).collect(),
         data: None,
+        no_data: false,
         carried: Vec::new(),
     }
 }

@@ -1,5 +1,5 @@
 error[E0080]: evaluation panicked: service not provided: payments for ship
-  --> tests/ui/service/a_service_not_provided.rs:81:26
+  --> tests/ui/service/a_service_not_provided.rs:82:26
    |
-81 | #[with_step(Ship, name = "ship")]
+82 | #[with_step(Ship, name = "ship")]
    |                          ^^^^^^ evaluation of `_::_` failed here

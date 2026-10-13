@@ -737,7 +737,7 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     /// ```
     /// use itinera::error::Error;
     /// use itinera::policy::{Provider, Requested};
-    /// use itinera::service::PerAttempt;
+    /// use itinera::service::{PerAttempt, Provided, provide};
     ///
     /// trait Labeller: Send + Sync {}
     ///
@@ -751,8 +751,8 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     ///     fn labels(
     ///         &self,
     ///         got: Requested<'_, Self, Provider<PerAttempt>>,
-    ///     ) -> Result<Box<dyn Labeller>, Error> {
-    ///         Ok(Box::new(Label(got.step_name().to_string())))
+    ///     ) -> Result<Provided<dyn Labeller>, Error> {
+    ///         Ok(provide!(Label(got.step_name().to_string())))
     ///     }
     /// }
     /// ```
@@ -767,7 +767,7 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     /// ```
     /// use itinera::error::Error;
     /// use itinera::policy::{Provider, Requested};
-    /// use itinera::service::PerAttempt;
+    /// use itinera::service::{PerAttempt, Provided, provide};
     ///
     /// trait PaymentGateway: Send + Sync {}
     ///
@@ -783,11 +783,11 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     ///     fn payments(
     ///         &self,
     ///         got: Requested<'_, Self, Provider<PerAttempt>>,
-    ///     ) -> Result<Box<dyn PaymentGateway>, Error> {
+    ///     ) -> Result<Provided<dyn PaymentGateway>, Error> {
     ///         if got.attempt().get() == 1 {
-    ///             Ok(Box::new(Main))
+    ///             Ok(provide!(Main))
     ///         } else {
-    ///             Ok(Box::new(Backup))
+    ///             Ok(provide!(Backup))
     ///         }
     ///     }
     /// }

@@ -192,7 +192,7 @@ mod services {
     use crate::service::fixtures::{
         Dropped, Given, Labeller, Made, PAYMENTS, dropping, drops, made, per_attempt, requesting,
     };
-    use crate::service::{PerAttempt, ServiceProviderDescriptor};
+    use crate::service::{PerAttempt, Provided, ServiceProviderDescriptor};
     use crate::step::Step;
 
     /// The factory of a step that needs an amount and the payments service.
@@ -251,7 +251,7 @@ mod services {
         })
     }
 
-    fn dropping_after(dropped: &Dropped, before: &DroppedBefore) -> Box<dyn Labeller> {
+    fn dropping_after(dropped: &Dropped, before: &DroppedBefore) -> Provided<dyn Labeller> {
         before.lock().unwrap().push(drops(dropped));
         dropping(dropped)
     }

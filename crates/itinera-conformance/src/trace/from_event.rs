@@ -4,6 +4,7 @@ use itinera::event::{Event, EventBody, GiveUpCause, RequestSource};
 use serde_json::Value;
 
 use super::Line;
+use crate::service::implementation_named;
 
 impl From<&Event> for Line {
     fn from(event: &Event) -> Self {
@@ -33,18 +34,20 @@ impl From<&Event> for Line {
                 step,
                 key,
                 provider,
+                implementation,
+                data,
                 ..
+            } => {
+                line.service(step, key, provider);
+                line.set("implementation", implementation_named(*implementation));
+                line.data = data.as_ref().and_then(as_json);
             }
-            | EventBody::ServiceProviderFailed {
+            EventBody::ServiceProviderFailed {
                 step,
                 key,
                 provider,
                 ..
-            } => {
-                line.attempt(step);
-                line.set("key", key);
-                line.set("provider", provider);
-            }
+            } => line.service(step, key, provider),
             EventBody::OptionalInputAbsent { key, requester, .. } => {
                 line.set("key", key);
                 match requester {

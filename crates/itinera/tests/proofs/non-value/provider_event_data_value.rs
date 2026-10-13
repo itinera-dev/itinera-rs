@@ -1,6 +1,6 @@
 use itinera::error::Error;
 use itinera::policy::{HookNeeds, Provider, Requested};
-use itinera::service::{PerJourney, Service, ServiceProviderDescriptor};
+use itinera::service::{PerJourney, Provided, Service, ServiceProviderDescriptor, provide};
 
 trait PaymentGateway: Send + Sync {}
 
@@ -16,9 +16,9 @@ impl Orders {
     fn payments(
         &self,
         mut got: Requested<'_, Self, Provider<PerJourney>>,
-    ) -> Result<Box<dyn PaymentGateway>, Error> {
+    ) -> Result<Provided<dyn PaymentGateway>, Error> {
         got.reporter()?.info_with("odd data", 1_i64)?;
-        Ok(Box::new(Gateway))
+        Ok(provide!(Gateway))
     }
 }
 

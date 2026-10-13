@@ -723,7 +723,7 @@ mod service {
     }
 
     #[test]
-    fn providers_of_one_key_boxing_different_types_leave_it_to_the_descriptor()
+    fn providers_of_one_key_providing_different_types_leave_it_to_the_descriptor()
     -> Result<(), Box<dyn Error>> {
         described_with_providers_written_apart::main()
     }
@@ -822,8 +822,8 @@ mod service {
     }
 
     #[test]
-    fn a_provider_returns_its_instance_in_a_box() -> Result<(), Box<dyn Error>> {
-        fails_to_compile("tests/ui/service/a_provider_of_a_type_that_is_not_a_box.rs");
+    fn a_provider_returns_its_instance_as_provided() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/service/a_provider_returning_a_bare_instance.rs");
         described::main()
     }
 

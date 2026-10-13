@@ -8,6 +8,7 @@ use itinera::instance::{Instance, InstanceError};
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::mode::Asynchronous;
 use itinera::policy::AsyncHookReporter;
+use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, Step, step};
 use itinera::workflow::workflow;
 
@@ -94,8 +95,8 @@ pub(super) struct Couriers;
 impl Couriers {
     /// The journey's labels, made once and lent to every step and attempt.
     #[provider]
-    fn labels(&self, #[journey_id] journey_id: &JourneyId) -> Result<Box<dyn Labels>, Error> {
-        Ok(Box::new(Printer {
+    fn labels(&self, #[journey_id] journey_id: &JourneyId) -> Result<Provided<dyn Labels>, Error> {
+        Ok(provide!(Printer {
             journey_id: journey_id.to_string(),
         }))
     }
@@ -109,7 +110,7 @@ impl Couriers {
         #[attempt] attempt: NonZeroU32,
         #[from_workflow] company: String,
         #[reporter] reporter: AsyncHookReporter<'_>,
-    ) -> Result<Box<dyn Courier>, Error> {
+    ) -> Result<Provided<dyn Courier>, Error> {
         sent(&company, attempt, reporter).await
     }
 
@@ -124,7 +125,7 @@ async fn sent(
     company: &str,
     attempt: NonZeroU32,
     mut reporter: AsyncHookReporter<'_>,
-) -> Result<Box<dyn Courier>, Error> {
+) -> Result<Provided<dyn Courier>, Error> {
     if company == "none" {
         return Err(Error::msg("no courier"));
     }
@@ -135,7 +136,7 @@ async fn sent(
     reporter
         .info(format!("sending the {company} {vehicle}"))
         .await?;
-    Ok(Box::new(Vehicle {
+    Ok(provide!(Vehicle {
         name: format!("{company} {vehicle}"),
         reach,
     }))

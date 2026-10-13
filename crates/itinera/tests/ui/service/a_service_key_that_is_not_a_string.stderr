@@ -1,5 +1,5 @@
 error: `#[service]` takes the service's key, such as `#[service("payments")]`
-  --> tests/ui/service/a_service_key_that_is_not_a_string.rs:50:19
+  --> tests/ui/service/a_service_key_that_is_not_a_string.rs:51:19
    |
-50 |         #[service(payments)] gateway: &dyn PaymentGateway,
+51 |         #[service(payments)] gateway: &dyn PaymentGateway,
    |                   ^^^^^^^^

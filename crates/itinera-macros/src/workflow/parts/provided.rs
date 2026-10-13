@@ -135,11 +135,11 @@ mod tests {
         methods.iter().copied().map(provider).collect()
     }
 
-    const STOCK: &str = "#[provider] fn stock(&self) -> Result<Box<dyn StockStore>, Error> {}";
-    const WAREHOUSE: &str = r#"#[provider(key = "stock")] fn warehouse(&self) -> Result<Box<dyn StockStore>, Error> {}"#;
-    const SHIPPING_STOCK: &str = r#"#[provider(key = "stock", steps = ["ship"])] fn shipping(&self) -> Result<Box<dyn StockStore>, Error> {}"#;
-    const PACKING_STOCK: &str = r#"#[provider(key = "stock", steps = ["pack", "ship"])] fn packing(&self) -> Result<Box<dyn StockStore>, Error> {}"#;
-    const PAYMENTS: &str = r#"#[provider(steps = ["ship"])] fn payments(&self) -> Result<Box<dyn PaymentGateway>, Error> {}"#;
+    const STOCK: &str = "#[provider] fn stock(&self) -> Result<Provided<dyn StockStore>, Error> {}";
+    const WAREHOUSE: &str = r#"#[provider(key = "stock")] fn warehouse(&self) -> Result<Provided<dyn StockStore>, Error> {}"#;
+    const SHIPPING_STOCK: &str = r#"#[provider(key = "stock", steps = ["ship"])] fn shipping(&self) -> Result<Provided<dyn StockStore>, Error> {}"#;
+    const PACKING_STOCK: &str = r#"#[provider(key = "stock", steps = ["pack", "ship"])] fn packing(&self) -> Result<Provided<dyn StockStore>, Error> {}"#;
+    const PAYMENTS: &str = r#"#[provider(steps = ["ship"])] fn payments(&self) -> Result<Provided<dyn PaymentGateway>, Error> {}"#;
 
     #[rstest]
     #[case::two_attached_to_no_step(&[STOCK, WAREHOUSE], Some("service provided twice: stock, by providers attached to no step"))]
@@ -160,7 +160,7 @@ mod tests {
 
     #[test]
     fn two_providers_of_one_name_are_refused() {
-        let named = r#"#[provider(name = "stock", key = "warehouse")] fn warehouse(&self) -> Result<Box<dyn StockStore>, Error> {}"#;
+        let named = r#"#[provider(name = "stock", key = "warehouse")] fn warehouse(&self) -> Result<Provided<dyn StockStore>, Error> {}"#;
         let providers = providers(&[STOCK, named]);
         let providers: Vec<&Provider> = providers.iter().collect();
 

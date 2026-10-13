@@ -1,7 +1,7 @@
 use itinera::error::Error;
 use itinera::mode::Asynchronous;
 use itinera::policy::{Provider, Requested};
-use itinera::service::{PerJourney, Service, ServiceProviderDescriptor};
+use itinera::service::{PerJourney, Provided, Service, ServiceProviderDescriptor, provide};
 use itinera::workflow::WorkflowDescriptor;
 
 trait PaymentGateway: Send + Sync {}
@@ -18,8 +18,8 @@ impl Orders {
     async fn payments(
         &self,
         _got: Requested<'_, Self, Provider<PerJourney>, Asynchronous>,
-    ) -> Result<Box<dyn PaymentGateway>, Error> {
-        Ok(Box::new(Gateway))
+    ) -> Result<Provided<dyn PaymentGateway>, Error> {
+        Ok(provide!(Gateway))
     }
 }
 

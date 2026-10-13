@@ -4,7 +4,7 @@ use super::{
     GiveUpCause, HookSource, JourneyAbort, JourneyFailure, RequestSource, RescueCause, Source,
 };
 use crate::policy::{Lifecycle, PolicyName, RetryCause};
-use crate::service::ProviderName;
+use crate::service::{Implementation, ProviderName};
 use crate::step::{Reason, StepAttempt, StepName};
 use crate::value::AnyValue;
 use crate::workflow::AdapterName;
@@ -80,6 +80,10 @@ pub enum EventBody {
         key: String,
         /// The provider's name.
         provider: ProviderName,
+        /// The implementation the instance is.
+        implementation: Implementation,
+        /// The data the provider supplied with the instance, if any.
+        data: Option<AnyValue>,
     },
     /// A service provider failed for a step's service.
     #[non_exhaustive]

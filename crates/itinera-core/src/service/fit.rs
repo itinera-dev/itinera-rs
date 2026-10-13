@@ -58,7 +58,7 @@ pub struct Char<const C: char>;
     message = "a step or rescue step of the workflow `{Self}` requests a service as `{T}`, which \
                no provider of its key makes",
     label = "the step or rescue step listed here requests a service as `{T}`",
-    note = "a provider of the key returns `Result<Box<T>, Error>` for the `T` that the \
+    note = "a provider of the key returns `Result<Provided<T>, Error>` for the `T` that the \
             `#[service]` parameter borrows, in a step's `run` or `new` or a rescue step's `run`; \
             when no provider has the key, the error `service not provided` names it"
 )]

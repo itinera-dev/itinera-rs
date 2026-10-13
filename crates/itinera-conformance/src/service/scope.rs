@@ -4,7 +4,8 @@ use itinera::error::Error;
 use itinera::mode::Asynchronous;
 use itinera::policy::{HookNeeds, Provider};
 use itinera::service::{
-    AsyncProvide, PerAttempt, PerJourney, ProviderScope, Service, ServiceProviderDescriptor,
+    AsyncProvide, PerAttempt, PerJourney, Provided, ProviderScope, Service,
+    ServiceProviderDescriptor,
 };
 
 use super::{Got, Supplied};
@@ -33,7 +34,7 @@ pub(crate) trait Scope: ProviderScope {
     fn synchronous<T: Supplied + ?Sized>(
         name: &'static str,
         service: &Service<T>,
-        provide: impl for<'a> Fn(&'a ScriptedWorkflow, Got<'a, Self>) -> Result<Box<T>, Error>
+        provide: impl for<'a> Fn(&'a ScriptedWorkflow, Got<'a, Self>) -> Result<Provided<T>, Error>
         + Send
         + Sync
         + 'static,
@@ -67,7 +68,7 @@ impl Scope for PerJourney {
     fn synchronous<T: Supplied + ?Sized>(
         name: &'static str,
         service: &Service<T>,
-        provide: impl for<'a> Fn(&'a ScriptedWorkflow, Got<'a, Self>) -> Result<Box<T>, Error>
+        provide: impl for<'a> Fn(&'a ScriptedWorkflow, Got<'a, Self>) -> Result<Provided<T>, Error>
         + Send
         + Sync
         + 'static,
@@ -111,7 +112,7 @@ impl Scope for PerAttempt {
     fn synchronous<T: Supplied + ?Sized>(
         name: &'static str,
         service: &Service<T>,
-        provide: impl for<'a> Fn(&'a ScriptedWorkflow, Got<'a, Self>) -> Result<Box<T>, Error>
+        provide: impl for<'a> Fn(&'a ScriptedWorkflow, Got<'a, Self>) -> Result<Provided<T>, Error>
         + Send
         + Sync
         + 'static,

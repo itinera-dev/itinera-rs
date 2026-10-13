@@ -1,5 +1,5 @@
 error: every parameter of a service provider after `&self` says what it requests, such as `#[journey_id]` or `#[from_workflow("gateway")]`
-  --> tests/ui/service/an_unmarked_provider_request.rs:93:9
+  --> tests/ui/service/an_unmarked_provider_request.rs:94:9
    |
-93 |         currency: Option<String>,
+94 |         currency: Option<String>,
    |         ^^^^^^^^

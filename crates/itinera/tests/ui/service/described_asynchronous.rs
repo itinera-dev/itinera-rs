@@ -4,6 +4,7 @@ use itinera::error::Error;
 use itinera::executor::AsyncLocalExecutor;
 use itinera::journey::{Contributor, JourneyStatus};
 use itinera::policy::AsyncHookReporter;
+use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, RescueOutcome, RescueStep, Step, rescue_step, step};
 use itinera::workflow::workflow;
 
@@ -94,8 +95,8 @@ struct Orders {
 #[workflow]
 impl Orders {
     #[provider]
-    fn stock(&self) -> Result<Box<dyn StockStore>, Error> {
-        Ok(Box::new(Warehouse))
+    fn stock(&self) -> Result<Provided<dyn StockStore>, Error> {
+        Ok(provide!(Warehouse))
     }
 
     #[provider(per_attempt)]
@@ -103,9 +104,9 @@ impl Orders {
         &self,
         #[attempt] attempt: NonZeroU32,
         #[reporter] mut reporter: AsyncHookReporter<'_>,
-    ) -> Result<Box<dyn PaymentGateway>, Error> {
+    ) -> Result<Provided<dyn PaymentGateway>, Error> {
         reporter.info(format!("attempt {attempt}")).await?;
-        Ok(Box::new(Gateway(self.gateway.to_owned())))
+        Ok(provide!(Gateway(self.gateway.to_owned())))
     }
 }
 

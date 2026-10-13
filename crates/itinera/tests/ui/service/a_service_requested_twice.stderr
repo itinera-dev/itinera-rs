@@ -1,5 +1,5 @@
 error: service requested twice: payments, which another parameter of this function requests already
-  --> tests/ui/service/a_service_requested_twice.rs:52:19
+  --> tests/ui/service/a_service_requested_twice.rs:53:19
    |
-52 |         #[service("payments")] _backup: &dyn PaymentGateway,
+53 |         #[service("payments")] _backup: &dyn PaymentGateway,
    |                   ^^^^^^^^^^

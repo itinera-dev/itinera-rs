@@ -4,7 +4,8 @@ use std::future::Future;
 
 use super::descriptor::Provide;
 use super::{
-    PerAttempt, PerJourney, ProviderName, ProviderScope, Service, ServiceProviderDescriptor, erased,
+    PerAttempt, PerJourney, Provided, ProviderName, ProviderScope, Service,
+    ServiceProviderDescriptor,
 };
 use crate::error::Error;
 use crate::mode::Asynchronous;
@@ -20,7 +21,7 @@ use crate::policy::{Provider, Requested};
 /// use itinera::error::Error;
 /// use itinera::mode::Asynchronous;
 /// use itinera::policy::{Provider, Requested};
-/// use itinera::service::{AsyncProvide, PerJourney};
+/// use itinera::service::{AsyncProvide, PerJourney, Provided, provide};
 ///
 /// trait StockStore: Send + Sync {}
 ///
@@ -34,8 +35,8 @@ use crate::policy::{Provider, Requested};
 ///     async fn stock(
 ///         &self,
 ///         _got: Requested<'_, Self, Provider<PerJourney>, Asynchronous>,
-///     ) -> Result<Box<dyn StockStore>, Error> {
-///         Ok(Box::new(Warehouse))
+///     ) -> Result<Provided<dyn StockStore>, Error> {
+///         Ok(provide!(Warehouse))
 ///     }
 /// }
 ///
@@ -45,7 +46,7 @@ use crate::policy::{Provider, Requested};
 /// ```
 pub trait AsyncProvide<'a, W, S: ProviderScope, T: ?Sized>: Send + Sync + 'static {
     /// The provider's call, which ends with the instance it made.
-    type Future: Future<Output = Result<Box<T>, Error>> + Send + 'a;
+    type Future: Future<Output = Result<Provided<T>, Error>> + Send + 'a;
 
     /// Calls the provider.
     ///
@@ -55,7 +56,7 @@ pub trait AsyncProvide<'a, W, S: ProviderScope, T: ?Sized>: Send + Sync + 'stati
     /// use itinera::error::Error;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{Provider, Requested};
-    /// use itinera::service::{AsyncProvide, PerJourney};
+    /// use itinera::service::{AsyncProvide, PerJourney, Provided};
     ///
     /// trait StockStore: Send + Sync {}
     ///
@@ -63,7 +64,7 @@ pub trait AsyncProvide<'a, W, S: ProviderScope, T: ?Sized>: Send + Sync + 'stati
     ///     provider: &P,
     ///     workflow: &'a W,
     ///     got: Requested<'a, W, Provider<PerJourney>, Asynchronous>,
-    /// ) -> Result<Box<dyn StockStore>, Error> {
+    /// ) -> Result<Provided<dyn StockStore>, Error> {
     ///     provider.provide(workflow, got).await
     /// }
     /// ```
@@ -79,7 +80,7 @@ where
     S: ProviderScope,
     T: ?Sized,
     F: Fn(&'a W, Requested<'a, W, Provider<S>, Asynchronous>) -> R + Send + Sync + 'static,
-    R: Future<Output = Result<Box<T>, Error>> + Send + 'a,
+    R: Future<Output = Result<Provided<T>, Error>> + Send + 'a,
 {
     type Future = R;
 
@@ -99,7 +100,7 @@ impl<W> ServiceProviderDescriptor<W, PerJourney, Asynchronous> {
     /// use itinera::error::Error;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{Provider, Requested};
-    /// use itinera::service::{PerJourney, Service, ServiceProviderDescriptor};
+    /// use itinera::service::{PerJourney, Provided, Service, ServiceProviderDescriptor, provide};
     ///
     /// trait StockStore: Send + Sync {}
     ///
@@ -115,8 +116,8 @@ impl<W> ServiceProviderDescriptor<W, PerJourney, Asynchronous> {
     ///     async fn stock(
     ///         &self,
     ///         _got: Requested<'_, Self, Provider<PerJourney>, Asynchronous>,
-    ///     ) -> Result<Box<dyn StockStore>, Error> {
-    ///         Ok(Box::new(Warehouse))
+    ///     ) -> Result<Provided<dyn StockStore>, Error> {
+    ///         Ok(provide!(Warehouse))
     ///     }
     /// }
     ///
@@ -142,7 +143,7 @@ impl<W> ServiceProviderDescriptor<W, PerAttempt, Asynchronous> {
     /// use itinera::error::Error;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{Provider, Requested};
-    /// use itinera::service::{PerAttempt, Service, ServiceProviderDescriptor};
+    /// use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
     ///
     /// trait PaymentGateway: Send + Sync {}
     ///
@@ -158,8 +159,8 @@ impl<W> ServiceProviderDescriptor<W, PerAttempt, Asynchronous> {
     ///     async fn payments(
     ///         &self,
     ///         _got: Requested<'_, Self, Provider<PerAttempt>, Asynchronous>,
-    ///     ) -> Result<Box<dyn PaymentGateway>, Error> {
-    ///         Ok(Box::new(Main))
+    ///     ) -> Result<Provided<dyn PaymentGateway>, Error> {
+    ///         Ok(provide!(Main))
     ///     }
     /// }
     ///
@@ -180,6 +181,6 @@ fn awaited<W, S: ProviderScope, T: ?Sized + Send + Sync + 'static>(
 ) -> Box<Provide<W, S, Asynchronous>> {
     Box::new(move |workflow, got| {
         let provided = provide.provide(workflow, got);
-        Box::pin(async move { provided.await.map(erased) })
+        Box::pin(async move { provided.await.map(Provided::erased) })
     })
 }

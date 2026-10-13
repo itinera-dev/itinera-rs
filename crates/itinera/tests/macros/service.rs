@@ -6,7 +6,9 @@ use std::num::NonZeroU32;
 use itinera::error::Error;
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::policy::{HookNeeds, HookReporter, Provider, Requested};
-use itinera::service::{PerAttempt, PerJourney, Service, ServiceProviderDescriptor};
+use itinera::service::{
+    PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
+};
 use itinera::step::{
     Input, OptionalInput, Outcome, Reason, Resolved, Step, StepDescriptor, StepFactory, StepName,
     StepNeeds, step, step_name,
@@ -78,8 +80,8 @@ fn shipped(stock: &dyn StockStore, mut contributor: Contributor<'_>) -> Outcome 
 }
 
 /// The stock of the journey.
-fn stocked(journey: &JourneyId) -> Box<dyn StockStore> {
-    Box::new(Warehouse {
+fn stocked(journey: &JourneyId) -> Provided<dyn StockStore> {
+    provide!(Warehouse {
         journey: journey.to_string(),
     })
 }
@@ -91,14 +93,14 @@ fn gateway(
     attempt: NonZeroU32,
     currency: Option<String>,
     mut reporter: HookReporter<'_>,
-) -> Result<Box<dyn PaymentGateway>, Error> {
+) -> Result<Provided<dyn PaymentGateway>, Error> {
     reporter.info(format!("{step} attempt {attempt}"))?;
     let currency = currency.unwrap_or_default();
     let (name, limit) = match attempt.get() {
         1 => (format!("{name} {currency}"), 50),
         _ => (format!("backup {currency}"), i64::MAX),
     };
-    Ok(Box::new(Gateway { name, limit }))
+    Ok(provide!(Gateway { name, limit }))
 }
 
 fn first_order(_: &DataBag) -> String {
@@ -151,7 +153,7 @@ struct Shop {
 #[workflow]
 impl Shop {
     #[provider]
-    fn stock(&self, #[journey_id] journey: &JourneyId) -> Result<Box<dyn StockStore>, Error> {
+    fn stock(&self, #[journey_id] journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
         Ok(stocked(journey))
     }
 
@@ -162,7 +164,7 @@ impl Shop {
         #[attempt] attempt: NonZeroU32,
         #[from_workflow] currency: Option<String>,
         #[reporter] reporter: HookReporter<'_>,
-    ) -> Result<Box<dyn PaymentGateway>, Error> {
+    ) -> Result<Provided<dyn PaymentGateway>, Error> {
         gateway(self.gateway, step, attempt, currency, reporter)
     }
 
@@ -255,14 +257,14 @@ impl StepFactory for ShipFactory {
 fn hand_stock(
     _: &HandShop,
     got: Requested<'_, HandShop, Provider<PerJourney>>,
-) -> Result<Box<dyn StockStore>, Error> {
+) -> Result<Provided<dyn StockStore>, Error> {
     Ok(stocked(got.journey_id()))
 }
 
 fn hand_payments(
     shop: &HandShop,
     mut got: Requested<'_, HandShop, Provider<PerAttempt>>,
-) -> Result<Box<dyn PaymentGateway>, Error> {
+) -> Result<Provided<dyn PaymentGateway>, Error> {
     let currency = got.optional_from_workflow(&CURRENCY)?;
     let reporter = got.reporter()?;
     gateway(
@@ -363,13 +365,13 @@ struct Depot;
 #[workflow]
 impl Depot {
     #[provider]
-    fn stock(&self, #[journey_id] journey: &JourneyId) -> Result<Box<dyn StockStore>, Error> {
+    fn stock(&self, #[journey_id] journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
         Ok(stocked(journey))
     }
 
     #[provider(key = "stock", steps = ["restock"])]
-    fn shelf(&self, #[journey_id] journey: &JourneyId) -> Result<Box<Warehouse>, Error> {
-        Ok(Box::new(Warehouse {
+    fn shelf(&self, #[journey_id] journey: &JourneyId) -> Result<Provided<Warehouse>, Error> {
+        Ok(provide!(Warehouse {
             journey: journey.to_string(),
         }))
     }

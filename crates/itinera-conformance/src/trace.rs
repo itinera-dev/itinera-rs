@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::model::{EventKind, ModelError, Row, json};
 
 /// The columns an event table may have besides `event`.
-const COLUMNS: [&str; 17] = [
+const COLUMNS: [&str; 18] = [
     "step",
     "attempt",
     "key",
@@ -22,6 +22,7 @@ const COLUMNS: [&str; 17] = [
     "lifecycle",
     "adapter",
     "provider",
+    "implementation",
     "source",
     "cause",
     "rescue",
@@ -32,12 +33,14 @@ const COLUMNS: [&str; 17] = [
 ];
 
 /// What an event table can say of one event: its kind, and its other columns as text, except
-/// `data`, which is compared as JSON.
+/// `data`, which is compared as JSON, or says `none` for an event that carries no data.
 #[derive(Debug, Default, PartialEq)]
 pub(crate) struct Line {
     pub(crate) event: String,
     cells: BTreeMap<&'static str, String>,
     data: Option<Value>,
+    /// Whether the table says the event carries no data.
+    no_data: bool,
     /// What else the event carries that no column shows: reasons' messages and details, and
     /// the message of an abnormal termination.
     carried: Vec<Value>,
@@ -55,6 +58,7 @@ impl Line {
         }
         for column in COLUMNS {
             match (column, row.optional(column)) {
+                ("data", Some("none")) => line.no_data = true,
                 ("data", Some(data)) => line.data = Some(json(data)?),
                 (_, Some(cell)) => {
                     line.cells.insert(column, cell.to_owned());
@@ -73,6 +77,7 @@ impl Line {
                 .iter()
                 .all(|(column, cell)| event.has_cell(column, cell))
             && self.data.as_ref().is_none_or(|data| event.has_data(data))
+            && (!self.no_data || event.data.is_none())
     }
 
     /// Whether the event names no input adapter.

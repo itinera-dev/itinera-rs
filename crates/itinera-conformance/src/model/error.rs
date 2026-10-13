@@ -21,6 +21,8 @@ pub(crate) enum ModelError {
     UnknownAdapter(String),
     #[error("no service provider \"{0}\" is declared")]
     UnknownProvider(String),
+    #[error("\"{0}\" is not an implementation of a service")]
+    UnknownImplementation(String),
     #[error("the workflow provides no role \"{0}\"")]
     UnknownRole(String),
     #[error("\"{0}\" is not a hook")]

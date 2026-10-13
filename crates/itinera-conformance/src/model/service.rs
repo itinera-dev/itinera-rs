@@ -1,8 +1,10 @@
 //! The services the scenario's steps request, and the service providers that make them.
 
+use std::str::FromStr;
+
 use serde_json::Value;
 
-use super::{HookRequest, Level};
+use super::{HookRequest, Level, ModelError};
 
 /// A type of service the cases define: a `labeller`, whose one operation returns its instance's
 /// label, or a `meter`, whose one operation returns an integer reading.
@@ -12,6 +14,29 @@ use super::{HookRequest, Level};
 pub(crate) enum ServiceType {
     Labeller,
     Meter,
+}
+
+/// An implementation of `labeller` the cases define, which a provider makes its instances of.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, cucumber::Parameter, derive_more::Display)]
+#[param(name = "implementation", regex = "first labeller|second labeller")]
+pub(crate) enum Implementation {
+    #[default]
+    #[display("first labeller")]
+    FirstLabeller,
+    #[display("second labeller")]
+    SecondLabeller,
+}
+
+impl FromStr for Implementation {
+    type Err = ModelError;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        match name {
+            "first labeller" => Ok(Self::FirstLabeller),
+            "second labeller" => Ok(Self::SecondLabeller),
+            _ => Err(ModelError::UnknownImplementation(name.to_owned())),
+        }
+    }
 }
 
 /// How long an instance a provider makes is lent: for the journey, or for one attempt.
@@ -41,6 +66,10 @@ pub(crate) struct Provider {
     pub(crate) actions: Vec<ProviderAction>,
     /// The message the operation of every instance it makes fails with.
     pub(crate) fails_when_used: Option<String>,
+    /// The implementation it makes its instances of, when it supplies a `labeller`.
+    pub(crate) implementation: Implementation,
+    /// The data it supplies with each instance.
+    pub(crate) data: Option<Value>,
 }
 
 impl Provider {
@@ -56,6 +85,8 @@ impl Provider {
             failure: None,
             actions: Vec::new(),
             fails_when_used: None,
+            implementation: Implementation::default(),
+            data: None,
         }
     }
 
@@ -101,5 +132,16 @@ mod tests {
     #[case::a_meter("meter", ServiceType::Meter)]
     fn a_service_type_is_read_by_its_name(#[case] name: &str, #[case] service_type: ServiceType) {
         assert_eq!(name.parse::<ServiceType>().unwrap(), service_type);
+    }
+
+    #[rstest]
+    #[case::the_first_labeller("first labeller", Implementation::FirstLabeller)]
+    #[case::the_second_labeller("second labeller", Implementation::SecondLabeller)]
+    fn an_implementation_is_read_and_written_by_its_name(
+        #[case] name: &str,
+        #[case] implementation: Implementation,
+    ) {
+        assert_eq!(name.parse::<Implementation>().unwrap(), implementation);
+        assert_eq!(implementation.to_string(), name);
     }
 }
