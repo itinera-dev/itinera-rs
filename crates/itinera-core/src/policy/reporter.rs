@@ -1,6 +1,7 @@
 use crate::engine::finish;
 use crate::error::Interrupted;
-use crate::step::{Level, Reporting};
+use crate::event::Level;
+use crate::step::Reporting;
 use crate::value::{AnyValue, Value};
 
 /// A hook's means of emitting its own events, `journey_info`, `journey_warning` and

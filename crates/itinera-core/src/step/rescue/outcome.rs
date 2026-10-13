@@ -69,4 +69,61 @@ impl RescueOutcome {
             outcome: Outcome::retriable_failure(reason),
         }
     }
+
+    /// Whether the rescue step fixed the cause.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::RescueOutcome;
+    ///
+    /// assert!(RescueOutcome::success().is_success());
+    /// ```
+    #[must_use]
+    pub fn is_success(&self) -> bool {
+        self.outcome.is_success()
+    }
+
+    /// Whether the rescue step could not fix the cause, retriably or not.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::{Reason, RescueOutcome};
+    ///
+    /// assert!(RescueOutcome::failure(Reason::new("no-account")).is_failure());
+    /// ```
+    #[must_use]
+    pub fn is_failure(&self) -> bool {
+        self.outcome.is_failure()
+    }
+
+    /// Whether the rescue step failed and suggests it may be tried again.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::{Reason, RescueOutcome};
+    ///
+    /// assert!(RescueOutcome::retriable_failure(Reason::new("busy")).is_retriable());
+    /// ```
+    #[must_use]
+    pub fn is_retriable(&self) -> bool {
+        self.outcome.is_retriable()
+    }
+
+    /// The reason of a failure.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::step::{Reason, RescueOutcome};
+    ///
+    /// let busy = RescueOutcome::retriable_failure(Reason::new("busy"));
+    /// assert_eq!(busy.reason().map(Reason::code), Some("busy"));
+    /// ```
+    #[must_use]
+    pub fn reason(&self) -> Option<&Reason> {
+        self.outcome.reason()
+    }
 }

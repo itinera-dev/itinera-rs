@@ -8,9 +8,12 @@ use crate::workflow::WorkflowName;
 mod abort;
 mod body;
 mod decision;
+#[cfg(any(test, feature = "testing"))]
+mod emitted;
 mod failure;
 #[cfg(test)]
 pub(crate) mod fixtures;
+mod level;
 mod requester;
 mod source;
 mod timestamp;
@@ -18,7 +21,12 @@ mod timestamp;
 pub use abort::{JourneyAbort, MissingData};
 pub use body::EventBody;
 pub use decision::{DecidingHook, GiveUpCause, GiveUpHook, RescueCause};
+#[cfg(any(test, feature = "testing"))]
+pub use emitted::Emitted;
+#[cfg(any(test, feature = "testing"))]
+pub(crate) use emitted::Recorded;
 pub use failure::JourneyFailure;
+pub use level::Level;
 pub use requester::{FailureRequester, Requester};
 pub use source::{HookSource, RequestSource, Source};
 pub use timestamp::Timestamp;

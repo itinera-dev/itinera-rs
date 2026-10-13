@@ -1,33 +1,33 @@
 //! What step and hook reporters of either mode emit through and set global metadata through: the
-//! journey, with who emits and the kind of event.
+//! journey, with who emits and the kind of event, or a recorder in a test.
 
 use super::StepAttempt;
-use crate::engine::{Emitted, Emitting};
-use crate::event::{EventBody, HookSource, Source};
+use crate::engine::{Emitting, Relayed};
+#[cfg(any(test, feature = "testing"))]
+use crate::event::Recorded;
+use crate::event::{EventBody, HookSource, Level, Source};
 use crate::value::AnyValue;
 
 /// What a step or hook reporter of either mode emits through: the journey, while the attempt or
-/// the hook runs.
+/// the hook runs, or a test's recorder.
 #[derive(derive_more::Debug)]
-pub(crate) struct Reporting<'a> {
-    #[debug(skip)]
-    emitting: &'a mut dyn Emitting,
-    source: Source,
-}
-
-/// The kind of event a step or hook emits.
-#[derive(Clone, Copy, Debug)]
-pub(crate) enum Level {
-    Info,
-    Warning,
-    Error,
+pub(crate) enum Reporting<'a> {
+    /// The journey, which stamps every event and entry of global metadata with its source.
+    Journey {
+        #[debug(skip)]
+        emitting: &'a mut dyn Emitting,
+        source: Source,
+    },
+    /// A test's recorder.
+    #[cfg(any(test, feature = "testing"))]
+    Recorded(&'a mut Recorded),
 }
 
 impl<'a> Reporting<'a> {
     /// A reporter that emits for `source`, which every event it emits carries, as does every
     /// entry of global metadata it sets.
     pub(crate) fn new(emitting: &'a mut dyn Emitting, source: impl Into<Source>) -> Self {
-        Self {
+        Self::Journey {
             emitting,
             source: source.into(),
         }
@@ -38,17 +38,28 @@ impl<'a> Reporting<'a> {
         level: Level,
         message: String,
         data: Option<AnyValue>,
-    ) -> Emitted<'_> {
-        let body = match self.source.clone() {
-            Source::Step(step) => step_event(level, step, message, data),
-            Source::Hook(hook) => journey_event(level, hook, message, data),
-        };
-        self.emitting.relay(body)
+    ) -> Relayed<'_> {
+        match self {
+            Self::Journey { emitting, source } => {
+                let body = match source.clone() {
+                    Source::Step(step) => step_event(level, step, message, data),
+                    Source::Hook(hook) => journey_event(level, hook, message, data),
+                };
+                emitting.relay(body)
+            }
+            #[cfg(any(test, feature = "testing"))]
+            Self::Recorded(recorded) => recorded.record(level, message, data),
+        }
     }
 
-    pub(crate) fn set_global_metadata(&mut self, key: String, value: AnyValue) -> Emitted<'_> {
-        self.emitting
-            .set_global_metadata(self.source.clone(), key, value)
+    pub(crate) fn set_global_metadata(&mut self, key: String, value: AnyValue) -> Relayed<'_> {
+        match self {
+            Self::Journey { emitting, source } => {
+                emitting.set_global_metadata(source.clone(), key, value)
+            }
+            #[cfg(any(test, feature = "testing"))]
+            Self::Recorded(recorded) => recorded.set(key, value),
+        }
     }
 }
 
