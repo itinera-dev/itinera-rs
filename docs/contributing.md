@@ -59,6 +59,10 @@ All three published crates share the workspace version and are published togethe
 
 For now, the crates are published by hand. Before pushing the tag, the maintainer runs `cargo publish --workspace --dry-run` at the commit to be tagged, since the workflow creates the GitHub release before anything is published. Once the workflow has finished and the release exists, the maintainer checks out the tagged commit and runs `cargo publish --workspace`, logged in with `cargo login` on their own machine. crates.io configures trusted publishing only for crates that already exist, so once the crates are published, trusted publishing is configured for them and a publish job joins the workflow.
 
+Cargo packages only a crate's own directory, so each published crate holds its own copy of `LICENSE-MIT` and `LICENSE-APACHE`. A change to either file at the root of the repository is made to every copy.
+
+The itinera package leaves out its `tests/` directory, so packaging warns that it ignores each of its test targets. The warning is expected, and the tests still run in the repository.
+
 ## The book
 
 [The Itinera book for Rust](https://itinera-dev.org/book/rust/) lives in [itinera-dev/book](https://github.com/itinera-dev/book), under `rust/`, and every example in it compiles and runs. `book.json` pins the book's commit that this repository is checked against. The required `book` check runs the `check-book` action of [itinera-dev/actions](https://github.com/itinera-dev/actions): it takes the book at that commit, builds its examples against this checkout's own crates instead of the version the book names, and runs them with `cargo test`, so a change that breaks the book fails in its own pull request.

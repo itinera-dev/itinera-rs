@@ -9,6 +9,7 @@ homepage.workspace = true
 repository.workspace = true
 keywords.workspace = true
 readme = "../../README.md"
+exclude = ["/tests/"]
 
 [features]
 default = ["macros"]
