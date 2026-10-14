@@ -1,6 +1,8 @@
 use itinera::error::Error;
 use itinera::executor::local_executor_for;
-use itinera::report::{AsyncDispatcherFactory, BoxedReporter, DefaultDispatcher, DefaultDispatcherFactory};
+use itinera::report::{
+    AsyncDispatcherFactory, BoxedReporter, DefaultDispatcher, DefaultDispatcherFactory,
+};
 use itinera::step::{Outcome, StepDescriptor, step_name};
 use itinera::workflow::WorkflowDescriptor;
 
@@ -18,7 +20,9 @@ impl AsyncDispatcherFactory for Forwarding {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let orders = WorkflowDescriptor::builder("orders")
-        .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
+        .step(StepDescriptor::new(step_name!("charge"), || {
+            Ok(Outcome::success())
+        }))
         .build()?;
     let instance = orders.instance(Orders).create()?;
     let _executor = local_executor_for!(instance, dispatcher_factory = Forwarding);
