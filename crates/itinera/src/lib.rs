@@ -30,7 +30,8 @@
 //!   and journey data. They expand to builder calls and implementations of public traits, which
 //!   an application can write by hand.
 //! - `async`: the asynchronous executor, and asynchronous steps, hooks, reporters and
-//!   dispatchers.
+//!   dispatchers, with `mode::async_trait` for services and roles whose methods are
+//!   asynchronous.
 //! - `testing`: test support. `report::RecordingReporter`, a reporter that keeps every event
 //!   for a test to read; fakes in place of service providers; scripted runs; and recorders that
 //!   lend a step, a hook or an input adapter its handles outside a journey. Enable it for tests

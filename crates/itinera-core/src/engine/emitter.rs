@@ -3,7 +3,6 @@
 
 use std::future::Future;
 use std::num::NonZeroU64;
-use std::pin::Pin;
 use std::time::SystemTime;
 
 use super::Journey;
@@ -82,17 +81,20 @@ impl<D: Dispatcher> Delivery for Inline<D> {
     }
 }
 
-/// An event a step or hook emitted, delivered once awaited.
-pub(crate) type Relayed<'a> = Pin<Box<dyn Future<Output = Result<(), Interrupted>> + Send + 'a>>;
-
 /// The journey, as the handles of steps and hooks emit through it.
+#[async_trait::async_trait]
 pub(crate) trait Emitting: Send {
     /// Delivers an event a step or hook emitted, unless a reporter failed while it ran.
-    fn relay(&mut self, body: EventBody) -> Relayed<'_>;
+    async fn relay(&mut self, body: EventBody) -> Result<(), Interrupted>;
 
     /// Sets an entry of global metadata for a step or hook, unless a reporter failed while it
     /// ran.
-    fn set_global_metadata(&mut self, source: Source, key: String, value: AnyValue) -> Relayed<'_>;
+    async fn set_global_metadata(
+        &mut self,
+        source: Source,
+        key: String,
+        value: AnyValue,
+    ) -> Result<(), Interrupted>;
 }
 
 impl<D: Delivery> Journey<D> {
@@ -140,13 +142,19 @@ impl<D: Delivery> Journey<D> {
     }
 }
 
+#[async_trait::async_trait]
 impl<D: Delivery> Emitting for Journey<D> {
-    fn relay(&mut self, body: EventBody) -> Relayed<'_> {
-        Box::pin(self.relay_interruptibly(body))
+    async fn relay(&mut self, body: EventBody) -> Result<(), Interrupted> {
+        self.relay_interruptibly(body).await
     }
 
-    fn set_global_metadata(&mut self, source: Source, key: String, value: AnyValue) -> Relayed<'_> {
-        Box::pin(self.set_interruptibly(source, key, value))
+    async fn set_global_metadata(
+        &mut self,
+        source: Source,
+        key: String,
+        value: AnyValue,
+    ) -> Result<(), Interrupted> {
+        self.set_interruptibly(source, key, value).await
     }
 }
 

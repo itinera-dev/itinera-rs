@@ -20,6 +20,7 @@ quote.workspace = true
 syn.workspace = true
 
 [dev-dependencies]
+futures = { workspace = true, features = ["executor"] }
 itinera = { path = "../itinera", features = ["async"] }
 rstest.workspace = true
 

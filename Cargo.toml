@@ -10,6 +10,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/itinera-dev/itinera-rs"
 
 [workspace.dependencies]
+async-trait = { version = "0.1.92", default-features = false }
 itinera-core = { path = "crates/itinera-core", version = "0.0.0" }
 itinera-macros = { path = "crates/itinera-macros", version = "0.0.0" }
 serde = { version = "1", default-features = false, features = ["std"] }

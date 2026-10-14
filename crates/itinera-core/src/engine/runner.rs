@@ -1,9 +1,6 @@
 //! Runners: what the journey hands an attempt once everything it needs is resolved, to build its
 //! step and run it, or, in a test's scripted run, to do what the script says instead.
 
-use std::future::Future;
-use std::pin::Pin;
-
 use super::Emitting;
 use crate::error::Error;
 use crate::journey::{Contributed, Contributor};
@@ -12,15 +9,12 @@ use crate::step::{Attempts, FromRescued, Got, Outcome, Reporting, StepAttempt, S
 use crate::value::AnyValue;
 
 /// Builds the step of an attempt and runs it, or does what the attempt does instead.
+#[async_trait::async_trait]
 pub(crate) trait Runner: Send + Sync {
-    /// Runs the attempt: an error building its step, or the outcome or error it ended with.
-    fn run<'a>(&'a self, attempt: Attempt<'a>) -> Ran<'a>;
+    /// Runs the attempt: an error building its step, or once it ends, its outcome or the error
+    /// that ended it abnormally.
+    async fn run<'a>(&'a self, attempt: Attempt<'a>) -> Result<Result<Outcome, Error>, Error>;
 }
-
-/// An attempt being run: an error building its step, or once it ends, its outcome or the error
-/// that ended it abnormally.
-pub(crate) type Ran<'a> =
-    Pin<Box<dyn Future<Output = Result<Result<Outcome, Error>, Error>> + Send + 'a>>;
 
 /// An attempt ready to run: its step's factory and needs, what was resolved for it, where its
 /// contributions go, and what its reporter emits through.
@@ -46,25 +40,17 @@ pub(crate) struct Building<'s> {
 /// runs it.
 pub(crate) struct Steps;
 
+#[async_trait::async_trait]
 impl Runner for Steps {
-    fn run<'a>(&'a self, attempt: Attempt<'a>) -> Ran<'a> {
+    async fn run<'a>(&'a self, attempt: Attempt<'a>) -> Result<Result<Outcome, Error>, Error> {
         let got = lend(
             attempt.needs,
             attempt.building,
             attempt.contributions,
             attempt.emitting,
         );
-        match attempt.factory.attempt(got) {
-            Ok(running) => Box::pin(ran(running)),
-            Err(error) => Box::pin(std::future::ready(Err(error))),
-        }
+        attempt.factory.attempt(got).await
     }
-}
-
-async fn ran(
-    running: impl Future<Output = Result<Outcome, Error>>,
-) -> Result<Result<Outcome, Error>, Error> {
-    Ok(running.await)
 }
 
 /// What a factory builds the attempt's step from: what was resolved, with a contributor and a

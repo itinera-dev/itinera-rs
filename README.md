@@ -13,11 +13,11 @@ Applications depend on one crate, `itinera`. Its features are:
 | Feature | Default | Adds |
 |---|---|---|
 | `macros` | on | The macros for declaring steps, policies and workflows, which are syntax over the builder |
-| `async` | off | The asynchronous executor, and asynchronous steps, hooks, reporters and dispatchers |
+| `async` | off | The asynchronous executor, and asynchronous steps, hooks, reporters and dispatchers, with the `async_trait` attribute for services and roles whose methods are asynchronous |
 | `testing` | off | Test support: `RecordingReporter`, which keeps every event of a journey for a test to read, fake service providers, scripted runs, and recorders that lend a step, a hook or an input adapter its handles outside a journey; enable it under `[dev-dependencies]` |
 | `unstable` | off | API the specification has not settled yet, which may change or go; empty for now |
 
-`itinera` brings in `itinera-core`, which holds the implementation, and, with `macros`, `itinera-macros`. Neither needs to be added directly. The minimum supported Rust version is 1.85.
+`itinera` brings in `itinera-core`, which holds the implementation, and, with `macros` or `async`, `itinera-macros`. Neither needs to be added directly. The minimum supported Rust version is 1.85.
 
 The crate's documentation opens with a first complete workflow. [crates/itinera/examples](https://github.com/itinera-dev/itinera-rs/tree/main/crates/itinera/examples) holds three runnable ones: `orders`, a synchronous workflow declared with the macros; `orders_async`, the same on the asynchronous executor, which needs the `async` feature; and `orders_by_hand`, the same declared with the builder alone. Each charges through a payment service. Run one with `cargo run -p itinera --example orders`.
 

@@ -23,7 +23,7 @@ A Cargo workspace, edition 2024, resolver 3, under `crates/`.
 
 | Crate | Published | Holds |
 |---|---|---|
-| `itinera` | yes | What applications depend on: re-exports `itinera-core`, and the macros behind the `macros` feature |
+| `itinera` | yes | What applications depend on: re-exports `itinera-core`, the macros behind the `macros` feature, and `mode::async_trait` behind `async` |
 | `itinera-core` | yes | Values and the data bag, events, reporters and dispatchers, steps, policies, descriptors and their builder, the workflow instance, the engine and both local executors |
 | `itinera-macros` | yes | The procedural macros |
 | `itinera-conformance` | no | The conformance runner |
@@ -273,7 +273,7 @@ pub enum Abort {
 
 ### 11. Macros
 
-The macros are syntax over the builder. Each expands to builder calls and to implementations of public traits of the core, which an application can write by hand, so no API is reachable only through them. They live in `itinera-macros`; `itinera` re-exports each from the module of its concept, behind the `macros` feature, which is on by default, and generated code names `::itinera`. A mistake in a declaration that a macro can see is a compile error pointing at what was written.
+The macros are syntax over the builder. Each expands to builder calls and to implementations of public traits of the core, which an application can write by hand, so no API is reachable only through them. They live in `itinera-macros`; `itinera` re-exports each from the module of its concept, behind the `macros` feature, which is on by default, and generated code names `::itinera`. A mistake in a declaration that a macro can see is a compile error pointing at what was written. The one exception is `#[async_trait]`, behind `async` rather than `macros`, which hands its item and arguments to the attribute of async-trait through the hidden re-export `mode::expansion`, so that a trait with `async fn` methods can be a trait object.
 
 | Written | On | Generates |
 |---|---|---|
@@ -286,6 +286,7 @@ The macros are syntax over the builder. Each expands to builder calls and to imp
 | `#[workflow]` | the workflow's `impl` block | its input adapters, its ID generator and its service providers |
 | `#[role]` | a role's implementation for the workflow | `Provides<dyn Role>` |
 | `#[derive(InitialData)]`, `#[derive(Output)]` | a struct of journey data | `InitialData`, `Output` |
+| `#[async_trait]` | a trait whose methods are `async fn`, and each of its implementations | the same trait and implementations, through async-trait, with boxed `Send` futures, so that the trait can be a trait object |
 
 `#[with_step]`, the markers of methods and the attributes of parameters are not imported: the macro that owns them reads and removes them.
 
@@ -429,6 +430,7 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
   | `derive_more` (`debug`, `display`, `from`, `into`, `as_ref`, `into_iterator`) | core | `Debug` on types whose type parameters need not be `Debug`, or whose fields are skipped, summarised or forwarded, and `Display`, `From`, `Into`, `AsRef` and `IntoIterator` on newtypes, names and collections, which the types use throughout |
   | `uuid`, `getrandom` (`std`) | core; `uuid` also in the conformance runner | the default journey ID, a UUID v4 made from random bytes, so that a failing random source is an error rather than a panic; the runner checks with `uuid` that a journey ID is a UUID v4 |
   | `thiserror` | core, conformance runner | `Display` and `std::error::Error` on error enums, such as `InstanceError` |
+  | `async-trait` | core | the engine's own trait objects whose methods are asynchronous, in both modes; and, through the `async_trait` attribute that `mode` re-exports from the macros with `async`, the services and roles of asynchronous workflows, which steps and hooks use as trait objects |
   | `syn`, `quote`, `proc-macro2` | macros | the macros |
   | `cucumber` (`macros`, `output-json`), `tokio` (`rt`), `futures`, `serde_json` | conformance runner | running the cases |
   | `trybuild`, `proptest`, `serde_json` | tests | compile-fail, property-based and equivalence tests |
@@ -442,7 +444,7 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
   | Feature | Default | Adds |
   |---|---|---|
   | `macros` | on | the macros |
-  | `async` | off | the asynchronous executor, steps, hooks, reporters and dispatchers, and the `Asynchronous` mode |
+  | `async` | off | the asynchronous executor, steps, hooks, reporters and dispatchers, the `Asynchronous` mode, and the `async_trait` attribute in `mode`, which brings in the macros crate |
   | `unstable` | off | API of proposals the specification has not accepted yet; empty for now |
 
   The engine is asynchronous internally whatever the features; without `async`, nothing asynchronous is public.
