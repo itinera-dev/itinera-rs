@@ -22,7 +22,7 @@ The plan is implemented in stages, tracked in [#7](https://github.com/itinera-de
 6. The scan and its decisions: statuses, retries, abnormal termination, aborts and the result.
 7. Policies, hooks and roles.
 8. Macros.
-9. Release of `0.1.0-rc.1`.
+9. Release of `0.1.0-beta.1`.
 10. Services: service tokens and providers, their requests, events and violations, the runner's sentences and the macros.
 11. Rescue steps: the rescue step, its decisions and the macros that declare it.
 

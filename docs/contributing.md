@@ -48,3 +48,13 @@ The toolchain is pinned in `rust-toolchain.toml`, and the minimum supported Rust
 `conformance.json` pins the conformance cases, lists the proposals implemented and the capabilities claimed, and maps each scenario excluded as impossible to express to the test that proves it. A proposal is listed only by the pull request that completes it.
 
 In CI, the `run-conformance` action of [itinera-dev/actions](https://github.com/itinera-dev/actions) reads `conformance.json`, checks the excluded scenarios, runs the scenarios whose proposals are all listed, and writes the report. While no proposal is listed, it checks the manifest without starting the runner.
+
+## Releasing
+
+All three published crates share the workspace version and are published together. A maintainer requests a release by pushing a tag `v` followed by that version, such as `v0.1.0-beta.1`, on `main`, after the pull request that sets the version and adds its section to `CHANGELOG.md` has merged. The release workflow, `.github/workflows/release.yml`, then runs three jobs, each waiting for the one before:
+
+1. **release gate**: the `release-gate` action refuses the tag unless it matches the version in `Cargo.toml`, the commit is on `main`, `CHANGELOG.md` has a section for the version, and `conformance.json` lists every tier 1 proposal of the pinned cases;
+2. **conformance**: `run-conformance` runs the cases and keeps the report;
+3. **GitHub release**: the `create-release` action creates the release with the notes of the version's changelog section, as a pre-release for a version such as `0.1.0-beta.1`, and attaches the conformance report.
+
+For now, the crates are published by hand. Before pushing the tag, the maintainer runs `cargo publish --workspace --dry-run` at the commit to be tagged, since the workflow creates the GitHub release before anything is published. Once the workflow has finished and the release exists, the maintainer checks out the tagged commit and runs `cargo publish --workspace`, logged in with `cargo login` on their own machine. crates.io configures trusted publishing only for crates that already exist, so once the crates are published, trusted publishing is configured for them and a publish job joins the workflow.

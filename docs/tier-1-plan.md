@@ -8,8 +8,8 @@ Code samples show the intended shape. Names of attributes and methods may still 
 
 ## What this plan implements
 
-- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065, 0081, 0083, 0085 and 0091, which amends 0010, 0054 and 0060; and 0003, rescue steps, 0095, services provided to steps, 0098, input adapters and service providers for rescue steps, 0102, global metadata, and 0104, the implementation a service provider made, which joined tier 1 later. Also 0108, test support, listed because Rust claims `testing`, though it counts towards no tier.
-- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.11`, and later candidates as they are tagged.
+- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065, 0081, 0083, 0085 and 0091, which amends 0010, 0054 and 0060; and 0003, rescue steps, 0095, services provided to steps, 0098, input adapters and service providers for rescue steps, 0102, global metadata passed to every reporter, 0104, the implementation a service provider made, and 0106, retries decided by the retry budget alone, which joined tier 1 later. Also 0108, test support, listed because Rust claims `testing`, though it counts towards no tier.
+- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.15`, and later candidates as they are tagged.
 - **Capabilities claimed**: `sync`, `async` and `testing`.
 - **Rules made impossible to express** (proposal 0054): `invalid-lifecycle`, `role-not-provided`, `mode-not-accepted`, `non-value`, `late-handle`, `bag-write`, `rescue-skip`, `journey-scope-request` and `no-instance`.
 
@@ -333,7 +333,7 @@ The macros are syntax over the builder. Each expands to builder calls and to imp
 - **Macro equivalence**: each macro form is paired with the same workflow written with the builder. Both must give the same listing, and the same event stream for the same inputs, apart from the journey ID and timestamps.
 - **Compile-fail tests** in `crates/itinera/tests/ui/`, each with a compiling twin: running an instance twice, calling `run` concurrently, attaching a policy that defines no hook, giving `local_executor_for!` a dispatcher factory of the other mode or a workflow declared with the builder, which does not know its mode, and each refusal of the macros listed in section 11, such as a hook request its kind may not make. A few of them check a refusal made only without the `async` feature, such as an `async fn` step: they run with `cargo test -p itinera --test ui` without that feature, which no CI job does, since the test job enables every feature. Each twin is a module of the `ui` test target, compiled once with it, and the test runs its `main` unless that is empty; only the programs that must fail go through `trybuild`, which checks them without building them.
 - **Macro features**: the conformance runner also runs `@macros` features of its own, in `crates/itinera-conformance/features/macros`, which drive workflows declared only with the macros through the cases' own sentences.
-- **Property-based tests** with `proptest`, over generated workflows with random outcomes, budgets, lifecycles and failing hooks or reporters: the first and last events, increasing sequence numbers, one outcome fact per attempt, one decision after each failed attempt, at most the budget plus one attempts, no bag values in engine events, and identical streams from both executors.
+- **Property-based tests** with `proptest`, over generated workflows with random outcomes, budgets, lifecycles and failing hooks or reporters: the first and last events, increasing sequence numbers, one outcome fact per attempt, one decision after each failed attempt, at most the budget plus one attempts for a step without a rescue step, no bag values in engine events, and identical streams from both executors.
 - **Doc tests**: every public item has an example that compiles and runs.
 - **No `unsafe`**: `#![forbid(unsafe_code)]` in every crate.
 - Coverage may be reported for information; it never blocks a merge.
@@ -375,7 +375,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | 6. The scan and its decisions | statuses, retries, `retry on abnormal termination`, aborts and the result; the decision logic with its hook points in place, tested through internal test hooks; it replaces stage 5's rule that every attempt is the last | 0012, 0032, 0042, 0061, 0063, 0065 |
 | 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, 0054, 0055, 0058, 0060, 0081, 0083, 0085 |
 | 8. Macros | reporters given the journey ID, `#[step]` and `derive(Step)`, `#[step_policy]` and `#[workflow_policy]`, `derive(InitialData)` and `derive(Output)`, `#[workflow]`, `#[with_step]` and `#[role]` with the instance builder, their equivalence and compile-fail tests, the `@macros` features, the crate overview and the examples | none |
-| 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
+| 9. Release | the release workflow, `release-gate`, `0.1.0-beta.1` | none |
 | 10. Services | `Service<T>` tokens, service providers of journey and attempt scope attached to steps or not, their requests and events, the service violations and the listing's services; the runner's sentences; `#[service]` and `#[provider]` in the macros; the `journey-scope-request` and `no-instance` proofs, and those of providers for `mode-not-accepted` and `non-value` | 0095 |
 | 11. Rescue steps | rescue steps and their traits, outcome, needs and factories, the `rescued step retried` violation, the rescue in the listing, the decisions `step_rescuing` and `step_rescued`, the engine's rescue, the runner's sentences, the `rescue-skip` proof, then the macros | 0003 |
 
@@ -445,30 +445,30 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
   | Feature | Default | Adds |
   |---|---|---|
   | `macros` | on | the macros |
-  | `async` | off | the asynchronous executor, steps, hooks, reporters and dispatchers, the `Asynchronous` mode, and the `async_trait` attribute in `mode`, which brings in the macros crate |
+  | `async` | off | the asynchronous executor, steps, rescue steps, hooks, service providers, reporters and dispatchers, the `Asynchronous` mode, and the `async_trait` attribute in `mode`, which brings in the macros crate |
+  | `testing` | off | `RecordingReporter`, fakes in place of service providers, scripted runs, and the recorders that let a test call a step, a hook or an input adapter directly, for an application's tests |
   | `unstable` | off | API of proposals the specification has not accepted yet; empty for now |
 
   The engine is asynchronous internally whatever the features; without `async`, nothing asynchronous is public.
-- **Documentation**: rustdoc on every public item, published by docs.rs; a crate-level overview in `itinera` with a first complete workflow, linking once to the specification repository; runnable examples in `crates/itinera/examples/` (a synchronous workflow, the same on the asynchronous executor, and one built without macros); a README stating the crates, the tier and capabilities claimed, the rules made impossible, and how to run the conformance runner.
+- **Documentation**: rustdoc on every public item, published by docs.rs; a crate-level overview in `itinera` with a first complete workflow, linking once to the specification repository and to the Rust book and the Itinera site for learners; runnable examples in `crates/itinera/examples/` (a synchronous workflow, the same on the asynchronous executor, and one built without macros); a README with a "Learning it" section linking the same book and site, and stating the crates, the tier and capabilities claimed, the rules made impossible, and how to run the conformance runner; `homepage` in the crates' metadata names the site.
 
 ## Release
 
 ### 19. Releasing the crates
 
 - **Crates**: `itinera-core`, `itinera-macros` and `itinera`, with one workspace version, published together by `cargo publish --workspace`.
-- **Versions are independent of the specification's.** The first release is `0.1.0-rc.1`. The README and the crate documentation say what each release implements: "specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.N`".
+- **Versions are independent of the specification's.** The first release is `0.1.0-beta.1`. The README and the crate documentation say what each release implements: "specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.N`".
 - **The path to 0.1.0**:
-  1. while the specification is in release candidates, Rust releases `0.1.0-rc.N`, pinning the latest cases candidate;
+  1. while the specification is in release candidates, Rust releases betas, `0.1.0-beta.N`, pinning the latest cases candidate, since a beta says it is not yet meant for production and may still gain features;
   2. once Rust, the first implementation, passes every tier 1 case, the specification and conformance are tagged `v0.1.0`;
   3. Rust then releases `0.1.0`, pinning cases `v0.1.0`.
-- **A release is requested by a maintainer pushing a tag `v*` on `main`**; a repository ruleset restricts those tags to maintainers. The release workflow runs four jobs:
-  1. **gate**: the `release-gate` action checks that the tag matches the workspace version, that the commit is on `main`, and that `conformance.json` lists every proposal of the tier claimed, taken from the `@proposal-NNNN` tags of the cases at the pinned version;
+- **A release is requested by a maintainer pushing a tag `v*` on `main`**; a repository ruleset restricts those tags to maintainers. The release workflow runs three jobs:
+  1. **gate**: the `release-gate` action checks that the tag matches the workspace version, that the commit is on `main`, that `CHANGELOG.md` has notes for the version, and that `conformance.json` lists every proposal of the tier claimed, taken from the `@proposal-NNNN` tags of the cases at the pinned version;
   2. **conformance**: `run-conformance`, producing the report;
-  3. **publish**: in the `crates-io` environment, which needs a maintainer's approval, authenticated through trusted publishing with `rust-lang/crates-io-auth-action`, then `cargo publish --workspace`;
-  4. **release**: `gh release create`, a pre-release for `-rc` tags, with the conformance report attached.
-- **The first publish of each crate.** crates.io configures trusted publishing only for crates that already exist, and PROCESS.md leaves such registry exceptions to each language. Ours: the first release of each crate is published by the release workflow, after its gate, with a short-lived token that a maintainer creates for that release only and stores as a secret of the `crates-io` environment. The token is deleted as soon as the release is published and trusted publishing is configured for the crates; every later release uses trusted publishing only. Nothing is published before that first release: crate names are not reserved with placeholder packages.
+  3. **release**: the `create-release` action creates the GitHub release with the notes of the version's section of `CHANGELOG.md`, a pre-release for a version with a pre-release part, such as `0.1.0-beta.1`, with the conformance report attached.
+- **Publishing is done by hand for now.** crates.io configures trusted publishing only for crates that already exist, and PROCESS.md leaves such registry exceptions to each language. Ours: a maintainer publishes each release from the tagged commit with `cargo publish --workspace`, logged in with `cargo login` on their own machine, once the workflow has finished and the GitHub release exists; a `cargo publish --workspace --dry-run` at that commit before the tag is pushed catches a failure before the release is created. Once the crates exist and trusted publishing is configured for them, a publish job, in the `crates-io` environment and authenticated with `rust-lang/crates-io-auth-action`, joins the workflow between conformance and release. Nothing is published before the first release: crate names are not reserved with placeholder packages.
 - **`CHANGELOG.md`** is updated in the pull request that bumps the version, and the release notes come from it.
-- **`release-gate`** is written in itinera-dev/actions, in Python with tests.
+- **`release-gate` and `create-release`** are written in itinera-dev/actions, in Python with tests.
 
 ## Also
 
