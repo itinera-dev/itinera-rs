@@ -7,6 +7,7 @@ use itinera::error::Error;
 use itinera::journey::{Contributor, DataBag, InitialData};
 use itinera::mode::Asynchronous;
 use itinera::policy::{AsyncHookReporter, HookNeeds, Provider, Requested};
+use itinera::report::RecordingReporter;
 use itinera::service::{
     PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
 };
@@ -259,4 +260,42 @@ fn services_the_macros_request_and_provide_list_and_run_as_those_written_for_the
     #[case] parcel: NewParcel,
 ) {
     assert_eq!(by_macros(parcel.clone()), by_the_builder(parcel));
+}
+
+/// A courier that reaches every parcel at once, for tests.
+fn drone() -> Result<Provided<dyn Courier>, Error> {
+    Ok(provide!(Van {
+        name: "drone".to_owned(),
+        reach: usize::MAX,
+    }))
+}
+
+#[test]
+fn a_fake_serves_an_asynchronous_workflow_alike_through_either_builder() {
+    let paths = RecordingReporter::default();
+    let faked_by_macros = run_created_async(Parcels::descriptor(), |recorder| {
+        Parcels::builder()
+            .initial_data(parcel("a wardrobe"))
+            .reporter(recorder)
+            .reporter(paths.clone())
+            .fake_provider::<dyn Courier>("courier", drone)
+            .create()
+            .unwrap()
+    });
+    let workflow = by_hand();
+    let faked_by_hand = run_created_async(&workflow, |recorder| {
+        workflow
+            .instance(HandParcels)
+            .initial_data(parcel("a wardrobe"))
+            .reporter(recorder)
+            .fake_provider::<dyn Courier>("courier", drone)
+            .create()
+            .unwrap()
+    });
+
+    assert_eq!(faked_by_macros, faked_by_hand);
+    assert_eq!(
+        paths.path(),
+        ["dispatch attempt 1 succeeded", "journey succeeded"]
+    );
 }

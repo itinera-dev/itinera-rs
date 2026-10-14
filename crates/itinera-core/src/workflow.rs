@@ -1,5 +1,7 @@
 //! Workflows: their declaration, the workflow descriptor, shared by every instance.
 
+#[cfg(any(test, feature = "testing"))]
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use uuid::Builder;
@@ -10,6 +12,8 @@ use crate::journey::{DataBag, JourneyId};
 use crate::mode::{Mode, Synchronous};
 use crate::policy::WorkflowPolicyEntry;
 use crate::service::{self, ProviderEntry};
+#[cfg(any(test, feature = "testing"))]
+use crate::service::{Faked, ProviderName};
 use crate::step::{StepDescriptor, StepName};
 
 #[cfg(feature = "async")]
@@ -17,6 +21,8 @@ mod asynchronous;
 mod builder;
 mod declaration;
 mod described;
+#[cfg(any(test, feature = "testing"))]
+mod fake;
 #[cfg(test)]
 pub(crate) mod fixtures;
 mod input_adapter;
@@ -65,6 +71,9 @@ pub use violation::{Violation, ViolationKind, Violations};
 #[derive(derive_more::Debug)]
 pub struct WorkflowDescriptor<W, M: Mode = Synchronous> {
     declaration: Arc<Declaration<W, M>>,
+    /// The fakes a test gave in place of providers' functions, by the providers' names.
+    #[cfg(any(test, feature = "testing"))]
+    fakes: BTreeMap<ProviderName, Arc<Faked>>,
 }
 
 impl<W: Send + Sync + 'static> WorkflowDescriptor<W> {
@@ -162,7 +171,10 @@ impl<W, M: Mode> WorkflowDescriptor<W, M> {
 
     /// The service provider that serves the step for the service under `key`, if one does.
     pub(crate) fn provider(&self, step: StepName, key: &str) -> Option<&dyn ProviderEntry<W, M>> {
-        service::serving(&self.declaration.providers, step, key)
+        let serving = service::serving(&self.declaration.providers, step, key);
+        #[cfg(any(test, feature = "testing"))]
+        let serving = serving.map(|provider| self.faked(provider));
+        serving
     }
 }
 
@@ -170,6 +182,8 @@ impl<W, M: Mode> Clone for WorkflowDescriptor<W, M> {
     fn clone(&self) -> Self {
         Self {
             declaration: Arc::clone(&self.declaration),
+            #[cfg(any(test, feature = "testing"))]
+            fakes: self.fakes.clone(),
         }
     }
 }

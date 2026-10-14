@@ -6,6 +6,8 @@ use std::any::Any;
 #[cfg(feature = "async")]
 mod asynchronous;
 mod descriptor;
+#[cfg(any(test, feature = "testing"))]
+mod fake;
 mod fit;
 #[cfg(test)]
 pub(crate) mod fixtures;
@@ -18,6 +20,8 @@ mod token;
 pub use asynchronous::AsyncProvide;
 pub use descriptor::ServiceProviderDescriptor;
 pub(crate) use descriptor::{ProviderEntry, serving};
+#[cfg(any(test, feature = "testing"))]
+pub(crate) use fake::{Fake, Faked};
 #[doc(hidden)]
 pub use fit::{Char, ProvidesService};
 pub use implementation::Implementation;

@@ -10,11 +10,12 @@ use crate::datum::option_of;
 use crate::marker;
 
 /// The builder's own methods, which no field may be named after.
-const METHODS: [&str; 5] = [
+const METHODS: [&str; 6] = [
     "initial_data",
     "reporters_global_metadata",
     "reporter",
     "async_reporter",
+    "fake_provider",
     "create",
 ];
 

@@ -10,6 +10,8 @@ use crate::workflow::WorkflowDescriptor;
 
 #[cfg(feature = "async")]
 mod asynchronous;
+#[cfg(any(test, feature = "testing"))]
+mod fake;
 
 /// Creates an [`Instance`]: takes its initial data, its initial global metadata and the reporters
 /// made for it alone, then produces its journey ID and makes the reporters the workflow lists.

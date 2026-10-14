@@ -1,16 +1,20 @@
 //! Fixtures the tests of several modules share: a service that tells its label, one that counts
-//! its instances dropped, the providers that make them, and steps and rescue steps that request
-//! them.
+//! its instances dropped, the providers that make them, steps and rescue steps that request
+//! them, and the implementations `service_provided` names.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use super::{PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide};
+use super::{
+    Implementation, PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
+};
 use crate::error::Error;
+use crate::event::{Event, EventBody};
 use crate::step::{
     Outcome, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved, RescueStep, Resolved, Step,
     StepDescriptor, StepFactory, StepName, StepNeeds,
 };
+use crate::value::AnyValue;
 use crate::workflow::fixtures::Orders;
 
 /// A service with one operation, which tells which instance it is.
@@ -234,4 +238,25 @@ impl RescueStep for Rescuing {
     fn run(self) -> Result<RescueOutcome, Error> {
         Ok(RescueOutcome::success())
     }
+}
+
+/// The implementation of every `service_provided`, in order, with the data it carries when that
+/// is a string.
+pub(crate) fn implementations(events: &[Event]) -> Vec<(Implementation, Option<String>)> {
+    events.iter().filter_map(implementation).collect()
+}
+
+fn implementation(event: &Event) -> Option<(Implementation, Option<String>)> {
+    match &event.body {
+        EventBody::ServiceProvided {
+            implementation,
+            data,
+            ..
+        } => Some((*implementation, data.as_ref().and_then(as_string).cloned())),
+        _ => None,
+    }
+}
+
+fn as_string(data: &AnyValue) -> Option<&String> {
+    data.downcast_ref()
 }
