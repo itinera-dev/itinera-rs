@@ -8,14 +8,13 @@ use crate::event::Event;
 use crate::journey::{DataBag, JourneyStatus, MissingData, Requester};
 use crate::policy::{HookNeeds, Provider, Requested};
 use crate::service::fixtures::{
-    Given, Label, Labeller, Made, PAYMENTS, STOCK, given, labelled, made, per_attempt, per_journey,
-    requesting,
+    Given, Label, Labeller, Made, PAYMENTS, STOCK, given, implementations, labelled, made,
+    per_attempt, per_journey, requesting,
 };
 use crate::service::{
     Implementation, PerAttempt, PerJourney, Provided, ServiceProviderDescriptor, provide,
 };
 use crate::step::{Input, OptionalInput};
-use crate::value::AnyValue;
 use crate::workflow::WorkflowBuilder;
 use crate::workflow::fixtures::{Orders, orders};
 
@@ -172,27 +171,6 @@ fn sandbox(
     _: Requested<'_, Orders, Provider<PerJourney>>,
 ) -> Result<Provided<dyn Labeller>, Error> {
     Ok(provide!(Sandbox, "north".to_owned()))
-}
-
-/// The implementation of every `service_provided`, in order, with the data it carries when that
-/// is a string.
-fn implementations(events: &[Event]) -> Vec<(Implementation, Option<String>)> {
-    events.iter().filter_map(implementation).collect()
-}
-
-fn implementation(event: &Event) -> Option<(Implementation, Option<String>)> {
-    match &event.body {
-        EventBody::ServiceProvided {
-            implementation,
-            data,
-            ..
-        } => Some((*implementation, data.as_ref().and_then(as_string).cloned())),
-        _ => None,
-    }
-}
-
-fn as_string(data: &AnyValue) -> Option<&String> {
-    data.downcast_ref()
 }
 
 #[test]

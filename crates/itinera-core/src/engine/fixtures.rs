@@ -190,7 +190,7 @@ pub(super) fn noon() -> SystemTime {
 }
 
 /// Runs the journey to its end, and returns its status and the events it emitted.
-pub(super) fn travel<I: WorkflowInstance>(instance: I) -> (JourneyStatus, Vec<Event>) {
+pub(crate) fn travel<I: WorkflowInstance>(instance: I) -> (JourneyStatus, Vec<Event>) {
     travel_before(instance, None)
 }
 
@@ -301,7 +301,7 @@ pub(super) fn declined() -> Result<Outcome, Error> {
     Ok(Outcome::failure(Reason::new("declined")))
 }
 
-pub(super) fn timed_out() -> Result<Outcome, Error> {
+pub(crate) fn timed_out() -> Result<Outcome, Error> {
     Ok(Outcome::failure(Reason::new("timeout")))
 }
 

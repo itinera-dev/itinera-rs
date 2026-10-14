@@ -6,6 +6,7 @@ use std::num::NonZeroU32;
 use itinera::error::Error;
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::policy::{HookNeeds, HookReporter, Provider, Requested};
+use itinera::report::RecordingReporter;
 use itinera::service::{
     PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
 };
@@ -343,6 +344,54 @@ fn services_the_macros_request_and_provide_list_and_run_as_those_written_for_the
     #[case] order: NewOrder,
 ) {
     assert_eq!(by_macros(order.clone()), by_the_builder(order));
+}
+
+/// A gateway that charges any amount at once, for tests.
+struct Unlimited;
+
+impl PaymentGateway for Unlimited {
+    fn charge(&self, amount: i64) -> Option<String> {
+        Some(format!("{amount} without a limit"))
+    }
+}
+
+fn unlimited() -> Result<Provided<dyn PaymentGateway>, Error> {
+    Ok(provide!(Unlimited))
+}
+
+#[test]
+fn a_fake_given_to_the_builder_the_macros_generate_runs_as_one_given_to_the_instance_builder() {
+    let paths = RecordingReporter::default();
+    let faked_by_macros = run_created(Shop::descriptor(), |recorder| {
+        Shop::builder()
+            .gateway("main")
+            .initial_data(order(70, None))
+            .reporter(recorder)
+            .reporter(paths.clone())
+            .fake_provider::<dyn PaymentGateway>("charging", unlimited)
+            .create()
+            .unwrap()
+    });
+    let workflow = by_hand();
+    let faked_by_hand = run_created(&workflow, |recorder| {
+        workflow
+            .instance(HandShop { gateway: "main" })
+            .initial_data(order(70, None))
+            .reporter(recorder)
+            .fake_provider::<dyn PaymentGateway>("charging", unlimited)
+            .create()
+            .unwrap()
+    });
+
+    assert_eq!(faked_by_macros, faked_by_hand);
+    assert_eq!(
+        paths.path(),
+        [
+            "charge attempt 1 succeeded",
+            "ship attempt 1 succeeded",
+            "journey succeeded"
+        ]
+    );
 }
 
 #[derive(Step)]

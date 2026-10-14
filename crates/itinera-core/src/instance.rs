@@ -9,6 +9,7 @@ use crate::workflow::WorkflowDescriptor;
 mod builder;
 mod committed;
 mod error;
+mod fake_provider;
 #[cfg(test)]
 mod fixtures;
 #[cfg(any(test, feature = "testing"))]
@@ -18,6 +19,8 @@ mod workflow_instance;
 pub use builder::InstanceBuilder;
 pub use committed::Committed;
 pub use error::InstanceError;
+#[doc(hidden)]
+pub use fake_provider::FakeProvider;
 #[cfg(any(test, feature = "testing"))]
 pub use scripted::{Acting, AttemptScripting, Named, Opened, Scripted, StepScripting};
 pub use workflow_instance::WorkflowInstance;
@@ -151,7 +154,7 @@ mod tests {
             "Instance { \
              descriptor: WorkflowDescriptor { declaration: Declaration { \
              name: WorkflowName(\"orders\"), steps: [], policies: [], adapters: [], \
-             providers: [], reporters: 1, id_generator: true } }, \
+             providers: [], reporters: 1, id_generator: true }, fakes: {} }, \
              journey_id: JourneyId(\"order-7\"), reporters: 1, \
              data: DataBag { values: {\"amount\": AnyValue(\"i64\")} }, \
              global_metadata: GlobalMetadata { entries: [] }, .. }"

@@ -1,5 +1,7 @@
 //! Declaring a workflow, one part at a time, and building its descriptor.
 
+#[cfg(any(test, feature = "testing"))]
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use super::{
@@ -322,6 +324,8 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
         violation::check(&self.declaration)?;
         Ok(WorkflowDescriptor {
             declaration: Arc::new(self.declaration),
+            #[cfg(any(test, feature = "testing"))]
+            fakes: BTreeMap::new(),
         })
     }
 }

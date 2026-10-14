@@ -2,6 +2,7 @@
 //! then its initial data, initial global metadata and reporters, and `create()`, which compiles
 //! only once every required field is set.
 
+mod fake;
 mod field;
 
 use proc_macro2::TokenStream;
@@ -59,6 +60,7 @@ pub(super) fn builder(
     };
     let async_reporters = mode::asynchronous_reporters(workflow);
     let async_reporter = async_reporters.is_some().then(|| async_reporter(mode));
+    let fake_provider = fake::fake_provider(&instance_builder);
     let doc = format!(
         "Starts creating an instance of `{workflow}`, for one journey: set each field it \
          requires, then, if any, its initial data, its initial global metadata and the reporters made \
@@ -132,11 +134,17 @@ pub(super) fn builder(
 
             #async_reporter
 
+            #fake_provider
+
             #[doc = "Creates the instance, with its journey ID and its reporters."]
             #[doc = ""]
             #[doc = "# Errors"]
             #[doc = ""]
             #[doc = "When the journey ID cannot be produced."]
+            #[doc = ""]
+            #[doc = "# Panics"]
+            #[doc = ""]
+            #[doc = "When a fake given with `fake_provider` names no service provider of the workflow, or supplies another type of service than its provider."]
             pub fn create(
                 self,
             ) -> ::core::result::Result<

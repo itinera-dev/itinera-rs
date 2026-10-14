@@ -30,7 +30,7 @@ flowchart LR
 5. `itinera-conformance`, which is not published, depends on `itinera` and runs the conformance cases of [itinera-dev/conformance](https://github.com/itinera-dev/conformance) against it.
 6. `xtask`, which is not published either, runs every required check on the workspace with `cargo xtask check`.
 
-The features are `macros` (on by default), `async`, which adds the asynchronous executor and the asynchronous traits, `testing`, which adds `RecordingReporter`, the recorders that lend a test the handles of steps, hooks and input adapters, and scripted runs, and `unstable`, which holds API the specification has not settled yet.
+The features are `macros` (on by default), `async`, which adds the asynchronous executor and the asynchronous traits, `testing`, which adds `RecordingReporter`, the recorders that lend a test the handles of steps, hooks and input adapters, scripted runs, and fakes in place of service providers, and `unstable`, which holds API the specification has not settled yet.
 
 `itinera-core` has one public module per concept, and one private module, `engine`:
 
@@ -79,7 +79,7 @@ flowchart TD
 ```
 
 1. A `WorkflowDescriptor` is the workflow's declaration. It is immutable, shared by every instance, and only `build()` makes one.
-2. It holds the workflow's name, its step descriptors in the order they run, its workflow policies, its input adapters, its service providers, the reporters it lists by type, and its ID generator.
+2. It holds the workflow's name, its step descriptors in the order they run, its workflow policies, its input adapters, its service providers, the reporters it lists by type, and its ID generator. Behind `testing`, the copy an instance holds may also keep fakes in place of service providers' functions, by provider name, as "Parameter injection" describes.
 3. Each `StepDescriptor` holds the factory that builds the step for each attempt, its retry budget, whether it retries an abnormal termination, which it does unless that is turned off, its step policies in the order attached, and, optionally, a rescue step with its own factory.
 4. Each policy descriptor names the hooks it defines; a step policy holds step hooks and a workflow policy holds workflow hooks.
 5. An input adapter is attached to whole steps, at most one per step. A service provider is attached to steps, or to no step, and is of journey or attempt scope.
@@ -372,7 +372,9 @@ A request a requester may not make does not compile. Roles come from the workflo
 
 In a test, behind the `testing` feature, the handles can come from recorders instead of the engine: `Contributions` lends a contributor, `StepEventReporter` and `HookEventReporter` lend reporters, and a `DataBag` built from values lends read access. A test then calls `run`, a hook or an input adapter itself, with plain values for everything else, and reads back what was contributed and emitted. A reporter lent this way emits into its recorder through the same `Reporting` the engine's reporters use.
 
-Where it lives: `engine/inputs.rs`, `engine/request.rs`, `engine/services.rs`, `answer` in `engine/hooks.rs`, a hook's reason and error in `engine/hooks/step/left.rs`, `rescue_request` in `engine/rescue.rs`; what each requester may request in `policy/kind/`; the tokens and needs in `step/input.rs`, `step/needs.rs`, `policy/needs/` and `service/token.rs`; the recorders in `journey/contributions.rs`, `step/event_reporter.rs`, `policy/event_reporter.rs` and `event/emitted.rs`, and `DataBag::with` in `journey/data_bag.rs`.
+Also behind `testing`, a test can give an instance a fake in place of a service provider's function, with `fake_provider` on the instance builder or on the builder `#[workflow]` generates. The instance's own copy of the workflow descriptor keeps the fake under the provider's name, and the provider found to serve a step is then the fake, which keeps the provider's name, service, scope, attachment and needs. So the engine resolves what the provider requests, and keeps or drops what it makes, as it would for the provider, and only calls the fake in its place.
+
+Where it lives: `engine/inputs.rs`, `engine/request.rs`, `engine/services.rs`, `answer` in `engine/hooks.rs`, a hook's reason and error in `engine/hooks/step/left.rs`, `rescue_request` in `engine/rescue.rs`; what each requester may request in `policy/kind/`; the tokens and needs in `step/input.rs`, `step/needs.rs`, `policy/needs/` and `service/token.rs`; the recorders in `journey/contributions.rs`, `step/event_reporter.rs`, `policy/event_reporter.rs` and `event/emitted.rs`, and `DataBag::with` in `journey/data_bag.rs`; the fakes in `instance/builder/fake.rs`, `instance/fake_provider.rs`, `workflow/fake.rs` and `service/fake.rs`.
 
 ### Outcomes
 
