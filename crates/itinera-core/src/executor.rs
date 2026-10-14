@@ -15,11 +15,15 @@ use crate::step::Script;
 mod asynchronous;
 #[cfg(test)]
 pub(crate) mod fixtures;
+mod local_executor_for;
 mod refusal;
 mod started;
 
 #[cfg(feature = "async")]
 pub use asynchronous::AsyncLocalExecutor;
+#[doc(hidden)]
+pub use local_executor_for::__local_executor_of;
+pub use local_executor_for::{LocalDispatcherFactory, local_executor_for};
 pub use refusal::Refusal;
 pub(crate) use started::{Started, build_policies};
 

@@ -43,7 +43,7 @@ The features are `macros` (on by default), `async`, which adds the asynchronous 
 | `workflow` | Workflow descriptors, their builder, the `Workflow` trait, input adapters, violations, the listing |
 | `service` | Service tokens and service providers, of journey or attempt scope |
 | `instance` | The `WorkflowInstance` trait, `Instance` and its builder; with `testing`, `Scripted` and the builder of its script |
-| `executor` | `LocalExecutor`, `AsyncLocalExecutor` and refusals |
+| `executor` | `LocalExecutor`, `AsyncLocalExecutor`, the `local_executor_for!` macro that picks one from an instance's mode, and refusals |
 | `event` | `Event`, its bodies, who did or decided what, and the `Level` of the events steps and hooks emit; with `testing`, `Emitted` |
 | `report` | Reporters, dispatchers and their factories, `DefaultDispatcher`, `GlobalMetadata` |
 | `mode` | `Synchronous` and `Asynchronous`; with `async`, the `async_trait` attribute |
@@ -206,7 +206,7 @@ sequenceDiagram
 
 1. The application declares the workflow, with the builder or the macros. `build()` checks what types cannot, and returns the descriptor or every `Violations` at once.
 2. The application makes an instance with the workflow's own value, the initial data and, if it wants, initial global metadata. `create()` makes the journey ID, with the workflow's ID generator or a UUID version 4. A failure there is an `InstanceError`.
-3. The application gives the instance to an executor's `run`.
+3. The application gives the instance to an executor's `run`: the executor of its mode, which `local_executor_for!` picks for it.
 4. The executor takes the instance's initial global metadata, which may not set `journey_id`, and builds every workflow policy, once for this journey.
 5. It asks its dispatcher factory for a new dispatcher, and adds each of the instance's reporters to it, wrapped in a guard (see "Events and delivery").
 6. Through the dispatcher, it sets the journey ID under `journey_id`, then each entry of the initial global metadata, in the order its keys were first set. Neither emits an event.
@@ -216,7 +216,7 @@ sequenceDiagram
 
 Both executors share the one engine, which is written once, as asynchronous code. `LocalExecutor` drives it to the end with a waker that does nothing, since a `Synchronous` workflow has nothing to wait for. `AsyncLocalExecutor` awaits it, and its dispatcher's delivery, on whatever runtime the application uses. The engine never spawns, sleeps or sets timers.
 
-Where it lives: `workflow/builder.rs`, `instance/builder.rs`, `executor.rs`, `executor/started.rs`, `executor/refusal.rs`, `executor/asynchronous.rs`, `run` and `finish` in `engine.rs`, and `introduce` in `engine/metadata.rs`.
+Where it lives: `workflow/builder.rs`, `instance/builder.rs`, `executor.rs`, `executor/started.rs`, `executor/refusal.rs`, `executor/asynchronous.rs`, `executor/local_executor_for.rs`, `run` and `finish` in `engine.rs`, and `introduce` in `engine/metadata.rs`.
 
 ### The executor loop
 
