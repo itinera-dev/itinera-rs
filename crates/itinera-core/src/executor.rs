@@ -22,7 +22,7 @@ mod started;
 #[cfg(feature = "async")]
 pub use asynchronous::AsyncLocalExecutor;
 #[doc(hidden)]
-pub use local_executor_for::__local_executor_of;
+pub use local_executor_for::{__local_executor_from, __local_executor_of};
 pub use local_executor_for::{LocalDispatcherFactory, local_executor_for};
 pub use refusal::Refusal;
 pub(crate) use started::{Started, build_policies};

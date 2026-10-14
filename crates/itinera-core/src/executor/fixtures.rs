@@ -7,15 +7,17 @@ use super::{LocalExecutor, Refusal};
 use crate::engine::fixtures::scripted;
 use crate::error::Error;
 use crate::event::Event;
-use crate::instance::{Instance, InstanceBuilder};
-use crate::journey::JourneyResult;
+use crate::instance::{Committed, Instance, InstanceBuilder, WorkflowInstance};
+use crate::journey::{DataBag, JourneyId, JourneyResult};
 #[cfg(feature = "async")]
 use crate::mode::Asynchronous;
+use crate::mode::Synchronous;
 #[cfg(feature = "async")]
 use crate::report::AsyncReporter;
 use crate::report::fixtures::Log;
 use crate::report::{
-    DefaultDispatcher, DefaultDispatcherFactory, Dispatcher, DispatcherFactory, Reporter,
+    DefaultDispatcher, DefaultDispatcherFactory, Dispatcher, DispatcherFactory, GlobalMetadata,
+    Reporter,
 };
 use crate::step::{Outcome, StepDescriptor, StepName};
 use crate::value::AnyValue;
@@ -304,4 +306,46 @@ pub(crate) fn mixed_instance(shop: Shop) -> (Instance<Shop, Asynchronous>, Log) 
         .create()
         .unwrap();
     (instance, log)
+}
+
+/// An instance of the shop written by hand, which hands everything to the instance itinera made.
+pub(crate) struct HandWritten {
+    pub(crate) instance: Instance<Shop>,
+}
+
+impl WorkflowInstance for HandWritten {
+    type Workflow = Shop;
+    type Mode = Synchronous;
+
+    fn descriptor(&self) -> &WorkflowDescriptor<Shop> {
+        self.instance.descriptor()
+    }
+
+    fn workflow(&self) -> &Shop {
+        self.instance.workflow()
+    }
+
+    fn journey_id(&self) -> &JourneyId {
+        self.instance.journey_id()
+    }
+
+    fn take_reporters(&mut self) -> Vec<Box<dyn Reporter>> {
+        self.instance.take_reporters()
+    }
+
+    fn take_global_metadata(&mut self) -> GlobalMetadata {
+        self.instance.take_global_metadata()
+    }
+
+    fn data_bag(&self) -> &DataBag {
+        self.instance.data_bag()
+    }
+
+    fn into_data_bag(self) -> DataBag {
+        self.instance.into_data_bag()
+    }
+
+    fn commit(&mut self, key: String, value: AnyValue) -> Committed {
+        self.instance.commit(key, value)
+    }
 }

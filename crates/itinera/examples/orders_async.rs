@@ -6,7 +6,7 @@ use std::num::NonZeroU32;
 
 use itinera::error::Error;
 use itinera::event::Event;
-use itinera::executor::AsyncLocalExecutor;
+use itinera::executor::local_executor_for;
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::mode::async_trait;
 use itinera::policy::{OnSuccess, step_policy, workflow_policy};
@@ -193,7 +193,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             discount: Some(10),
         },
     ];
-    let mut executor = AsyncLocalExecutor::new();
+    let mut executor = local_executor_for!(Orders);
     for order in orders {
         let instance = Orders::builder()
             .shop("corner")

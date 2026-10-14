@@ -27,7 +27,7 @@ pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
         ))
         .build()?;
     let instance = orders.instance(Orders).create()?;
-    let mut executor = local_executor_for!(instance, dispatcher_factory = Forwarding);
+    let mut executor = local_executor_for!(from = instance, dispatcher_factory = Forwarding);
     let result = futures::executor::block_on(executor.run(instance))?;
     assert_eq!(result.status.kind(), StatusKind::Succeeded);
     Ok(())

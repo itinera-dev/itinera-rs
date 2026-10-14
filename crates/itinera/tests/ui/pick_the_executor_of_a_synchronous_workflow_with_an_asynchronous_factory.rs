@@ -25,6 +25,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }))
         .build()?;
     let instance = orders.instance(Orders).create()?;
-    let _executor = local_executor_for!(instance, dispatcher_factory = Forwarding);
+    let _executor = local_executor_for!(from = instance, dispatcher_factory = Forwarding);
     Ok(())
 }

@@ -7,10 +7,14 @@ mod asynchronous;
 #[cfg(feature = "async")]
 #[doc(hidden)]
 pub mod expansion;
+mod has_mode;
 pub(crate) mod sealed;
 
 #[cfg(feature = "async")]
 pub use asynchronous::Asynchronous;
+#[doc(hidden)]
+pub use has_mode::__ModeOfValue;
+pub use has_mode::HasMode;
 #[cfg(feature = "async")]
 pub use itinera_macros::async_trait;
 

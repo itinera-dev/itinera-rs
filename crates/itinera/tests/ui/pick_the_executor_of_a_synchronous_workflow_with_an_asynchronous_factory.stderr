@@ -1,10 +1,10 @@
 error[E0277]: `Forwarding` is not a dispatcher factory that the local executor of a `Synchronous` workflow takes
-  --> tests/ui/pick_the_executor_of_a_synchronous_workflow_with_an_asynchronous_factory.rs:28:72
+  --> tests/ui/pick_the_executor_of_a_synchronous_workflow_with_an_asynchronous_factory.rs:28:79
    |
-28 |     let _executor = local_executor_for!(instance, dispatcher_factory = Forwarding);
-   |                     ---------------------------------------------------^^^^^^^^^^-
-   |                     |                                                  |
-   |                     |                                                  not a dispatcher factory of this workflow's executor
+28 |     let _executor = local_executor_for!(from = instance, dispatcher_factory = Forwarding);
+   |                     ----------------------------------------------------------^^^^^^^^^^-
+   |                     |                                                         |
+   |                     |                                                         not a dispatcher factory of this workflow's executor
    |                     required by a bound introduced by this call
    |
 help: the trait `itinera::report::DispatcherFactory` is not implemented for `Forwarding`
@@ -19,17 +19,17 @@ help: the trait `itinera::report::DispatcherFactory` is implemented for `Default
    | impl DispatcherFactory for DefaultDispatcherFactory {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = note: required for `Forwarding` to implement `LocalDispatcherFactory<Synchronous>`
-note: required by a bound in `itinera::executor::__local_executor_of`
+note: required by a bound in `itinera::executor::__local_executor_from`
   --> $WORKSPACE/crates/itinera-core/src/executor/local_executor_for.rs
    |
-   | pub fn __local_executor_of<I: WorkflowInstance, F: LocalDispatcherFactory<I::Mode>>(
-   |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `__local_executor_of`
+   | pub fn __local_executor_from<T: __ModeOfValue, F: LocalDispatcherFactory<T::Mode>>(
+   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `__local_executor_from`
 
 error[E0277]: the trait bound `Forwarding: itinera::report::DispatcherFactory` is not satisfied
   --> tests/ui/pick_the_executor_of_a_synchronous_workflow_with_an_asynchronous_factory.rs:28:21
    |
-28 |     let _executor = local_executor_for!(instance, dispatcher_factory = Forwarding);
-   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+28 |     let _executor = local_executor_for!(from = instance, dispatcher_factory = Forwarding);
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
    |
 help: the trait `itinera::report::DispatcherFactory` is not implemented for `Forwarding`
   --> tests/ui/pick_the_executor_of_a_synchronous_workflow_with_an_asynchronous_factory.rs:11:1
