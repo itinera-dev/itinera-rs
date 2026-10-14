@@ -130,10 +130,10 @@ fn with_step<M: Parts>(
 
 fn described<M: Parts>(name: StepName, step: &StepPlan) -> StepDescriptor<Shop, M> {
     let descriptor = M::step(name, step).retry_budget(step.retry_budget);
-    let descriptor = if step.abnormal_termination_retriable {
-        descriptor.abnormal_termination_retriable()
-    } else {
+    let descriptor = if step.retry_on_abnormal_termination {
         descriptor
+    } else {
+        descriptor.no_retry_on_abnormal_termination()
     };
     if step.has_policy {
         descriptor.policy(M::verdict(step.attempts.clone().into()))

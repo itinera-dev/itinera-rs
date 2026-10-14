@@ -78,7 +78,6 @@ fn ended(ending: Ending) -> Result<Outcome, Error> {
     match ending {
         Ending::Success => Ok(Outcome::success()),
         Ending::Failure => Ok(Outcome::failure(Reason::new("declined"))),
-        Ending::RetriableFailure => Ok(Outcome::retriable_failure(Reason::new("busy"))),
         Ending::Skipped => Ok(Outcome::skipped()),
         Ending::AbnormalTermination => Err(Error::msg("the step crashed")),
     }

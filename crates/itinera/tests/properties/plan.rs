@@ -23,7 +23,7 @@ pub(crate) struct Plan {
 #[derive(Debug, From)]
 pub(crate) struct StepPlan {
     pub(crate) retry_budget: u16,
-    pub(crate) abnormal_termination_retriable: bool,
+    pub(crate) retry_on_abnormal_termination: bool,
     pub(crate) has_policy: bool,
     pub(crate) attempts: Vec<Attempt>,
 }
@@ -43,7 +43,6 @@ pub(crate) struct Attempt {
 pub(crate) enum Ending {
     Success,
     Failure,
-    RetriableFailure,
     Skipped,
     AbnormalTermination,
 }
@@ -92,11 +91,11 @@ fn steps() -> impl Strategy<Value = StepPlan> {
 }
 
 fn with_attempts(
-    (retry_budget, abnormal_termination_retriable, has_policy): (u16, bool, bool),
+    (retry_budget, retry_on_abnormal_termination, has_policy): (u16, bool, bool),
 ) -> impl Strategy<Value = StepPlan> {
     (
         Just(retry_budget),
-        Just(abnormal_termination_retriable),
+        Just(retry_on_abnormal_termination),
         Just(has_policy),
         vec(attempts(), usize::from(retry_budget) + 1),
     )
@@ -117,8 +116,7 @@ fn attempts() -> impl Strategy<Value = Attempt> {
 fn endings() -> impl Strategy<Value = Ending> {
     prop_oneof![
         3 => Just(Ending::Success),
-        1 => Just(Ending::Failure),
-        3 => Just(Ending::RetriableFailure),
+        4 => Just(Ending::Failure),
         1 => Just(Ending::Skipped),
         2 => Just(Ending::AbnormalTermination),
     ]
