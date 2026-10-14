@@ -19,8 +19,10 @@ mod sealed;
 /// `local_executor_for!(instance, dispatcher_factory = factory)`, for one that creates the
 /// dispatcher of every journey with `factory`.
 ///
-/// It names the instance and only borrows it, so the instance is then given to the executor's
-/// `run`. The caller still writes what that `run` needs: an asynchronous executor's result is
+/// It is given the instance itself, not a reference to it (`*instance` names the instance a
+/// reference points to), and only borrows it, so the instance is then given to the executor's
+/// `run`. The expression is evaluated, so it names an instance already made rather than making
+/// one. The caller still writes what that `run` needs: an asynchronous executor's result is
 /// awaited.
 ///
 /// [`DefaultDispatcherFactory`]: crate::report::DefaultDispatcherFactory
@@ -44,7 +46,7 @@ mod sealed;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
-/// A dispatcher factory that the executor of the instance's mode does not take does not compile:
+/// A value that is not a dispatcher factory of the instance's mode does not compile:
 ///
 /// ```compile_fail,E0277
 /// use itinera::executor::local_executor_for;
@@ -85,18 +87,29 @@ pub use crate::__local_executor_for as local_executor_for;
 /// # Examples
 ///
 /// ```
-/// use itinera::executor::{LocalDispatcherFactory, LocalExecutor};
-/// use itinera::mode::Synchronous;
+/// use itinera::executor::{LocalDispatcherFactory, local_executor_for};
+/// use itinera::instance::WorkflowInstance;
+/// use itinera::journey::StatusKind;
 /// use itinera::report::DefaultDispatcherFactory;
+/// use itinera::step::{Outcome, StepDescriptor, step_name};
+/// use itinera::workflow::WorkflowDescriptor;
 ///
-/// fn executor_of<F: LocalDispatcherFactory<Synchronous>>(_factory: &F) -> &'static str {
-///     std::any::type_name::<F::LocalExecutor>()
+/// fn executor_for<I: WorkflowInstance, F: LocalDispatcherFactory<I::Mode>>(
+///     instance: &I,
+///     factory: F,
+/// ) -> F::LocalExecutor {
+///     local_executor_for!(*instance, dispatcher_factory = factory)
 /// }
 ///
-/// assert_eq!(
-///     executor_of(&DefaultDispatcherFactory),
-///     std::any::type_name::<LocalExecutor>()
-/// );
+/// struct Orders;
+///
+/// let orders = WorkflowDescriptor::builder("orders")
+///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
+///     .build()?;
+/// let instance = orders.instance(Orders).create()?;
+/// let result = executor_for(&instance, DefaultDispatcherFactory).run(instance)?;
+/// assert_eq!(result.status.kind(), StatusKind::Succeeded);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a dispatcher factory that the local executor of a `{M}` workflow \

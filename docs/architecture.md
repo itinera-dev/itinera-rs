@@ -206,7 +206,7 @@ sequenceDiagram
 
 1. The application declares the workflow, with the builder or the macros. `build()` checks what types cannot, and returns the descriptor or every `Violations` at once.
 2. The application makes an instance with the workflow's own value, the initial data and, if it wants, initial global metadata. `create()` makes the journey ID, with the workflow's ID generator or a UUID version 4. A failure there is an `InstanceError`.
-3. The application gives the instance to an executor's `run`: the executor of its mode, which `local_executor_for!` picks for it.
+3. The application gives the instance to an executor's `run`: the executor of its mode, which it names or has `local_executor_for!` pick for it.
 4. The executor takes the instance's initial global metadata, which may not set `journey_id`, and builds every workflow policy, once for this journey.
 5. It asks its dispatcher factory for a new dispatcher, and adds each of the instance's reporters to it, wrapped in a guard (see "Events and delivery").
 6. Through the dispatcher, it sets the journey ID under `journey_id`, then each entry of the initial global metadata, in the order its keys were first set. Neither emits an event.

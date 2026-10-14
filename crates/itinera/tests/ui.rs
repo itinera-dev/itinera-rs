@@ -5,6 +5,9 @@ use std::error::Error;
 
 #[path = "ui/attach_a_hooked_policy.rs"]
 mod attach_a_hooked_policy;
+#[cfg(feature = "async")]
+#[path = "ui/pick_the_executor_of_an_asynchronous_workflow_with_an_asynchronous_factory.rs"]
+mod pick_the_executor_of_an_asynchronous_workflow_with_an_asynchronous_factory;
 #[path = "ui/request_the_reason_on_step_failure.rs"]
 #[expect(dead_code, reason = "this twin only has to compile")]
 mod request_the_reason_on_step_failure;
@@ -38,6 +41,16 @@ fn a_hook_requests_only_what_its_kind_may_request() {
 fn an_executor_runs_one_journey_at_a_time() -> Result<(), Box<dyn Error>> {
     fails_to_compile("tests/ui/run_concurrently.rs");
     run_one_after_the_other::main()
+}
+
+#[cfg(feature = "async")]
+#[test]
+fn a_local_executor_takes_only_a_dispatcher_factory_of_its_workflows_mode()
+-> Result<(), Box<dyn Error>> {
+    fails_to_compile(
+        "tests/ui/pick_the_executor_of_a_synchronous_workflow_with_an_asynchronous_factory.rs",
+    );
+    pick_the_executor_of_an_asynchronous_workflow_with_an_asynchronous_factory::main()
 }
 
 /// What the step macros refuse, each with the macro's own error.
