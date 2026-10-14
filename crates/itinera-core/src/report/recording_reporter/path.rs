@@ -1,6 +1,7 @@
 //! A journey's path: the line each event of its flow reads as.
 
 use crate::event::{Event, EventBody, GiveUpCause, JourneyAbort, JourneyFailure};
+use crate::journey::LastFailure;
 use crate::policy::PolicyName;
 use crate::step::{Reason, StepAttempt, StepName};
 
@@ -81,11 +82,14 @@ fn succeeded(decided_by: Option<&PolicyName>) -> String {
 
 fn failed(step: StepName, failure: &JourneyFailure) -> String {
     match failure {
-        JourneyFailure::Failure(reason) | JourneyFailure::FailWorkflow { reason, .. } => {
+        JourneyFailure::Failure(reason)
+        | JourneyFailure::FailWorkflow { reason, .. }
+        | JourneyFailure::RetriesExhausted(LastFailure::Reason(reason)) => {
             format!("journey failed at {step}: {}", reason.code())
         }
-        JourneyFailure::RetriesExhausted(_) | JourneyFailure::AbnormalTermination(_) => {
-            format!("journey failed at {step}: {}", failure.cause())
+        JourneyFailure::RetriesExhausted(LastFailure::Error(message))
+        | JourneyFailure::AbnormalTermination(message) => {
+            format!("journey failed at {step}: {message}")
         }
     }
 }
@@ -104,7 +108,6 @@ mod tests {
     use super::*;
     use crate::event::fixtures::event;
     use crate::event::{DecidingHook, GiveUpHook, RescueCause};
-    use crate::journey::LastFailure;
     use crate::policy::{RetryCause, StepHook};
 
     fn charge() -> StepAttempt {
@@ -181,19 +184,26 @@ mod tests {
         },
         "journey failed at charge: declined"
     )]
-    #[case::a_failure_once_retries_are_exhausted(
+    #[case::a_failure_once_retries_are_exhausted_by_failures(
         EventBody::JourneyFailed {
             step: StepName::new("charge"),
             failure: JourneyFailure::RetriesExhausted(LastFailure::Reason(declined())),
         },
-        "journey failed at charge: retries exhausted"
+        "journey failed at charge: declined"
+    )]
+    #[case::a_failure_once_retries_are_exhausted_by_abnormal_terminations(
+        EventBody::JourneyFailed {
+            step: StepName::new("charge"),
+            failure: JourneyFailure::RetriesExhausted(LastFailure::Error("no gateway".to_string())),
+        },
+        "journey failed at charge: no gateway"
     )]
     #[case::a_failure_by_an_abnormal_termination(
         EventBody::JourneyFailed {
             step: StepName::new("charge"),
             failure: JourneyFailure::AbnormalTermination("timeout".to_string()),
         },
-        "journey failed at charge: abnormal termination"
+        "journey failed at charge: timeout"
     )]
     #[case::a_failure_a_hook_decided(
         EventBody::JourneyFailed {

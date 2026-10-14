@@ -86,10 +86,11 @@ impl RecordingReporter {
     /// - `charge rescuing with charge_rescue` and `charge rescued by charge_rescue`.
     /// - `journey succeeded`, or `journey succeeded, decided by early_exit` when a hook of the
     ///   policy `early_exit` decided it. `journey failed at charge: declined`, with the code of the
-    ///   step's reason or of the one a hook's `FailWorkflow` carried, or with the cause, `retries
-    ///   exhausted` or `abnormal termination`. `journey aborted at charge: step could not be
-    ///   built`, with the abort's reason, or `journey aborted: reporter failed` when the abort
-    ///   concerns no step.
+    ///   reason of the step's last attempt or of the one a hook's `FailWorkflow` carried, or
+    ///   `journey failed at charge: timeout`, with the error's message when the last attempt ended
+    ///   in an abnormal termination. The cause is not repeated, since the line before gives it.
+    ///   `journey aborted at charge: step could not be built`, with the abort's reason, or
+    ///   `journey aborted: reporter failed` when the abort concerns no step.
     ///
     /// # Examples
     ///
@@ -117,7 +118,7 @@ impl RecordingReporter {
     ///         "charge retrying",
     ///         "charge attempt 2 failed: declined",
     ///         "charge given up: retries exhausted",
-    ///         "journey failed at charge: retries exhausted",
+    ///         "journey failed at charge: declined",
     ///     ]
     /// );
     /// # Ok::<(), Box<dyn std::error::Error>>(())
