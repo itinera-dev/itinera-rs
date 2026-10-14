@@ -29,11 +29,11 @@ impl<F: StepFactory> Attempts for Synchronously<F> {
 }
 
 /// What a workflow holds for one step: its name, what it needs, how to build it for each
-/// attempt, its retry budget, whether an abnormal termination may be retried, the step policies
+/// attempt, its retry budget, whether it retries an abnormal termination, the step policies
 /// attached to it, in the order they were attached, and its rescue step, if it has one.
 ///
-/// The retry budget is 0, an abnormal termination is not retried, and there is no rescue step,
-/// unless the descriptor says otherwise.
+/// The retry budget is 0, an abnormal termination is retried within it, and there is no
+/// rescue step, unless the descriptor says otherwise.
 ///
 /// `W` is the type of the workflows that may hold it, which only its policies see, and `M` their
 /// mode: a step of a synchronous workflow comes from a [`StepFactory`].
@@ -304,11 +304,6 @@ impl<W, M> StepDescriptor<W, M> {
     /// Whether the retry budget allows another attempt after this one.
     pub(crate) fn budget_allows_after(&self, attempt: NonZeroU32) -> bool {
         attempt.get() <= u32::from(self.retry_budget)
-    }
-
-    /// Whether the step has a retry budget at all.
-    pub(crate) fn has_retry_budget(&self) -> bool {
-        self.retry_budget > 0
     }
 
     pub(crate) fn retries_abnormal_termination(&self) -> bool {

@@ -45,13 +45,20 @@ fn failed_step(event: &Event) -> Option<(StepName, FailureCause)> {
 }
 
 #[rstest]
-#[case::a_failure(&[declined as Ends], "step_failed")]
-#[case::an_abnormal_termination_the_step_would_retry(&[crashed as Ends], "step_abnormal_termination")]
+#[case::a_failure(rescued(&[declined]), "step_failed")]
+#[case::an_abnormal_termination_the_step_would_retry(
+    rescued(&[crashed]),
+    "step_abnormal_termination"
+)]
+#[case::an_abnormal_termination_the_step_does_not_retry(
+    rescued(&[crashed]).no_retry_on_abnormal_termination(),
+    "step_abnormal_termination"
+)]
 fn a_failed_first_attempt_is_rescued_then_the_step_is_attempted_again(
-    #[case] ends: &'static [Ends],
+    #[case] charge: StepDescriptor<Orders>,
     #[case] fact: &str,
 ) {
-    let (status, events) = travel_charge(rescued(ends));
+    let (status, events) = travel_charge(charge);
 
     assert_eq!(data_of(&status), [("attempt".to_string(), 2)]);
     assert_eq!(

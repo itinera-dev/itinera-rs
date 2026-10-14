@@ -40,9 +40,12 @@ pub(super) fn not_retried_abnormally(budget: u16) -> Orderly {
     scripted(orders().step(charge).step(step("ship")))
 }
 
-/// The orders workflow, whose charge step has a rescue step that succeeds, then ships.
+/// The orders workflow, whose charge step has a rescue step that succeeds and does not retry an
+/// abnormal termination, then ships.
 pub(super) fn rescued() -> Orderly {
-    let charge = step("charge").rescue(|| Ok(RescueOutcome::success()));
+    let charge = step("charge")
+        .no_retry_on_abnormal_termination()
+        .rescue(|| Ok(RescueOutcome::success()));
     scripted(orders().step(charge).step(step("ship")))
 }
 

@@ -162,8 +162,7 @@ pub trait DescribedStep {
         Ok(Outcome::success())
     }
 
-    /// The step failed, for this reason, and suggests no retry: [`Outcome::failure`]. A text
-    /// is the reason's code.
+    /// The step failed, for this reason: [`Outcome::failure`]. A text is the reason's code.
     ///
     /// # Errors
     ///

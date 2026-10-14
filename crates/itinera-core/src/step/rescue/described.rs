@@ -150,8 +150,9 @@ pub trait DescribedRescueStep {
         Ok(RescueOutcome::success())
     }
 
-    /// The rescue step could not fix the cause, for this reason, and suggests no retry:
-    /// [`RescueOutcome::failure`]. A text is the reason's code.
+    /// The rescue step could not fix the cause, for this reason: [`RescueOutcome::failure`]. A
+    /// rescue step is never attempted again, so this fails the journey. A text is the reason's
+    /// code.
     ///
     /// # Errors
     ///

@@ -162,10 +162,10 @@ pub enum StepFailureCause {
 /// assert_eq!(RetryCause::AbnormalTermination.to_string(), "abnormal termination");
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
+#[display(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum RetryCause {
     /// The attempt reported a failure.
-    #[display("failure")]
     Failure,
     /// The attempt ended in an abnormal termination.
     #[display("abnormal termination")]

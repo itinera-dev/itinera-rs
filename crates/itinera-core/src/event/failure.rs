@@ -19,7 +19,7 @@ use crate::step::Reason;
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum JourneyFailure {
-    /// The step reported a failure, with no retry budget, with this reason.
+    /// A step without a retry budget reported a failure, with this reason.
     Failure(Reason),
     /// The step's retry budget was spent.
     RetriesExhausted(LastFailure),

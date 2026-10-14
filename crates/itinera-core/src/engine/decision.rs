@@ -64,7 +64,7 @@ fn within_budget<'s, W, M>(
 ) -> Decision<'s, W, M> {
     match (
         step.budget_allows_after(attempt),
-        step.has_retry_budget(),
+        step.allows_retries(),
         cause,
     ) {
         (true, _, _) => Decision::Retry(cause),
@@ -259,14 +259,18 @@ mod tests {
     }
 
     #[rstest]
-    #[case::a_failure(declined(), RescueCause::Failure)]
-    #[case::an_abnormal_termination(crashed(), RescueCause::AbnormalTermination)]
+    #[case::a_failure(declined(), rescued_charge(), RescueCause::Failure)]
+    #[case::an_abnormal_termination(crashed(), rescued_charge(), RescueCause::AbnormalTermination)]
+    #[case::an_abnormal_termination_the_step_does_not_retry(
+        crashed(),
+        rescued_charge().no_retry_on_abnormal_termination(),
+        RescueCause::AbnormalTermination
+    )]
     fn a_step_with_a_rescue_step_is_rescued_after_its_first_attempt_however_it_failed(
         #[case] failed: Failed,
+        #[case] charge: StepDescriptor<()>,
         #[case] cause: RescueCause,
     ) {
-        let charge = rescued_charge();
-
         let rescue = charge.rescue_step().unwrap();
 
         assert_eq!(rescue.name(), StepName::new("charge_rescue"));
