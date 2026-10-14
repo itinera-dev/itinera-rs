@@ -43,10 +43,10 @@ The features are `macros` (on by default), `async`, which adds the asynchronous 
 | `workflow` | Workflow descriptors, their builder, the `Workflow` trait, input adapters, violations, the listing |
 | `service` | Service tokens and service providers, of journey or attempt scope |
 | `instance` | The `WorkflowInstance` trait, `Instance` and its builder; with `testing`, `Scripted` and the builder of its script |
-| `executor` | `LocalExecutor`, `AsyncLocalExecutor`, the `local_executor_for!` macro that picks one from an instance's mode, and refusals |
+| `executor` | `LocalExecutor`, `AsyncLocalExecutor`, the `local_executor_for!` macro that picks one from a workflow's mode, and refusals |
 | `event` | `Event`, its bodies, who did or decided what, and the `Level` of the events steps and hooks emit; with `testing`, `Emitted` |
 | `report` | Reporters, dispatchers and their factories, `DefaultDispatcher`, `GlobalMetadata` |
-| `mode` | `Synchronous` and `Asynchronous`; with `async`, the `async_trait` attribute |
+| `mode` | `Synchronous` and `Asynchronous`, `HasMode` for the types that know their workflow's mode; with `async`, the `async_trait` attribute |
 | `error` | `Error` and `Interrupted` |
 | `engine` | Private: the one engine both executors share |
 
@@ -216,7 +216,7 @@ sequenceDiagram
 
 Both executors share the one engine, which is written once, as asynchronous code. `LocalExecutor` drives it to the end with a waker that does nothing, since a `Synchronous` workflow has nothing to wait for. `AsyncLocalExecutor` awaits it, and its dispatcher's delivery, on whatever runtime the application uses. The engine never spawns, sleeps or sets timers.
 
-Where it lives: `workflow/builder.rs`, `instance/builder.rs`, `executor.rs`, `executor/started.rs`, `executor/refusal.rs`, `executor/asynchronous.rs`, `executor/local_executor_for.rs`, `run` and `finish` in `engine.rs`, and `introduce` in `engine/metadata.rs`.
+Where it lives: `workflow/builder.rs`, `instance/builder.rs`, `executor.rs`, `executor/started.rs`, `executor/refusal.rs`, `executor/asynchronous.rs`, `executor/local_executor_for.rs`, `mode/has_mode.rs`, `run` and `finish` in `engine.rs`, and `introduce` in `engine/metadata.rs`.
 
 ### The executor loop
 

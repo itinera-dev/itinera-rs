@@ -5,6 +5,9 @@ use std::error::Error;
 
 #[path = "ui/attach_a_hooked_policy.rs"]
 mod attach_a_hooked_policy;
+#[cfg(feature = "macros")]
+#[path = "ui/pick_the_executor_of_a_declared_workflow.rs"]
+mod pick_the_executor_of_a_declared_workflow;
 #[cfg(feature = "async")]
 #[path = "ui/pick_the_executor_of_an_asynchronous_workflow_with_an_asynchronous_factory.rs"]
 mod pick_the_executor_of_an_asynchronous_workflow_with_an_asynchronous_factory;
@@ -51,6 +54,14 @@ fn a_local_executor_takes_only_a_dispatcher_factory_of_its_workflows_mode()
         "tests/ui/pick_the_executor_of_a_synchronous_workflow_with_an_asynchronous_factory.rs",
     );
     pick_the_executor_of_an_asynchronous_workflow_with_an_asynchronous_factory::main()
+}
+
+#[cfg(feature = "macros")]
+#[test]
+fn a_local_executor_is_picked_for_a_type_that_knows_its_workflows_mode()
+-> Result<(), Box<dyn Error>> {
+    fails_to_compile("tests/ui/pick_the_executor_of_a_workflow_declared_with_the_builder.rs");
+    pick_the_executor_of_a_declared_workflow::main()
 }
 
 /// What the step macros refuse, each with the macro's own error.

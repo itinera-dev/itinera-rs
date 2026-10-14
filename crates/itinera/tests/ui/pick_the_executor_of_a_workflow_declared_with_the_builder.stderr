@@ -1,0 +1,22 @@
+error[E0277]: `Orders` is not a workflow that knows its own descriptor
+  --> tests/ui/pick_the_executor_of_a_workflow_declared_with_the_builder.rs:13:24
+   |
+13 |     let mut executor = local_executor_for!(Orders);
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^ not a described workflow
+   |
+help: the trait `itinera::workflow::Workflow` is not implemented for `Orders`
+  --> tests/ui/pick_the_executor_of_a_workflow_declared_with_the_builder.rs:5:1
+   |
+ 5 | struct Orders;
+   | ^^^^^^^^^^^^^
+   = note: write `#[workflow(...)]` on its struct, with a `#[with_step(...)]` line per step
+help: the following other types implement trait `HasMode`
+  --> $WORKSPACE/crates/itinera-core/src/mode/has_mode.rs
+   |
+   | impl<W, M: Mode> HasMode for WorkflowDescriptor<W, M> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `WorkflowDescriptor<W, M>`
+...
+   | impl<W, M: Mode> HasMode for Instance<W, M> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Instance<W, M>`
+   = note: required for `Orders` to implement `HasMode`
+   = note: this error originates in the macro `local_executor_for` (in Nightly builds, run with -Z macro-backtrace for more info)

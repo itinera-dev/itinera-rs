@@ -1,29 +1,32 @@
-//! The macro that makes the local executor of an instance's mode.
+//! The macro that makes the local executor of a workflow's mode.
 
 use super::LocalExecutor;
 #[cfg(feature = "async")]
 use super::asynchronous::AsyncLocalExecutor;
-use crate::instance::WorkflowInstance;
 #[cfg(feature = "async")]
 use crate::mode::Asynchronous;
-use crate::mode::{Mode, Synchronous};
+use crate::mode::{HasMode, Mode, Synchronous};
 #[cfg(feature = "async")]
 use crate::report::AsyncDispatcherFactory;
 use crate::report::DispatcherFactory;
 
 mod sealed;
 
-/// Makes the local executor of the instance's mode: a [`LocalExecutor`] for a `Synchronous`
-/// workflow, an `AsyncLocalExecutor` for an `Asynchronous` one. Written
-/// `local_executor_for!(instance)`, for an executor that uses the [`DefaultDispatcherFactory`], or
-/// `local_executor_for!(instance, dispatcher_factory = factory)`, for one that creates the
-/// dispatcher of every journey with `factory`.
+/// Makes the local executor of a workflow's mode: a [`LocalExecutor`] for a `Synchronous`
+/// workflow, an `AsyncLocalExecutor` for an `Asynchronous` one.
 ///
-/// It is given the instance itself, not a reference to it (`*instance` names the instance a
-/// reference points to), and only borrows it, so the instance is then given to the executor's
-/// `run`. The expression is evaluated, so it names an instance already made rather than making
-/// one. The caller still writes what that `run` needs: an asynchronous executor's result is
-/// awaited.
+/// It is given a type that knows the mode, [`HasMode`]: `local_executor_for!(Orders)` for a
+/// workflow that `#[workflow]` declares, or `local_executor_for!(WorkflowDescriptor<Orders>)`.
+/// So the executor can be made before any instance, and run every journey after it. Given
+/// `from = value`, it reads the mode from the type of a descriptor or an instance instead, which it
+/// only borrows: `local_executor_for!(from = instance)` leaves the instance to be given to the
+/// executor's `run`. The value is the descriptor or the instance itself, not a reference to it
+/// (`*descriptor` names the descriptor a reference points to).
+///
+/// Either form makes an executor that uses the [`DefaultDispatcherFactory`], or, followed by
+/// `dispatcher_factory = factory`, one that creates the dispatcher of every journey with
+/// `factory`. The caller still writes what the executor's `run` needs: an asynchronous executor's
+/// result is awaited.
 ///
 /// [`DefaultDispatcherFactory`]: crate::report::DefaultDispatcherFactory
 ///
@@ -40,16 +43,19 @@ mod sealed;
 /// let orders = WorkflowDescriptor::builder("orders")
 ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
 ///     .build()?;
-/// let instance = orders.instance(Orders).create()?;
-/// let result = local_executor_for!(instance).run(instance)?;
-/// assert_eq!(result.status.kind(), StatusKind::Succeeded);
+/// let mut executor = local_executor_for!(WorkflowDescriptor<Orders>);
+/// for _ in 0..2 {
+///     let result = executor.run(orders.instance(Orders).create()?)?;
+///     assert_eq!(result.status.kind(), StatusKind::Succeeded);
+/// }
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
-/// A value that is not a dispatcher factory of the instance's mode does not compile:
+/// From an instance:
 ///
-/// ```compile_fail,E0277
+/// ```
 /// use itinera::executor::local_executor_for;
+/// use itinera::journey::StatusKind;
 /// use itinera::step::{Outcome, StepDescriptor, step_name};
 /// use itinera::workflow::WorkflowDescriptor;
 ///
@@ -59,17 +65,47 @@ mod sealed;
 ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
 ///     .build()?;
 /// let instance = orders.instance(Orders).create()?;
-/// let executor = local_executor_for!(instance, dispatcher_factory = 42);
+/// let result = local_executor_for!(from = instance).run(instance)?;
+/// assert_eq!(result.status.kind(), StatusKind::Succeeded);
 /// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// A type that does not know a workflow's mode does not compile:
+///
+/// ```compile_fail,E0277
+/// use itinera::executor::local_executor_for;
+///
+/// struct Orders;
+///
+/// let executor = local_executor_for!(Orders);
+/// ```
+///
+/// Nor does a value that is not a dispatcher factory of the workflow's mode:
+///
+/// ```compile_fail,E0277
+/// use itinera::executor::local_executor_for;
+/// use itinera::workflow::WorkflowDescriptor;
+///
+/// struct Orders;
+///
+/// let executor = local_executor_for!(WorkflowDescriptor<Orders>, dispatcher_factory = 42);
 /// ```
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __local_executor_for {
-    ($instance:expr $(,)?) => {
-        $crate::executor::__local_executor_of(&$instance, $crate::report::DefaultDispatcherFactory)
+    (from = $value:expr $(,)?) => {
+        $crate::executor::__local_executor_from(&$value, $crate::report::DefaultDispatcherFactory)
     };
-    ($instance:expr, dispatcher_factory = $factory:expr $(,)?) => {
-        $crate::executor::__local_executor_of(&$instance, $factory)
+    (from = $value:expr, dispatcher_factory = $factory:expr $(,)?) => {
+        $crate::executor::__local_executor_from(&$value, $factory)
+    };
+    ($workflow:ty $(,)?) => {
+        $crate::executor::__local_executor_of::<$workflow, _>(
+            $crate::report::DefaultDispatcherFactory,
+        )
+    };
+    ($workflow:ty, dispatcher_factory = $factory:expr $(,)?) => {
+        $crate::executor::__local_executor_of::<$workflow, _>($factory)
     };
 }
 
@@ -88,17 +124,14 @@ pub use crate::__local_executor_for as local_executor_for;
 ///
 /// ```
 /// use itinera::executor::{LocalDispatcherFactory, local_executor_for};
-/// use itinera::instance::WorkflowInstance;
 /// use itinera::journey::StatusKind;
+/// use itinera::mode::HasMode;
 /// use itinera::report::DefaultDispatcherFactory;
 /// use itinera::step::{Outcome, StepDescriptor, step_name};
 /// use itinera::workflow::WorkflowDescriptor;
 ///
-/// fn executor_for<I: WorkflowInstance, F: LocalDispatcherFactory<I::Mode>>(
-///     instance: &I,
-///     factory: F,
-/// ) -> F::LocalExecutor {
-///     local_executor_for!(*instance, dispatcher_factory = factory)
+/// fn executor_for<T: HasMode, F: LocalDispatcherFactory<T::Mode>>(factory: F) -> F::LocalExecutor {
+///     local_executor_for!(T, dispatcher_factory = factory)
 /// }
 ///
 /// struct Orders;
@@ -107,7 +140,8 @@ pub use crate::__local_executor_for as local_executor_for;
 ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
 ///     .build()?;
 /// let instance = orders.instance(Orders).create()?;
-/// let result = executor_for(&instance, DefaultDispatcherFactory).run(instance)?;
+/// let result =
+///     executor_for::<WorkflowDescriptor<Orders>, _>(DefaultDispatcherFactory).run(instance)?;
 /// assert_eq!(result.status.kind(), StatusKind::Succeeded);
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
@@ -144,14 +178,23 @@ impl<F: AsyncDispatcherFactory> LocalDispatcherFactory<Asynchronous> for F {
     }
 }
 
-/// The local executor of the instance's mode, with the factory: what [`local_executor_for!`]
-/// expands to.
+/// The local executor of `T`'s mode, with the factory: what [`local_executor_for!`] expands to
+/// when given a type.
 #[doc(hidden)]
-pub fn __local_executor_of<I: WorkflowInstance, F: LocalDispatcherFactory<I::Mode>>(
-    _instance: &I,
+pub fn __local_executor_of<T: HasMode, F: LocalDispatcherFactory<T::Mode>>(
     factory: F,
 ) -> F::LocalExecutor {
     factory.__local_executor()
+}
+
+/// The local executor of the value's mode, with the factory: what [`local_executor_for!`] expands
+/// to when given `from = value`.
+#[doc(hidden)]
+pub fn __local_executor_from<T: HasMode, F: LocalDispatcherFactory<T::Mode>>(
+    _value: &T,
+    factory: F,
+) -> F::LocalExecutor {
+    __local_executor_of::<T, F>(factory)
 }
 
 #[cfg(test)]
@@ -159,13 +202,25 @@ mod tests {
     use super::*;
     use crate::executor::Refusal;
     use crate::executor::fixtures::{FailingFactory, Shop, recorded};
+    use crate::instance::Instance;
     use crate::journey::JourneyStatus;
+    use crate::workflow::WorkflowDescriptor;
+
+    #[test]
+    fn a_synchronous_workflow_gets_the_local_executor() {
+        let mut executor: LocalExecutor = local_executor_for!(WorkflowDescriptor<Shop>);
+
+        let result = executor
+            .run(recorded(Shop::new()).create().unwrap())
+            .unwrap();
+        assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    }
 
     #[test]
     fn a_synchronous_instance_gets_the_local_executor() {
         let instance = recorded(Shop::new()).create().unwrap();
 
-        let mut executor: LocalExecutor = local_executor_for!(instance);
+        let mut executor: LocalExecutor = local_executor_for!(from = instance);
 
         let result = executor.run(instance).unwrap();
         assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
@@ -173,14 +228,40 @@ mod tests {
 
     #[test]
     fn the_executor_creates_each_journeys_dispatcher_with_the_factory_it_is_given() {
-        let instance = recorded(Shop::new()).create().unwrap();
-
-        let refusal =
-            local_executor_for!(instance, dispatcher_factory = FailingFactory { on: None })
-                .run(instance)
-                .unwrap_err();
+        let refusal = local_executor_for!(
+            Instance<Shop>,
+            dispatcher_factory = FailingFactory { on: None }
+        )
+        .run(recorded(Shop::new()).create().unwrap())
+        .unwrap_err();
 
         assert!(matches!(refusal, Refusal::DispatcherFactory(_)));
+    }
+
+    #[test]
+    fn the_executor_made_from_a_value_creates_each_journeys_dispatcher_with_the_factory_it_is_given()
+     {
+        let instance = recorded(Shop::new()).create().unwrap();
+
+        let refusal = local_executor_for!(
+            from = instance,
+            dispatcher_factory = FailingFactory { on: None }
+        )
+        .run(instance)
+        .unwrap_err();
+
+        assert!(matches!(refusal, Refusal::DispatcherFactory(_)));
+    }
+
+    #[cfg(feature = "async")]
+    #[test]
+    fn an_asynchronous_workflow_gets_the_asynchronous_local_executor() {
+        let mut executor: AsyncLocalExecutor =
+            local_executor_for!(WorkflowDescriptor<Shop, Asynchronous>);
+
+        let (instance, _) = crate::executor::fixtures::mixed_instance(Shop::new());
+        let result = futures::executor::block_on(executor.run(instance)).unwrap();
+        assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
     }
 
     #[cfg(feature = "async")]
@@ -188,7 +269,7 @@ mod tests {
     fn an_asynchronous_instance_gets_the_asynchronous_local_executor() {
         let (instance, _) = crate::executor::fixtures::mixed_instance(Shop::new());
 
-        let mut executor: AsyncLocalExecutor = local_executor_for!(instance);
+        let mut executor: AsyncLocalExecutor = local_executor_for!(from = instance);
 
         let result = futures::executor::block_on(executor.run(instance)).unwrap();
         assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
