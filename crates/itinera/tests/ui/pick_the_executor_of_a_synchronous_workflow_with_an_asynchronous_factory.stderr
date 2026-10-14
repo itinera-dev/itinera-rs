@@ -22,8 +22,8 @@ help: the trait `itinera::report::DispatcherFactory` is implemented for `Default
 note: required by a bound in `itinera::executor::__local_executor_from`
   --> $WORKSPACE/crates/itinera-core/src/executor/local_executor_for.rs
    |
-   | pub fn __local_executor_from<T: HasMode, F: LocalDispatcherFactory<T::Mode>>(
-   |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `__local_executor_from`
+   | pub fn __local_executor_from<T: __ModeOfValue, F: LocalDispatcherFactory<T::Mode>>(
+   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `__local_executor_from`
 
 error[E0277]: the trait bound `Forwarding: itinera::report::DispatcherFactory` is not satisfied
   --> tests/ui/pick_the_executor_of_a_synchronous_workflow_with_an_asynchronous_factory.rs:28:21

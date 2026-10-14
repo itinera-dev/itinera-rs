@@ -1,7 +1,7 @@
 //! The types that know the mode of their workflow.
 
 use super::Mode;
-use crate::instance::Instance;
+use crate::instance::{Instance, WorkflowInstance};
 use crate::workflow::{Workflow, WorkflowDescriptor};
 
 mod sealed;
@@ -38,5 +38,20 @@ impl<W, M: Mode> HasMode for WorkflowDescriptor<W, M> {
 }
 
 impl<W, M: Mode> HasMode for Instance<W, M> {
+    type Mode = M;
+}
+
+/// A value that knows the mode of its workflow, which `local_executor_for!(from = value)` is
+/// given: any [`WorkflowInstance`], hand-written ones included, or a [`WorkflowDescriptor`].
+#[doc(hidden)]
+pub trait __ModeOfValue {
+    type Mode: Mode;
+}
+
+impl<I: WorkflowInstance> __ModeOfValue for I {
+    type Mode = I::Mode;
+}
+
+impl<W, M: Mode> __ModeOfValue for WorkflowDescriptor<W, M> {
     type Mode = M;
 }
