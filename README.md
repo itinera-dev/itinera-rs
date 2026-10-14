@@ -2,9 +2,13 @@
 
 The Rust implementation of [Itinera](https://github.com/itinera-dev/spec), a workflow framework that keeps business rules separate from flow control.
 
+## Learning it
+
+[The Itinera book for Rust](https://itinera-dev.github.io/book/rust/) teaches Itinera from a first workflow onwards, and every example in it compiles and runs. [The Itinera site](https://itinera-dev.github.io/) explains why Itinera exists. The crate's documentation on [docs.rs](https://docs.rs/itinera) is the reference for each item.
+
 ## Status
 
-Not released yet. The first release, `0.1.0-rc.1`, will implement tier 1 of specification 0.1.0, with the capabilities `sync`, `async` and `testing`.
+`0.1.0-beta.1` implements tier 1 of specification 0.1.0, with the capabilities `sync`, `async` and `testing`, and passes the conformance cases `v0.1.0-rc.15`. It is a beta, not yet meant for production: until `0.1.0`, features may be added and its API may still change. [CHANGELOG.md](https://github.com/itinera-dev/itinera-rs/blob/main/CHANGELOG.md) says what each release implements.
 
 ## Using it
 
@@ -12,9 +16,9 @@ Applications depend on one crate, `itinera`. Its features are:
 
 | Feature | Default | Adds |
 |---|---|---|
-| `macros` | on | The macros for declaring steps, policies and workflows, which are syntax over the builder |
-| `async` | off | The asynchronous executor, and asynchronous steps, hooks, reporters and dispatchers, with the `async_trait` attribute for services and roles whose methods are asynchronous |
-| `testing` | off | Test support: `RecordingReporter`, which keeps every event of a journey for a test to read, fake service providers, scripted runs, and recorders that lend a step, a hook or an input adapter its handles outside a journey; enable it under `[dev-dependencies]` |
+| `macros` | on | The macros for declaring steps, rescue steps, policies, workflows and roles, which are syntax over the builder |
+| `async` | off | The asynchronous executor, and asynchronous steps, rescue steps, hooks, service providers, reporters and dispatchers, with the `async_trait` attribute for services and roles whose methods are asynchronous |
+| `testing` | off | Test support: `RecordingReporter`, which keeps every event of a journey, and the latest value of each entry of its global metadata, for a test to read, fake service providers, scripted runs, and recorders that lend a step, a hook or an input adapter its handles outside a journey; enable it under `[dev-dependencies]` |
 | `unstable` | off | API the specification has not settled yet, which may change or go; empty for now |
 
 `itinera` brings in `itinera-core`, which holds the implementation, and, with `macros` or `async`, `itinera-macros`. Neither needs to be added directly. The minimum supported Rust version is 1.85.
@@ -29,8 +33,8 @@ The specification lets an implementation make some rules impossible to express r
 - a policy needing a role the workflow does not provide;
 - an asynchronous part run by the synchronous executor, or an asynchronous service provider in a synchronous workflow;
 - a rescue step that skips;
-- a service provider of journey scope requesting the attempt, or a service provider returning nothing instead of an instance or an error;
-- something that is not a value entering the data bag, event data or a reason's details;
+- a service provider of journey scope requesting the step being built or the attempt, or a service provider returning nothing instead of an instance or an error;
+- something that is not a value entering the data bag, event data, a reason's details or global metadata;
 - a contributor or reporter used after its attempt or hook has ended, or an input adapter's access to the data bag used after its call;
 - an input adapter writing to the data bag through its access.
 

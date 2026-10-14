@@ -8,8 +8,8 @@ Code samples show the intended shape. Names of attributes and methods may still 
 
 ## What this plan implements
 
-- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065, 0081, 0083, 0085 and 0091, which amends 0010, 0054 and 0060; and 0003, rescue steps, 0095, services provided to steps, 0098, input adapters and service providers for rescue steps, 0102, global metadata, and 0104, the implementation a service provider made, which joined tier 1 later. Also 0108, test support, listed because Rust claims `testing`, though it counts towards no tier.
-- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.11`, and later candidates as they are tagged.
+- **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065, 0081, 0083, 0085 and 0091, which amends 0010, 0054 and 0060; and 0003, rescue steps, 0095, services provided to steps, 0098, input adapters and service providers for rescue steps, 0102, global metadata passed to every reporter, 0104, the implementation a service provider made, and 0106, retries decided by the retry budget alone, which joined tier 1 later. Also 0108, test support, listed because Rust claims `testing`, though it counts towards no tier.
+- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.15`, and later candidates as they are tagged.
 - **Capabilities claimed**: `sync`, `async` and `testing`.
 - **Rules made impossible to express** (proposal 0054): `invalid-lifecycle`, `role-not-provided`, `mode-not-accepted`, `non-value`, `late-handle`, `bag-write`, `rescue-skip`, `journey-scope-request` and `no-instance`.
 
@@ -375,7 +375,7 @@ The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cach
 | 6. The scan and its decisions | statuses, retries, `retry on abnormal termination`, aborts and the result; the decision logic with its hook points in place, tested through internal test hooks; it replaces stage 5's rule that every attempt is the last | 0012, 0032, 0042, 0061, 0063, 0065 |
 | 7. Policies, hooks and roles | policy descriptors and factories, every hook kind and its requests, lifecycles, roles, workflow hooks, input adapters as hooks | 0002, 0008, 0009, 0010, 0011, 0024, 0027, 0040, 0041, 0049, 0054, 0055, 0058, 0060, 0081, 0083, 0085 |
 | 8. Macros | reporters given the journey ID, `#[step]` and `derive(Step)`, `#[step_policy]` and `#[workflow_policy]`, `derive(InitialData)` and `derive(Output)`, `#[workflow]`, `#[with_step]` and `#[role]` with the instance builder, their equivalence and compile-fail tests, the `@macros` features, the crate overview and the examples | none |
-| 9. Release | the release workflow, `release-gate`, `0.1.0-rc.1` | none |
+| 9. Release | the release workflow, `release-gate`, `0.1.0-beta.1` | none |
 | 10. Services | `Service<T>` tokens, service providers of journey and attempt scope attached to steps or not, their requests and events, the service violations and the listing's services; the runner's sentences; `#[service]` and `#[provider]` in the macros; the `journey-scope-request` and `no-instance` proofs, and those of providers for `mode-not-accepted` and `non-value` | 0095 |
 | 11. Rescue steps | rescue steps and their traits, outcome, needs and factories, the `rescued step retried` violation, the rescue in the listing, the decisions `step_rescuing` and `step_rescued`, the engine's rescue, the runner's sentences, the `rescue-skip` proof, then the macros | 0003 |
 
@@ -445,20 +445,21 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
   | Feature | Default | Adds |
   |---|---|---|
   | `macros` | on | the macros |
-  | `async` | off | the asynchronous executor, steps, hooks, reporters and dispatchers, the `Asynchronous` mode, and the `async_trait` attribute in `mode`, which brings in the macros crate |
+  | `async` | off | the asynchronous executor, steps, rescue steps, hooks, service providers, reporters and dispatchers, the `Asynchronous` mode, and the `async_trait` attribute in `mode`, which brings in the macros crate |
+  | `testing` | off | `RecordingReporter`, fakes in place of service providers, scripted runs, and the recorders that let a test call a step, a hook or an input adapter directly, for an application's tests |
   | `unstable` | off | API of proposals the specification has not accepted yet; empty for now |
 
   The engine is asynchronous internally whatever the features; without `async`, nothing asynchronous is public.
-- **Documentation**: rustdoc on every public item, published by docs.rs; a crate-level overview in `itinera` with a first complete workflow, linking once to the specification repository; runnable examples in `crates/itinera/examples/` (a synchronous workflow, the same on the asynchronous executor, and one built without macros); a README stating the crates, the tier and capabilities claimed, the rules made impossible, and how to run the conformance runner.
+- **Documentation**: rustdoc on every public item, published by docs.rs; a crate-level overview in `itinera` with a first complete workflow, linking once to the specification repository and to the Rust book and the Itinera site for learners; runnable examples in `crates/itinera/examples/` (a synchronous workflow, the same on the asynchronous executor, and one built without macros); a README with a "Learning it" section linking the same book and site, and stating the crates, the tier and capabilities claimed, the rules made impossible, and how to run the conformance runner; `homepage` in the crates' metadata names the site.
 
 ## Release
 
 ### 19. Releasing the crates
 
 - **Crates**: `itinera-core`, `itinera-macros` and `itinera`, with one workspace version, published together by `cargo publish --workspace`.
-- **Versions are independent of the specification's.** The first release is `0.1.0-rc.1`. The README and the crate documentation say what each release implements: "specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.N`".
+- **Versions are independent of the specification's.** The first release is `0.1.0-beta.1`. The README and the crate documentation say what each release implements: "specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.N`".
 - **The path to 0.1.0**:
-  1. while the specification is in release candidates, Rust releases `0.1.0-rc.N`, pinning the latest cases candidate;
+  1. while the specification is in release candidates, Rust releases betas, `0.1.0-beta.N`, pinning the latest cases candidate, since a beta says it is not yet meant for production and may still gain features;
   2. once Rust, the first implementation, passes every tier 1 case, the specification and conformance are tagged `v0.1.0`;
   3. Rust then releases `0.1.0`, pinning cases `v0.1.0`.
 - **A release is requested by a maintainer pushing a tag `v*` on `main`**; a repository ruleset restricts those tags to maintainers. The release workflow runs three jobs:
