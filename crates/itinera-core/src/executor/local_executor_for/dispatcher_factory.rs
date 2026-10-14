@@ -1,6 +1,5 @@
 //! The dispatcher factories that the local executor of each mode takes.
 
-use super::sealed;
 use crate::executor::LocalExecutor;
 #[cfg(feature = "async")]
 use crate::executor::asynchronous::AsyncLocalExecutor;
@@ -10,6 +9,8 @@ use crate::mode::{Mode, Synchronous};
 #[cfg(feature = "async")]
 use crate::report::AsyncDispatcherFactory;
 use crate::report::DispatcherFactory;
+
+mod sealed;
 
 /// A dispatcher factory that the local executor of `M`'s workflows takes: a
 /// [`DispatcherFactory`] for `Synchronous`, an [`AsyncDispatcherFactory`] for `Asynchronous`.

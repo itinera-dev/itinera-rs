@@ -3,7 +3,6 @@
 use crate::mode::{__ModeOfValue, HasMode};
 
 mod dispatcher_factory;
-mod sealed;
 
 pub use dispatcher_factory::LocalDispatcherFactory;
 
