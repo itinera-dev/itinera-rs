@@ -1,6 +1,7 @@
 //! The scenario's services: the types of service the cases define, and the scripted providers
 //! that make them, in the mode of the executor that runs them.
 
+mod fake;
 mod provider;
 mod scope;
 
@@ -13,6 +14,7 @@ use itinera::policy::{Provider, Requested};
 use itinera::service::{Provided, provide};
 use serde_json::Value;
 
+pub(crate) use fake::{FakeCalls, with_fake};
 pub(crate) use provider::{Awaiting, ScriptedProvider, provided_now};
 pub(crate) use scope::Scope;
 

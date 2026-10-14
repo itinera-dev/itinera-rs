@@ -17,6 +17,7 @@ mod received;
 mod reporters;
 mod rescue_steps;
 mod services;
+mod testing;
 
 use std::fmt;
 use std::num::NonZeroU64;
@@ -143,15 +144,22 @@ fn numbered(event: &Event) -> (NonZeroU64, Line) {
 
 /// The journey the scenario ran last, which is its only one unless it ran the workflow twice.
 fn journey(world: &World) -> Result<&Journey, Unmet> {
-    world
-        .journeys
-        .last()
-        .ok_or_else(|| Unmet::Case("no journey ran".to_owned()))
+    world.journeys.last().ok_or_else(|| no_journey(world))
+}
+
+/// Why no journey ran: test support stopped the test, or the case runs none.
+fn no_journey(world: &World) -> Unmet {
+    match &world.tested.stopped {
+        Some(stopped) => {
+            Unmet::Expected(format!("a journey; the test stopped before it: {stopped}"))
+        }
+        None => Unmet::Case("no journey ran".to_owned()),
+    }
 }
 
 /// What `run` returned for the last journey, when it returned a result.
 fn result(world: &World) -> Result<&JourneyResult, Unmet> {
-    journey(world)?.run.as_ref().map_err(refused)
+    journey(world)?.result().map_err(refused)
 }
 
 fn refused(refusal: &Refusal) -> Unmet {

@@ -2,6 +2,7 @@
 //! read.
 
 use std::collections::BTreeMap;
+use std::iter;
 
 use super::Recorder;
 use crate::model::{Dispatching, Model};
@@ -47,6 +48,14 @@ impl Recorders {
         self.own.clone()
     }
 
+    /// How many events every recorder received, together.
+    pub(crate) fn received(&self) -> usize {
+        iter::once(&self.own)
+            .chain(self.named.values())
+            .map(count)
+            .sum()
+    }
+
     pub(crate) fn get(&self, name: &str) -> Result<&Recorder, NoStream> {
         self.named
             .get(name)
@@ -77,6 +86,11 @@ impl Recorders {
             }
         }
     }
+}
+
+/// How many events the recorder received.
+fn count(recorder: &Recorder) -> usize {
+    recorder.events().len()
 }
 
 #[cfg(test)]

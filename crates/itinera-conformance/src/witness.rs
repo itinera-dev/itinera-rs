@@ -23,6 +23,7 @@ struct Seen {
     operations: Vec<Operation>,
     provisions: Vec<Provision>,
     services: Vec<Given>,
+    reported: Vec<Reported>,
 }
 
 /// One step built for an attempt, with the inputs it received, and what a rescue step received
@@ -90,6 +91,22 @@ pub(crate) struct Given {
     pub(crate) label: String,
 }
 
+/// One call a step or a hook made to its reporter, and whether the call was interrupted.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Reported {
+    pub(crate) caller: Caller,
+    /// The key of global metadata it set, when it set one rather than emitting an event.
+    pub(crate) setting: Option<String>,
+    pub(crate) interrupted: bool,
+}
+
+/// Who called a reporter: a step, or a policy's hook.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum Caller {
+    Step(String),
+    Hook { policy: String, hook: Hook },
+}
+
 /// One call of a role's operation.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Operation {
@@ -122,6 +139,10 @@ impl Witness {
         self.seen().services.push(given);
     }
 
+    pub(crate) fn reported(&self, reported: Reported) {
+        self.seen().reported.push(reported);
+    }
+
     /// The steps built, in the order they were built.
     pub(crate) fn builds(&self) -> Vec<Build> {
         self.seen().builds.clone()
@@ -145,5 +166,10 @@ impl Witness {
     /// The services steps were given, in the order they used them.
     pub(crate) fn services(&self) -> Vec<Given> {
         self.seen().services.clone()
+    }
+
+    /// The calls steps and hooks made to their reporters, in the order they made them.
+    pub(crate) fn reports(&self) -> Vec<Reported> {
+        self.seen().reported.clone()
     }
 }

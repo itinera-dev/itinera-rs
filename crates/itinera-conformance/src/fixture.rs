@@ -14,7 +14,7 @@ use itinera::mode::{Asynchronous, Mode, Synchronous};
 use itinera::value::AnyValue;
 use itinera::workflow::{ListedStep, Workflow};
 
-use crate::journey::{Journey, Runs, Unrunnable};
+use crate::journey::{Journey, Ran, Runs, Unrunnable};
 use crate::model::{Model, ModelError};
 use crate::value::Typed;
 use crate::world::World;
@@ -114,7 +114,7 @@ async fn ran<W: Send + Sync + 'static, M: Mode, E: Runs<M>>(
     executor: &mut E,
 ) -> Result<Journey, Unrunnable> {
     let journey_id = instance.journey_id().clone();
-    let run = executor.run(instance).await;
+    let run = executor.run(instance).await.map(Ran::Journey);
     Ok(Journey {
         journey_id,
         reporters: BTreeMap::new(),

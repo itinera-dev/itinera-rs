@@ -1,6 +1,7 @@
 //! The scenario's scripted policies: what each hook requests, does and returns, as the scenario
 //! says, in the mode of the executor that runs them.
 
+mod alone;
 mod hooks;
 mod needs;
 mod reporter;

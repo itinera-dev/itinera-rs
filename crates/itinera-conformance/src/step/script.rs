@@ -1,5 +1,6 @@
 //! What a step's script says, read from the scenario model with its values typed.
 
+use itinera::error::Error;
 use itinera::step::{RescueNeeds, StepNeeds};
 
 use super::attempt_end::AttemptEnd;
@@ -30,6 +31,8 @@ pub(super) struct Script {
     last: AttemptEnd,
     pub(super) construction_failure: Option<String>,
     pub(super) ignores_failed_emits: bool,
+    /// Whether it declares a contributor and a step reporter.
+    pub(super) declares_handles: bool,
 }
 
 #[derive(Debug)]
@@ -69,12 +72,28 @@ impl Script {
             last,
             construction_failure: step.construction_failure.clone(),
             ignores_failed_emits: step.ignores_failed_emits,
+            declares_handles: !step.undeclared_handles,
         })
     }
 
-    /// Its inputs, its services, and both handles, which it takes whether it uses them or not.
+    /// The handle `take` gives, unless the script declares no handles.
+    pub(super) fn declared<T>(
+        &self,
+        take: impl FnOnce() -> Result<T, Error>,
+    ) -> Result<Option<T>, Error> {
+        self.declares_handles.then(take).transpose()
+    }
+
+    /// Its inputs, its services, and both handles, which it takes whether it uses them or not,
+    /// unless it declares neither.
     pub(super) fn needs(&self) -> StepNeeds {
-        self.requesting(StepNeeds::new().contributor().reporter())
+        let needs = StepNeeds::new();
+        let needs = if self.declares_handles {
+            needs.contributor().reporter()
+        } else {
+            needs
+        };
+        self.requesting(needs)
     }
 
     /// As a rescue step: its inputs, its services, both handles, and what it requests from the

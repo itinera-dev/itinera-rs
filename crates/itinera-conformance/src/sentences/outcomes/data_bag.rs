@@ -31,7 +31,7 @@ fn the_second_journeys_data_bag_contains(
         .journeys
         .get(1)
         .ok_or_else(|| Unmet::Case("no second journey ran".to_owned()))?;
-    contains(second.run.as_ref().map_err(refused)?, sentence)
+    contains(second.result().map_err(refused)?, sentence)
 }
 
 /// Holds when the result's data bag has every entry of the sentence's table.
