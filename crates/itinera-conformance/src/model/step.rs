@@ -29,7 +29,8 @@ pub(crate) struct Step {
     /// The message its constructor fails with, so that it is never built.
     pub(crate) construction_failure: Option<String>,
     pub(crate) retries: u16,
-    pub(crate) abnormal_termination_retriable: bool,
+    /// Whether its descriptor turns off retrying an abnormal termination.
+    pub(crate) no_retry_on_abnormal_termination: bool,
     /// Whether it carries on with its script when an emit call is interrupted.
     pub(crate) ignores_failed_emits: bool,
 }

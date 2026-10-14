@@ -78,7 +78,7 @@ impl Dispatch {
         #[contributor] mut contributor: Contributor<'_>,
     ) -> Result<Outcome, Error> {
         let Some(carried) = courier.carry(&self.parcel) else {
-            return Self::fail_retriably("unreachable");
+            return Self::fail("unreachable");
         };
         contributor.contribute("dispatched", carried);
         contributor.contribute("labelled", labels.label(&self.parcel));

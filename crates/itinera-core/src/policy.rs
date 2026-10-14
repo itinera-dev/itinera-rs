@@ -138,35 +138,36 @@ pub enum WorkflowHook {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
 #[non_exhaustive]
 pub enum StepFailureCause {
-    /// The attempt reported a failure that is not retriable.
+    /// The attempt reported a failure, and the step has no retry budget.
     #[display("failure")]
     Failure,
-    /// The attempt ended in an abnormal termination, which the step does not retry.
+    /// The attempt ended in an abnormal termination, and the step has no retry budget or does not
+    /// retry abnormal terminations.
     #[display("abnormal termination")]
     AbnormalTermination,
-    /// The attempt failed in a way that could be retried, but the retry budget was spent.
+    /// The step's retry budget, greater than 0, is spent.
     #[display("retries exhausted")]
     RetriesExhausted,
 }
 
 /// Why `on step retry` is called: why the step will be attempted again.
 ///
-/// It displays as the cause is named, for example `retriable failure`.
+/// It displays as the cause is named, for example `abnormal termination`.
 ///
 /// # Examples
 ///
 /// ```
 /// use itinera::policy::RetryCause;
 ///
-/// assert_eq!(RetryCause::RetriableFailure.to_string(), "retriable failure");
+/// assert_eq!(RetryCause::AbnormalTermination.to_string(), "abnormal termination");
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
 #[non_exhaustive]
 pub enum RetryCause {
-    /// The attempt reported a retriable failure.
-    #[display("retriable failure")]
-    RetriableFailure,
-    /// The attempt ended in an abnormal termination, and the step allows retrying it.
+    /// The attempt reported a failure.
+    #[display("failure")]
+    Failure,
+    /// The attempt ended in an abnormal termination.
     #[display("abnormal termination")]
     AbnormalTermination,
 }
@@ -192,7 +193,7 @@ mod tests {
     #[case::failure(&StepFailureCause::Failure, "failure")]
     #[case::abnormal_termination(&StepFailureCause::AbnormalTermination, "abnormal termination")]
     #[case::retries_exhausted(&StepFailureCause::RetriesExhausted, "retries exhausted")]
-    #[case::retry_after_a_retriable_failure(&RetryCause::RetriableFailure, "retriable failure")]
+    #[case::retry_after_a_failure(&RetryCause::Failure, "failure")]
     #[case::retry_after_an_abnormal_termination(
         &RetryCause::AbnormalTermination,
         "abnormal termination"

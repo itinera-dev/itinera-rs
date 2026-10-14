@@ -5,7 +5,7 @@ Describes a step from the block that holds its `run`, so that a workflow can lis
 - `#[contributor]` on a `Contributor<'_>`, to add data to the data bag;
 - `#[reporter]` on a `StepReporter<'_>`, or on an `AsyncStepReporter<'_>` in an asynchronous step, to emit the step's own events.
 
-It returns `Result<Outcome, Error>`. Every function of the block may use the shorthands for the step's outcomes that `DescribedStep` gives, such as `Self::succeed()`, `Self::fail("declined")`, `Self::fail_retriably(...)`, `Self::skip()` and `Self::skip_because(...)`. A step belongs only to workflows of its own mode: an `async fn run` makes it asynchronous, which needs the `async` feature.
+It returns `Result<Outcome, Error>`. Every function of the block may use the shorthands for the step's outcomes that `DescribedStep` gives, such as `Self::succeed()`, `Self::fail("declined")`, `Self::skip()` and `Self::skip_because(...)`. A step belongs only to workflows of its own mode: an `async fn run` makes it asynchronous, which needs the `async` feature.
 
 The step is built anew for each attempt, from its inputs. Either its struct derives `Step`, or this block holds a `new` whose parameters are the inputs, each marked `#[input]` in the forms the derive takes. `new` returns `Self`, or a `Result` whose error means the step could not be built. The macro reads only the tokens written, so a `Result` is recognised only when its name is written `Result`, not through an alias of another name. A step whose struct derives `Step` and whose block also holds a `new` does not compile, nor does a step with neither.
 

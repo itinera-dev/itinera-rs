@@ -32,7 +32,7 @@ impl Charge {
         contributor.contribute("account", "A-7".to_owned());
         match self.outcome.as_str() {
             "failure" => Self::fail("token-expired"),
-            "retriable" => Self::fail_retriably("gateway-busy"),
+            "busy" => Self::fail("gateway-busy"),
             "abnormal" => Err(Error::msg("the gateway crashed")),
             _ => Self::succeed(),
         }
@@ -60,7 +60,7 @@ impl Refresh {
         #[reporter] mut reporter: StepReporter<'_>,
     ) -> Result<RescueOutcome, Error> {
         reporter.info_with("rescuing", cause(self.reason.as_ref(), self.error.as_ref()))?;
-        if self.outcome == "retriable" {
+        if self.outcome == "busy" {
             return Self::fail("still-busy");
         }
         match self.account {
@@ -68,7 +68,7 @@ impl Refresh {
                 contributor.contribute("token", format!("{account}-fresh"));
                 Self::succeed()
             }
-            None => Self::fail_retriably("no-account"),
+            None => Self::fail("no-account"),
         }
     }
 }
@@ -141,7 +141,7 @@ impl RescueStep for HandRefresh<'_> {
     fn run(mut self) -> Result<RescueOutcome, Error> {
         let cause = cause(self.reason.as_ref(), self.error.as_ref());
         self.reporter.info_with("rescuing", cause)?;
-        if self.outcome == "retriable" {
+        if self.outcome == "busy" {
             return Ok(RescueOutcome::failure(Reason::new("still-busy")));
         }
         match self.account {
@@ -150,7 +150,7 @@ impl RescueStep for HandRefresh<'_> {
                     .contribute("token", format!("{account}-fresh"));
                 Ok(RescueOutcome::success())
             }
-            None => Ok(RescueOutcome::retriable_failure(Reason::new("no-account"))),
+            None => Ok(RescueOutcome::failure(Reason::new("no-account"))),
         }
     }
 }
@@ -267,7 +267,7 @@ fn by_the_builder(rescue: impl RescueFactory, outcome: &str) -> Journey {
 #[rstest]
 #[case::settled("success")]
 #[case::declined("failure")]
-#[case::declined_retriably("retriable")]
+#[case::busy("busy")]
 #[case::crashed("abnormal")]
 fn a_rescue_step_the_macros_describe_lists_and_runs_as_one_written_for_the_builder(
     #[case] outcome: &str,

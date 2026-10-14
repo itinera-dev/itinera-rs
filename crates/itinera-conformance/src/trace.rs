@@ -13,12 +13,11 @@ use self::data::Data;
 use crate::model::{EventKind, ModelError, Row, json};
 
 /// The columns an event table may have besides `event`.
-const COLUMNS: [&str; 18] = [
+const COLUMNS: [&str; 17] = [
     "step",
     "attempt",
     "key",
     "code",
-    "retriable",
     "policy",
     "hook",
     "lifecycle",

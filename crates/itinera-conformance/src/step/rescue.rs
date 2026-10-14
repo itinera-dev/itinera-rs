@@ -137,7 +137,6 @@ fn rescue_outcome(ending: &Ending) -> Result<RescueOutcome, Error> {
     match ending {
         Ending::Success => Ok(RescueOutcome::success()),
         Ending::Failure(reason) => Ok(RescueOutcome::failure(reason.clone())),
-        Ending::RetriableFailure(reason) => Ok(RescueOutcome::retriable_failure(reason.clone())),
         Ending::Skipped(_) => Err(Error::msg("a rescue step cannot skip")),
         Ending::AbnormalTermination(message) => Err(Error::msg(message.clone())),
         _ => Err(Error::msg(

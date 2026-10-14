@@ -38,7 +38,7 @@ impl Charge {
     fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
         match self.amount {
             amount if amount < 0 => Err(Error::msg("the till cannot charge a negative amount")),
-            0 => Self::fail_retriably("nothing-to-charge"),
+            0 => Self::fail("nothing-to-charge"),
             amount => {
                 contributor.contribute("charged", amount);
                 Self::succeed()
@@ -136,7 +136,7 @@ impl Reporter for Tally {
 }
 
 #[workflow(name = "shop", policies = [Close, Alarm], reporters = [Tally])]
-#[with_step(Charge, name = "charge", retry_budget = 1, abnormal_termination_retriable, policies = [Receipt, Watch])]
+#[with_step(Charge, name = "charge", retry_budget = 1, no_retry_on_abnormal_termination, policies = [Receipt, Watch])]
 #[with_step(Ship, name = "ship")]
 #[with_step(Ship, name = "ship again")]
 struct Shop {
@@ -241,7 +241,7 @@ fn hand_basket_id(shop: &HandShop, data: &DataBag) -> Result<String, Error> {
 fn by_hand() -> WorkflowDescriptor<HandShop> {
     let charge = Charge::descriptor(step_name!("charge"))
         .retry_budget(1)
-        .abnormal_termination_retriable()
+        .no_retry_on_abnormal_termination()
         .policy(Receipt::descriptor())
         .policy(Watch::descriptor());
     let pricing = InputAdapterDescriptor::new("pricing", step_name!("charge"), hand_priced)

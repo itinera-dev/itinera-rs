@@ -4,7 +4,7 @@ use rstest::rstest;
 
 use crate::engine::fixtures::{
     CHARGE, Seen, attempting, crashed, data_of, declined, failing_on, instance, kinds, seen,
-    timed_out, travel, travel_before, travel_workflow,
+    travel, travel_before, travel_workflow,
 };
 use crate::error::Error;
 use crate::event::{Event, EventBody};
@@ -46,15 +46,12 @@ fn failed_step(event: &Event) -> Option<(StepName, FailureCause)> {
 
 #[rstest]
 #[case::a_failure(&[declined as Ends], "step_failed")]
-#[case::a_retriable_failure(&[timed_out as Ends], "step_failed")]
 #[case::an_abnormal_termination_the_step_would_retry(&[crashed as Ends], "step_abnormal_termination")]
 fn a_failed_first_attempt_is_rescued_then_the_step_is_attempted_again(
     #[case] ends: &'static [Ends],
     #[case] fact: &str,
 ) {
-    let charge = rescued(ends).abnormal_termination_retriable();
-
-    let (status, events) = travel_charge(charge);
+    let (status, events) = travel_charge(rescued(ends));
 
     assert_eq!(data_of(&status), [("attempt".to_string(), 2)]);
     assert_eq!(
@@ -77,7 +74,6 @@ fn a_failed_first_attempt_is_rescued_then_the_step_is_attempted_again(
 
 #[rstest]
 #[case::a_failure(&[declined as Ends, declined], "step_failed", FailureCause::Failure)]
-#[case::a_retriable_failure(&[declined as Ends, timed_out], "step_failed", FailureCause::RetriesExhausted)]
 #[case::an_abnormal_termination(
     &[declined as Ends, crashed],
     "step_abnormal_termination",
@@ -116,17 +112,12 @@ fn refresh_failing() -> Result<RescueOutcome, Error> {
     Ok(RescueOutcome::failure(Reason::new("no-refresh")))
 }
 
-fn refresh_busy() -> Result<RescueOutcome, Error> {
-    Ok(RescueOutcome::retriable_failure(Reason::new("busy")))
-}
-
 fn refresh_crashing() -> Result<RescueOutcome, Error> {
     Err(Error::msg("refresh down"))
 }
 
 #[rstest]
 #[case::a_failure(refresh_failing, "step_failed", FailureCause::Failure)]
-#[case::a_retriable_failure(refresh_busy, "step_failed", FailureCause::RetriesExhausted)]
 #[case::an_abnormal_termination(
     refresh_crashing,
     "step_abnormal_termination",

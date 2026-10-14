@@ -17,13 +17,13 @@ Feature: Every Given sentence the runner defines
     And step "charge" emits step_warning "slow" with data {"seconds": 3}
     And step "charge" ignores failures of its emit calls and carries on
     And step "charge" attempts:
-      | attempt | outcome           | code     | message | details        | contributes        |
-      | 1       | retriable failure | declined | later   | {"retry": true} |                    |
-      | 2       | error             |          | timeout |                |                    |
-      | 3       | skipped           |          |         |                |                    |
-      | 4       | success           |          |         |                | {"receipt": "R-2"} |
+      | attempt | outcome | code     | message | details         | contributes        |
+      | 1       | failure | declined | later   | {"retry": true} |                    |
+      | 2       | error   |          | timeout |                 |                    |
+      | 3       | skipped |          |         |                 |                    |
+      | 4       | success |          |         |                 | {"receipt": "R-2"} |
     And step "charge" allows 3 retries
-    And the abnormal termination of step "charge" is retriable
+    And step "charge" does not retry abnormal terminations
     And step "ship" cannot be built because its constructor fails with "no connection"
     And step "ship" succeeds
     And the data bag contains:

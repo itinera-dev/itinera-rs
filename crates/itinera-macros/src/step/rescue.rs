@@ -14,7 +14,7 @@ use super::{StepKind, is_asynchronous_run, is_run};
 use crate::{block, described};
 
 /// The shorthands for a rescue step's outcomes that `DescribedRescueStep` gives.
-const SHORTHANDS: [&str; 3] = ["succeed", "fail", "fail_retriably"];
+const SHORTHANDS: [&str; 2] = ["succeed", "fail"];
 
 /// Implements `DescribedRescueStep` for the type of the block. On an error, it implements a
 /// stand-in instead, so that the compiler reports that error alone.

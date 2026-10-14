@@ -19,11 +19,11 @@ use crate::step::Reason;
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum JourneyFailure {
-    /// The step reported a failure that is not retriable, with this reason.
+    /// The step reported a failure, with no retry budget, with this reason.
     Failure(Reason),
     /// The step's retry budget was spent.
     RetriesExhausted(LastFailure),
-    /// The step ended in an abnormal termination that is not retried, with this error message.
+    /// The step ended in an abnormal termination that is not retried, with this error's message.
     AbnormalTermination(String),
     /// A hook of the step returned `FailWorkflow`.
     #[non_exhaustive]

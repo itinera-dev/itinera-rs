@@ -37,7 +37,7 @@ use crate::mode::Asynchronous;
 ///     .create()?
 ///     .scripted()
 ///     .step("charge")
-///     .will_fail_retriably("declined")
+///     .will_fail("declined")
 ///     .on_remaining_attempts()
 ///     .will_succeed()
 ///     .and_step("ship")
@@ -89,7 +89,7 @@ impl<I: WorkflowInstance, M> StepScripting<I, M> {
     ///     .create()?
     ///     .scripted()
     ///     .step("charge")
-    ///     .will_fail_retriably("declined")
+    ///     .will_fail("declined")
     ///     .on_attempt(2)
     ///     .will_succeed()
     ///     .run()?;
@@ -163,7 +163,7 @@ impl<I: WorkflowInstance, M> StepScripting<I, M> {
     ///     .will_succeed()
     ///     .and_step("ship")
     ///     .on_every_attempt()
-    ///     .will_fail_retriably("no-courier")
+    ///     .will_fail("no-courier")
     ///     .run()?;
     /// assert_eq!(run.result.status.kind(), StatusKind::Failed);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -211,9 +211,9 @@ impl<I: WorkflowInstance, M> StepScripting<I, M> {
     ///     .create()?
     ///     .scripted()
     ///     .step("charge")
-    ///     .will_fail_retriably("declined")
+    ///     .will_fail("declined")
     ///     .on_remaining_attempts()
-    ///     .will_fail_retriably("timeout")
+    ///     .will_fail("timeout")
     ///     .run()?;
     /// assert_eq!(run.result.status.kind(), StatusKind::Failed);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -415,7 +415,7 @@ mod tests {
     use super::super::fixtures::{Orderly, OrderlyStep, retried};
 
     fn charge(scripted: Orderly) -> OrderlyStep {
-        scripted.step("charge").will_fail_retriably("timeout")
+        scripted.step("charge").will_fail("timeout")
     }
 
     #[test]

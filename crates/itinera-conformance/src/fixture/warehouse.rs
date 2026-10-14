@@ -77,7 +77,7 @@ impl Charge {
         #[contributor] mut contributor: Contributor<'_>,
     ) -> Result<Outcome, Error> {
         if !payments.reachable() {
-            return Self::fail_retriably("unreachable");
+            return Self::fail("unreachable");
         }
         contributor.contribute("charged", used(payments, stock));
         Self::succeed()

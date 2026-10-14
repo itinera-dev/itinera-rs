@@ -1,6 +1,6 @@
 # 0040: Events record facts and decisions
 
-Tech spec for [proposal 0040](https://github.com/itinera-dev/spec/blob/main/proposals/0040-events-facts-and-decisions.md), implemented in [#18](https://github.com/itinera-dev/itinera-rs/issues/18). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
+Tech spec for [proposal 0040](https://github.com/itinera-dev/spec/blob/main/proposals/0040-events-facts-and-decisions.md), implemented in [#18](https://github.com/itinera-dev/itinera-rs/issues/18). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposal [0106](0106-retry-budget-alone.md) amends it, and its tech spec covers the causes of the step decisions.
 
 Status: done in stage 7. Stage 1 added the events, and stages 3 to 6 the engine that emits them in order. Stage 6 emitted every decision after the hook points that could change it, and stage 7 calls the hooks there, whose lifecycles the decisions name.
 
@@ -8,7 +8,7 @@ Status: done in stage 7. Stage 1 added the events, and stages 3 to 6 the engine 
 
 - The decisions are the `EventBody` variants `StepRetrying`, `StepGivenUp`, `JourneySucceeded` and `JourneyFailed`.
 - Who decided is part of what was decided, never a separate field that could disagree with it:
-  - `StepRetrying` carries a `RetryCause` (`retriable failure`, `abnormal termination`) and is always decided by default, since no lifecycle asks for a retry.
+  - `StepRetrying` carries a `RetryCause` (`failure`, `abnormal termination`) and is always decided by default, since no lifecycle asks for a retry.
   - `StepGivenUp` carries a `GiveUpCause` (`failure`, `abnormal termination`, `retries exhausted`, or `FailWorkflow` with its reason and a `DecidingHook<GiveUpHook>`, since only `on step retry` and `on step abnormal termination` give a step up).
   - `JourneySucceeded` carries the name of the policy whose `on step success` returned `FinishWorkflow`, the only hook that may, or `None` when no step was left.
   - `JourneyFailed` carries a `JourneyFailure`, whose `FailWorkflow` variant holds a `DecidingHook` naming any step hook.

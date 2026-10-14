@@ -80,7 +80,7 @@ pub struct JourneyId(Arc<str>);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
 #[non_exhaustive]
 pub enum FailureCause {
-    /// A step reported a failure that is not retriable.
+    /// A step without a retry budget reported a failure.
     #[display("failure")]
     Failure,
     /// A step's retry budget was spent.
@@ -112,7 +112,7 @@ pub enum FailureCause {
 /// ```
 #[derive(Clone, Debug)]
 pub enum LastFailure<E = String> {
-    /// The attempt reported a retriable failure, with this reason.
+    /// The attempt reported a failure, with this reason.
     Reason(Reason),
     /// The attempt ended in an abnormal termination, with this error.
     Error(E),

@@ -25,10 +25,8 @@ use crate::error::Error;
 pub enum Ending {
     /// The attempt succeeds.
     Success,
-    /// The attempt fails for this reason, and suggests no retry.
+    /// The attempt fails for this reason.
     Failure(Reason),
-    /// The attempt fails for this reason, and suggests retrying the step.
-    RetriableFailure(Reason),
     /// The attempt has nothing to do, for this reason if one is given, and the step is skipped.
     Skipped(Option<Reason>),
     /// The attempt terminates abnormally, with an error carrying this message.
@@ -56,7 +54,6 @@ impl Ending {
         match self {
             Self::Success => Ok(Outcome::success()),
             Self::Failure(reason) => Ok(Outcome::failure(reason.clone())),
-            Self::RetriableFailure(reason) => Ok(Outcome::retriable_failure(reason.clone())),
             Self::Skipped(None) => Ok(Outcome::skipped()),
             Self::Skipped(Some(reason)) => Ok(Outcome::skipped_because(reason.clone())),
             Self::AbnormalTermination(message) => Err(Error::msg(message.clone())),

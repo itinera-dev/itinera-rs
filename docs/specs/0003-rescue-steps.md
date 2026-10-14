@@ -4,17 +4,17 @@ Tech spec for [proposal 0003](https://github.com/itinera-dev/spec/blob/main/prop
 
 Status: done.
 
-What chapter 7 says about services, which a rescue step may request and which are released around its attempt, belongs to services, implemented in stage 10 of the plan, and is in the tech spec of [0095](0095-services-provided-to-steps.md). Proposal 0098 amends this one: input adapters and service providers may be attached to a rescue step by its name, and the listing gives each rescue step a section of its own. Its tech spec is [0098](0098-rescue-step-adapters-and-providers.md).
+What chapter 7 says about services, which a rescue step may request and which are released around its attempt, belongs to services, implemented in stage 10 of the plan, and is in the tech spec of [0095](0095-services-provided-to-steps.md). Proposal 0098 amends this one: input adapters and service providers may be attached to a rescue step by its name, and the listing gives each rescue step a section of its own. Its tech spec is [0098](0098-rescue-step-adapters-and-providers.md). Proposal [0106](0106-retry-budget-alone.md) amends it too: a rescue step's outcome and the causes of a rescue have no retriable failure, and its tech spec covers that.
 
 ## API
 
 - **`RescueStep`** and, behind the `async` feature, **`AsyncRescueStep`**: a rescue step, whose `run` returns a `RescueOutcome`. A closure returning `Result<RescueOutcome, Error>` is a rescue step that needs nothing.
-- **`RescueOutcome`**: `success()`, `failure(reason)` and `retriable_failure(reason)`. It has no skip.
+- **`RescueOutcome`**: `success()` and `failure(reason)`. It has no skip.
 - **`RescueFactory`** and **`AsyncRescueFactory`**: how a workflow builds a rescue step for its attempt. `needs()` returns a `RescueNeeds`, and `build()` takes a `RescueResolved`.
 - **`RescueNeeds`** declares, in order, inputs and optional inputs, from the input adapter attached to the rescue step's name or else the data bag, data the failed attempt contributed (`from_rescued_step`, `optional_from_rescued_step`), the failure's reason (`reason`, `optional_reason`), the error (`error`, `optional_error`), a contributor and a step reporter. A request for the reason or the error declared again replaces the earlier one.
 - **`RescueResolved`** takes what was resolved: the same methods, with the reason and the error handed over by value, so a rescue step holds an `Error` without a lifetime.
 - **`StepDescriptor::rescue(factory)`** gives a step of a synchronous workflow its rescue step, and **`StepDescriptor::rescue_async(factory)`** a step of an asynchronous workflow, as steps of each mode are given with `new` and `new_async`. **`StepDescriptor::rescued_by::<R>()`** takes a type implementing **`DescribedRescueStep`**, which the macros generate. None of them takes a name.
-- **Events**: `EventBody::StepRescuing { step, cause, rescue }`, with `RescueCause` (`failure`, `retriable failure`, `abnormal termination`), and `EventBody::StepRescued { step, rescue }`. Both are decisions.
+- **Events**: `EventBody::StepRescuing { step, cause, rescue }`, with `RescueCause` (`failure`, `abnormal termination`), and `EventBody::StepRescued { step, rescue }`. Both are decisions.
 - **Aborts**: a required request for the reason or the error without a value names who made it with `journey::FailureRequester` in the result and `event::FailureRequester` in the event: a step hook, or the rescue step.
 - **The listing**: `ListedStep::rescue`, the step's rescue section, whose `step` is the name of its rescue step; tech spec 0098 describes the rest of the section.
 - **The violation** `Violation::RescuedStepRetried { step }`, of the kind `ViolationKind::RescuedStepRetried`, displayed `rescued step retried`.
@@ -23,7 +23,7 @@ What chapter 7 says about services, which a rescue step may request and which ar
 ## Macros
 
 - **`#[derive(RescueStep)]`** on a struct with named fields, or none: each field is an `#[input]` or `#[from_rescued_step]`, keyed by the field's name unless written, as in `#[from_rescued_step("account")]`, a `#[reason]` or an `#[error]`. An `Option` field is an optional request; `required` on an `Option` field keys a value that is itself an `Option`. `#[reason]` and `#[error]` take no arguments.
-- **`#[rescue_step]`** on the rescue step's own `impl` block, holding `run(self, ...)`, which takes `#[contributor]` and `#[reporter]` as a step's `run` does, and `#[service]`, as tech spec 0095 describes, and returns `Result<RescueOutcome, Error>`; `async fn run` makes it asynchronous. The block may write `Self::succeed()`, `Self::fail(reason)` and `Self::fail_retriably(reason)`. The attribute takes no arguments, since a rescue step has no name of its own.
+- **`#[rescue_step]`** on the rescue step's own `impl` block, holding `run(self, ...)`, which takes `#[contributor]` and `#[reporter]` as a step's `run` does, and `#[service]`, as tech spec 0095 describes, and returns `Result<RescueOutcome, Error>`; `async fn run` makes it asynchronous. The block may write `Self::succeed()` and `Self::fail(reason)`. The attribute takes no arguments, since a rescue step has no name of its own.
 - **`rescue = R`** on `#[with_step(...)]` gives the step the rescue step `R`, through `rescued_by::<R>()`.
 
 ## How the rules are enforced
@@ -34,7 +34,7 @@ What chapter 7 says about services, which a rescue step may request and which ar
 | The rescue step's name is the step's name followed by `_rescue` | `StepName::rescue`, called by every way of giving a rescue step, none of which takes a name. Step names are `&'static str`, so the name is made once per step name for the whole program and kept, and a workflow declared many times does not grow memory |
 | A declared step with a rescue step's name is `duplicate step name` | admission counts every rescue step's name with the declared steps' names; `#[workflow]` refuses it at compile time |
 | A step with a rescue step and a retry budget is `rescued step retried` | admission; the specification does not let a language make it impossible, so `build()` refuses it. `#[with_step]` refuses `rescue` with a `retry_budget` of 1 or more at compile time |
-| `abnormal termination retriable` on a rescued step is allowed, and does not prevent the rescue of attempt 1 | the decision logic rescues every failure of attempt 1 before it reads the setting; after the rescue, the setting applies as on any step with a retry budget of 0 |
+| `retry on abnormal termination`, on or off, does not prevent the rescue of attempt 1 | the decision logic rescues every failure of attempt 1 before it reads the setting; after the rescue, the step has a retry budget of 0, so a failure or an abnormal termination gives it up with that cause, whatever the setting |
 | The rescue step is attempted when attempt 1 fails, after `on step abnormal termination`, and neither `on step retry` nor `on step failure` is called for it | the pure decision logic returns `Rescue` for attempt 1 of a step with a rescue step; the engine calls `on step abnormal termination` before deciding, and calls the retry and failure hooks only for `Retry` and `GiveUp` |
 | A step is rescued at most once | a rescued step has a retry budget of 0, so attempt 2 is its last, and only attempt 1 is rescued |
 | The rescue step runs as attempt 1 under its own name, with no policies and no retry budget, and its success, failure and abnormal termination follow the rules of any step | the engine runs it through the same attempt as any step. Its descriptor is a step descriptor, whose type could hold policies, a budget and a rescue step of its own, but only the crate builds it, always without them: no public method reaches it |

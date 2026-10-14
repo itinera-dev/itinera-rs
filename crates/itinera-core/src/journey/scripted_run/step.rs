@@ -33,7 +33,7 @@ use crate::step::StepName;
 ///     .create()?
 ///     .scripted()
 ///     .step("charge")
-///     .will_fail_retriably("timeout")
+///     .will_fail("timeout")
 ///     .on_attempt(2)
 ///     .will_succeed()
 ///     .run()?;

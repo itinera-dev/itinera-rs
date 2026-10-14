@@ -183,27 +183,6 @@ pub trait DescribedStep {
         Ok(Outcome::failure(reason.into()))
     }
 
-    /// The step failed, for this reason, and suggests retrying it:
-    /// [`Outcome::retriable_failure`]. A text is the reason's code.
-    ///
-    /// # Errors
-    ///
-    /// Never; it returns a `Result` so that a step's `run` can return it as it is.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::error::Error;
-    /// use itinera::step::{DescribedStep, Outcome};
-    ///
-    /// fn unavailable<S: DescribedStep>() -> Result<Outcome, Error> {
-    ///     S::fail_retriably("gateway-unavailable")
-    /// }
-    /// ```
-    fn fail_retriably(reason: impl Into<Reason>) -> Result<Outcome, Error> {
-        Ok(Outcome::retriable_failure(reason.into()))
-    }
-
     /// The step had nothing to do: [`Outcome::skipped`].
     ///
     /// # Errors

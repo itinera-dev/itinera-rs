@@ -77,7 +77,7 @@ fn continues(kind: Kind, scripted: &AttemptScript, attempt: NonZeroU32) -> bool 
     let retried_abnormally = matches!(
         kind,
         Kind::Step {
-            abnormal_termination_retriable: true,
+            retry_on_abnormal_termination: true,
             ..
         }
     );
@@ -85,8 +85,7 @@ fn continues(kind: Kind, scripted: &AttemptScript, attempt: NonZeroU32) -> bool 
         AttemptScript::RealRun => true,
         AttemptScript::Played(played) => match played.ending {
             Ending::Success | Ending::Skipped(_) => false,
-            Ending::Failure(_) => rescued_first,
-            Ending::RetriableFailure(_) => true,
+            Ending::Failure(_) => true,
             Ending::AbnormalTermination(_) => rescued_first || retried_abnormally,
         },
     }
@@ -134,7 +133,7 @@ mod tests {
     use rstest::rstest;
 
     use super::super::fixtures::{
-        Charge, Charging, Orderly, OrderlyStep, rescued, retried, retried_abnormally,
+        Charge, Charging, Orderly, OrderlyStep, not_retried_abnormally, rescued, retried,
     };
     use crate::journey::StatusKind;
 
@@ -150,10 +149,6 @@ mod tests {
         attempt.will_skip()
     }
 
-    fn fails(attempt: Charging) -> OrderlyStep {
-        attempt.will_fail("declined")
-    }
-
     fn terminates_abnormally(attempt: Charging) -> OrderlyStep {
         attempt.will_terminate_abnormally("gateway down")
     }
@@ -163,9 +158,9 @@ mod tests {
     fn a_scripted_step_must_cover_every_attempt_its_retry_budget_allows() {
         drop(
             charge(retried(2))
-                .will_fail_retriably("timeout")
+                .will_fail("timeout")
                 .on_attempt(2)
-                .will_fail_retriably("timeout")
+                .will_fail("timeout")
                 .run(),
         );
     }
@@ -173,14 +168,13 @@ mod tests {
     #[rstest]
     #[case::a_success(succeeds, StatusKind::Succeeded)]
     #[case::a_skip(skips, StatusKind::Succeeded)]
-    #[case::a_failure(fails, StatusKind::Failed)]
     #[case::an_abnormal_termination_not_retried(terminates_abnormally, StatusKind::Failed)]
     fn no_attempt_is_needed_after_one_the_step_cannot_be_attempted_again_after(
         #[case] ending: fn(Charging) -> OrderlyStep,
         #[case] status: StatusKind,
     ) {
-        let charge = charge(retried(3))
-            .will_fail_retriably("timeout")
+        let charge = charge(not_retried_abnormally(3))
+            .will_fail("timeout")
             .on_attempt(2);
 
         let run = ending(charge).run().unwrap();
@@ -190,9 +184,15 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "the script leaves out:\n- attempt 2 of charge")]
+    fn a_failure_with_budget_left_needs_the_next_attempt_scripted() {
+        drop(charge(retried(1)).will_fail("declined").run());
+    }
+
+    #[test]
+    #[should_panic(expected = "the script leaves out:\n- attempt 2 of charge")]
     fn an_abnormal_termination_the_step_retries_needs_the_next_attempt_scripted() {
         drop(
-            retried_abnormally(1)
+            retried(1)
                 .step("charge")
                 .will_terminate_abnormally("gateway down")
                 .run(),

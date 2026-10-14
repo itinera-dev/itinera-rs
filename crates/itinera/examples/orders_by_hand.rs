@@ -60,7 +60,7 @@ struct Charge<'a> {
 impl Step for Charge<'_> {
     fn run(mut self) -> Result<Outcome, Error> {
         if self.amount <= 0 {
-            return Ok(Outcome::retriable_failure(Reason::new("declined")));
+            return Ok(Outcome::failure(Reason::new("declined")));
         }
         self.contributor
             .contribute("payment", self.payments.take(self.amount));

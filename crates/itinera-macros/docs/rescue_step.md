@@ -5,7 +5,7 @@ Describes a rescue step from the block that holds its `run`, so that a workflow 
 - `#[contributor]` on a `Contributor<'_>`, to add data to the data bag;
 - `#[reporter]` on a `StepReporter<'_>`, or on an `AsyncStepReporter<'_>` in an asynchronous rescue step, to emit its own events.
 
-It returns `Result<RescueOutcome, Error>`. Every function of the block may use the shorthands for a rescue step's outcomes that `DescribedRescueStep` gives: `Self::succeed()`, `Self::fail("declined")` and `Self::fail_retriably(...)`. A rescue step never skips, so there is no shorthand for it. A rescue step belongs only to steps of workflows of its own mode: an `async fn run` makes it asynchronous, which needs the `async` feature.
+It returns `Result<RescueOutcome, Error>`. Every function of the block may use the shorthands for a rescue step's outcomes that `DescribedRescueStep` gives: `Self::succeed()` and `Self::fail("declined")`. A rescue step never skips, so there is no shorthand for it. A rescue step belongs only to steps of workflows of its own mode: an `async fn run` makes it asynchronous, which needs the `async` feature.
 
 The rescue step is built from its requests each time it runs, and its struct derives `RescueStep`, which says what it requests. The attribute takes no arguments, and goes on the rescue step's own `impl` block. A generic rescue step is given with the builder instead. The attribute implements `DescribedRescueStep` for the rescue step.
 

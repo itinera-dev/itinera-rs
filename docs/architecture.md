@@ -57,7 +57,7 @@ Where it lives: `crates/`, and each module in `crates/itinera-core/src/`.
 ```mermaid
 flowchart TD
     accTitle: What a workflow descriptor holds
-    accDescr: A workflow descriptor holds its name, its step descriptors in order, its workflow policies, its input adapters, its service providers, its reporters and its ID generator. A step descriptor holds a factory, a retry budget, whether an abnormal termination is retriable, its step policies and an optional rescue step. An instance holds the descriptor, the workflow's own value, a journey ID, the data bag, its initial global metadata and the reporters, and an executor runs it.
+    accDescr: A workflow descriptor holds its name, its step descriptors in order, its workflow policies, its input adapters, its service providers, its reporters and its ID generator. A step descriptor holds a factory, a retry budget, whether it retries an abnormal termination, its step policies and an optional rescue step. An instance holds the descriptor, the workflow's own value, a journey ID, the data bag, its initial global metadata and the reporters, and an executor runs it.
     descriptor["WorkflowDescriptor"] --> name["WorkflowName"]
     descriptor --> steps["StepDescriptor, one per step, in order"]
     descriptor --> wpolicies["WorkflowPolicyDescriptor, with workflow hooks"]
@@ -66,7 +66,7 @@ flowchart TD
     descriptor --> reporters["Reporters listed by type"]
     descriptor --> generator["ID generator"]
     steps --> factory["StepFactory, which builds the step"]
-    steps --> budget["Retry budget and abnormal termination retriable"]
+    steps --> budget["Retry budget and retry on abnormal termination"]
     steps --> spolicies["StepPolicyDescriptor, with step hooks"]
     steps --> rescue["Rescue step, optional, with its RescueFactory"]
     instance["Instance"] --> descriptor
@@ -80,7 +80,7 @@ flowchart TD
 
 1. A `WorkflowDescriptor` is the workflow's declaration. It is immutable, shared by every instance, and only `build()` makes one.
 2. It holds the workflow's name, its step descriptors in the order they run, its workflow policies, its input adapters, its service providers, the reporters it lists by type, and its ID generator.
-3. Each `StepDescriptor` holds the factory that builds the step for each attempt, its retry budget, whether an abnormal termination is retriable, its step policies in the order attached, and, optionally, a rescue step with its own factory.
+3. Each `StepDescriptor` holds the factory that builds the step for each attempt, its retry budget, whether it retries an abnormal termination, which it does unless that is turned off, its step policies in the order attached, and, optionally, a rescue step with its own factory.
 4. Each policy descriptor names the hooks it defines; a step policy holds step hooks and a workflow policy holds workflow hooks.
 5. An input adapter is attached to whole steps, at most one per step. A service provider is attached to steps, or to no step, and is of journey or attempt scope.
 6. An `Instance` holds the descriptor, the workflow's own value, the journey ID, the data bag, the initial global metadata the reporters will receive, and the reporters made for this journey. The workflow's own value is the type `W` every part is generic over, and it provides the workflow's roles.
@@ -137,7 +137,7 @@ flowchart LR
 4. `#[derive(RescueStep)]` and `#[rescue_step]` do the same for a rescue step, with `FromRescueRequests`, `DescribedRescueStep`, `RescueFactory` and `RescueStep`.
 5. `#[step_policy]` and `#[workflow_policy]` give `DescribedPolicy`, `StepPolicy<W>` or `WorkflowPolicy<W>`, and one hook trait per hook, such as `OnStepSuccess<W>`, whose needs come from the hook's parameters.
 6. `#[role]` keeps the role's implementation and gives `Provides<dyn Role>`, so a policy asking for that role can be attached to this workflow, and to no workflow that does not provide it.
-7. `#[workflow]` on the workflow's struct, with one `#[with_step]` line per step, gives the `Workflow` trait. Its arguments name the workflow, its workflow policies and its reporters, and each `#[with_step]` line names a step's type and name, its retry budget, whether an abnormal termination is retriable, its step policies and its rescue step. Its `descriptor()` builds the descriptor with the builder the first time it is asked for, and keeps it in a hidden static. It also gives the instance builder, `Orders::builder()`, with one setter per field.
+7. `#[workflow]` on the workflow's struct, with one `#[with_step]` line per step, gives the `Workflow` trait. Its arguments name the workflow, its workflow policies and its reporters, and each `#[with_step]` line names a step's type and name, its retry budget, `no_retry_on_abnormal_termination` when the step does not retry an abnormal termination, its step policies and its rescue step. Its `descriptor()` builds the descriptor with the builder the first time it is asked for, and keeps it in a hidden static. It also gives the instance builder, `Orders::builder()`, with one setter per field.
 8. `#[workflow]` on the workflow's `impl` block gives the input adapters, the ID generator and the service providers, which the struct's descriptor adds to its builder.
 9. Both `#[workflow]` macros generate checks that run as the program compiles, such as an input adapter or a service provider for a step the workflow does not list, so nearly every violation `build()` would report is a compile error pointing at what was written.
 10. `#[derive(InitialData)]` and `#[derive(Output)]` give the traits that write a struct into the initial data and read it back from the result.
@@ -379,7 +379,7 @@ Where it lives: `engine/inputs.rs`, `engine/request.rs`, `engine/services.rs`, `
 ```mermaid
 flowchart TD
     accTitle: What the engine does with an attempt's outcome
-    accDescr: A success emits step succeeded, commits the contributions and calls the on step success hook, which may finish the workflow or fail the journey. A skip emits step skipped and discards the contributions. A failure or a retriable failure emits step failed and goes to the decision. An error emits step abnormal termination and calls the on step abnormal termination hook, which may fail the journey; otherwise it goes to the decision.
+    accDescr: A success emits step succeeded, commits the contributions and calls the on step success hook, which may finish the workflow or fail the journey. A skip emits step skipped and discards the contributions. A failure emits step failed and goes to the decision. An error emits step abnormal termination and calls the on step abnormal termination hook, which may fail the journey; otherwise it goes to the decision.
     ran["the step returned"] --> kind{"what did it return?"}
     kind -->|"success"| succeeded["emit step_succeeded"]
     succeeded --> commit["commit the contributions"]
@@ -389,10 +389,8 @@ flowchart TD
     onsuccess -->|"fail workflow"| fail(["the journey fails"])
     kind -->|"skipped"| skipped["emit step_skipped, then contributions_discarded"]
     skipped --> next
-    kind -->|"failure"| sfailed["emit step_failed, not retriable"]
-    kind -->|"retriable failure"| rfailed["emit step_failed, retriable"]
+    kind -->|"failure"| sfailed["emit step_failed"]
     sfailed --> decide(["the decision"])
-    rfailed --> decide
     kind -->|"an error"| abnormal["emit step_abnormal_termination"]
     abnormal --> onabnormal["on step abnormal termination"]
     onabnormal -->|"nothing"| decide
@@ -403,7 +401,7 @@ flowchart TD
 1. A success emits `step_succeeded`, then commits the attempt's contributions to the data bag, emitting `contribution_committed` for each key, and `data_overwritten` when the key already held a value.
 2. Then the engine calls `on step success`, if one of the step's policies defines it. Returning nothing goes on to the next step. `FinishWorkflow` finishes the workflow without running the steps left. `FailWorkflow` fails the journey, with the hook's reason.
 3. A skip emits `step_skipped`, then `contributions_discarded`, and goes on to the next step.
-4. A failure emits `step_failed`, not retriable, and a retriable failure emits `step_failed`, retriable. Both go to the decision.
+4. A failure emits `step_failed`, with its reason, and goes to the decision.
 5. An error emits `step_abnormal_termination`, then calls `on step abnormal termination`, if defined. `FailWorkflow` gives the step up, emitting `step_given_up` with that hook as its cause, and fails the journey. Returning nothing goes to the decision.
 
 Where it lives: `engine/outcome.rs`, and the step hooks in `engine/hooks/step.rs`.
@@ -413,17 +411,18 @@ Where it lives: `engine/outcome.rs`, and the step hooks in `engine/hooks/step.rs
 ```mermaid
 flowchart TD
     accTitle: Deciding what follows a failed attempt
-    accDescr: After the first attempt of a step that has a rescue step, the step is rescued, however it failed. Otherwise a failure gives the step up, a retriable failure is retried while the budget allows, and an abnormal termination is retried only when the step says so and the budget allows. A retry calls on step retry, which may fail the journey; otherwise it emits step retrying and the step is attempted again. Giving up emits step given up and calls on step failure, which may give the journey its own reason; either way the journey fails.
+    accDescr: After the first attempt of a step that has a rescue step, the step is rescued, however it failed. Otherwise a failure is retried while the budget allows another attempt, and so is an abnormal termination, unless the step turns off retrying it, in which case it gives the step up with the abnormal termination. When the budget allows no other attempt, the step is given up with retries exhausted if its budget is greater than 0, and otherwise with the failure or the abnormal termination itself. A retry calls on step retry, which may fail the journey; otherwise it emits step retrying and the step is attempted again. Giving up emits step given up and calls on step failure, which may give the journey its own reason; either way the journey fails.
     decide["a failed attempt"] --> rescued{"first attempt, and a rescue step?"}
     rescued -->|"yes"| rescue(["rescue: emit step_rescuing"])
     rescued -->|"no"| how{"how did it fail?"}
-    how -->|"failure"| giveup["give up"]
-    how -->|"retriable failure"| budget{"budget allows another attempt?"}
-    how -->|"abnormal termination"| retriable{"abnormal termination retriable?"}
-    retriable -->|"yes"| budget
-    retriable -->|"no"| giveup
+    how -->|"failure"| budget{"budget allows another attempt?"}
+    how -->|"abnormal termination"| retries{"retry on abnormal termination?"}
+    retries -->|"yes, by default"| budget
+    retries -->|"no: abnormal termination"| giveup["give up"]
     budget -->|"yes"| onretry["on step retry"]
-    budget -->|"no: retries exhausted"| giveup
+    budget -->|"no"| spent{"budget greater than 0?"}
+    spent -->|"yes: retries exhausted"| giveup
+    spent -->|"no: failure or abnormal termination"| giveup
     onretry -->|"nothing"| retrying["emit step_retrying"]
     retrying --> again(["another attempt"])
     onretry -->|"fail workflow"| byhook["emit step_given_up, by fail workflow"]
@@ -435,9 +434,9 @@ flowchart TD
 ```
 
 1. When the first attempt of a step with a rescue step fails, in any way, the step is rescued (see "Rescue").
-2. Otherwise, a failure gives the step up.
-3. A retriable failure is retried while the retry budget allows another attempt, and gives the step up, with retries exhausted, once it does not.
-4. An abnormal termination is retried in the same way only when the step declares it retriable; otherwise it gives the step up.
+2. Otherwise, a failure is retried while the retry budget allows another attempt.
+3. An abnormal termination is retried in the same way, unless the step turns off `retry on abnormal termination`; then it gives the step up, with abnormal termination, whatever the budget.
+4. When the budget allows no other attempt, the step is given up: with retries exhausted when its budget is greater than 0 and spent, and otherwise, with a budget of 0, with what ended its only attempt, failure or abnormal termination.
 5. Before a retry, the engine calls `on step retry`, if defined. `FailWorkflow` gives the step up, emitting `step_given_up` with that hook as its cause, and fails the journey. Returning nothing emits `step_retrying`, and the step is attempted again, built anew.
 6. Giving up emits `step_given_up`, with its cause: failure, abnormal termination or retries exhausted. Then the engine calls `on step failure`, if defined.
 7. The journey fails either way: with the failure, the abnormal termination or the retries exhausted, or, when `on step failure` returns `FailWorkflow`, with the hook's reason.
@@ -581,9 +580,9 @@ A failure has one variant per cause:
 
 | Failure | Comes from |
 |---|---|
-| `Failure` | a step was given up after a failure, with its reason |
-| `RetriesExhausted` | a step was given up when its budget allowed no more attempts, with what ended its last attempt |
-| `AbnormalTermination` | a step was given up after an error it does not retry |
+| `Failure` | a step without a retry budget was given up after a failure, with its reason |
+| `RetriesExhausted` | a step was given up once its retry budget, greater than 0, was spent, with what ended its last attempt |
+| `AbnormalTermination` | a step was given up after an error, without a retry budget or with retries of abnormal terminations turned off |
 | `FailWorkflow` | a hook returned `FailWorkflow`, with its reason |
 
 An abort has one variant per reason:

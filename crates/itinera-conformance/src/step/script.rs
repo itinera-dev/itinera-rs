@@ -148,19 +148,16 @@ mod tests {
     use itinera::step::Ending;
 
     fn declined() -> AttemptOutcome {
-        AttemptOutcome::Failure {
-            reason: model::Reason {
-                code: "declined".to_owned(),
-                message: None,
-                details: None,
-            },
-            retriable: false,
-        }
+        AttemptOutcome::Failure(model::Reason {
+            code: "declined".to_owned(),
+            message: None,
+            details: None,
+        })
     }
 
     fn code(ending: &Ending) -> Option<&str> {
         match ending {
-            Ending::Failure(reason) | Ending::RetriableFailure(reason) => Some(reason.code()),
+            Ending::Failure(reason) => Some(reason.code()),
             _ => None,
         }
     }

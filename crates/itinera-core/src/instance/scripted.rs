@@ -89,7 +89,7 @@ pub use step::StepScripting;
 ///     .create()?
 ///     .scripted()
 ///     .step("charge")
-///     .will_fail_retriably("declined")
+///     .will_fail("declined")
 ///     .on_attempt(2)
 ///     .will_contribute("charged", 40_i64)
 ///     .will_succeed()

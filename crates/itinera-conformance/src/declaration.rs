@@ -102,8 +102,8 @@ fn step_descriptor<M: Declares>(
         .ok_or_else(|| ModelError::UnknownStep(step.to_owned()))?;
     let scripted = Scripted::new(step, script, steps_run.clone(), witness.clone())?;
     let descriptor = M::step(step_name(step)?, scripted).retry_budget(script.retries);
-    let descriptor = if script.abnormal_termination_retriable {
-        descriptor.abnormal_termination_retriable()
+    let descriptor = if script.no_retry_on_abnormal_termination {
+        descriptor.no_retry_on_abnormal_termination()
     } else {
         descriptor
     };

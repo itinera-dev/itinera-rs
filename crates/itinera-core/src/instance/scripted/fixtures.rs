@@ -31,12 +31,12 @@ pub(super) fn retried(budget: u16) -> Orderly {
     )
 }
 
-/// The orders workflow, whose charge step has this retry budget and retries an abnormal
+/// The orders workflow, whose charge step has this retry budget and does not retry an abnormal
 /// termination, then ships.
-pub(super) fn retried_abnormally(budget: u16) -> Orderly {
+pub(super) fn not_retried_abnormally(budget: u16) -> Orderly {
     let charge = step("charge")
         .retry_budget(budget)
-        .abnormal_termination_retriable();
+        .no_retry_on_abnormal_termination();
     scripted(orders().step(charge).step(step("ship")))
 }
 

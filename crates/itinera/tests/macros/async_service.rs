@@ -48,7 +48,7 @@ impl Labeller for Printer {
     }
 }
 
-/// Dispatches the parcel, retriably when the courier cannot reach it.
+/// Dispatches the parcel, failing when the courier cannot reach it.
 fn dispatched(
     parcel: &str,
     courier: &dyn Courier,
@@ -61,7 +61,7 @@ fn dispatched(
             contributor.contribute("label", labeller.label(parcel));
             Outcome::success()
         }
-        None => Outcome::retriable_failure(Reason::new("unreachable")),
+        None => Outcome::failure(Reason::new("unreachable")),
     }
 }
 

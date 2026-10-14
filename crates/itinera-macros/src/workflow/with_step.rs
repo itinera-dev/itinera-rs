@@ -1,5 +1,5 @@
 //! A step the workflow lists, from its `#[with_step(...)]` line: its type, its name, its retry
-//! budget, whether an abnormal termination is retriable, its policies, and its rescue step.
+//! budget, whether it retries abnormal terminations, its policies, and its rescue step.
 
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
@@ -16,7 +16,7 @@ pub(super) struct WithStep {
     step: Type,
     pub(super) name: LitStr,
     retry_budget: Option<u16>,
-    retriable: bool,
+    no_retry_on_abnormal_termination: bool,
     policies: Vec<Type>,
     rescue: Option<Type>,
 }
@@ -26,7 +26,7 @@ pub(super) struct WithStep {
 struct Settings {
     name: Option<LitStr>,
     retry_budget: Option<u16>,
-    retriable: Option<()>,
+    no_retry_on_abnormal_termination: Option<()>,
     policies: Option<Vec<Type>>,
     rescue: Option<Type>,
 }
@@ -61,7 +61,7 @@ impl WithStep {
             step,
             name,
             retry_budget: settings.retry_budget,
-            retriable: settings.retriable.is_some(),
+            no_retry_on_abnormal_termination: settings.no_retry_on_abnormal_termination.is_some(),
             policies: settings.policies.unwrap_or_default(),
             rescue: settings.rescue,
         })
@@ -97,7 +97,9 @@ impl WithStep {
     pub(super) fn declared(&self, workflow: &Ident, mode: &TokenStream) -> TokenStream {
         let Self { step, name, .. } = self;
         let retry_budget = self.retry_budget.map(retry_budget);
-        let retriable = self.retriable.then(retriable);
+        let no_retry = self
+            .no_retry_on_abnormal_termination
+            .then(no_retry_on_abnormal_termination);
         let policies = self
             .policies
             .iter()
@@ -111,7 +113,7 @@ impl WithStep {
         let taken = quote_spanned! {step.span()=>
             <<#step as ::itinera::step::DescribedStep>::Mode as __ItineraSameMode<#mode>>::__itinera_step
         };
-        quote!(.step(#taken(#described #retry_budget #retriable #(#policies)* #rescue)))
+        quote!(.step(#taken(#described #retry_budget #no_retry #(#policies)* #rescue)))
     }
 
     /// The checks, run as the program compiles, that no two of the step's policies define the
@@ -132,12 +134,14 @@ impl Settings {
         match key(meta).as_str() {
             "name" => once(&mut self.name, meta.value()?.parse()?, meta),
             "retry_budget" => once(&mut self.retry_budget, budget(meta)?, meta),
-            "abnormal_termination_retriable" => once(&mut self.retriable, (), meta),
+            "no_retry_on_abnormal_termination" => {
+                once(&mut self.no_retry_on_abnormal_termination, (), meta)
+            }
             "policies" => once(&mut self.policies, policies(meta)?, meta),
             "rescue" => once(&mut self.rescue, meta.value()?.parse()?, meta),
             _ => Err(meta.error(
                 "`#[with_step]` takes the step's type, then `name = \"...\"`, and optionally \
-                 `retry_budget = N`, `abnormal_termination_retriable`, `policies = [...]` and \
+                 `retry_budget = N`, `no_retry_on_abnormal_termination`, `policies = [...]` and \
                  `rescue = RescueStep`",
             )),
         }
@@ -162,8 +166,8 @@ fn retry_budget(budget: u16) -> TokenStream {
     quote!(.retry_budget(#budget))
 }
 
-fn retriable() -> TokenStream {
-    quote!(.abnormal_termination_retriable())
+fn no_retry_on_abnormal_termination() -> TokenStream {
+    quote!(.no_retry_on_abnormal_termination())
 }
 
 /// The builder's call that gives the step its rescue step.

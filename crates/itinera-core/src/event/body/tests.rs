@@ -51,7 +51,6 @@ fn every_kind() -> Vec<EventBody> {
         EventBody::StepSucceeded { step: charge(1) },
         EventBody::StepFailed {
             step: charge(1),
-            retriable: true,
             reason: reason(),
         },
         EventBody::StepSkipped {
@@ -87,7 +86,7 @@ fn every_kind() -> Vec<EventBody> {
         },
         EventBody::StepRetrying {
             step: charge(1),
-            cause: RetryCause::RetriableFailure,
+            cause: RetryCause::Failure,
         },
         EventBody::StepGivenUp {
             step: charge(2),
