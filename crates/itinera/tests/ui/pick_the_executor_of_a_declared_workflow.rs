@@ -16,14 +16,12 @@ impl Charge {
 
 #[workflow(name = "orders")]
 #[with_step(Charge, name = "charge")]
-struct Orders {
-    shop: &'static str,
-}
+struct Orders;
 
 pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut executor = local_executor_for!(Orders);
-    for shop in ["corner", "market"] {
-        let result = executor.run(Orders::builder().shop(shop).create()?)?;
+    for _ in 0..2 {
+        let result = executor.run(Orders::builder().create()?)?;
         assert_eq!(result.status.kind(), StatusKind::Succeeded);
     }
     Ok(())
