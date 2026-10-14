@@ -4,7 +4,7 @@ The Rust implementation of [Itinera](https://github.com/itinera-dev/spec), a wor
 
 ## Learning it
 
-[The Itinera book for Rust](https://itinera-dev.github.io/book/rust/) teaches Itinera from a first workflow onwards, and every example in it compiles and runs. [The Itinera site](https://itinera-dev.github.io/) explains why Itinera exists. The crate's documentation on [docs.rs](https://docs.rs/itinera) is the reference for each item.
+[The Itinera book for Rust](https://itinera-dev.org/book/rust/) teaches Itinera from a first workflow onwards, and every example in it compiles and runs. [The Itinera site](https://itinera-dev.org/) explains why Itinera exists. The crate's documentation on [docs.rs](https://docs.rs/itinera) is the reference for each item.
 
 ## Status
 

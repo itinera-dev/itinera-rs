@@ -6,9 +6,9 @@
 //! `v0.1.0-rc.15`.
 //!
 //! To learn Itinera step by step, read
-//! [the Itinera book for Rust](https://itinera-dev.github.io/book/rust/), where every example
-//! compiles and runs. [The Itinera site](https://itinera-dev.github.io/) explains why Itinera
-//! exists. This documentation is the reference for each item.
+//! [the Itinera book for Rust](https://itinera-dev.org/book/rust/), where every example compiles
+//! and runs. [The Itinera site](https://itinera-dev.org/) explains why Itinera exists. This
+//! documentation is the reference for each item.
 //!
 //! # The parts of a workflow
 //!
