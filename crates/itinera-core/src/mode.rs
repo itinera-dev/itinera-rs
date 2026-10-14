@@ -4,10 +4,15 @@ use crate::report::{self, Reporter};
 
 #[cfg(feature = "async")]
 mod asynchronous;
+#[cfg(feature = "async")]
+#[doc(hidden)]
+pub mod expansion;
 pub(crate) mod sealed;
 
 #[cfg(feature = "async")]
 pub use asynchronous::Asynchronous;
+#[cfg(feature = "async")]
+pub use itinera_macros::async_trait;
 
 /// An execution mode, part of a workflow descriptor's type, which decides the executor that
 /// accepts it.

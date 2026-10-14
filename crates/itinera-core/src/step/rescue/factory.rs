@@ -2,7 +2,7 @@
 
 use super::{RescueNeeds, RescueOutcome, RescueResolved, RescueStep};
 use crate::error::Error;
-use crate::step::{Attempts, Got, Outcome, Running};
+use crate::step::{Attempts, Got, Outcome};
 
 /// What a synchronous workflow holds to build a rescue step: the rescue step declares what it
 /// needs, and the factory builds it from what was resolved.
@@ -112,12 +112,11 @@ pub(crate) struct Rescues<F> {
     factory: F,
 }
 
+#[async_trait::async_trait]
 impl<F: RescueFactory> Attempts for Rescues<F> {
-    fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Running<'a>, Error> {
+    async fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Result<Outcome, Error>, Error> {
         let rescue = self.factory.build(&mut RescueResolved::new(got))?;
-        Ok(Box::pin(std::future::ready(
-            rescue.run().map(Outcome::from),
-        )))
+        Ok(rescue.run().map(Outcome::from))
     }
 
     #[cfg(any(test, feature = "testing"))]

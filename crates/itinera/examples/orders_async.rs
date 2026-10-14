@@ -1,6 +1,6 @@
 //! The workflow of the `orders` example, declared as an asynchronous workflow: its steps, its
-//! policies and its reporter are asynchronous, and it runs on the asynchronous executor. Run it
-//! with `cargo run -p itinera --example orders_async --features async`.
+//! policies, its service and its reporter are asynchronous, and it runs on the asynchronous
+//! executor. Run it with `cargo run -p itinera --example orders_async --features async`.
 
 use std::num::NonZeroU32;
 
@@ -8,6 +8,7 @@ use itinera::error::Error;
 use itinera::event::Event;
 use itinera::executor::AsyncLocalExecutor;
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
+use itinera::mode::async_trait;
 use itinera::policy::{OnSuccess, step_policy, workflow_policy};
 use itinera::report::AsyncReporter;
 use itinera::service::{Provided, provide};
@@ -15,10 +16,11 @@ use itinera::step::{Outcome, Step, step};
 use itinera::value::AnyValue;
 use itinera::workflow::{role, workflow};
 
-/// Takes payments: the service a charge is paid through.
+/// Takes payments, asynchronously: the service a charge is paid through.
+#[async_trait]
 trait PaymentGateway: Send + Sync {
     /// Takes the amount, and says how it was paid.
-    fn take(&self, amount: i64) -> String;
+    async fn take(&self, amount: i64) -> String;
 }
 
 /// The shop's card terminal, lent to one attempt to charge.
@@ -27,8 +29,9 @@ struct Terminal {
     attempt: NonZeroU32,
 }
 
+#[async_trait]
 impl PaymentGateway for Terminal {
-    fn take(&self, amount: i64) -> String {
+    async fn take(&self, amount: i64) -> String {
         format!(
             "{amount} paid at the {} terminal, attempt {}",
             self.shop, self.attempt
@@ -54,7 +57,7 @@ impl Charge {
         if self.amount <= 0 {
             return Self::fail("declined");
         }
-        contributor.contribute("payment", payments.take(self.amount));
+        contributor.contribute("payment", payments.take(self.amount).await);
         contributor.contribute("charged", self.amount);
         Self::succeed()
     }

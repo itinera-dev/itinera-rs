@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use super::{Attempts, Got, Outcome, Resolved, Running, StepDescriptor, StepName};
+use super::{Attempts, Got, Outcome, Resolved, StepDescriptor, StepName};
 use crate::error::Error;
 use crate::mode::Asynchronous;
 
@@ -67,10 +67,11 @@ struct Asynchronously<F> {
     factory: F,
 }
 
+#[async_trait::async_trait]
 impl<F: AsyncStepFactory> Attempts for Asynchronously<F> {
-    fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Running<'a>, Error> {
+    async fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Result<Outcome, Error>, Error> {
         let step = self.factory.build(&mut Resolved::new(got))?;
-        Ok(Box::pin(step.run()))
+        Ok(step.run().await)
     }
 
     #[cfg(any(test, feature = "testing"))]

@@ -13,10 +13,10 @@ Tier 1 runs a journey in one process, synchronously or asynchronously, with step
 ```mermaid
 flowchart LR
     accTitle: The crates of itinera-rs
-    accDescr: Applications depend on itinera, which re-exports every module of itinera-core. With the macros feature, itinera-core depends on itinera-macros and re-exports each macro from the module of its concept, and the generated code names itinera. The conformance runner depends on itinera and reads the conformance cases. xtask runs every check on the workspace.
+    accDescr: Applications depend on itinera, which re-exports every module of itinera-core. With the macros feature, or the async feature for async_trait, itinera-core depends on itinera-macros and re-exports each macro from the module of its concept, and the generated code names itinera. The conformance runner depends on itinera and reads the conformance cases. xtask runs every check on the workspace.
     app["Application"] --> itinera["itinera"]
     itinera --> core["itinera-core"]
-    core -->|"macros feature"| macros["itinera-macros"]
+    core -->|"macros or async feature"| macros["itinera-macros"]
     macros -.->|"generated code names ::itinera"| itinera
     runner["itinera-conformance"] --> itinera
     cases["Conformance cases, from itinera-dev/conformance"] --> runner
@@ -25,7 +25,7 @@ flowchart LR
 
 1. An application depends on one crate, `itinera`.
 2. `itinera` re-exports every module of `itinera-core`, where the whole implementation lives.
-3. With the `macros` feature, on by default, `itinera-core` depends on `itinera-macros` and re-exports each macro from the module of its concept, so an application writes `itinera::step::step`.
+3. With the `macros` feature, on by default, or the `async` feature for `async_trait`, `itinera-core` depends on `itinera-macros` and re-exports each macro from the module of its concept, so an application writes `itinera::step::step`.
 4. The code the macros generate names `::itinera`, so it reaches the core through the same paths an application writes.
 5. `itinera-conformance`, which is not published, depends on `itinera` and runs the conformance cases of [itinera-dev/conformance](https://github.com/itinera-dev/conformance) against it.
 6. `xtask`, which is not published either, runs every required check on the workspace with `cargo xtask check`.
@@ -46,7 +46,7 @@ The features are `macros` (on by default), `async`, which adds the asynchronous 
 | `executor` | `LocalExecutor`, `AsyncLocalExecutor` and refusals |
 | `event` | `Event`, its bodies, who did or decided what, and the `Level` of the events steps and hooks emit; with `testing`, `Emitted` |
 | `report` | Reporters, dispatchers and their factories, `DefaultDispatcher`, `GlobalMetadata` |
-| `mode` | `Synchronous` and `Asynchronous` |
+| `mode` | `Synchronous` and `Asynchronous`; with `async`, the `async_trait` attribute |
 | `error` | `Error` and `Interrupted` |
 | `engine` | Private: the one engine both executors share |
 
@@ -131,7 +131,7 @@ flowchart LR
     builder --> descriptor["WorkflowDescriptor"]
 ```
 
-1. The macros are syntax over the builder. Each one expands to implementations of public traits of the core and to builder calls, which an application could write by hand, so nothing is reachable only through the macros.
+1. The macros are syntax over the builder. Each one expands to implementations of public traits of the core and to builder calls, which an application could write by hand, so nothing is reachable only through the macros. `#[async_trait]`, with `async`, is the one macro that is not syntax over the builder: it hands its item and arguments to the attribute of async-trait, which `itinera-core` keeps in the hidden module `mode::expansion`, so that a trait with `async fn` methods can be a trait object.
 2. `#[derive(Step)]` on a step's struct, or a `new` in the `#[step]` block whose parameters are marked `#[input]`, gives `FromInputs`: what the step needs, one input per field not marked `#[default]` or per parameter of `new`, and how the step is built from them. `new` may also take services, and may return a `Result` whose error means the step could not be built. A step uses one or the other, never both.
 3. `#[step]` on the step's `impl` block gives `DescribedStep`, with a hidden factory implementing `StepFactory` and a hidden step implementing `Step`, or their asynchronous traits when `run` is `async`. The hidden step keeps the handles and services `run` asks for, and calls it with them.
 4. `#[derive(RescueStep)]` and `#[rescue_step]` do the same for a rescue step, with `FromRescueRequests`, `DescribedRescueStep`, `RescueFactory` and `RescueStep`.

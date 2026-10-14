@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::num::NonZeroU32;
 
 use super::{
-    Attempts, DescribedRescueStep, Got, RescueFactory, Rescues, Resolved, Running, Step,
+    Attempts, DescribedRescueStep, Got, Outcome, RescueFactory, Rescues, Resolved, Step,
     StepFactory, StepName, StepNeeds,
 };
 use crate::error::Error;
@@ -16,10 +16,11 @@ struct Synchronously<F> {
     factory: F,
 }
 
+#[async_trait::async_trait]
 impl<F: StepFactory> Attempts for Synchronously<F> {
-    fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Running<'a>, Error> {
+    async fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Result<Outcome, Error>, Error> {
         let step = self.factory.build(&mut Resolved::new(got))?;
-        Ok(Box::pin(std::future::ready(step.run())))
+        Ok(step.run())
     }
 
     #[cfg(any(test, feature = "testing"))]

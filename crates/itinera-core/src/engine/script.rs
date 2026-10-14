@@ -5,7 +5,7 @@
 use std::mem;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use super::runner::{Attempt, Building, Ran, Runner, Steps, lend};
+use super::runner::{Attempt, Building, Runner, Steps, lend};
 use super::{Delivery, run_with};
 use crate::error::{Error, Interrupted};
 use crate::executor::Started;
@@ -69,12 +69,13 @@ impl ScriptRunner {
     }
 }
 
+#[async_trait::async_trait]
 impl Runner for ScriptRunner {
-    fn run<'a>(&'a self, attempt: Attempt<'a>) -> Ran<'a> {
+    async fn run<'a>(&'a self, attempt: Attempt<'a>) -> Result<Result<Outcome, Error>, Error> {
         self.record(&attempt.building);
         match self.script.played(attempt.building.attempt).cloned() {
-            None => Steps.run(attempt),
-            Some(played) => Box::pin(play(attempt, played)),
+            None => Steps.run(attempt).await,
+            Some(played) => play(attempt, played).await,
         }
     }
 }
