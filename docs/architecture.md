@@ -216,7 +216,7 @@ sequenceDiagram
 
 Both executors share the one engine, which is written once, as asynchronous code. `LocalExecutor` drives it to the end with a waker that does nothing, since a `Synchronous` workflow has nothing to wait for. `AsyncLocalExecutor` awaits it, and its dispatcher's delivery, on whatever runtime the application uses. The engine never spawns, sleeps or sets timers.
 
-Where it lives: `workflow/builder.rs`, `instance/builder.rs`, `executor.rs`, `executor/started.rs`, `executor/refusal.rs`, `executor/asynchronous.rs`, `executor/local_executor_for.rs`, `mode/has_mode.rs`, `run` and `finish` in `engine.rs`, and `introduce` in `engine/metadata.rs`.
+Where it lives: `workflow/builder.rs`, `instance/builder.rs`, `executor.rs`, `executor/started.rs`, `executor/refusal.rs`, `executor/asynchronous.rs`, `executor/local_executor_for.rs`, `executor/local_executor_for/dispatcher_factory.rs`, `mode/has_mode.rs`, `run` and `finish` in `engine.rs`, and `introduce` in `engine/metadata.rs`.
 
 ### The executor loop
 
