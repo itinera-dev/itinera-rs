@@ -2,9 +2,8 @@ use super::Reason;
 
 /// What a step reports when it runs to the end: Success, Failure or Skipped.
 ///
-/// An outcome says what happened, never what to do next. A failure is not retriable unless the
-/// step says it is, and the retriable flag is only a suggestion: whether the step is tried again
-/// depends on its retry budget and its hooks.
+/// An outcome says what happened, never what to do next: whether a step that failed is tried
+/// again depends only on its retry budget and its hooks.
 ///
 /// # Examples
 ///
@@ -31,7 +30,6 @@ pub struct Outcome {
 pub(crate) enum OutcomeKind {
     Success,
     Failure(Reason),
-    RetriableFailure(Reason),
     Skipped(Option<Reason>),
 }
 
@@ -53,7 +51,7 @@ impl Outcome {
         }
     }
 
-    /// The step could not complete, and trying again would not help.
+    /// The step could not complete, for this reason.
     ///
     /// # Examples
     ///
@@ -65,21 +63,6 @@ impl Outcome {
     pub fn failure(reason: Reason) -> Self {
         Self {
             kind: OutcomeKind::Failure(reason),
-        }
-    }
-
-    /// The step could not complete, and trying again might help.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::step::{Outcome, Reason};
-    ///
-    /// let unreachable = Outcome::retriable_failure(Reason::new("gateway-unreachable"));
-    /// ```
-    pub fn retriable_failure(reason: Reason) -> Self {
-        Self {
-            kind: OutcomeKind::RetriableFailure(reason),
         }
     }
 
@@ -128,7 +111,7 @@ impl Outcome {
         matches!(self.kind, OutcomeKind::Success)
     }
 
-    /// Whether the step failed, retriably or not.
+    /// Whether the step failed.
     ///
     /// # Examples
     ///
@@ -136,29 +119,11 @@ impl Outcome {
     /// use itinera::step::{Outcome, Reason};
     ///
     /// assert!(Outcome::failure(Reason::new("declined")).is_failure());
-    /// assert!(Outcome::retriable_failure(Reason::new("busy")).is_failure());
+    /// assert!(!Outcome::skipped().is_failure());
     /// ```
     #[must_use]
     pub fn is_failure(&self) -> bool {
-        matches!(
-            self.kind,
-            OutcomeKind::Failure(_) | OutcomeKind::RetriableFailure(_)
-        )
-    }
-
-    /// Whether the step failed and suggests it may be tried again.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::step::{Outcome, Reason};
-    ///
-    /// assert!(Outcome::retriable_failure(Reason::new("busy")).is_retriable());
-    /// assert!(!Outcome::failure(Reason::new("declined")).is_retriable());
-    /// ```
-    #[must_use]
-    pub fn is_retriable(&self) -> bool {
-        matches!(self.kind, OutcomeKind::RetriableFailure(_))
+        matches!(self.kind, OutcomeKind::Failure(_))
     }
 
     /// Whether the step decided not to do its work.
@@ -189,7 +154,7 @@ impl Outcome {
     #[must_use]
     pub fn reason(&self) -> Option<&Reason> {
         match &self.kind {
-            OutcomeKind::Failure(reason) | OutcomeKind::RetriableFailure(reason) => Some(reason),
+            OutcomeKind::Failure(reason) => Some(reason),
             OutcomeKind::Skipped(reason) => reason.as_ref(),
             OutcomeKind::Success => None,
         }
@@ -202,39 +167,32 @@ mod tests {
 
     use super::*;
 
-    /// What an outcome says it is: success, failure, retriable and skipped, with its reason's
-    /// code.
-    fn said(outcome: &Outcome) -> ([bool; 4], Option<&str>) {
+    /// What an outcome says it is: success, failure and skipped, with its reason's code.
+    fn said(outcome: &Outcome) -> ([bool; 3], Option<&str>) {
         let kinds = [
             outcome.is_success(),
             outcome.is_failure(),
-            outcome.is_retriable(),
             outcome.is_skipped(),
         ];
         (kinds, outcome.reason().map(Reason::code))
     }
 
     #[rstest]
-    #[case::a_success(Outcome::success(), [true, false, false, false], None)]
+    #[case::a_success(Outcome::success(), [true, false, false], None)]
     #[case::a_failure(
         Outcome::failure(Reason::new("declined")),
-        [false, true, false, false],
+        [false, true, false],
         Some("declined")
     )]
-    #[case::a_retriable_failure(
-        Outcome::retriable_failure(Reason::new("busy")),
-        [false, true, true, false],
-        Some("busy")
-    )]
-    #[case::a_skip(Outcome::skipped(), [false, false, false, true], None)]
+    #[case::a_skip(Outcome::skipped(), [false, false, true], None)]
     #[case::a_skip_with_a_reason(
         Outcome::skipped_because(Reason::new("already-paid")),
-        [false, false, false, true],
+        [false, false, true],
         Some("already-paid")
     )]
     fn an_outcome_says_what_it_is_and_why(
         #[case] outcome: Outcome,
-        #[case] kinds: [bool; 4],
+        #[case] kinds: [bool; 3],
         #[case] code: Option<&str>,
     ) {
         assert_eq!(said(&outcome), (kinds, code));

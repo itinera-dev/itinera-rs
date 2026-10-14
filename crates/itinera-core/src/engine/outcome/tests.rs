@@ -3,7 +3,7 @@ use rstest::rstest;
 use super::*;
 use crate::engine::fixtures::{
     CHARGE, SHIP, attempting, audit, crashed, data_of, declined, fail_workflow, failed_by_the_hook,
-    kinds, scripted, skips, succeed, timed_out, travel_hooked, travel_with_amount, travel_workflow,
+    kinds, scripted, skips, succeed, travel_hooked, travel_with_amount, travel_workflow,
 };
 use crate::event::Event;
 use crate::journey::JourneyStatus;
@@ -133,7 +133,6 @@ fn a_successful_attempts_contributions_are_committed_in_order_reporting_what_the
 #[rstest]
 #[case::a_skip(skips)]
 #[case::a_failure(declined)]
-#[case::a_retriable_failure(timed_out)]
 #[case::an_abnormal_termination(crashed)]
 fn an_attempt_that_does_not_succeed_commits_nothing(#[case] ends: fn() -> Result<Outcome, Error>) {
     let workflow = orders().step(scripted(move |contributor, _| {

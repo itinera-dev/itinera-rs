@@ -62,14 +62,8 @@ impl From<&Event> for Line {
                     _ => {}
                 }
             }
-            EventBody::StepFailed {
-                step,
-                retriable,
-                reason,
-                ..
-            } => {
+            EventBody::StepFailed { step, reason, .. } => {
                 line.attempt(step);
-                line.set("retriable", retriable);
                 line.reason(reason);
             }
             EventBody::StepSkipped { step, reason, .. } => {

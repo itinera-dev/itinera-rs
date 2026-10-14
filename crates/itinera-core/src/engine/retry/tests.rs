@@ -3,7 +3,7 @@ use rstest::rstest;
 use super::*;
 use crate::engine::fixtures::{
     CHARGE, SHIP, attempting, audit, crashed, data_of, declined, fail_workflow, failed_by_the_hook,
-    kinds, skips, succeed, timed_out, travel_hooked, travel_workflow,
+    kinds, skips, succeed, travel_hooked, travel_workflow,
 };
 use crate::error::Error;
 use crate::event::Event;
@@ -14,7 +14,6 @@ use crate::workflow::fixtures::{Orders, orders};
 
 #[rstest]
 #[case::a_failure(declined, "step_failed", FailureCause::Failure)]
-#[case::a_retriable_failure(timed_out, "step_failed", FailureCause::RetriesExhausted)]
 #[case::an_abnormal_termination(
     crashed,
     "step_abnormal_termination",
@@ -66,8 +65,8 @@ fn retry_cause(event: &Event) -> Option<RetryCause> {
 }
 
 #[test]
-fn a_retriable_failure_is_attempted_again_while_the_budget_allows() {
-    let workflow = orders().step(attempting(&[timed_out, timed_out]).retry_budget(2));
+fn a_failure_is_attempted_again_while_the_budget_allows() {
+    let workflow = orders().step(attempting(&[declined, declined]).retry_budget(2));
 
     let (status, events) = travel_workflow(workflow);
 
@@ -91,13 +90,13 @@ fn a_retriable_failure_is_attempted_again_while_the_budget_allows() {
     let attempts: Vec<_> = events.iter().filter_map(attempt_of).collect();
     assert_eq!(attempts, [1, 2, 3]);
     let causes: Vec<_> = events.iter().filter_map(retry_cause).collect();
-    assert_eq!(causes, [RetryCause::RetriableFailure; 2]);
+    assert_eq!(causes, [RetryCause::Failure; 2]);
 }
 
 #[test]
 fn a_step_whose_budget_is_spent_is_given_up_with_its_last_failure() {
     let workflow = orders()
-        .step(attempting(&[timed_out, timed_out, succeed]).retry_budget(1))
+        .step(attempting(&[declined, declined, succeed]).retry_budget(1))
         .step(StepDescriptor::new(SHIP, succeed));
 
     let (status, events) = travel_workflow(workflow);
@@ -107,7 +106,7 @@ fn a_step_whose_budget_is_spent_is_given_up_with_its_last_failure() {
     };
     assert!(matches!(
         failure,
-        Failure::RetriesExhausted(LastFailure::Reason(reason)) if reason.code() == "timeout"
+        Failure::RetriesExhausted(LastFailure::Reason(reason)) if reason.code() == "declined"
     ));
     assert!(data.get("attempt").is_none());
     assert_eq!(
@@ -131,12 +130,12 @@ fn a_step_whose_budget_is_spent_is_given_up_with_its_last_failure() {
 }
 
 #[rstest]
-#[case::when_the_step_allows_it(
-    attempting(&[crashed]).retry_budget(1).abnormal_termination_retriable(),
-    "step_retrying"
+#[case::by_default(attempting(&[crashed]).retry_budget(1), "step_retrying")]
+#[case::not_when_the_step_turns_it_off(
+    attempting(&[crashed]).retry_budget(1).no_retry_on_abnormal_termination(),
+    "step_given_up"
 )]
-#[case::not_when_the_step_does_not(attempting(&[crashed]).retry_budget(1), "step_given_up")]
-fn an_abnormal_termination_is_retried_only_when_the_step_allows_it(
+fn an_abnormal_termination_is_retried_unless_the_step_turns_it_off(
     #[case] step: StepDescriptor<Orders>,
     #[case] decision: &str,
 ) {
@@ -157,9 +156,7 @@ fn an_abnormal_termination_is_retried_only_when_the_step_allows_it(
 
 #[test]
 fn an_abnormal_termination_is_retried_with_its_own_cause() {
-    let step = attempting(&[crashed])
-        .retry_budget(1)
-        .abnormal_termination_retriable();
+    let step = attempting(&[crashed]).retry_budget(1);
 
     let (status, events) = travel_workflow(orders().step(step));
 
@@ -170,12 +167,12 @@ fn an_abnormal_termination_is_retried_with_its_own_cause() {
 
 #[rstest]
 #[case::on_step_retry(
-    attempting(&[timed_out]).retry_budget(1),
+    attempting(&[declined]).retry_budget(1),
     StepHook::OnStepRetry,
     "step_failed"
 )]
 #[case::on_step_abnormal_termination(
-    attempting(&[crashed]).retry_budget(1).abnormal_termination_retriable(),
+    attempting(&[crashed]).retry_budget(1),
     StepHook::OnStepAbnormalTermination,
     "step_abnormal_termination"
 )]
@@ -240,29 +237,29 @@ fn fail_workflow_from_on_step_failure_gives_the_journey_its_reason_after_the_ste
 }
 
 #[rstest]
-#[case::a_retriable_failure_with_budget_left(
-    attempting(&[timed_out]).retry_budget(1),
+#[case::a_failure_with_budget_left(
+    attempting(&[declined]).retry_budget(1),
     &[(StepHook::OnStepRetry, 3), (StepHook::OnStepSuccess, 8)]
 )]
-#[case::a_retriable_failure_with_the_budget_spent(
-    attempting(&[timed_out]),
-    &[(StepHook::OnStepFailure, 4)]
+#[case::a_failure_with_the_budget_spent(
+    attempting(&[declined, declined]).retry_budget(1),
+    &[(StepHook::OnStepRetry, 3), (StepHook::OnStepFailure, 8)]
 )]
-#[case::a_failure(attempting(&[declined]).retry_budget(1), &[(StepHook::OnStepFailure, 4)])]
+#[case::a_failure_without_a_budget(attempting(&[declined]), &[(StepHook::OnStepFailure, 4)])]
 #[case::an_abnormal_termination_the_step_does_not_retry(
-    attempting(&[crashed]).retry_budget(1),
+    attempting(&[crashed]).retry_budget(1).no_retry_on_abnormal_termination(),
     &[(StepHook::OnStepAbnormalTermination, 3), (StepHook::OnStepFailure, 5)]
 )]
-#[case::an_abnormal_termination_the_step_retries(
-    attempting(&[crashed]).retry_budget(1).abnormal_termination_retriable(),
+#[case::an_abnormal_termination_with_budget_left(
+    attempting(&[crashed]).retry_budget(1),
     &[
         (StepHook::OnStepAbnormalTermination, 3),
         (StepHook::OnStepRetry, 4),
         (StepHook::OnStepSuccess, 9)
     ]
 )]
-#[case::an_abnormal_termination_with_the_budget_spent(
-    attempting(&[crashed]).abnormal_termination_retriable(),
+#[case::an_abnormal_termination_without_a_budget(
+    attempting(&[crashed]),
     &[(StepHook::OnStepAbnormalTermination, 3), (StepHook::OnStepFailure, 5)]
 )]
 #[case::a_skip(attempting(&[skips]), &[])]
@@ -282,7 +279,7 @@ fn step_hooks_are_called_after_each_attempt_in_order_around_the_step_decision(
 
 #[test]
 fn the_rescued_steps_retry_and_failure_hooks_are_not_called_for_the_attempt_it_rescues() {
-    let charge = attempting(&[timed_out]).rescue(|| Ok(RescueOutcome::success()));
+    let charge = attempting(&[declined]).rescue(|| Ok(RescueOutcome::success()));
 
     let hooked = travel_hooked(
         charge,

@@ -130,15 +130,15 @@ fn step_cannot_be_built(
     Ok(())
 }
 
-#[given(expr = "the abnormal termination of step {string} is retriable")]
-fn abnormal_termination_is_retriable(
+#[given(expr = "step {string} does not retry abnormal terminations")]
+fn step_does_not_retry_abnormal_terminations(
     world: &mut World,
     step_name: String,
 ) -> Result<(), ModelError> {
     world
         .model
         .step_mut(&step_name)?
-        .abnormal_termination_retriable = true;
+        .no_retry_on_abnormal_termination = true;
     Ok(())
 }
 

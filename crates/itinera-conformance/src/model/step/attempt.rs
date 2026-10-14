@@ -28,10 +28,7 @@ impl Attempt {
 #[derive(Debug, PartialEq)]
 pub(crate) enum AttemptOutcome {
     Success,
-    Failure {
-        reason: Reason,
-        retriable: bool,
-    },
+    Failure(Reason),
     Skipped(Option<Reason>),
     /// An abnormal termination: an error escapes the step, with this message when one is given.
     Error(Option<String>),
@@ -72,14 +69,7 @@ fn attempt(row: &Row, expected: u32) -> Result<Attempt, ModelError> {
     }
     let outcome = match row.required("outcome")? {
         "success" => AttemptOutcome::Success,
-        "failure" => AttemptOutcome::Failure {
-            reason: reason(row)?,
-            retriable: false,
-        },
-        "retriable failure" => AttemptOutcome::Failure {
-            reason: reason(row)?,
-            retriable: true,
-        },
+        "failure" => AttemptOutcome::Failure(reason(row)?),
         "skipped" => AttemptOutcome::Skipped(match row.optional("code") {
             Some(_) => Some(reason(row)?),
             None => None,

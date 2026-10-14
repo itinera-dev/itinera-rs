@@ -52,7 +52,7 @@ impl Charge {
         #[contributor] mut contributor: Contributor<'_>,
     ) -> Result<Outcome, Error> {
         if self.amount <= 0 {
-            return Self::fail_retriably("declined");
+            return Self::fail("declined");
         }
         contributor.contribute("payment", payments.take(self.amount));
         contributor.contribute("charged", self.amount);

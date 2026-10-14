@@ -51,21 +51,10 @@ impl<D: Delivery> Journey<D> {
             OutcomeKind::Failure(reason) => {
                 self.emit(EventBody::StepFailed {
                     step: attempt.clone(),
-                    retriable: false,
                     reason: reason.clone(),
                 })
                 .await?;
                 self.failed(instance, attempting, Failed::Failure(reason))
-                    .await
-            }
-            OutcomeKind::RetriableFailure(reason) => {
-                self.emit(EventBody::StepFailed {
-                    step: attempt.clone(),
-                    retriable: true,
-                    reason: reason.clone(),
-                })
-                .await?;
-                self.failed(instance, attempting, Failed::RetriableFailure(reason))
                     .await
             }
         }

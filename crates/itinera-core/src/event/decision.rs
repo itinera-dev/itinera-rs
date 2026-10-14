@@ -73,13 +73,14 @@ impl GiveUpHook {
 #[derive(Clone, Debug, derive_more::Display)]
 #[non_exhaustive]
 pub enum GiveUpCause {
-    /// The attempt reported a failure that is not retriable.
+    /// The attempt reported a failure, and the step has no retry budget.
     #[display("failure")]
     Failure,
-    /// The attempt ended in an abnormal termination, and the step does not allow retrying it.
+    /// The attempt ended in an abnormal termination, and the step has no retry budget or does
+    /// not retry abnormal terminations.
     #[display("abnormal termination")]
     AbnormalTermination,
-    /// The retry budget is spent.
+    /// The step's retry budget, greater than 0, is spent.
     #[display("retries exhausted")]
     RetriesExhausted,
     /// A hook returned `FailWorkflow`.
@@ -95,24 +96,21 @@ pub enum GiveUpCause {
 
 /// How the attempt of a step that is rescued failed.
 ///
-/// It displays as the cause is named, for example `retriable failure`.
+/// It displays as the cause is named, for example `abnormal termination`.
 ///
 /// # Examples
 ///
 /// ```
 /// use itinera::event::RescueCause;
 ///
-/// assert_eq!(RescueCause::RetriableFailure.to_string(), "retriable failure");
+/// assert_eq!(RescueCause::AbnormalTermination.to_string(), "abnormal termination");
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, derive_more::Display)]
 #[display(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum RescueCause {
-    /// The attempt reported a failure that is not retriable.
+    /// The attempt reported a failure.
     Failure,
-    /// The attempt reported a retriable failure.
-    #[display("retriable failure")]
-    RetriableFailure,
     /// The attempt ended in an abnormal termination.
     #[display("abnormal termination")]
     AbnormalTermination,
@@ -139,7 +137,6 @@ mod tests {
     )]
     #[case::given_up_with_retries_exhausted(&GiveUpCause::RetriesExhausted, "retries exhausted")]
     #[case::rescued_after_a_failure(&RescueCause::Failure, "failure")]
-    #[case::rescued_after_a_retriable_failure(&RescueCause::RetriableFailure, "retriable failure")]
     #[case::rescued_after_an_abnormal_termination(
         &RescueCause::AbnormalTermination,
         "abnormal termination"

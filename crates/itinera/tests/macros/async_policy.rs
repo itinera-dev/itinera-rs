@@ -39,7 +39,7 @@ impl Settle {
                 Self::succeed()
             }
             "failure" => Self::fail("declined"),
-            "retriable" => Self::fail_retriably("busy"),
+            "busy" => Self::fail("busy"),
             _ => Err(Error::msg("the till crashed")),
         }
     }

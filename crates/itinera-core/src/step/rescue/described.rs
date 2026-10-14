@@ -150,8 +150,9 @@ pub trait DescribedRescueStep {
         Ok(RescueOutcome::success())
     }
 
-    /// The rescue step could not fix the cause, for this reason, and suggests no retry:
-    /// [`RescueOutcome::failure`]. A text is the reason's code.
+    /// The rescue step could not fix the cause, for this reason: [`RescueOutcome::failure`]. A
+    /// rescue step is never attempted again, so this fails the journey. A text is the reason's
+    /// code.
     ///
     /// # Errors
     ///
@@ -169,27 +170,5 @@ pub trait DescribedRescueStep {
     /// ```
     fn fail(reason: impl Into<Reason>) -> Result<RescueOutcome, Error> {
         Ok(RescueOutcome::failure(reason.into()))
-    }
-
-    /// The rescue step could not fix the cause, for this reason, and trying again might help:
-    /// [`RescueOutcome::retriable_failure`]. A rescue step is never attempted again, so this
-    /// fails the journey with `retries exhausted`. A text is the reason's code.
-    ///
-    /// # Errors
-    ///
-    /// Never; it returns a `Result` so that a rescue step's `run` can return it as it is.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::error::Error;
-    /// use itinera::step::{DescribedRescueStep, RescueOutcome};
-    ///
-    /// fn busy<R: DescribedRescueStep>() -> Result<RescueOutcome, Error> {
-    ///     R::fail_retriably("token-service-busy")
-    /// }
-    /// ```
-    fn fail_retriably(reason: impl Into<Reason>) -> Result<RescueOutcome, Error> {
-        Ok(RescueOutcome::retriable_failure(reason.into()))
     }
 }

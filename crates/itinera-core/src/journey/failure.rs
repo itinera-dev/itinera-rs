@@ -22,7 +22,7 @@ use crate::step::Reason;
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Failure {
-    /// A step reported a failure that is not retriable, with this reason.
+    /// A step without a retry budget reported a failure, with this reason.
     Failure(Reason),
     /// A step's retry budget was spent, and this ended its last attempt.
     RetriesExhausted(LastFailure<Error>),

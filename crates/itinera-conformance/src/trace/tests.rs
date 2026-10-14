@@ -38,7 +38,7 @@ fn a_table_naming_an_event_outside_the_catalogue_is_in_error() {
 #[case::no_cells("step_failed", &[], true)]
 #[case::a_cell_that_matches("step_failed", &[("code", "declined")], true)]
 #[case::a_cell_that_differs("step_failed", &[("code", "timeout")], false)]
-#[case::a_cell_the_event_leaves_empty("step_failed", &[("retriable", "true")], false)]
+#[case::a_cell_the_event_leaves_empty("step_failed", &[("cause", "failure")], false)]
 #[case::another_event("step_skipped", &[], false)]
 fn an_empty_cell_is_not_compared(
     #[case] kind: &str,

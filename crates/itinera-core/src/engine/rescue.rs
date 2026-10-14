@@ -29,7 +29,7 @@ pub(super) struct LeftForRescue {
 impl LeftForRescue {
     fn new(contributed: Contributed, failed: Failed) -> Self {
         let (reason, error) = match failed {
-            Failed::Failure(reason) | Failed::RetriableFailure(reason) => (Some(reason), None),
+            Failed::Failure(reason) => (Some(reason), None),
             Failed::AbnormalTermination(error) => (None, Some(error)),
         };
         Self {

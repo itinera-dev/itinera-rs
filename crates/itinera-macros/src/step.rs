@@ -27,7 +27,7 @@ use crate::described;
 const MARKS: [&str; 4] = ["input", "contributor", "reporter", "service"];
 
 /// The shorthands for a step's outcomes that `DescribedStep` gives.
-const SHORTHANDS: [&str; 5] = ["succeed", "fail", "fail_retriably", "skip", "skip_because"];
+const SHORTHANDS: [&str; 4] = ["succeed", "fail", "skip", "skip_because"];
 
 /// Implements `DescribedStep` for the type of the block, and `FromInputs` from its `new` if it
 /// has one. On an error, it implements a stand-in instead, so that the compiler reports that error

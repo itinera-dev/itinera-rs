@@ -47,7 +47,7 @@ The tech specs of the proposals whose scenarios they are say how each proof work
 - Unit tests in `itinera-core/src/error.rs`: `an_error_shows_the_message_of_the_error_it_was_made_from` and `an_error_converts_back_into_a_boxed_standard_error`.
 - Unit tests in `itinera-core/src/engine/hooks.rs`: `a_hook_that_fails_aborts_the_journey_with_its_error`.
 - Unit tests in `itinera-core/src/engine/guard/tests.rs`: `a_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others`.
-- Unit tests in `itinera-core/src/journey.rs`: `statuses_causes_and_abort_reasons_display_as_the_specification_writes_them`.
+- Unit tests in `itinera-core/src/journey.rs` and `journey/result.rs`: `causes_and_abort_reasons_display_as_the_specification_writes_them` and `statuses_display_as_the_specification_writes_them`.
 - The eleven proofs above, in `itinera/tests/proofs.rs`.
 
 ## Done when

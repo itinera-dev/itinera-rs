@@ -30,7 +30,7 @@ pub(super) enum Kind {
         /// How many attempts its retry budget allows.
         attempts: NonZeroU32,
         /// Whether an abnormal termination is retried, within that budget.
-        abnormal_termination_retriable: bool,
+        retry_on_abnormal_termination: bool,
         /// Its rescue step's name, if it has one.
         rescue: Option<StepName>,
     },
@@ -110,7 +110,7 @@ fn target_in<W, M>(step: &StepDescriptor<W, M>, name: &str) -> Option<Target> {
             step,
             Kind::Step {
                 attempts: step.attempts_allowed(),
-                abnormal_termination_retriable: step.retries_abnormal_termination(),
+                retry_on_abnormal_termination: step.retries_abnormal_termination(),
                 rescue: step.rescue_step().map(StepDescriptor::name),
             },
         ))

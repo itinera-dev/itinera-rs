@@ -57,7 +57,7 @@ fn reserved(amount: i64, stock: &dyn StockStore) -> Result<i64, Error> {
     }
 }
 
-/// Charges the amount, retriably when the gateway refuses it.
+/// Charges the amount, failing when the gateway refuses it.
 fn charged(
     amount: i64,
     gateway: &dyn PaymentGateway,
@@ -70,7 +70,7 @@ fn charged(
             contributor.contribute("reservation", reservation);
             Outcome::success()
         }
-        _ => Outcome::retriable_failure(Reason::new("refused")),
+        _ => Outcome::failure(Reason::new("refused")),
     }
 }
 

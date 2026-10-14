@@ -31,18 +31,21 @@ pub(super) fn retried(budget: u16) -> Orderly {
     )
 }
 
-/// The orders workflow, whose charge step has this retry budget and retries an abnormal
+/// The orders workflow, whose charge step has this retry budget and does not retry an abnormal
 /// termination, then ships.
-pub(super) fn retried_abnormally(budget: u16) -> Orderly {
+pub(super) fn not_retried_abnormally(budget: u16) -> Orderly {
     let charge = step("charge")
         .retry_budget(budget)
-        .abnormal_termination_retriable();
+        .no_retry_on_abnormal_termination();
     scripted(orders().step(charge).step(step("ship")))
 }
 
-/// The orders workflow, whose charge step has a rescue step that succeeds, then ships.
+/// The orders workflow, whose charge step has a rescue step that succeeds and does not retry an
+/// abnormal termination, then ships.
 pub(super) fn rescued() -> Orderly {
-    let charge = step("charge").rescue(|| Ok(RescueOutcome::success()));
+    let charge = step("charge")
+        .no_retry_on_abnormal_termination()
+        .rescue(|| Ok(RescueOutcome::success()));
     scripted(orders().step(charge).step(step("ship")))
 }
 

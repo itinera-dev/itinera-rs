@@ -106,8 +106,6 @@ pub enum EventBody {
     StepFailed {
         /// The step and attempt.
         step: StepAttempt,
-        /// Whether the failure is retriable.
-        retriable: bool,
         /// Why the step failed.
         reason: Reason,
     },

@@ -46,14 +46,7 @@ fn typed_entry((key, value): &(String, serde_json::Value)) -> Result<(String, Ty
 fn ending_of(outcome: &AttemptOutcome) -> Result<Ending, ModelError> {
     Ok(match outcome {
         AttemptOutcome::Success => Ending::Success,
-        AttemptOutcome::Failure {
-            reason,
-            retriable: false,
-        } => Ending::Failure(reason_of(reason)?),
-        AttemptOutcome::Failure {
-            reason,
-            retriable: true,
-        } => Ending::RetriableFailure(reason_of(reason)?),
+        AttemptOutcome::Failure(reason) => Ending::Failure(reason_of(reason)?),
         AttemptOutcome::Skipped(reason) => {
             Ending::Skipped(reason.as_ref().map(reason_of).transpose()?)
         }

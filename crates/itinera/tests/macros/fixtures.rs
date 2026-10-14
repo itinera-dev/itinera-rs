@@ -171,7 +171,7 @@ pub(crate) const DECLINED: Order = Order {
 };
 
 pub(crate) const DECLINED_UNTIL_RETRIES_RAN_OUT: Order = Order {
-    outcome: Some("retriable"),
+    outcome: Some("busy"),
     ..NOTHING
 };
 

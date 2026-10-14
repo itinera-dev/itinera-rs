@@ -42,7 +42,7 @@ impl Settle {
                 Self::succeed()
             }
             "failure" => Self::fail(Reason::new("declined").with_message("the card was declined")),
-            "retriable" => Self::fail_retriably("busy"),
+            "busy" => Self::fail("busy"),
             "quiet" => Self::succeed(),
             _ => Err(Error::msg("the till crashed")),
         }

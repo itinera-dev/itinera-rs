@@ -176,7 +176,7 @@ fn an_attempt_scripted_to_run_for_real_runs_its_step() {
     let retried = orders().step(charge(&read).retry_budget(1));
     let run = scripting(instance(retried).data("amount", 42_i64))
         .step("charge")
-        .will_fail_retriably("timeout")
+        .will_fail("timeout")
         .on_attempt(2)
         .will_run_for_real()
         .run()
@@ -201,7 +201,7 @@ fn every_attempt_handed_to_its_steps_construction_is_recorded_scripted_or_run_fo
     let retried = orders().step(charge(&read).retry_budget(1));
     let run = scripting(instance(retried).data("amount", 42_i64))
         .step("charge")
-        .will_fail_retriably("timeout")
+        .will_fail("timeout")
         .on_attempt(2)
         .will_run_for_real()
         .run()

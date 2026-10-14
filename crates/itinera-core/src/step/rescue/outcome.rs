@@ -2,7 +2,7 @@
 
 use crate::step::{Outcome, Reason};
 
-/// What a rescue step reports when it runs to the end: Success, Failure or a retriable Failure.
+/// What a rescue step reports when it runs to the end: Success or Failure.
 ///
 /// It is an [`Outcome`] that cannot be Skipped, and converts into one.
 ///
@@ -39,7 +39,8 @@ impl RescueOutcome {
         }
     }
 
-    /// The rescue step could not fix the cause, and trying again would not help.
+    /// The rescue step could not fix the cause, for this reason. A rescue step is never attempted
+    /// again, so this fails the journey.
     ///
     /// # Examples
     ///
@@ -51,22 +52,6 @@ impl RescueOutcome {
     pub fn failure(reason: Reason) -> Self {
         Self {
             outcome: Outcome::failure(reason),
-        }
-    }
-
-    /// The rescue step could not fix the cause, and trying again might help. A rescue step is
-    /// never attempted again, so this fails the journey with `retries exhausted`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::step::{Reason, RescueOutcome};
-    ///
-    /// let busy = RescueOutcome::retriable_failure(Reason::new("token-service-busy"));
-    /// ```
-    pub fn retriable_failure(reason: Reason) -> Self {
-        Self {
-            outcome: Outcome::retriable_failure(reason),
         }
     }
 
@@ -84,7 +69,7 @@ impl RescueOutcome {
         self.outcome.is_success()
     }
 
-    /// Whether the rescue step could not fix the cause, retriably or not.
+    /// Whether the rescue step could not fix the cause.
     ///
     /// # Examples
     ///
@@ -98,20 +83,6 @@ impl RescueOutcome {
         self.outcome.is_failure()
     }
 
-    /// Whether the rescue step failed and suggests it may be tried again.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::step::{Reason, RescueOutcome};
-    ///
-    /// assert!(RescueOutcome::retriable_failure(Reason::new("busy")).is_retriable());
-    /// ```
-    #[must_use]
-    pub fn is_retriable(&self) -> bool {
-        self.outcome.is_retriable()
-    }
-
     /// The reason of a failure.
     ///
     /// # Examples
@@ -119,7 +90,7 @@ impl RescueOutcome {
     /// ```
     /// use itinera::step::{Reason, RescueOutcome};
     ///
-    /// let busy = RescueOutcome::retriable_failure(Reason::new("busy"));
+    /// let busy = RescueOutcome::failure(Reason::new("busy"));
     /// assert_eq!(busy.reason().map(Reason::code), Some("busy"));
     /// ```
     #[must_use]

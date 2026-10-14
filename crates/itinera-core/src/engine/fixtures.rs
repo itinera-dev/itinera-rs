@@ -302,7 +302,7 @@ pub(super) fn declined() -> Result<Outcome, Error> {
 }
 
 pub(super) fn timed_out() -> Result<Outcome, Error> {
-    Ok(Outcome::retriable_failure(Reason::new("timeout")))
+    Ok(Outcome::failure(Reason::new("timeout")))
 }
 
 pub(crate) fn crashed() -> Result<Outcome, Error> {

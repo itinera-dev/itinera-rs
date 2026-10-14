@@ -412,7 +412,7 @@ impl<I: WorkflowInstance, M, S> AttemptScripting<I, M, S> {
         self.ending(Ending::Success)
     }
 
-    /// The attempt fails for this reason, and suggests no retry. A text is the reason's code.
+    /// The attempt fails for this reason. A text is the reason's code.
     ///
     /// # Examples
     ///
@@ -439,40 +439,6 @@ impl<I: WorkflowInstance, M, S> AttemptScripting<I, M, S> {
     /// ```
     pub fn will_fail(self, reason: impl Into<Reason>) -> StepScripting<I, M> {
         self.ending(Ending::Failure(reason.into()))
-    }
-
-    /// The attempt fails for this reason, and suggests retrying the step. A text is the reason's
-    /// code.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::instance::WorkflowInstance;
-    /// use itinera::journey::StatusKind;
-    /// use itinera::step::{Outcome, StepDescriptor, step_name};
-    /// use itinera::workflow::WorkflowDescriptor;
-    ///
-    /// struct Orders;
-    ///
-    /// let orders = WorkflowDescriptor::builder("orders")
-    ///     .step(
-    ///         StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()))
-    ///             .retry_budget(1),
-    ///     )
-    ///     .build()?;
-    /// let run = orders
-    ///     .instance(Orders)
-    ///     .create()?
-    ///     .scripted()
-    ///     .step("charge")
-    ///     .on_every_attempt()
-    ///     .will_fail_retriably("gateway-unavailable")
-    ///     .run()?;
-    /// assert_eq!(run.result.status.kind(), StatusKind::Failed);
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
-    /// ```
-    pub fn will_fail_retriably(self, reason: impl Into<Reason>) -> StepScripting<I, M> {
-        self.ending(Ending::RetriableFailure(reason.into()))
     }
 
     /// The attempt has nothing to do, and the step is skipped.
@@ -728,7 +694,7 @@ impl<I: WorkflowInstance, M> AttemptScripting<I, M, Opened> {
     ///     .create()?
     ///     .scripted()
     ///     .step("charge")
-    ///     .will_fail_retriably("declined")
+    ///     .will_fail("declined")
     ///     .on_attempt(2)
     ///     .will_run_for_real()
     ///     .run()?;

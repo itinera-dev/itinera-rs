@@ -1,6 +1,6 @@
 # 0083: What a failure, an abort and a refusal carry
 
-Tech spec for [proposal 0083](https://github.com/itinera-dev/spec/blob/main/proposals/0083-what-failures-carry.md), implemented in [#46](https://github.com/itinera-dev/itinera-rs/issues/46). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
+Tech spec for [proposal 0083](https://github.com/itinera-dev/spec/blob/main/proposals/0083-what-failures-carry.md), implemented in [#46](https://github.com/itinera-dev/itinera-rs/issues/46). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposal [0106](0106-retry-budget-alone.md) amends the wording of what `retries exhausted` carries, and its tech spec covers that.
 
 Status: done in stage 7. Stage 1 shaped the events, stage 3 the result and refusals, and stage 7 what hooks may request about a failure.
 
@@ -8,7 +8,7 @@ Status: done in stage 7. Stage 1 shaped the events, stage 3 the result and refus
 
 - **`journey_failed`** is `EventBody::JourneyFailed`, with the step's name and a `JourneyFailure`, one variant per cause, each holding exactly what that cause carries:
   - `Failure` holds the step's `Reason`;
-  - `RetriesExhausted` holds a `LastFailure`: the `Reason` of a retriable failure, or the message of the error of an abnormal termination;
+  - `RetriesExhausted` holds a `LastFailure`: the `Reason` of the last attempt, if it reported a failure, or the message of its error, if it ended in an abnormal termination;
   - `AbnormalTermination` holds the error's message;
   - `FailWorkflow` holds the `DecidingHook` and the `Reason` it gave.
 - `JourneyFailure::cause()` gives the plain `FailureCause`.

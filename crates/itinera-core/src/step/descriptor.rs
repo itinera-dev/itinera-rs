@@ -29,11 +29,11 @@ impl<F: StepFactory> Attempts for Synchronously<F> {
 }
 
 /// What a workflow holds for one step: its name, what it needs, how to build it for each
-/// attempt, its retry budget, whether an abnormal termination may be retried, the step policies
+/// attempt, its retry budget, whether it retries an abnormal termination, the step policies
 /// attached to it, in the order they were attached, and its rescue step, if it has one.
 ///
-/// The retry budget is 0, an abnormal termination is not retried, and there is no rescue step,
-/// unless the descriptor says otherwise.
+/// The retry budget is 0, an abnormal termination is retried within it, and there is no
+/// rescue step, unless the descriptor says otherwise.
 ///
 /// `W` is the type of the workflows that may hold it, which only its policies see, and `M` their
 /// mode: a step of a synchronous workflow comes from a [`StepFactory`].
@@ -61,7 +61,7 @@ impl<F: StepFactory> Attempts for Synchronously<F> {
 /// let audit = StepPolicyDescriptor::new("audit", || Audit).on_step_success();
 /// let charge = StepDescriptor::<Orders>::new(step_name!("charge"), || Ok(Outcome::success()))
 ///     .retry_budget(2)
-///     .abnormal_termination_retriable()
+///     .no_retry_on_abnormal_termination()
 ///     .policy(audit);
 /// assert_eq!(charge.name().to_string(), "charge");
 /// ```
@@ -73,7 +73,8 @@ pub struct StepDescriptor<W, M = Synchronous> {
     factory: Box<dyn Attempts>,
     /// How many retries the step allows after its first attempt.
     retry_budget: u16,
-    abnormal_termination_retriable: bool,
+    /// Whether an abnormal termination spends the retry budget, as a failure does.
+    retry_on_abnormal_termination: bool,
     policies: Vec<Box<dyn StepPolicyEntry<W, M>>>,
     /// The rescue step, described as a step of its own, under the name the executor gives it.
     #[debug("{:?}", rescue.as_deref().map(Self::name))]
@@ -129,7 +130,7 @@ impl<W, M> StepDescriptor<W, M> {
             needs,
             factory,
             retry_budget: 0,
-            abnormal_termination_retriable: false,
+            retry_on_abnormal_termination: true,
             policies: Vec::new(),
             rescue: None,
             mode: PhantomData,
@@ -185,8 +186,9 @@ impl<W, M> StepDescriptor<W, M> {
     }
 
     /// Sets how many retries the step allows after its first attempt: a step with a budget of
-    /// `n` is attempted at most `n + 1` times. A retriable failure, and an abnormal termination
-    /// when the step allows retrying it, spend the same budget.
+    /// `n` is attempted at most `n + 1` times. A failure, and an abnormal termination unless the
+    /// step turns off retrying it, spend the same budget. A budget of 0, the default, means the
+    /// step is never retried.
     ///
     /// # Examples
     ///
@@ -203,9 +205,10 @@ impl<W, M> StepDescriptor<W, M> {
         self
     }
 
-    /// Lets an abnormal termination of the step be retried, within its retry budget, as a
-    /// retriable failure is. Without it, an abnormal termination gives the step up at once,
-    /// since an error the step did not anticipate may already have had side effects.
+    /// Turns off retrying the step after an abnormal termination: one gives the step up at once,
+    /// whatever its retry budget. Without it, an abnormal termination is retried within the budget,
+    /// as a failure is. Turn it off when an error the step did not anticipate may already have
+    /// had side effects, such as a payment sent.
     ///
     /// # Examples
     ///
@@ -216,10 +219,10 @@ impl<W, M> StepDescriptor<W, M> {
     ///
     /// let charge = StepDescriptor::<Orders>::new(step_name!("charge"), || Ok(Outcome::success()))
     ///     .retry_budget(1)
-    ///     .abnormal_termination_retriable();
+    ///     .no_retry_on_abnormal_termination();
     /// ```
-    pub fn abnormal_termination_retriable(mut self) -> Self {
-        self.abnormal_termination_retriable = true;
+    pub fn no_retry_on_abnormal_termination(mut self) -> Self {
+        self.retry_on_abnormal_termination = false;
         self
     }
 
@@ -304,7 +307,7 @@ impl<W, M> StepDescriptor<W, M> {
     }
 
     pub(crate) fn retries_abnormal_termination(&self) -> bool {
-        self.abnormal_termination_retriable
+        self.retry_on_abnormal_termination
     }
 
     pub(crate) fn policies(&self) -> &[Box<dyn StepPolicyEntry<W, M>>] {

@@ -52,12 +52,9 @@ pub(crate) fn attempt(outcome: AttemptOutcome) -> Attempt {
 }
 
 pub(crate) fn timed_out() -> AttemptOutcome {
-    AttemptOutcome::Failure {
-        reason: Reason {
-            code: "timeout".to_owned(),
-            message: None,
-            details: None,
-        },
-        retriable: true,
-    }
+    AttemptOutcome::Failure(Reason {
+        code: "timeout".to_owned(),
+        message: None,
+        details: None,
+    })
 }
