@@ -354,7 +354,7 @@ Each job runs one command, as the organisation's rules require. All are required
 | dependencies | `cargo deny check`, with the `cargo-deny` binary that `taiki-e/install-action` installs |
 | conformance, from stage 0 | `itinera-dev/actions/run-conformance@v1`, with `command: cargo run -p itinera-conformance --release`, after checking out and restoring the Rust cache |
 | pull request rules | `pr-has-issue` and `no-cross-repo-closing` |
-| weekly, not blocking | the tests on Rust beta |
+| weekly, not blocking | the tests on Rust beta, with `TRYBUILD=overwrite` so that the compile-fail tests accept beta's wording of compile errors |
 
 The tests of the `itinera` crate, which holds only re-exports, run on Linux only: most of them compare compiler messages, which read the same on every system.
 
