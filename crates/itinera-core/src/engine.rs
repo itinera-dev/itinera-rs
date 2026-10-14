@@ -34,7 +34,7 @@ mod services;
 
 #[cfg(feature = "async")]
 pub(crate) use asynchronous::Awaited;
-pub(crate) use emitter::{Clock, Emitting, Inline, Relayed};
+pub(crate) use emitter::{Clock, Emitting, Inline};
 pub(crate) use guard::Failures;
 pub(crate) use hooks::WorkflowPolicies;
 pub(crate) use metadata::introduce;

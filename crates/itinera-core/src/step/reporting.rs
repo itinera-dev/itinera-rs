@@ -2,7 +2,8 @@
 //! journey, with who emits and the kind of event, or a recorder in a test.
 
 use super::StepAttempt;
-use crate::engine::{Emitting, Relayed};
+use crate::engine::Emitting;
+use crate::error::Interrupted;
 #[cfg(any(test, feature = "testing"))]
 use crate::event::Recorded;
 use crate::event::{EventBody, HookSource, Level, Source};
@@ -33,29 +34,35 @@ impl<'a> Reporting<'a> {
         }
     }
 
-    pub(crate) fn emit(
+    pub(crate) async fn emit(
         &mut self,
         level: Level,
         message: String,
         data: Option<AnyValue>,
-    ) -> Relayed<'_> {
+    ) -> Result<(), Interrupted> {
         match self {
             Self::Journey { emitting, source } => {
                 let body = match source.clone() {
                     Source::Step(step) => step_event(level, step, message, data),
                     Source::Hook(hook) => journey_event(level, hook, message, data),
                 };
-                emitting.relay(body)
+                emitting.relay(body).await
             }
             #[cfg(any(test, feature = "testing"))]
             Self::Recorded(recorded) => recorded.record(level, message, data),
         }
     }
 
-    pub(crate) fn set_global_metadata(&mut self, key: String, value: AnyValue) -> Relayed<'_> {
+    pub(crate) async fn set_global_metadata(
+        &mut self,
+        key: String,
+        value: AnyValue,
+    ) -> Result<(), Interrupted> {
         match self {
             Self::Journey { emitting, source } => {
-                emitting.set_global_metadata(source.clone(), key, value)
+                emitting
+                    .set_global_metadata(source.clone(), key, value)
+                    .await
             }
             #[cfg(any(test, feature = "testing"))]
             Self::Recorded(recorded) => recorded.set(key, value),

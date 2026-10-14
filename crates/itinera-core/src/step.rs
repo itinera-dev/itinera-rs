@@ -38,7 +38,6 @@ pub use ending::Ending;
 #[cfg(any(test, feature = "testing"))]
 pub use event_reporter::StepEventReporter;
 pub(crate) use factory::Attempts;
-use factory::Running;
 pub use factory::StepFactory;
 pub use from_inputs::FromInputs;
 pub use input::{Input, OptionalInput};

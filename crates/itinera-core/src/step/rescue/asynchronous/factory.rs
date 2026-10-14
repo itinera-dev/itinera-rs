@@ -6,7 +6,7 @@ use super::AsyncRescueStep;
 use crate::error::Error;
 use crate::mode::Asynchronous;
 use crate::step::{
-    Attempts, Got, Outcome, RescueNeeds, RescueOutcome, RescueResolved, Running, StepDescriptor,
+    Attempts, Got, Outcome, RescueNeeds, RescueOutcome, RescueResolved, StepDescriptor,
 };
 
 /// What an asynchronous workflow holds to build a rescue step: the rescue step declares what it
@@ -148,19 +148,15 @@ pub(crate) struct AsyncRescues<F> {
     factory: F,
 }
 
+#[async_trait::async_trait]
 impl<F: AsyncRescueFactory> Attempts for AsyncRescues<F> {
-    fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Running<'a>, Error> {
+    async fn attempt<'a>(&'a self, got: Got<'a>) -> Result<Result<Outcome, Error>, Error> {
         let rescue = self.factory.build(&mut RescueResolved::new(got))?;
-        Ok(Box::pin(rescued(rescue)))
+        Ok(rescue.run().await.map(Outcome::from))
     }
 
     #[cfg(any(test, feature = "testing"))]
     fn build<'a>(&'a self, got: Got<'a>) -> Result<(), Error> {
         self.factory.build(&mut RescueResolved::new(got)).map(drop)
     }
-}
-
-/// Runs an asynchronous rescue step, and reports its outcome as a step's.
-async fn rescued(rescue: impl AsyncRescueStep) -> Result<Outcome, Error> {
-    rescue.run().await.map(Outcome::from)
 }

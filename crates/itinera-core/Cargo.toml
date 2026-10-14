@@ -8,12 +8,13 @@ license.workspace = true
 repository.workspace = true
 
 [features]
-async = ["itinera-macros?/async"]
+async = ["itinera-macros/async"]
 macros = ["dep:itinera-macros"]
 testing = []
 unstable = []
 
 [dependencies]
+async-trait.workspace = true
 serde.workspace = true
 erased-serde.workspace = true
 derive_more = { workspace = true, features = ["into_iterator"] }

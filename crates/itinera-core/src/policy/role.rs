@@ -7,6 +7,10 @@
 /// role is implemented only for workflows that provide it, so attaching it to a workflow without
 /// the role does not compile.
 ///
+/// An asynchronous workflow whose role trait has `async fn` methods declares that trait and its
+/// implementations with `itinera::mode::async_trait`, available with the `async` feature,
+/// since a trait with a plain `async fn` cannot be a trait object.
+///
 /// [`Requested::role`]: super::Requested::role
 ///
 /// # Examples

@@ -9,7 +9,9 @@ use super::Instance;
 /// step. `T` should be a trait object, such as `dyn PaymentGateway`, so that the step depends on
 /// what the service can do rather than on what provides it. No bound of Rust holds only for trait
 /// objects, so a token accepts a concrete type too; a step declared with `#[service]` takes only
-/// a trait object.
+/// a trait object. An asynchronous workflow whose service trait has `async fn` methods declares
+/// that trait and its implementations with `itinera::mode::async_trait`, available with the
+/// `async` feature, since a trait with a plain `async fn` cannot be a trait object.
 ///
 /// A step declares it in its [`StepNeeds`] and takes it from [`Resolved`] when it is built; a
 /// [`ServiceProviderDescriptor`] supplies it. A service is not a value: it never enters the data

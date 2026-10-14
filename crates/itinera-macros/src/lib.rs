@@ -1,7 +1,8 @@
 //! The procedural macros of Itinera, which are syntax over its builder.
 //!
-//! Applications use them through the `macros` feature of the `itinera` crate, which re-exports
-//! each from the module of its concept, such as `itinera::step::step`.
+//! Applications use them through the `macros` feature of the `itinera` crate, and `async_trait`
+//! through its `async` feature. It re-exports each from the module of its concept, such as
+//! `itinera::step::step`.
 
 #![forbid(unsafe_code)]
 
@@ -84,6 +85,15 @@ pub fn derive_output(input: TokenStream) -> TokenStream {
 pub fn workflow(arguments: TokenStream, item: TokenStream) -> TokenStream {
     let item = parse_macro_input!(item as Item);
     workflow::expand(arguments.into(), item).into()
+}
+
+#[doc = include_str!("../docs/async_trait.md")]
+#[cfg(feature = "async")]
+#[proc_macro_attribute]
+pub fn async_trait(arguments: TokenStream, item: TokenStream) -> TokenStream {
+    let arguments = proc_macro2::TokenStream::from(arguments);
+    let item = proc_macro2::TokenStream::from(item);
+    quote::quote!(#[::itinera::mode::expansion::async_trait(#arguments)] #item).into()
 }
 
 #[doc = include_str!("../docs/role.md")]

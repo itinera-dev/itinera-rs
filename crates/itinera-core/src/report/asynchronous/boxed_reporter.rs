@@ -1,8 +1,5 @@
 //! A reporter of either kind, as an asynchronous dispatcher holds it.
 
-use std::future::Future;
-use std::pin::Pin;
-
 use super::AsyncReporter;
 use crate::error::Error;
 use crate::event::Event;
@@ -143,21 +140,21 @@ impl BoxedReporter {
     }
 }
 
-type BoxedFuture<'a> = Pin<Box<dyn Future<Output = Result<(), Error>> + Send + 'a>>;
-
+#[async_trait::async_trait]
 trait DynAsyncReporter: Send {
     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error>;
 
-    fn report_boxed<'a>(&'a mut self, event: &'a Event) -> BoxedFuture<'a>;
+    async fn report_boxed(&mut self, event: &Event) -> Result<(), Error>;
 }
 
+#[async_trait::async_trait]
 impl<R: AsyncReporter> DynAsyncReporter for R {
     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
         AsyncReporter::set_global_metadata(self, key, value)
     }
 
-    fn report_boxed<'a>(&'a mut self, event: &'a Event) -> BoxedFuture<'a> {
-        Box::pin(AsyncReporter::report(self, event))
+    async fn report_boxed(&mut self, event: &Event) -> Result<(), Error> {
+        AsyncReporter::report(self, event).await
     }
 }
 

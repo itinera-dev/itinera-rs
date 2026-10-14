@@ -1,10 +1,7 @@
 //! What a step or hook emitted about its own work while a test recorded it, and the record both
 //! recorders keep.
 
-use std::future;
-
 use super::Level;
-use crate::engine::Relayed;
 use crate::error::Interrupted;
 use crate::report::GlobalMetadata;
 use crate::step::Reporting;
@@ -126,29 +123,19 @@ impl Recorded {
         level: Level,
         message: String,
         data: Option<AnyValue>,
-    ) -> Relayed<'_> {
-        let kept = self.keep(Emitted {
+    ) -> Result<(), Interrupted> {
+        self.interrupt_if_failed()?;
+        self.emitted.push(Emitted {
             level,
             message,
             data,
         });
-        Box::pin(future::ready(kept))
+        Ok(())
     }
 
     /// Keeps an entry of global metadata, unless a reporter failed. As in a journey, the journey
     /// ID's own key interrupts the call and every later one.
-    pub(crate) fn set(&mut self, key: String, value: AnyValue) -> Relayed<'_> {
-        let kept = self.keep_entry(key, value);
-        Box::pin(future::ready(kept))
-    }
-
-    fn keep(&mut self, emitted: Emitted) -> Result<(), Interrupted> {
-        self.interrupt_if_failed()?;
-        self.emitted.push(emitted);
-        Ok(())
-    }
-
-    fn keep_entry(&mut self, key: String, value: AnyValue) -> Result<(), Interrupted> {
+    pub(crate) fn set(&mut self, key: String, value: AnyValue) -> Result<(), Interrupted> {
         self.interrupted |= key == GlobalMetadata::JOURNEY_ID;
         self.interrupt_if_failed()?;
         self.global_metadata.insert(key, value);
