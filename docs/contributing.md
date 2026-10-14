@@ -58,3 +58,9 @@ All three published crates share the workspace version and are published togethe
 3. **GitHub release**: the `create-release` action creates the release with the notes of the version's changelog section, as a pre-release for a version such as `0.1.0-beta.1`, and attaches the conformance report.
 
 For now, the crates are published by hand. Before pushing the tag, the maintainer runs `cargo publish --workspace --dry-run` at the commit to be tagged, since the workflow creates the GitHub release before anything is published. Once the workflow has finished and the release exists, the maintainer checks out the tagged commit and runs `cargo publish --workspace`, logged in with `cargo login` on their own machine. crates.io configures trusted publishing only for crates that already exist, so once the crates are published, trusted publishing is configured for them and a publish job joins the workflow.
+
+## The book
+
+[The Itinera book for Rust](https://itinera-dev.org/book/rust/) lives in [itinera-dev/book](https://github.com/itinera-dev/book), under `rust/`, and every example in it compiles and runs. `book.json` pins the book's commit that this repository is checked against. The required `book` check runs the `check-book` action of [itinera-dev/actions](https://github.com/itinera-dev/actions): it takes the book at that commit, builds its examples against this checkout's own crates instead of the version the book names, and runs them with `cargo test`, so a change that breaks the book fails in its own pull request.
+
+A change that breaks the book comes with a paired pull request in the book that fixes it. The change's own pull request moves `book.json` to the commit of the book's fix, and the book's pull request moves the book's pin of itinera to the change once it merges. If the book's pull request is squashed when it merges, a follow-up moves `book.json` to the book's merge commit, so that the pin stays on the book's `main`.
