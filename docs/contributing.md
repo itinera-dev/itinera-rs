@@ -51,11 +51,10 @@ In CI, the `run-conformance` action of [itinera-dev/actions](https://github.com/
 
 ## Releasing
 
-All three published crates share the workspace version and are published together, only by the release workflow, `.github/workflows/release.yml`. A maintainer requests a release by pushing a tag `v` followed by that version, such as `v0.1.0-rc.1`, on `main`, after the pull request that sets the version and adds its section to `CHANGELOG.md` has merged. The workflow then runs four jobs, each waiting for the one before:
+All three published crates share the workspace version and are published together. A maintainer requests a release by pushing a tag `v` followed by that version, such as `v0.1.0-rc.1`, on `main`, after the pull request that sets the version and adds its section to `CHANGELOG.md` has merged. The release workflow, `.github/workflows/release.yml`, then runs three jobs, each waiting for the one before:
 
 1. **release gate**: the `release-gate` action refuses the tag unless it matches the version in `Cargo.toml`, the commit is on `main`, `CHANGELOG.md` has a section for the version, and `conformance.json` lists every tier 1 proposal of the pinned cases;
 2. **conformance**: `run-conformance` runs the cases and keeps the report;
-3. **publish to crates.io**: `cargo publish --workspace`, in the `crates-io` environment, which waits for a maintainer's approval;
-4. **GitHub release**: the `create-release` action creates the release with the notes of the version's changelog section, as a pre-release for a version such as `0.1.0-rc.1`, and attaches the conformance report.
+3. **GitHub release**: the `create-release` action creates the release with the notes of the version's changelog section, as a pre-release for a version such as `0.1.0-rc.1`, and attaches the conformance report.
 
-The first release of each crate is published with a crates.io token that a maintainer creates for that release only and stores as the `CARGO_REGISTRY_TOKEN` secret of the `crates-io` environment, because crates.io configures trusted publishing only for crates that already exist. Once that release is published, trusted publishing is configured for the three crates, the token is deleted, and the publish job authenticates through trusted publishing from then on.
+For now, the crates are published by hand: once the release gate and conformance jobs have passed, the maintainer checks out the tagged commit and runs `cargo publish --workspace`, logged in with `cargo login` on their own machine. crates.io configures trusted publishing only for crates that already exist, so once the crates are published, trusted publishing is configured for them and a publish job joins the workflow.
