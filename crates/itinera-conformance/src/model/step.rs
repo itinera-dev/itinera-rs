@@ -33,6 +33,8 @@ pub(crate) struct Step {
     pub(crate) no_retry_on_abnormal_termination: bool,
     /// Whether it carries on with its script when an emit call is interrupted.
     pub(crate) ignores_failed_emits: bool,
+    /// Whether it declares neither a contributor nor a step reporter.
+    pub(crate) undeclared_handles: bool,
 }
 
 /// An input the step declares in its constructor.

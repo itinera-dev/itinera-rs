@@ -92,6 +92,18 @@ impl Typed {
         })
     }
 
+    /// The type of the vocabulary the value has.
+    pub(crate) fn value_type(&self) -> ValueType {
+        match self {
+            Self::String(_) => ValueType::String,
+            Self::Integer(_) => ValueType::Integer,
+            Self::Number(_) => ValueType::Number,
+            Self::Boolean(_) => ValueType::Boolean,
+            Self::List(_) => ValueType::List,
+            Self::Object(_) => ValueType::Object,
+        }
+    }
+
     /// Gives the value, as its own Rust type, to what takes it.
     pub(crate) fn given_to<K: Takes>(self, taker: K) -> K::Output {
         match self {

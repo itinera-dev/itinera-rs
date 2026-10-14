@@ -1,5 +1,7 @@
 //! The record of one attempt in a scripted run.
 
+use std::num::NonZeroU32;
+
 use crate::journey::Read;
 use crate::step::{StepAttempt, StepName};
 use crate::value::{AnyValue, Value};
@@ -139,6 +141,47 @@ impl AttemptRecord {
     /// ```
     pub fn input<T: Value>(&self, key: &str) -> Read<T> {
         Read::of(self.values.iter().find_map(|value| value_under(value, key)))
+    }
+
+    /// The attempt's number, counted from 1 for its step.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU32;
+    ///
+    /// use itinera::instance::WorkflowInstance;
+    /// use itinera::journey::AttemptRecord;
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
+    /// use itinera::workflow::WorkflowDescriptor;
+    ///
+    /// struct Orders;
+    ///
+    /// let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()));
+    /// let orders = WorkflowDescriptor::builder("orders")
+    ///     .step(charge.retry_budget(1))
+    ///     .build()?;
+    /// let run = orders
+    ///     .instance(Orders)
+    ///     .create()?
+    ///     .scripted()
+    ///     .step("charge")
+    ///     .will_fail("declined")
+    ///     .on_attempt(2)
+    ///     .will_succeed()
+    ///     .run()?;
+    /// let numbers: Vec<NonZeroU32> = run
+    ///     .step("charge")
+    ///     .attempts()
+    ///     .iter()
+    ///     .map(AttemptRecord::number)
+    ///     .collect();
+    /// assert_eq!(numbers, [NonZeroU32::MIN, NonZeroU32::MIN.saturating_add(1)]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub fn number(&self) -> NonZeroU32 {
+        self.attempt.attempt
     }
 
     pub(super) fn belongs_to(&self, step: StepName) -> bool {

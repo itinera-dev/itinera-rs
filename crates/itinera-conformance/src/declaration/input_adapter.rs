@@ -1,8 +1,9 @@
 //! The scenario's input adapters, declared with their scripted answers.
 
 use itinera::error::Error;
-use itinera::journey::{DataBagAccess, Read};
+use itinera::journey::{DataBag, DataBagAccess, Read};
 use itinera::policy::{HookNeeds, InputAdapter, Requested};
+use itinera::step::StepName;
 use itinera::value::{AnyValue, Value as Storable};
 use itinera::workflow::InputAdapterDescriptor;
 
@@ -91,6 +92,36 @@ fn answer(
     got: &mut Requested<'_, ScriptedWorkflow, InputAdapter>,
 ) -> Result<Option<AnyValue>, Error> {
     let key = got.key();
+    let step = got.step_name();
+    answered(answers, key, step, || got.data_bag())
+}
+
+/// What the adapter answers when a test calls it alone for the input `key` of the step, with
+/// the read access a data bag of its own lends.
+pub(crate) fn answer_alone(
+    adapter: &Adapter,
+    key: &str,
+    step: &str,
+    bag: &DataBag,
+) -> Result<Result<Option<AnyValue>, Error>, ModelError> {
+    let answers = adapter
+        .answers
+        .iter()
+        .map(Answering::of)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(answered(&answers, key, step_name(step)?, || {
+        Ok(bag.access())
+    }))
+}
+
+/// What the adapter answers for the input `key` of the step, reading the data bag through the
+/// access `access` gives, when its answer reads it.
+fn answered<'a>(
+    answers: &[Answering],
+    key: &str,
+    step: StepName,
+    access: impl FnOnce() -> Result<DataBagAccess<'a>, Error>,
+) -> Result<Option<AnyValue>, Error> {
     let answered = answers
         .iter()
         .find(|answering| answering.is_for(key))
@@ -101,11 +132,11 @@ fn answer(
         Some(Answered::ReadFromDataBag(key, value_type)) => Ok(for_type(
             *value_type,
             Reading {
-                access: got.data_bag()?,
+                access: access()?,
                 key,
             },
         )),
-        Some(Answered::StepName) => Ok(Some(AnyValue::new(got.step_name().to_string()))),
+        Some(Answered::StepName) => Ok(Some(AnyValue::new(step.to_string()))),
         Some(Answered::Nothing) | None => Ok(None),
     }
 }

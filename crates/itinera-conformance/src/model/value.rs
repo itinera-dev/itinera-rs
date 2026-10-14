@@ -17,6 +17,17 @@ pub(crate) enum ValueType {
     Object,
 }
 
+impl ValueType {
+    pub(crate) const ALL: [Self; 6] = [
+        Self::String,
+        Self::Integer,
+        Self::Number,
+        Self::Boolean,
+        Self::List,
+        Self::Object,
+    ];
+}
+
 /// Reads a value written as JSON.
 pub(crate) fn json(text: &str) -> Result<Value, ModelError> {
     serde_json::from_str(text).map_err(|_| ModelError::NotJson(text.to_owned()))

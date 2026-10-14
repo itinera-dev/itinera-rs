@@ -7,6 +7,7 @@ use crate::journey::Journey;
 use crate::model::{Model, ModelError};
 use crate::record::Recorders;
 use crate::step::StepsRun;
+use crate::testing::Tested;
 use crate::witness::Witness;
 
 /// The state of one scenario, made new for each.
@@ -27,6 +28,8 @@ pub(crate) struct World {
     pub(crate) admission: Option<Admission>,
     /// The journeys the scenario ran, in order.
     pub(crate) journeys: Vec<Journey>,
+    /// What the scenario's use of test support gave.
+    pub(crate) tested: Tested,
 }
 
 impl World {

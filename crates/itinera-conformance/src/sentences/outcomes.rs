@@ -115,7 +115,7 @@ fn run_was_refused_with_the_message(world: &mut World, message: String) -> Resul
 
 /// Why `run` refused the last journey.
 fn refusal(world: &World) -> Result<&Refusal, Unmet> {
-    match &journey(world)?.run {
+    match journey(world)?.result() {
         Err(refusal) => Ok(refusal),
         Ok(result) => Err(Unmet::Expected(format!(
             "run to be refused; the journey {}",

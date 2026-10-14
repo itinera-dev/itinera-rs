@@ -16,6 +16,7 @@ mod role;
 mod sentences;
 mod service;
 mod step;
+mod testing;
 mod trace;
 mod value;
 mod witness;

@@ -14,6 +14,7 @@ use itinera::workflow::{ListedStep, Violations, WorkflowBuilder};
 
 pub(crate) use mode::Declares;
 
+pub(crate) use input_adapter::answer_alone;
 use input_adapter::input_adapter;
 use policy::{step_policy, workflow_policy};
 use provider::with_provider;

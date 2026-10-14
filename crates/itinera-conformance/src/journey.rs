@@ -4,25 +4,28 @@
 #[cfg(test)]
 pub(crate) mod fixtures;
 mod initial;
+mod instance;
 mod runs;
+mod scripted;
 
 use std::collections::BTreeMap;
 
+use itinera::error::Error;
 use itinera::executor::{AsyncLocalExecutor, LocalExecutor, Refusal};
-use itinera::instance::{InstanceBuilder, InstanceError, WorkflowInstance as _};
-use itinera::journey::{JourneyId, JourneyResult};
+use itinera::instance::{InstanceError, WorkflowInstance as _};
+use itinera::journey::{JourneyId, JourneyResult, ScriptedRun};
 use itinera::mode::{Asynchronous, Synchronous};
 
 pub(crate) use runs::Runs;
+pub(crate) use scripted::run_scripted;
 
-use crate::declaration::{Admission, Declares, ScriptedWorkflow, declared};
+use crate::declaration::{Admission, Declares};
 use crate::executor::Executor;
 use crate::fixture::{self, Fixture, RunsFixtures};
 use crate::model::{Dispatching, Holding, Model, ModelError};
 use crate::record::{Behaviour, Recorder, Recorders, RecordingFactory};
-use crate::role::ProvidedRoles;
 use crate::world::World;
-use initial::{with_data, with_global_metadata};
+use instance::{Created, Reporters, created};
 
 /// One journey the scenario ran.
 #[derive(Debug)]
@@ -32,7 +35,39 @@ pub(crate) struct Journey {
     /// The recorders of the reporters its instance made, by the names the workflow lists.
     pub(crate) reporters: BTreeMap<String, Recorder>,
     /// What `run` returned.
-    pub(crate) run: Result<JourneyResult, Refusal>,
+    pub(crate) run: Result<Ran, Refusal>,
+}
+
+impl Journey {
+    /// The journey's result, unless `run` was refused.
+    pub(crate) fn result(&self) -> Result<&JourneyResult, &Refusal> {
+        self.run.as_ref().map(Ran::result)
+    }
+}
+
+/// What a journey's run gave: its result, or a scripted run, with its result and the record of
+/// its attempts.
+#[derive(Debug)]
+pub(crate) enum Ran {
+    Journey(JourneyResult),
+    Scripted(ScriptedRun),
+}
+
+impl Ran {
+    pub(crate) fn result(&self) -> &JourneyResult {
+        match self {
+            Self::Journey(result) => result,
+            Self::Scripted(run) => &run.result,
+        }
+    }
+
+    /// The record of a scripted run's attempts.
+    pub(crate) fn record(&self) -> Option<&ScriptedRun> {
+        match self {
+            Self::Journey(_) => None,
+            Self::Scripted(run) => Some(run),
+        }
+    }
 }
 
 /// Why the runner could not run the scenario's workflow.
@@ -46,6 +81,8 @@ pub(crate) enum Unrunnable {
     NoExecutor,
     #[error("the {0} workflow is not declared in this executor's execution mode")]
     OtherMode(Fixture),
+    #[error("what the scenario runs alone could not run: {0}")]
+    Alone(Error),
 }
 
 /// Runs the scenario's workflow this many times, each with a new instance, under one executor
@@ -110,7 +147,7 @@ async fn journeys<M: Declares + RunsFixtures, E: Runs<M>>(
 }
 
 /// Declares and builds the workflow, then runs one journey of a new instance, unless the
-/// workflow is refused.
+/// workflow is refused or test support stops the test.
 ///
 /// Each journey has a workflow declared anew, so that its steps count their attempts from the
 /// first.
@@ -122,40 +159,15 @@ async fn journey<M: Declares + RunsFixtures, E: Runs<M>>(
         world.admission = Some(Admission::Admitted(fixture.listing()));
         return M::journey(fixture, &world.model, executor).await.map(Some);
     }
-    let descriptor = match declared::<M>(&world.model, &world.steps_run, &world.witness)?.build() {
-        Ok(descriptor) => descriptor,
-        Err(violations) => {
-            world.admission = Some(Admission::Refused(violations));
-            return Ok(None);
-        }
+    let Some(Created {
+        instance,
+        reporters,
+    }) = created::<M>(world, Reporters::Listed).await?
+    else {
+        return Ok(None);
     };
-    world.admission = Some(Admission::Admitted(descriptor.listing()));
-    let workflow = world.model.workflow()?;
-    let names = &workflow.reporters;
-    let recorders: Vec<Recorder> = names
-        .iter()
-        .map(|name| world.recorders.renewed(name, &world.model))
-        .collect();
-    let roles = ProvidedRoles::new(workflow.roles.clone(), world.witness.clone());
-    let instance = descriptor.instance(ScriptedWorkflow::new(roles));
-    let instance = recorders
-        .iter()
-        .cloned()
-        .fold(instance, InstanceBuilder::reporter);
-    let reporters = names.iter().cloned().zip(recorders).collect();
-    let instance = world
-        .model
-        .initial_data
-        .iter()
-        .try_fold(instance, with_data)?;
-    let instance = world
-        .model
-        .initial_global_metadata
-        .iter()
-        .try_fold(instance, with_global_metadata)?
-        .create()?;
     let journey_id = instance.journey_id().clone();
-    let run = executor.run(instance).await;
+    let run = executor.run(instance).await.map(Ran::Journey);
     Ok(Some(Journey {
         journey_id,
         reporters,

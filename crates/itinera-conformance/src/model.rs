@@ -9,6 +9,7 @@ mod report;
 mod service;
 mod step;
 mod table;
+mod testing;
 mod value;
 mod workflow;
 
@@ -30,6 +31,7 @@ pub(crate) use step::{
     Attempt, AttemptOutcome, Input, Reason, RescueRequest, Step, StepAction, attempts, rescue_of,
 };
 pub(crate) use table::{Row, rows};
+pub(crate) use testing::{Acts, Chosen, Fake, Faking, Played, ScriptRow, ScriptedEnding, Testing};
 pub(crate) use value::{ValueType, json};
 pub(crate) use workflow::{IdGenerator, Workflow};
 
@@ -46,6 +48,8 @@ pub(crate) struct Model {
     /// them; a reporter not here never fails.
     pub(crate) reporter_failures: BTreeMap<String, ReporterFailure>,
     pub(crate) dispatching: Dispatching,
+    /// What the scenario asks of the language's test support.
+    pub(crate) testing: Testing,
 }
 
 impl Model {

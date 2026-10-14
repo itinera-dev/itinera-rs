@@ -4,7 +4,7 @@ The Rust implementation of [Itinera](https://github.com/itinera-dev/spec), a wor
 
 ## Status
 
-Not released yet. The first release, `0.1.0-rc.1`, will implement tier 1 of specification 0.1.0, with the capabilities `sync` and `async`.
+Not released yet. The first release, `0.1.0-rc.1`, will implement tier 1 of specification 0.1.0, with the capabilities `sync`, `async` and `testing`.
 
 ## Using it
 
@@ -14,7 +14,7 @@ Applications depend on one crate, `itinera`. Its features are:
 |---|---|---|
 | `macros` | on | The macros for declaring steps, policies and workflows, which are syntax over the builder |
 | `async` | off | The asynchronous executor, and asynchronous steps, hooks, reporters and dispatchers |
-| `testing` | off | `RecordingReporter`, which keeps every event of a journey for a test to read; enable it under `[dev-dependencies]` |
+| `testing` | off | Test support: `RecordingReporter`, which keeps every event of a journey for a test to read, fake service providers, scripted runs, and recorders that lend a step, a hook or an input adapter its handles outside a journey; enable it under `[dev-dependencies]` |
 | `unstable` | off | API the specification has not settled yet, which may change or go; empty for now |
 
 `itinera` brings in `itinera-core`, which holds the implementation, and, with `macros`, `itinera-macros`. Neither needs to be added directly. The minimum supported Rust version is 1.85.
