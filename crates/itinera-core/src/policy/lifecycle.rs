@@ -2,6 +2,10 @@
 
 use crate::step::Reason;
 
+mod returned;
+
+pub use returned::ReturnedLifecycle;
+
 /// A lifecycle a hook returned, which decides what happens next.
 ///
 /// It displays as the lifecycle is named, for example `FailWorkflow`.
@@ -72,7 +76,27 @@ pub enum OnSuccess {
 /// assert_eq!(reason.code(), "fraud");
 /// ```
 #[derive(Clone, Debug, derive_more::From, derive_more::Into)]
-pub struct FailWorkflow(Reason);
+pub struct FailWorkflow {
+    reason: Reason,
+}
+
+impl FailWorkflow {
+    /// The reason the journey fails with.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::policy::FailWorkflow;
+    /// use itinera::step::Reason;
+    ///
+    /// let fail = FailWorkflow::from(Reason::new("fraud"));
+    /// assert_eq!(fail.reason().code(), "fraud");
+    /// ```
+    #[must_use]
+    pub fn reason(&self) -> &Reason {
+        &self.reason
+    }
+}
 
 impl From<OnSuccess> for Lifecycle {
     fn from(returned: OnSuccess) -> Self {
