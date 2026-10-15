@@ -10,6 +10,9 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  # Nothing in CI reads debug information,
+  # and writing it makes building and linking the tests slower.
+  CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
   format:
