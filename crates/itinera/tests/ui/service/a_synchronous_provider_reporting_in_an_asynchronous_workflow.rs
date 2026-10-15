@@ -63,7 +63,7 @@ impl Orders {
     #[provider]
     fn stock(
         &self,
-        _reporter: itinera::policy::HookReporter<'_>,
+        _reporter: itinera::policy::HookReporter,
     ) -> Result<Provided<dyn StockStore>, Error> {
         Ok(provide!(Warehouse))
     }

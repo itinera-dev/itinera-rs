@@ -4,6 +4,6 @@ error: a step's `run` takes the step by value, as `self`
 17 | /     fn run(
 18 | |         &self,
 19 | |         contributor: &mut Contributor,
-20 | |         mut reporter: StepReporter<'_>,
+20 | |         mut reporter: StepReporter,
 21 | |     ) -> Result<Outcome, Error> {
    | |_______________________________^

@@ -64,7 +64,7 @@ impl StepReporter<'_> {
     /// use itinera::error::Interrupted;
     /// use itinera::step::StepReporter;
     ///
-    /// fn starting(reporter: &mut StepReporter<'_>) -> Result<(), Interrupted> {
+    /// fn starting(reporter: &mut StepReporter) -> Result<(), Interrupted> {
     ///     reporter.info("starting")
     /// }
     /// ```
@@ -84,7 +84,7 @@ impl StepReporter<'_> {
     /// use itinera::error::Interrupted;
     /// use itinera::step::StepReporter;
     ///
-    /// fn charging(reporter: &mut StepReporter<'_>, amount: i64) -> Result<(), Interrupted> {
+    /// fn charging(reporter: &mut StepReporter, amount: i64) -> Result<(), Interrupted> {
     ///     reporter.info_with("charging", amount)
     /// }
     /// ```
@@ -111,7 +111,7 @@ impl StepReporter<'_> {
     /// use itinera::error::Interrupted;
     /// use itinera::step::StepReporter;
     ///
-    /// fn slow(reporter: &mut StepReporter<'_>) -> Result<(), Interrupted> {
+    /// fn slow(reporter: &mut StepReporter) -> Result<(), Interrupted> {
     ///     reporter.warning("the gateway is slow")
     /// }
     /// ```
@@ -131,7 +131,7 @@ impl StepReporter<'_> {
     /// use itinera::error::Interrupted;
     /// use itinera::step::StepReporter;
     ///
-    /// fn slow(reporter: &mut StepReporter<'_>, millis: u64) -> Result<(), Interrupted> {
+    /// fn slow(reporter: &mut StepReporter, millis: u64) -> Result<(), Interrupted> {
     ///     reporter.warning_with("the gateway is slow", millis)
     /// }
     /// ```
@@ -158,7 +158,7 @@ impl StepReporter<'_> {
     /// use itinera::error::Interrupted;
     /// use itinera::step::StepReporter;
     ///
-    /// fn no_receipt(reporter: &mut StepReporter<'_>) -> Result<(), Interrupted> {
+    /// fn no_receipt(reporter: &mut StepReporter) -> Result<(), Interrupted> {
     ///     reporter.error("the receipt was not printed")
     /// }
     /// ```
@@ -178,7 +178,7 @@ impl StepReporter<'_> {
     /// use itinera::error::Interrupted;
     /// use itinera::step::StepReporter;
     ///
-    /// fn no_receipt(reporter: &mut StepReporter<'_>, printer: String) -> Result<(), Interrupted> {
+    /// fn no_receipt(reporter: &mut StepReporter, printer: String) -> Result<(), Interrupted> {
     ///     reporter.error_with("the receipt was not printed", printer)
     /// }
     /// ```
@@ -210,7 +210,7 @@ impl StepReporter<'_> {
     /// use itinera::error::Interrupted;
     /// use itinera::step::StepReporter;
     ///
-    /// fn found(reporter: &mut StepReporter<'_>, user: String) -> Result<(), Interrupted> {
+    /// fn found(reporter: &mut StepReporter, user: String) -> Result<(), Interrupted> {
     ///     reporter.set_global_metadata("user_id", user)
     /// }
     /// ```

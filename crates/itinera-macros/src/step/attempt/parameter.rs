@@ -44,7 +44,7 @@ pub(super) fn parameter(parameter: &mut PatType, noun: &str) -> syn::Result<Para
                 &parameter.pat,
                 format!(
                     "every parameter of a {noun}'s `run` after `self` is a contributor, as \
-                     `&mut Contributor`, a reporter, as `StepReporter<'_>`, or a `#[service]`"
+                     `&mut Contributor`, a reporter, as `StepReporter`, or a `#[service]`"
                 ),
             ));
         }

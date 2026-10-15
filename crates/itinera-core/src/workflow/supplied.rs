@@ -41,9 +41,46 @@ impl Supplied {
     /// use itinera::workflow::Supplied;
     ///
     /// let supplied = Supplied::value(40_i64);
-    /// assert!(matches!(supplied, Supplied::Value(value) if value.downcast_ref::<i64>() == Some(&40)));
+    /// assert_eq!(supplied.downcast_ref::<i64>(), Some(&40));
     /// ```
     pub fn value<T: Value>(value: T) -> Self {
         Self::Value(AnyValue::new(value))
+    }
+
+    /// The value supplied, if there is one and it has type `T`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::workflow::Supplied;
+    ///
+    /// let supplied = Supplied::value(40_i64);
+    /// assert_eq!(supplied.downcast_ref::<i64>(), Some(&40));
+    /// assert_eq!(supplied.downcast_ref::<String>(), None);
+    /// assert_eq!(Supplied::FromDataBag.downcast_ref::<i64>(), None);
+    /// ```
+    pub fn downcast_ref<T: Value>(&self) -> Option<&T> {
+        match self {
+            Self::Value(value) => value.downcast_ref(),
+            Self::FromDataBag => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::a_value_of_that_type(Supplied::value(40_i64), Some(&40))]
+    #[case::a_value_of_another_type(Supplied::value("forty".to_owned()), None)]
+    #[case::nothing(Supplied::FromDataBag, None)]
+    fn only_a_supplied_value_of_the_type_asked_for_is_read(
+        #[case] supplied: Supplied,
+        #[case] read: Option<&i64>,
+    ) {
+        assert_eq!(supplied.downcast_ref::<i64>(), read);
     }
 }

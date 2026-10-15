@@ -103,7 +103,7 @@ impl Request {
             _ => Err(syn::Error::new_spanned(
                 &parameter.pat,
                 "every parameter of a service provider after `&self` is the journey ID, as \
-                 `&JourneyId`, a reporter, as `HookReporter<'_>`, or, for a provider of attempt \
+                 `&JourneyId`, a reporter, as `HookReporter`, or, for a provider of attempt \
                  scope, the step's name or the attempt, as `StepName` or `Attempt`, or says what \
                  it requests, such as `#[from_workflow(\"gateway\")]`",
             )),

@@ -85,7 +85,7 @@ impl Orders {
         step: StepName,
         attempt: Attempt,
         #[from_workflow] currency: Option<String>,
-        mut reporter: HookReporter<'_>,
+        mut reporter: HookReporter,
     ) -> Result<Provided<dyn PaymentGateway>, Error> {
         reporter.info(format!("{step} attempt {attempt}"))?;
         let currency = currency.unwrap_or_default();

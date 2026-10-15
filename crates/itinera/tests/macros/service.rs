@@ -91,7 +91,7 @@ fn gateway(
     step: StepName,
     attempt: Attempt,
     currency: Option<String>,
-    mut reporter: HookReporter<'_>,
+    mut reporter: HookReporter,
 ) -> Result<Provided<dyn PaymentGateway>, Error> {
     reporter.info(format!("{step} attempt {attempt}"))?;
     let currency = currency.unwrap_or_default();
@@ -163,7 +163,7 @@ impl Shop {
         step: StepName,
         attempt: Attempt,
         #[from_workflow] currency: Option<String>,
-        reporter: HookReporter<'_>,
+        reporter: HookReporter,
     ) -> Result<Provided<dyn PaymentGateway>, Error> {
         gateway(self.gateway, step, attempt, currency, reporter)
     }

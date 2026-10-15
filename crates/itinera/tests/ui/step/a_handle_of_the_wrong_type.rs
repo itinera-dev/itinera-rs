@@ -14,7 +14,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(self, mut reporter: HookReporter<'_>) -> Result<Outcome, Error> {
+    fn run(self, mut reporter: HookReporter) -> Result<Outcome, Error> {
         reporter.info(format!("charged {}", self.amount))?;
         Self::succeed()
     }

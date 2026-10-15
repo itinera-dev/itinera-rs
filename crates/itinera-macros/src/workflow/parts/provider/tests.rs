@@ -70,7 +70,7 @@ fn a_provider_is_named_and_keyed_after_its_method_unless_its_settings_say_otherw
 )]
 #[case::with_an_unmarked_parameter(
     "#[provider] fn stock(&self, gateway: String) -> Result<Provided<dyn StockStore>, Error> {}",
-    r#"every parameter of a service provider after `&self` is the journey ID, as `&JourneyId`, a reporter, as `HookReporter<'_>`, or, for a provider of attempt scope, the step's name or the attempt, as `StepName` or `Attempt`, or says what it requests, such as `#[from_workflow("gateway")]`"#
+    r#"every parameter of a service provider after `&self` is the journey ID, as `&JourneyId`, a reporter, as `HookReporter`, or, for a provider of attempt scope, the step's name or the attempt, as `StepName` or `Attempt`, or says what it requests, such as `#[from_workflow("gateway")]`"#
 )]
 fn a_provider_is_refused_when_its_method_or_settings_cannot_describe_one(
     #[case] method: &str,
@@ -84,7 +84,7 @@ fn a_provider_is_refused_when_its_method_or_settings_cannot_describe_one(
 fn a_provider_requesting_what_its_scope_allows_declares_its_needs_in_order() {
     let provider = provider(
         "#[provider(per_attempt)] fn payments(&self, attempt: Attempt, \
-         #[from_workflow] gateway: Option<String>, reporter: HookReporter<'_>) \
+         #[from_workflow] gateway: Option<String>, reporter: HookReporter) \
          -> Result<Provided<dyn PaymentGateway>, Error> {}",
     );
     let workflow: Type = syn::parse_str("Orders").unwrap();

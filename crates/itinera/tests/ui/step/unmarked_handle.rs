@@ -16,7 +16,7 @@ impl Charge {
     fn run(
         self,
         receipts: &mut Vec<String>,
-        mut reporter: StepReporter<'_>,
+        mut reporter: StepReporter,
     ) -> Result<Outcome, Error> {
         reporter.info("charging")?;
         receipts.push(self.amount.to_string());

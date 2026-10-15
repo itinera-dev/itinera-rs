@@ -17,7 +17,7 @@ impl Charge {
     fn run(
         self,
         contributor: &mut Contributor,
-        mut reporter: StepReporter<'_>,
+        mut reporter: StepReporter,
         _again: &mut Contributor,
     ) -> Result<Outcome, Error> {
         reporter.info("charging")?;

@@ -1,4 +1,4 @@
-error: every parameter of a service provider after `&self` is the journey ID, as `&JourneyId`, a reporter, as `HookReporter<'_>`, or, for a provider of attempt scope, the step's name or the attempt, as `StepName` or `Attempt`, or says what it requests, such as `#[from_workflow("gateway")]`
+error: every parameter of a service provider after `&self` is the journey ID, as `&JourneyId`, a reporter, as `HookReporter`, or, for a provider of attempt scope, the step's name or the attempt, as `StepName` or `Attempt`, or says what it requests, such as `#[from_workflow("gateway")]`
   --> tests/ui/service/an_unmarked_provider_request.rs:92:9
    |
 92 |         currency: Option<String>,

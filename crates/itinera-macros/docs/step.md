@@ -3,7 +3,7 @@ Describes a step from the block that holds its `run`, so that a workflow can lis
 `run` takes the step by value, then the handles it uses while it runs, each recognised by its type:
 
 - a `&mut Contributor`, to add data to the data bag;
-- a `StepReporter<'_>`, or an `AsyncStepReporter<'_>` in an asynchronous step, to emit the step's own events.
+- a `StepReporter`, or an `AsyncStepReporter<'_>` in an asynchronous step, to emit the step's own events. An `async fn` must write that reporter's lifetime, as `AsyncStepReporter<'_>`; `StepReporter` needs none.
 
 The macro reads only the type as written, by the last segment of its path, so an alias of one of these types is not recognised.
 
@@ -33,7 +33,7 @@ impl Charge {
     fn run(
         self,
         contributor: &mut Contributor,
-        mut reporter: StepReporter<'_>,
+        mut reporter: StepReporter,
     ) -> Result<Outcome, Error> {
         if self.amount <= 0 {
             return Self::fail("nothing-to-charge");

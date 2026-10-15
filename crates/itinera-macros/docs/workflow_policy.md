@@ -32,7 +32,7 @@ impl Notify {
         &self,
         journey_id: &JourneyId,
         #[from_workflow("total")] total: i64,
-        mut reporter: HookReporter<'_>,
+        mut reporter: HookReporter,
     ) -> Result<(), Error> {
         reporter.info(format!("{journey_id} paid {total} on {}", self.channel))?;
         Ok(())

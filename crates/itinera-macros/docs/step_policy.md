@@ -30,7 +30,7 @@ Every other parameter is a handle, recognised by its type alone:
 | the error | `&Error` or `Option<&Error>` | on step failure, on step retry, on step abnormal termination |
 | the journey ID | `&JourneyId` | all |
 | a contributor | `&mut Contributor` | all |
-| a reporter | `HookReporter<'_>`, or `AsyncHookReporter<'_>` in an asynchronous hook | all |
+| a reporter | `HookReporter`, or `AsyncHookReporter<'_>` in an asynchronous hook, which must write its lifetime | all |
 
 The macro reads only the type as written, by the last segment of its path, so an alias of one of these types is not recognised.
 

@@ -9,7 +9,7 @@ use crate::datum::option_of;
 pub(crate) enum Handle {
     /// `&mut Contributor`.
     Contributor,
-    /// A reporter, such as `StepReporter<'_>` or `HookReporter<'_>`.
+    /// A reporter, such as `StepReporter` or `HookReporter`.
     Reporter,
     /// `&JourneyId`.
     JourneyId,
@@ -109,7 +109,8 @@ mod tests {
     #[rstest]
     #[case::a_contributor("&mut Contributor", Handle::Contributor)]
     #[case::a_contributor_by_its_path("&mut itinera::journey::Contributor", Handle::Contributor)]
-    #[case::a_step_reporter("StepReporter<'_>", Handle::Reporter)]
+    #[case::a_step_reporter("StepReporter", Handle::Reporter)]
+    #[case::a_step_reporter_with_its_lifetime("StepReporter<'_>", Handle::Reporter)]
     #[case::an_asynchronous_hook_reporter("AsyncHookReporter<'_>", Handle::Reporter)]
     #[case::the_journey_id("&JourneyId", Handle::JourneyId)]
     #[case::the_step_name("StepName", Handle::StepName)]

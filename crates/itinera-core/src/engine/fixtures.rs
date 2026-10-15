@@ -139,20 +139,14 @@ struct ScriptedStep<'a, S> {
 
 pub(crate) fn scripted<W, S>(script: S) -> StepDescriptor<W>
 where
-    S: Fn(&mut Contributor, &mut StepReporter<'_>) -> Result<Outcome, Error>
-        + Send
-        + Sync
-        + 'static,
+    S: Fn(&mut Contributor, &mut StepReporter) -> Result<Outcome, Error> + Send + Sync + 'static,
 {
     StepDescriptor::new(CHARGE, Scripted { script })
 }
 
 impl<S> StepFactory for Scripted<S>
 where
-    S: Fn(&mut Contributor, &mut StepReporter<'_>) -> Result<Outcome, Error>
-        + Send
-        + Sync
-        + 'static,
+    S: Fn(&mut Contributor, &mut StepReporter) -> Result<Outcome, Error> + Send + Sync + 'static,
 {
     type Step<'a> = ScriptedStep<'a, S>;
 
@@ -171,7 +165,7 @@ where
 
 impl<S> Step for ScriptedStep<'_, S>
 where
-    S: Fn(&mut Contributor, &mut StepReporter<'_>) -> Result<Outcome, Error>,
+    S: Fn(&mut Contributor, &mut StepReporter) -> Result<Outcome, Error>,
 {
     fn run(mut self) -> Result<Outcome, Error> {
         (self.script)(self.contributor, &mut self.reporter)

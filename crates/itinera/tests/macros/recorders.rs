@@ -37,7 +37,7 @@ impl Charge {
         self,
         #[service] payments: &dyn PaymentGateway,
         contributor: &mut Contributor,
-        mut reporter: StepReporter<'_>,
+        mut reporter: StepReporter,
     ) -> Result<Outcome, Error> {
         reporter.info_with("charging", self.price)?;
         let Some(payment) = payments.take(self.price) else {
@@ -59,7 +59,7 @@ impl Audit {
         &self,
         #[from_step] payment: String,
         contributor: &mut Contributor,
-        mut reporter: HookReporter<'_>,
+        mut reporter: HookReporter,
     ) -> Result<OnSuccess, Error> {
         reporter.warning_with("audited", payment.clone())?;
         contributor.contribute("audit", format!("paid {payment}"));
@@ -160,6 +160,6 @@ fn an_input_adapter_reads_a_data_bag_a_test_builds_from_values() {
     let supplied = shop.pricing("price", &data).unwrap();
     let left = shop.pricing("coupon", &data).unwrap();
 
-    assert!(matches!(supplied, Supplied::Value(value) if value.downcast_ref::<i64>() == Some(&42)));
+    assert_eq!(supplied.downcast_ref::<i64>(), Some(&42));
     assert!(matches!(left, Supplied::FromDataBag));
 }

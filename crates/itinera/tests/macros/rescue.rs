@@ -55,7 +55,7 @@ impl Refresh {
     fn run(
         self,
         contributor: &mut Contributor,
-        mut reporter: StepReporter<'_>,
+        mut reporter: StepReporter,
     ) -> Result<RescueOutcome, Error> {
         reporter.info_with("rescuing", cause(self.reason.as_ref(), self.error.as_ref()))?;
         if self.outcome == "busy" {

@@ -138,7 +138,7 @@ impl Warehouse {
         step: StepName,
         attempt: Attempt,
         #[from_workflow] gateway: Option<String>,
-        reporter: HookReporter<'_>,
+        reporter: HookReporter,
     ) -> Result<Provided<dyn Payments>, Error> {
         let gateway = gateway.unwrap_or_else(|| "main".to_owned());
         chosen(&gateway, step, attempt, reporter)
@@ -155,7 +155,7 @@ fn chosen(
     gateway: &str,
     step: StepName,
     attempt: Attempt,
-    mut reporter: HookReporter<'_>,
+    mut reporter: HookReporter,
 ) -> Result<Provided<dyn Payments>, Error> {
     if gateway == "down" {
         return Err(Error::msg("gateway down"));

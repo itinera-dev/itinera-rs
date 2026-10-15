@@ -3,7 +3,7 @@ Describes a rescue step from the block that holds its `run`, so that a workflow 
 `run` takes the rescue step by value, then the handles it uses while it runs, each recognised by its type, as a step's `run` does:
 
 - a `&mut Contributor`, to add data to the data bag;
-- a `StepReporter<'_>`, or an `AsyncStepReporter<'_>` in an asynchronous rescue step, to emit its own events.
+- a `StepReporter`, or an `AsyncStepReporter<'_>` in an asynchronous rescue step, to emit its own events. An `async fn` must write that reporter's lifetime, as `AsyncStepReporter<'_>`; `StepReporter` needs none.
 
 The macro reads only the type as written, by the last segment of its path, so an alias of one of these types is not recognised.
 
@@ -32,7 +32,7 @@ impl RefreshToken {
     fn run(
         self,
         contributor: &mut Contributor,
-        mut reporter: StepReporter<'_>,
+        mut reporter: StepReporter,
     ) -> Result<RescueOutcome, Error> {
         if self.client.is_empty() {
             return Self::fail("no-client");

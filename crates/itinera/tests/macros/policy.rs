@@ -60,7 +60,7 @@ impl Audit {
         #[from_workflow] decision: Option<String>,
         step: StepName,
         attempt: Attempt,
-        mut reporter: HookReporter<'_>,
+        mut reporter: HookReporter,
     ) -> Result<OnSuccess, Error> {
         reporter.info(format!("{step} attempt {attempt} gave {receipt}"))?;
         match decision.as_deref() {
@@ -92,7 +92,7 @@ impl Audit {
         reason: Reason,
         journey_id: &JourneyId,
         #[role] desk: &dyn Desk,
-        mut reporter: HookReporter<'_>,
+        mut reporter: HookReporter,
     ) -> Result<OnFailure, Error> {
         let code = reason.code();
         let desk = desk.desk();
@@ -139,7 +139,7 @@ impl Notify {
     }
 
     #[on_workflow_failure]
-    fn failed(&self, #[role] desk: &dyn Desk, mut reporter: HookReporter<'_>) -> Result<(), Error> {
+    fn failed(&self, #[role] desk: &dyn Desk, mut reporter: HookReporter) -> Result<(), Error> {
         reporter.warning(format!("{} told the {}", self.channel, desk.desk()))?;
         Ok(())
     }
