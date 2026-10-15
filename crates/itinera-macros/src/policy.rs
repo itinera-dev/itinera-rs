@@ -106,7 +106,7 @@ fn describe(kind: Kind, arguments: TokenStream, block: &mut ItemImpl) -> syn::Re
     let policy = &block.self_ty;
     let roles = hooks.iter().flat_map(Hook::roles);
     let workflow = workflow();
-    let bounds = quote!(#(, #workflow: ::itinera::policy::Provides<#roles>)*);
+    let bounds = quote!(#(, #workflow: ::itinera::workflow::Provides<#roles>)*);
     let implementations = hooks
         .iter()
         .map(|hook| hook.implementation(policy, &workflow, &bounds));

@@ -16,7 +16,7 @@ Everything below is in `itinera::service`, unless another module is named.
   - `::new(name, &TOKEN, provide)` makes one of scope `PerJourney`, and `::per_attempt(name, &TOKEN, provide)` one of scope `PerAttempt`. With the `async` feature, an asynchronous workflow's providers are made with `::new_async` and `::per_attempt_async`, which take an `async fn` as well as a function returning a future (`AsyncProvide`);
   - `provide` is a function of the workflow's own value and a `Requested<'_, W, Provider<S>, M>`, returning `Result<Provided<T>, Error>`, usually a method of the workflow;
   - `.needing(HookNeeds<Provider<S>>)` declares its requests, and `.step(name)` attaches it to a step. `.name()` gives its name.
-- **`itinera::policy::Provider<S>`** is the hook kind of a provider. `Requested` gives it the journey ID, data from the workflow and a reporter. One of scope `PerAttempt` also has `step_name()` and `attempt()`.
+- **`Provider<S>`** is the hook kind of a provider. `Requested` gives it the journey ID, data from the workflow and a reporter. One of scope `PerAttempt` also has `step_name()` and `attempt()`.
 - **`itinera::policy::ReportingHookKind`**, a trait every policy hook kind and `Provider<S>` implement, carries `HookNeeds::reporter()` and `Requested::reporter()`. Two inherent `reporter` methods on overlapping impls would break type inference in existing code.
 - **`WorkflowBuilder::provider(descriptor)`** declares a provider on the workflow. The descriptor's mode is the workflow's, so a synchronous workflow cannot be given an asynchronous provider.
 - **The listing.** `ListedStep::services` lists the services each step requests, as `ListedService { key, provider }`, in the order the step declares them.

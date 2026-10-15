@@ -1,8 +1,8 @@
 use itinera::error::Error;
 use itinera::journey::DataBag;
-use itinera::policy::{HookNeeds, InputAdapter, Requested};
+use itinera::policy::{HookNeeds, Requested};
 use itinera::step::step_name;
-use itinera::workflow::{InputAdapterDescriptor, Supplied};
+use itinera::workflow::{InputAdapter, InputAdapterDescriptor, Supplied};
 
 struct Orders;
 

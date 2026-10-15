@@ -104,7 +104,7 @@ impl Till for Shop {
     }
 }
 
-impl itinera::policy::Provides<dyn Till> for Shop {
+impl itinera::workflow::Provides<dyn Till> for Shop {
     fn role(&self) -> &(dyn Till + 'static) {
         self
     }

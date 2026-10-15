@@ -39,8 +39,8 @@ The features are `macros` (on by default), `async`, which adds the asynchronous 
 | `value` | `AnyValue`, the type-erased value of the data bag, event data and reasons' details |
 | `journey` | The data bag, journey IDs, contributors, the result, failures and aborts; with `testing`, `Contributions`, and `ScriptedRun` with its records of steps and attempts |
 | `step` | Step names, needs and their tokens, factories, steps, outcomes, reasons, attempts, step reporters, rescue steps; with `testing`, `StepEventReporter` and `Ending`, how a scripted attempt ends |
-| `policy` | Policy descriptors, the hook traits, hook needs, what a hook receives, hook reporters, lifecycles, roles; with `testing`, `HookEventReporter` |
-| `workflow` | Workflow descriptors, their builder, the `Workflow` trait, input adapters, violations, the listing |
+| `policy` | Policy descriptors, the hook traits, hook needs, what a hook receives, hook reporters, lifecycles, the roles hooks request; with `testing`, `HookEventReporter` |
+| `workflow` | Workflow descriptors, their builder, the `Workflow` trait, the roles a workflow provides, input adapters, violations, the listing |
 | `service` | Service tokens and service providers, of journey or attempt scope |
 | `instance` | The `WorkflowInstance` trait, `Instance` and its builder; with `testing`, `Scripted` and the builder of its script |
 | `executor` | `LocalExecutor`, `AsyncLocalExecutor`, the `local_executor_for!` macro that picks one from a workflow's mode, and refusals |
@@ -172,7 +172,7 @@ sequenceDiagram
 5. The engine runs the hidden step, which calls the application's `run` with the handles and services it asked for.
 6. The outcome, or the error, goes back through the hidden step to the engine.
 
-Where it lives: `crates/itinera-macros/src/`, with `step.rs`, `policy.rs`, `role.rs` and `workflow.rs`; the traits they implement are in `step/described.rs`, `step/factory.rs`, `step/from_inputs.rs`, `step/rescue/described.rs`, `step/rescue/factory.rs`, `step/rescue/from_requests.rs`, `policy/described.rs`, `policy/role.rs`, `workflow/described.rs`, `journey/initial_data.rs` and `journey/output.rs` of `itinera-core`.
+Where it lives: `crates/itinera-macros/src/`, with `step.rs`, `policy.rs`, `role.rs` and `workflow.rs`; the traits they implement are in `step/described.rs`, `step/factory.rs`, `step/from_inputs.rs`, `step/rescue/described.rs`, `step/rescue/factory.rs`, `step/rescue/from_requests.rs`, `policy/described.rs`, `workflow/described.rs`, `workflow/role.rs`, `journey/initial_data.rs` and `journey/output.rs` of `itinera-core`.
 
 ### From declaration to result
 
@@ -374,7 +374,7 @@ In a test, behind the `testing` feature, the handles can come from recorders ins
 
 Also behind `testing`, a test can give an instance a fake in place of a service provider's function, with `fake_provider` on the instance builder or on the builder `#[workflow]` generates. The instance's own copy of the workflow descriptor keeps the fake under the provider's name, and the provider found to serve a step is then the fake, which keeps the provider's name, service, scope, attachment and needs. So the engine resolves what the provider requests, and keeps or drops what it makes, as it would for the provider, and only calls the fake in its place.
 
-Where it lives: `engine/inputs.rs`, `engine/request.rs`, `engine/services.rs`, `answer` in `engine/hooks.rs`, a hook's reason and error in `engine/hooks/step/left.rs`, `rescue_request` in `engine/rescue.rs`; what each requester may request in `policy/kind/`; the tokens and needs in `step/input.rs`, `step/input/`, `step/needs.rs`, `policy/needs/` and `service/token.rs`; the recorders in `journey/contributions.rs`, `step/event_reporter.rs`, `policy/event_reporter.rs` and `event/emitted.rs`, and `DataBag::with` in `journey/data_bag.rs`; the fakes in `instance/builder/fake.rs`, `instance/fake_provider.rs`, `workflow/fake.rs` and `service/fake.rs`.
+Where it lives: `engine/inputs.rs`, `engine/request.rs`, `engine/services.rs`, `answer` in `engine/hooks.rs`, a hook's reason and error in `engine/hooks/step/left.rs`, `rescue_request` in `engine/rescue.rs`; what each requester may request in `policy/kind/`, `workflow/input_adapter/kind.rs` and `service/provider.rs`; the tokens and needs in `step/input.rs`, `step/input/`, `step/needs.rs`, `policy/needs/` and `service/token.rs`; the recorders in `journey/contributions.rs`, `step/event_reporter.rs`, `policy/event_reporter.rs` and `event/emitted.rs`, and `DataBag::with` in `journey/data_bag.rs`; the fakes in `instance/builder/fake.rs`, `instance/fake_provider.rs`, `workflow/fake.rs` and `service/fake.rs`.
 
 ### Outcomes
 

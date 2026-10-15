@@ -11,13 +11,13 @@
 /// implementations with `itinera::mode::async_trait`, available with the `async` feature,
 /// since a trait with a plain `async fn` cannot be a trait object.
 ///
-/// [`Requested::role`]: super::Requested::role
+/// [`Requested::role`]: crate::policy::Requested::role
 ///
 /// # Examples
 ///
 /// ```
 /// use itinera::error::{Error, Result};
-/// use itinera::policy::Provides;
+/// use itinera::workflow::Provides;
 ///
 /// trait Notifier {
 ///     fn notify(&self, message: &str) -> Result<()>;
@@ -51,7 +51,7 @@ pub trait Provides<R: ?Sized> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::policy::Provides;
+    /// use itinera::workflow::Provides;
     ///
     /// trait Clock {
     ///     fn hour(&self) -> u8;

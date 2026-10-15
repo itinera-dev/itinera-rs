@@ -7,13 +7,13 @@ use super::Answers;
 use crate::error::Error;
 use crate::journey::{Contributor, DataBag, JourneyId};
 use crate::mode::Synchronous;
-use crate::policy::Provider;
 use crate::policy::{
-    ErrorHookKind, FailureHookKind, HookKind, HookReporter, InputAdapter, PolicyHookKind, Provides,
-    ReportingHookKind, RetryCause, StepFailure, StepFailureCause, StepHookKind, StepRetry,
+    ErrorHookKind, FailureHookKind, HookKind, HookReporter, PolicyHookKind, ReportingHookKind,
+    RetryCause, StepFailure, StepFailureCause, StepHookKind, StepRetry,
 };
-use crate::service::PerAttempt;
+use crate::service::{PerAttempt, Provider};
 use crate::step::{Attempt, InputToken, Reason, Reporting, StepName};
+use crate::workflow::{InputAdapter, Provides};
 
 /// What a hook receives when it is called: each thing it declared in its [`HookNeeds`], already
 /// resolved, and what the executor tells every hook of its kind `H`, such as the step's name for
@@ -503,7 +503,8 @@ impl<'a, W, H: PolicyHookKind, M> Requested<'a, W, H, M> {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::policy::{OnWorkflowFailure, Provides, Requested, WorkflowFailure};
+    /// use itinera::policy::{OnWorkflowFailure, Requested, WorkflowFailure};
+    /// use itinera::workflow::Provides;
     ///
     /// trait Notifier {
     ///     fn notify(&self, message: &str) -> Result<()>;
@@ -572,8 +573,8 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::policy::{InputAdapter, Requested};
-    /// use itinera::workflow::Supplied;
+    /// use itinera::policy::Requested;
+    /// use itinera::workflow::{InputAdapter, Supplied};
     ///
     /// struct Orders;
     ///
@@ -595,8 +596,8 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::policy::{InputAdapter, Requested};
-    /// use itinera::workflow::Supplied;
+    /// use itinera::policy::Requested;
+    /// use itinera::workflow::{InputAdapter, Supplied};
     ///
     /// struct Orders {
     ///     price: i64,
@@ -629,8 +630,8 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     /// ```
     /// use itinera::error::Result;
     /// use itinera::journey::Read;
-    /// use itinera::policy::{InputAdapter, Requested};
-    /// use itinera::workflow::Supplied;
+    /// use itinera::policy::Requested;
+    /// use itinera::workflow::{InputAdapter, Supplied};
     ///
     /// struct Orders {
     ///     price: i64,
@@ -657,8 +658,8 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::policy::{Provider, Requested};
-    /// use itinera::service::{PerAttempt, Provided, provide};
+    /// use itinera::policy::Requested;
+    /// use itinera::service::{PerAttempt, Provided, Provider, provide};
     ///
     /// trait Labeller: Send + Sync {}
     ///
@@ -687,8 +688,8 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::policy::{Provider, Requested};
-    /// use itinera::service::{PerAttempt, Provided, provide};
+    /// use itinera::policy::Requested;
+    /// use itinera::service::{PerAttempt, Provided, Provider, provide};
     ///
     /// trait PaymentGateway: Send + Sync {}
     ///

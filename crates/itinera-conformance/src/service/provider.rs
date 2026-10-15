@@ -10,8 +10,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use futures::executor::block_on;
 use itinera::error::Error;
 use itinera::mode::{Asynchronous, Synchronous};
-use itinera::policy::{HookNeeds, Provider, Requested};
-use itinera::service::{AsyncProvide, Provided};
+use itinera::policy::{HookNeeds, Requested};
+use itinera::service::{AsyncProvide, Provided, Provider};
 use serde_json::Value;
 
 use super::{Got, Made, Scope, Supplied};

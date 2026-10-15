@@ -11,13 +11,13 @@ use crate::event::{Event, EventBody, EventKind};
 use crate::journey::{
     Abort, Contributor, FailureCause, FailureRequester, JourneyStatus, MissingData,
 };
-use crate::policy::{InputAdapter, Requested};
+use crate::policy::Requested;
 use crate::step::{
     OptionalInput, Outcome, Reason, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved,
     RescueStep, StepDescriptor, StepName,
 };
 use crate::workflow::fixtures::{Orders, orders};
-use crate::workflow::{InputAdapterDescriptor, Supplied};
+use crate::workflow::{InputAdapter, InputAdapterDescriptor, Supplied};
 
 const RESCUE: StepName = StepName::new("charge_rescue");
 const ATTEMPT: OptionalInput<i64> = OptionalInput::new("attempt");

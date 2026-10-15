@@ -3,8 +3,12 @@
 
 use super::{AdapterName, Supplied};
 use crate::error::Error;
-use crate::policy::{HookNeeds, InputAdapter, Needs, Requested};
+use crate::policy::{HookNeeds, Needs, Requested};
 use crate::step::StepName;
+
+mod kind;
+
+pub use kind::InputAdapter;
 
 /// The description of an input adapter of workflows `W`: its name, the steps it is attached to,
 /// at least one, what it needs, and its function. An input adapter is a hook of the workflow
@@ -27,9 +31,9 @@ use crate::step::StepName;
 ///
 /// ```
 /// use itinera::error::Result;
-/// use itinera::policy::{InputAdapter, Requested};
+/// use itinera::policy::Requested;
 /// use itinera::step::step_name;
-/// use itinera::workflow::{InputAdapterDescriptor, Supplied};
+/// use itinera::workflow::{InputAdapter, InputAdapterDescriptor, Supplied};
 ///
 /// struct Orders {
 ///     price: i64,
@@ -99,9 +103,9 @@ impl<W> InputAdapterDescriptor<W> {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::policy::{HookNeeds, InputAdapter, Requested};
+    /// use itinera::policy::{HookNeeds, Requested};
     /// use itinera::step::{Input, step_name};
-    /// use itinera::workflow::{InputAdapterDescriptor, Supplied};
+    /// use itinera::workflow::{InputAdapter, InputAdapterDescriptor, Supplied};
     ///
     /// const PRICE: Input<i64> = Input::new("price");
     ///
@@ -176,7 +180,7 @@ impl<W> InputAdapterDescriptor<W> {
         self.name == name
     }
 
-    fn is_attached_to(&self, step: StepName) -> bool {
+    pub(super) fn is_attached_to(&self, step: StepName) -> bool {
         self.steps.contains(&step)
     }
 
@@ -188,12 +192,4 @@ impl<W> InputAdapterDescriptor<W> {
     ) -> Result<Supplied, Error> {
         (self.adapt)(workflow, got)
     }
-}
-
-/// The input adapter attached to the step, among the workflow's adapters.
-pub(super) fn attached_to<W>(
-    adapters: &[InputAdapterDescriptor<W>],
-    step: StepName,
-) -> Option<&InputAdapterDescriptor<W>> {
-    adapters.iter().find(|adapter| adapter.is_attached_to(step))
 }

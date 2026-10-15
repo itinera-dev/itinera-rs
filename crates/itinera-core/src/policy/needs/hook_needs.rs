@@ -4,10 +4,10 @@ use std::marker::PhantomData;
 
 use super::{Needs, Request};
 use crate::policy::{
-    ErrorHookKind, FailureHookKind, HookKind, InputAdapter, PolicyHookKind, ReportingHookKind,
-    StepHookKind,
+    ErrorHookKind, FailureHookKind, HookKind, PolicyHookKind, ReportingHookKind, StepHookKind,
 };
 use crate::step::{InputNeed, InputToken, Requirement};
+use crate::workflow::InputAdapter;
 
 /// Everything a hook declares it needs, which the executor resolves before the hook runs: data
 /// from the step and from the workflow, the failure's reason, the error, and whether it needs a
@@ -194,7 +194,8 @@ impl HookNeeds<InputAdapter> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::policy::{HookNeeds, InputAdapter};
+    /// use itinera::policy::HookNeeds;
+    /// use itinera::workflow::InputAdapter;
     ///
     /// let needs = HookNeeds::<InputAdapter>::new().data_bag();
     /// ```

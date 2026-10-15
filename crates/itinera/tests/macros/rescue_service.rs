@@ -3,15 +3,17 @@
 
 use itinera::error::Error;
 use itinera::journey::{Contributor, InitialData, JourneyId};
-use itinera::policy::{HookNeeds, InputAdapter, Provider, Requested};
+use itinera::policy::{HookNeeds, Requested};
 use itinera::service::{
-    PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
+    PerAttempt, PerJourney, Provided, Provider, Service, ServiceProviderDescriptor, provide,
 };
 use itinera::step::{
     Attempt, DescribedStep, Input, Outcome, RescueFactory, RescueNeeds, RescueOutcome,
     RescueResolved, RescueStep, Step, StepName, rescue_step, step, step_name,
 };
-use itinera::workflow::{InputAdapterDescriptor, Supplied, Workflow, WorkflowDescriptor, workflow};
+use itinera::workflow::{
+    InputAdapter, InputAdapterDescriptor, Supplied, Workflow, WorkflowDescriptor, workflow,
+};
 use rstest::rstest;
 
 use super::fixtures::{Journey, Orders, orders, run_created};

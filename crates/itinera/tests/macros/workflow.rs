@@ -8,14 +8,15 @@ use itinera::executor::LocalExecutor;
 use itinera::instance::WorkflowInstance;
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId, Read};
 use itinera::policy::{
-    HookNeeds, InputAdapter, OnFailure, OnSuccess, Provides, Requested, StepPolicy, WorkflowPolicy,
-    step_policy, workflow_policy,
+    HookNeeds, OnFailure, OnSuccess, Requested, StepPolicy, WorkflowPolicy, step_policy,
+    workflow_policy,
 };
 use itinera::report::{GlobalMetadata, RecordingReporter, Reporter};
 use itinera::step::{DescribedStep, OptionalInput, Outcome, Step, StepName, step, step_name};
 use itinera::value::AnyValue;
 use itinera::workflow::{
-    InputAdapterDescriptor, Supplied, Workflow, WorkflowDescriptor, role, workflow,
+    InputAdapter, InputAdapterDescriptor, Provides, Supplied, Workflow, WorkflowDescriptor, role,
+    workflow,
 };
 use rstest::rstest;
 

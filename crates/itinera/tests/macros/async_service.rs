@@ -4,10 +4,10 @@
 use itinera::error::Error;
 use itinera::journey::{Contributor, DataBag, InitialData};
 use itinera::mode::Asynchronous;
-use itinera::policy::{AsyncHookReporter, HookNeeds, Provider, Requested};
+use itinera::policy::{AsyncHookReporter, HookNeeds, Requested};
 use itinera::report::RecordingReporter;
 use itinera::service::{
-    PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
+    PerAttempt, PerJourney, Provided, Provider, Service, ServiceProviderDescriptor, provide,
 };
 use itinera::step::{
     AsyncStep, AsyncStepFactory, Attempt, Outcome, Resolved, StepDescriptor, StepNeeds, step,

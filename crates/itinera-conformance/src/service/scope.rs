@@ -2,9 +2,9 @@
 
 use itinera::error::Error;
 use itinera::mode::Asynchronous;
-use itinera::policy::{HookNeeds, Provider};
+use itinera::policy::HookNeeds;
 use itinera::service::{
-    AsyncProvide, PerAttempt, PerJourney, Provided, ProviderScope, Service,
+    AsyncProvide, PerAttempt, PerJourney, Provided, Provider, ProviderScope, Service,
     ServiceProviderDescriptor,
 };
 

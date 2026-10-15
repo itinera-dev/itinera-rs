@@ -3,10 +3,10 @@
 
 use itinera::error::Error;
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
-use itinera::policy::{HookNeeds, HookReporter, Provider, Requested};
+use itinera::policy::{HookNeeds, HookReporter, Requested};
 use itinera::report::RecordingReporter;
 use itinera::service::{
-    PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
+    PerAttempt, PerJourney, Provided, Provider, Service, ServiceProviderDescriptor, provide,
 };
 use itinera::step::{
     Attempt, Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepName,

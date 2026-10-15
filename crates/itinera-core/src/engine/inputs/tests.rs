@@ -11,10 +11,10 @@ use crate::error::Error;
 use crate::event::{self, Event, EventKind, JourneyAbort, RequestSource};
 use crate::instance::InstanceBuilder;
 use crate::journey::{Abort, JourneyStatus, MissingData, Read as Found, Requester};
-use crate::policy::{HookNeeds, InputAdapter};
+use crate::policy::HookNeeds;
 use crate::step::{Input, OptionalInput, StepDescriptor, StepName};
 use crate::workflow::fixtures::Orders;
-use crate::workflow::{AdapterName, InputAdapterDescriptor, WorkflowBuilder};
+use crate::workflow::{AdapterName, InputAdapter, InputAdapterDescriptor, WorkflowBuilder};
 
 /// Supplies an amount of 7, and nothing else.
 fn pricing(_: &Orders, got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied, Error> {

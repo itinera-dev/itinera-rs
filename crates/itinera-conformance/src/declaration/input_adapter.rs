@@ -2,10 +2,10 @@
 
 use itinera::error::Error;
 use itinera::journey::{DataBag, Read};
-use itinera::policy::{HookNeeds, InputAdapter, Requested};
+use itinera::policy::{HookNeeds, Requested};
 use itinera::step::StepName;
 use itinera::value::Value as Storable;
-use itinera::workflow::{InputAdapterDescriptor, Supplied};
+use itinera::workflow::{InputAdapter, InputAdapterDescriptor, Supplied};
 
 use super::{ScriptedWorkflow, leaked, step_name};
 use crate::model::{Adapter, Answer, ModelError, ValueType};

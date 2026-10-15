@@ -44,7 +44,7 @@ fn provided(arguments: TokenStream, block: &ItemImpl) -> syn::Result<TokenStream
     }
     let workflow = &block.self_ty;
     Ok(quote! {
-        impl ::itinera::policy::Provides<dyn #role> for #workflow {
+        impl ::itinera::workflow::Provides<dyn #role> for #workflow {
             fn role(&self) -> &(dyn #role + 'static) {
                 self
             }

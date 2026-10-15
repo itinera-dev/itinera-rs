@@ -1,9 +1,7 @@
 use itinera::error::Error;
-use itinera::policy::{
-    OnStepSuccess, OnSuccess, Provides, Requested, StepPolicyDescriptor, StepSuccess,
-};
+use itinera::policy::{OnStepSuccess, OnSuccess, Requested, StepPolicyDescriptor, StepSuccess};
 use itinera::step::{Outcome, StepDescriptor, step_name};
-use itinera::workflow::WorkflowDescriptor;
+use itinera::workflow::{Provides, WorkflowDescriptor};
 
 trait Notifier {
     fn notify(&self);

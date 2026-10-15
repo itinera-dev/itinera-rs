@@ -10,8 +10,8 @@ use std::num::NonZeroU32;
 
 use itinera::error::Error;
 use itinera::mode::Synchronous;
-use itinera::policy::{Provider, Requested};
-use itinera::service::{Provided, provide};
+use itinera::policy::Requested;
+use itinera::service::{Provided, Provider, provide};
 use serde_json::Value;
 
 pub(crate) use fake::{FakeCalls, with_fake};

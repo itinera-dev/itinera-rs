@@ -12,13 +12,13 @@ use crate::event::{Event, EventBody, EventKind};
 use crate::executor::LocalExecutor;
 use crate::executor::fixtures::{Recorder, Shop, shop_builder};
 use crate::policy::{
-    HookNeeds, OnWorkflowFailure, OnWorkflowSuccess, Provides, Requested, WorkflowFailure,
+    HookNeeds, OnWorkflowFailure, OnWorkflowSuccess, Requested, WorkflowFailure,
     WorkflowPolicyDescriptor, WorkflowSuccess,
 };
 use crate::report::fixtures::entries;
 use crate::step::Outcome;
-use crate::workflow::WorkflowBuilder;
 use crate::workflow::fixtures::{Orders, orders};
+use crate::workflow::{Provides, WorkflowBuilder};
 
 fn kind_and_step(event: &Event) -> (EventKind, Option<StepName>) {
     let step = match &event.body {

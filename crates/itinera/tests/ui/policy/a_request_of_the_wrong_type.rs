@@ -1,8 +1,8 @@
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::policy::{OnFailure, OnSuccess, Provides, RetryCause, StepPolicy, step_policy};
+use itinera::policy::{OnFailure, OnSuccess, RetryCause, StepPolicy, step_policy};
 use itinera::step::{Outcome, StepDescriptor, step_name};
-use itinera::workflow::WorkflowDescriptor;
+use itinera::workflow::{Provides, WorkflowDescriptor};
 
 trait Desk {
     fn desk(&self) -> &'static str;

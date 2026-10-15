@@ -7,16 +7,20 @@ use itinera::event::Event;
 use itinera::executor::LocalExecutor;
 use itinera::journey::{Contributor, DataBag};
 use itinera::policy::{
-    HookNeeds, InputAdapter, OnStepSuccess, OnSuccess, OnWorkflowSuccess, Provider, Provides,
-    Requested, StepPolicyDescriptor, StepSuccess, WorkflowPolicyDescriptor, WorkflowSuccess,
+    HookNeeds, OnStepSuccess, OnSuccess, OnWorkflowSuccess, Requested, StepPolicyDescriptor,
+    StepSuccess, WorkflowPolicyDescriptor, WorkflowSuccess,
 };
 use itinera::report::Reporter;
-use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
+use itinera::service::{
+    PerAttempt, Provided, Provider, Service, ServiceProviderDescriptor, provide,
+};
 use itinera::step::{
     Attempt, Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds,
     step_name,
 };
-use itinera::workflow::{InputAdapterDescriptor, Supplied, WorkflowDescriptor};
+use itinera::workflow::{
+    InputAdapter, InputAdapterDescriptor, Provides, Supplied, WorkflowDescriptor,
+};
 
 const AMOUNT: Input<i64> = Input::new("amount");
 const CHARGED: Input<i64> = Input::new("charged");
