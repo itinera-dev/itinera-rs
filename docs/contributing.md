@@ -36,12 +36,22 @@ The toolchain is pinned in `rust-toolchain.toml`, and the minimum supported Rust
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 - `cargo test --workspace --all-features`
-- `cargo check --workspace --no-default-features`
 - `cargo +1.85 check --workspace --exclude itinera-conformance`
 - `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings`
 - `cargo deny check`
 
-`cargo xtask check` runs them all, in this order, and stops at the first that fails.
+These are also required, and build `itinera` and `itinera-core` once for each combination of their features:
+
+- `cargo hack clippy -p itinera -p itinera-core --feature-powerset --exclude-features default --all-targets -- -D warnings`
+- `cargo hack test -p itinera --feature-powerset --exclude-features default,testing,unstable`
+- `cargo hack test -p itinera-core --feature-powerset --exclude-features unstable`
+- `cargo hack doc -p itinera -p itinera-core --feature-powerset --exclude-features default --no-deps`, with `RUSTDOCFLAGS=-D warnings`
+
+They take several minutes, so before pushing they are run only when a change adds, moves or removes a feature gate, changes code under one, names an item under one, in code or in a documentation link, or changes a crate's features or dependencies. CI runs them on every pull request.
+
+`cargo xtask check` runs the first list, in this order, and stops at the first that fails. `cargo xtask check --feature-combinations` runs the second list after it. The `cargo hack` checks need [cargo-hack](https://github.com/taiki-e/cargo-hack), and `cargo deny check` needs cargo-deny.
+
+The conformance runner turns on `async`, `macros` and `testing` for every crate built with it, so the `cargo hack` checks build only `itinera` and `itinera-core`. The tests leave out `unstable`, which the tests with every feature on cover, and `itinera`'s tests always use `testing`, as an application's tests do.
 
 ## Conformance in CI
 

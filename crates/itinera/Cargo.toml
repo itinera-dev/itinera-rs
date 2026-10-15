@@ -41,3 +41,7 @@ required-features = ["macros", "async"]
 
 [lints]
 workspace = true
+
+# docs.rs builds the default features only, which leave out the asynchronous mode and the testing tools.
+[package.metadata.docs.rs]
+features = ["async", "macros", "testing"]

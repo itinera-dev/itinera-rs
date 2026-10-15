@@ -59,7 +59,7 @@ For each item, the reviewer lists every place in the diff where the item applies
 
 **Checks**
 
-23. The checks under "Running the checks", run in the worktree at the reviewed revision. Report any that fail.
+23. The checks under "Running the checks" that the change calls for, run in the worktree at the reviewed revision. Report any that fail.
 
 ## Handling the findings
 

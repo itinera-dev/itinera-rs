@@ -49,13 +49,56 @@ jobs:
       - if: runner.os != 'Linux'
         run: cargo test --workspace --all-features --exclude itinera
 
-  sync-only:
-    name: sync-only build
+  # The conformance runner turns on every feature it uses for every crate built with it,
+  # so the jobs that try each combination of features build only itinera and itinera-core.
+  feature-lints:
+    name: lints in every feature combination
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: cargo check --workspace --no-default-features
+      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: cargo-hack@0.6.45
+      - run: cargo hack clippy -p itinera -p itinera-core --feature-powerset --exclude-features default --all-targets -- -D warnings
+
+  # The tests with every feature on cover `unstable`,
+  # and the tests of itinera use the testing tools, as an application's tests do.
+  itinera-feature-tests:
+    name: tests of itinera in every feature combination
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: cargo-hack@0.6.45
+      - run: cargo hack test -p itinera --feature-powerset --exclude-features default,testing,unstable
+
+  # The tests with every feature on cover `unstable`.
+  itinera-core-feature-tests:
+    name: tests of itinera-core in every feature combination
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: cargo-hack@0.6.45
+      - run: cargo hack test -p itinera-core --feature-powerset --exclude-features unstable
+
+  feature-documentation:
+    name: documentation in every feature combination
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: cargo-hack@0.6.45
+      - run: cargo hack doc -p itinera -p itinera-core --feature-powerset --exclude-features default --no-deps
 
   minimum-rust:
     name: minimum Rust version

@@ -28,7 +28,7 @@ flowchart LR
 3. With the `macros` feature, on by default, or the `async` feature for `async_trait`, `itinera-core` depends on `itinera-macros` and re-exports each macro from the module of its concept, so an application writes `itinera::step::step`.
 4. The code the macros generate names `::itinera`, so it reaches the core through the same paths an application writes.
 5. `itinera-conformance`, which is not published, depends on `itinera` and runs the conformance cases of [itinera-dev/conformance](https://github.com/itinera-dev/conformance) against it.
-6. `xtask`, which is not published either, runs every required check on the workspace with `cargo xtask check`.
+6. `xtask`, which is not published either, runs the required checks with `cargo xtask check`, and adds those that try each combination of features with `--feature-combinations`.
 
 The features are `macros` (on by default), `async`, which adds the asynchronous executor and the asynchronous traits, `testing`, which adds `RecordingReporter`, the recorders that lend a test the handles of steps, hooks and input adapters, scripted runs, and fakes in place of service providers, and `unstable`, which holds API the specification has not settled yet.
 

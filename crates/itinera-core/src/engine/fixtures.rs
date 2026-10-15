@@ -26,8 +26,10 @@ use crate::step::{
     StepNeeds, StepReporter,
 };
 use crate::value::AnyValue;
+use crate::workflow::WorkflowBuilder;
+#[cfg(feature = "async")]
+use crate::workflow::WorkflowDescriptor;
 use crate::workflow::fixtures::{Orders, orders};
-use crate::workflow::{WorkflowBuilder, WorkflowDescriptor};
 
 /// A reporter that records every event and entry of global metadata it receives, and fails on
 /// one kind of event or key if told to.

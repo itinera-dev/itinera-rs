@@ -9,7 +9,7 @@ use crate::executor::LocalExecutor;
 use crate::executor::fixtures::{FailingFactory, Shop, recorded, run, run_shop_with, run_with};
 use crate::report::fixtures::entries;
 use crate::report::{DefaultDispatcher, DispatcherFactory, RecordingReporter};
-use crate::step::{Outcome, Resolved, StepDescriptor, StepNeeds};
+use crate::step::{Outcome, StepDescriptor};
 use crate::workflow::fixtures::{Orders, orders};
 
 fn sequence(event: &Event) -> NonZeroU64 {
@@ -188,7 +188,7 @@ mod asynchronous {
     use super::*;
     use crate::engine::fixtures::{async_orders, travel};
     use crate::mode::Asynchronous;
-    use crate::step::{AsyncStep, AsyncStepFactory, AsyncStepReporter};
+    use crate::step::{AsyncStep, AsyncStepFactory, AsyncStepReporter, Resolved, StepNeeds};
 
     struct Announcing;
 

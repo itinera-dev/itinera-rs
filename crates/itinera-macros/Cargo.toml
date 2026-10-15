@@ -30,3 +30,7 @@ rstest.workspace = true
 
 [lints]
 workspace = true
+
+# docs.rs builds the default features only, which leave out the asynchronous mode.
+[package.metadata.docs.rs]
+features = ["async"]

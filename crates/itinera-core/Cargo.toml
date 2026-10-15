@@ -29,9 +29,13 @@ uuid.workspace = true
 
 [dev-dependencies]
 futures = { workspace = true, features = ["executor"] }
-itinera = { path = "../itinera", default-features = false, features = ["async"] }
+itinera = { path = "../itinera", default-features = false }
 rstest.workspace = true
 serde_json.workspace = true
 
 [lints]
 workspace = true
+
+# docs.rs builds the default features only, which leave out the macros, the asynchronous mode and the testing tools.
+[package.metadata.docs.rs]
+features = ["async", "macros", "testing"]

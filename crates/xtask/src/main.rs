@@ -1,7 +1,8 @@
 //! Development tasks for itinera, run with `cargo xtask <task>`.
 //!
-//! `cargo xtask check` runs every check that CI requires, in order, and stops at the first that
-//! fails.
+//! `cargo xtask check` runs the checks that CI requires, in order, and stops at the first that
+//! fails. `cargo xtask check --feature-combinations` also runs those that build `itinera` and
+//! `itinera-core` once for each combination of their features.
 
 #![forbid(unsafe_code)]
 
@@ -13,8 +14,9 @@ use std::process::{Command, ExitCode};
 /// The workspace root, where every check runs, whichever directory `cargo xtask` is run from.
 const WORKSPACE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
 
-/// Every check CI requires, in the order `cargo xtask check` runs them.
-static CHECKS: [Check; 7] = [
+/// The checks CI requires that build the workspace once, in the order `cargo xtask check` runs
+/// them.
+static CHECKS: [Check; 6] = [
     Check::cargo(&["fmt", "--all", "--check"]),
     Check::cargo(&[
         "clippy",
@@ -26,7 +28,6 @@ static CHECKS: [Check; 7] = [
         "warnings",
     ]),
     Check::cargo(&["test", "--workspace", "--all-features"]),
-    Check::cargo(&["check", "--workspace", "--no-default-features"]),
     Check::cargo(&[
         "+1.85",
         "check",
@@ -39,6 +40,60 @@ static CHECKS: [Check; 7] = [
         arguments: &["doc", "--workspace", "--no-deps"],
     },
     Check::cargo(&["deny", "check"]),
+];
+
+/// The checks CI requires that build `itinera` and `itinera-core` once for each combination of
+/// their features, in the order `cargo xtask check --feature-combinations` runs them after
+/// [`CHECKS`].
+static FEATURE_COMBINATIONS: [Check; 4] = [
+    Check::cargo(&[
+        "hack",
+        "clippy",
+        "-p",
+        "itinera",
+        "-p",
+        "itinera-core",
+        "--feature-powerset",
+        "--exclude-features",
+        "default",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings",
+    ]),
+    Check::cargo(&[
+        "hack",
+        "test",
+        "-p",
+        "itinera",
+        "--feature-powerset",
+        "--exclude-features",
+        "default,testing,unstable",
+    ]),
+    Check::cargo(&[
+        "hack",
+        "test",
+        "-p",
+        "itinera-core",
+        "--feature-powerset",
+        "--exclude-features",
+        "unstable",
+    ]),
+    Check {
+        variable: Some(("RUSTDOCFLAGS", "-D warnings")),
+        arguments: &[
+            "hack",
+            "doc",
+            "-p",
+            "itinera",
+            "-p",
+            "itinera-core",
+            "--feature-powerset",
+            "--exclude-features",
+            "default",
+            "--no-deps",
+        ],
+    },
 ];
 
 /// A cargo command that must succeed.
@@ -89,7 +144,7 @@ impl fmt::Display for Check {
 /// Why a task did not succeed.
 #[derive(Debug, thiserror::Error)]
 enum Failure {
-    #[error("usage: cargo xtask check")]
+    #[error("usage: cargo xtask check [--feature-combinations]")]
     Usage,
     #[error("`{0}` could not start: {1}")]
     NotStarted(&'static Check, io::Error),
@@ -112,6 +167,10 @@ fn main() -> ExitCode {
 fn run(arguments: &[&str]) -> Result<(), Failure> {
     match arguments {
         ["check"] => CHECKS.iter().try_for_each(Check::run),
+        ["check", "--feature-combinations"] => CHECKS
+            .iter()
+            .chain(&FEATURE_COMBINATIONS)
+            .try_for_each(Check::run),
         _ => Err(Failure::Usage),
     }
 }
@@ -126,27 +185,42 @@ mod tests {
 
     #[test]
     fn the_checks_are_those_the_agents_manual_requires() {
-        let required: Vec<&str> = AGENTS_MANUAL
+        let required: Vec<Vec<&str>> = AGENTS_MANUAL
             .split("## Running the checks")
             .nth(1)
             .unwrap()
             .split("\n## ")
             .next()
             .unwrap()
-            .lines()
-            .filter_map(listed_command)
+            .split("\n\n")
+            .filter_map(listed_commands)
             .collect();
-        let checks: Vec<String> = CHECKS.iter().map(Check::to_string).collect();
 
-        assert_eq!(checks, required);
+        assert_eq!(
+            vec![commands(&CHECKS), commands(&FEATURE_COMBINATIONS)],
+            required
+        );
     }
 
     #[rstest]
     #[case::no_task(&[])]
     #[case::another_task(&["build"])]
-    #[case::check_with_more_arguments(&["check", "--all"])]
-    fn anything_but_check_alone_is_refused(#[case] arguments: &[&str]) {
+    #[case::check_with_another_flag(&["check", "--all"])]
+    #[case::feature_combinations_alone(&["--feature-combinations"])]
+    #[case::check_with_more_arguments(&["check", "--feature-combinations", "--all"])]
+    fn anything_but_check_alone_or_with_feature_combinations_is_refused(
+        #[case] arguments: &[&str],
+    ) {
         assert!(matches!(run(arguments), Err(Failure::Usage)));
+    }
+
+    fn commands(checks: &[Check]) -> Vec<String> {
+        checks.iter().map(Check::to_string).collect()
+    }
+
+    fn listed_commands(paragraph: &str) -> Option<Vec<&str>> {
+        let commands: Vec<&str> = paragraph.lines().filter_map(listed_command).collect();
+        (!commands.is_empty()).then_some(commands)
     }
 
     fn listed_command(line: &str) -> Option<&str> {
