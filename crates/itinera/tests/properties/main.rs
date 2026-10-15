@@ -12,7 +12,7 @@ mod scripted;
 #[cfg(test)]
 mod stream;
 
-use itinera::event::Event;
+use itinera::event::{Event, EventKind};
 use itinera::journey::StatusKind;
 use itinera::step::StepAttempt;
 use proptest::prelude::{prop_assert, prop_assert_eq, proptest};
@@ -65,7 +65,7 @@ proptest! {
         let journey = run(&plan);
         let endings: Vec<StatusKind> = journey.events.iter().filter_map(ended_status).collect();
         let trailing = journey.events.iter().rev().take_while(|event| ends_journey(event)).count();
-        prop_assert_eq!(journey.events.first().map(Event::kind), Some("journey_started"));
+        prop_assert_eq!(journey.events.first().map(Event::kind), Some(EventKind::JourneyStarted));
         prop_assert_eq!(journey.events.iter().filter(|event| starts_journey(event)).count(), 1);
         prop_assert_eq!(journey.events.last().and_then(ended_status), Some(journey.status));
         prop_assert_eq!(trailing, endings.len());

@@ -4,7 +4,7 @@ use crate::engine::fixtures::{CHARGE, async_orders};
 use crate::engine::fixtures::{
     Read, charge, charged, failing_on, instance, kinds, reads, scripted,
 };
-use crate::event::{EventBody, Level};
+use crate::event::{EventBody, EventKind, Level};
 use crate::instance::{Instance, InstanceBuilder, Scripted, WorkflowInstance};
 use crate::journey::{
     Abort, Contributor, DataBag, JourneyStatus, MissingData, Read as JourneyRead, ScriptedRun,
@@ -136,13 +136,13 @@ fn a_scripted_attempt_emits_and_sets_global_metadata_as_its_step_would_in_order(
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_warning",
-            "global_metadata_set",
-            "step_info",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepWarning,
+            EventKind::GlobalMetadataSet,
+            EventKind::StepInfo,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
     assert!(matches!(

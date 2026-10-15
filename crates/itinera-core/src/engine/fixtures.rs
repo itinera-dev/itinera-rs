@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::{Failures, Inline, finish, introduce, run};
 use crate::error::Error;
-use crate::event::{Event, EventBody, JourneyFailure};
+use crate::event::{Event, EventBody, EventKind, JourneyFailure};
 use crate::executor::{Started, build_policies};
 use crate::instance::{InstanceBuilder, WorkflowInstance};
 use crate::journey::{Contributor, Failure, JourneyStatus};
@@ -63,7 +63,7 @@ impl Reporter for Recording {
 
     fn report(&mut self, event: &Event) -> Result<(), Error> {
         self.events.lock().unwrap().push(event.clone());
-        self.fail_on(event.kind())
+        self.fail_on(&event.kind().to_string())
     }
 }
 
@@ -283,7 +283,7 @@ pub(super) fn succeed() -> Result<Outcome, Error> {
     Ok(Outcome::success())
 }
 
-pub(crate) fn kinds(events: &[Event]) -> Vec<&'static str> {
+pub(crate) fn kinds(events: &[Event]) -> Vec<EventKind> {
     events.iter().map(Event::kind).collect()
 }
 

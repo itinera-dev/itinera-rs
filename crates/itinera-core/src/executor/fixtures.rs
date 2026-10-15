@@ -72,7 +72,7 @@ impl Reporter for Recorder {
     }
 
     fn report(&mut self, event: &Event) -> Result<(), Error> {
-        self.record(event.kind())
+        self.record(&event.kind().to_string())
     }
 }
 
@@ -196,7 +196,7 @@ impl Dispatcher for Failing {
 
     fn dispatch(&mut self, event: &Event) -> Result<(), Error> {
         self.dispatcher.dispatch(event)?;
-        self.fails_on(event.kind())
+        self.fails_on(&event.kind().to_string())
     }
 
     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {

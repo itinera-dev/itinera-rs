@@ -8,7 +8,7 @@ use crate::engine::fixtures::{
     travel_with_amount, travel_workflow,
 };
 use crate::error::Error;
-use crate::event::{self, Event, JourneyAbort, RequestSource};
+use crate::event::{self, Event, EventKind, JourneyAbort, RequestSource};
 use crate::instance::InstanceBuilder;
 use crate::journey::{Abort, JourneyStatus, MissingData, Read as Found, Requester};
 use crate::policy::{HookNeeds, InputAdapter};
@@ -39,10 +39,10 @@ fn a_step_is_built_with_the_inputs_it_declares_read_from_the_data_bag() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
 }
@@ -59,12 +59,12 @@ fn an_input_adapter_supplies_an_input_before_the_data_bag_is_read() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "input_adapter_supplied",
-            "optional_input_absent",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::InputAdapterSupplied,
+            EventKind::OptionalInputAbsent,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
 }
@@ -85,10 +85,10 @@ fn an_input_adapter_that_fails_aborts_the_journey_as_its_step_could_not_be_built
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "input_adapter_failed",
-            "journey_aborted"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::InputAdapterFailed,
+            EventKind::JourneyAborted
         ]
     );
 }
@@ -115,10 +115,10 @@ fn a_value_of_another_type_from_an_input_adapter_aborts_the_journey_with_wrong_t
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "input_adapter_supplied",
-            "journey_aborted"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::InputAdapterSupplied,
+            EventKind::JourneyAborted
         ]
     );
 }
@@ -159,7 +159,11 @@ fn an_input_adapter_that_returned_nothing_is_not_named_in_the_abort(
     assert!(reads(&read).is_empty());
     assert_eq!(
         kinds(&events),
-        ["journey_started", "attempt_started", "journey_aborted"]
+        [
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::JourneyAborted
+        ]
     );
 }
 
@@ -200,12 +204,12 @@ fn an_input_adapter_receives_the_data_from_the_workflow_it_requests() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "input_adapter_supplied",
-            "optional_input_absent",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::InputAdapterSupplied,
+            EventKind::OptionalInputAbsent,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
 }
@@ -236,14 +240,14 @@ fn an_input_adapters_absent_optional_data_is_reported_before_what_it_supplied() 
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "optional_input_absent",
-            "input_adapter_supplied",
-            "optional_input_absent",
-            "optional_input_absent",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::OptionalInputAbsent,
+            EventKind::InputAdapterSupplied,
+            EventKind::OptionalInputAbsent,
+            EventKind::OptionalInputAbsent,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
 }
@@ -289,7 +293,11 @@ fn an_input_adapters_required_data_from_the_workflow_aborts_the_journey_before_i
     assert!(reads(&read).is_empty());
     assert_eq!(
         kinds(&events),
-        ["journey_started", "attempt_started", "journey_aborted"]
+        [
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::JourneyAborted
+        ]
     );
     assert_eq!(
         events.last().and_then(aborting_requester),
@@ -370,12 +378,12 @@ fn an_input_adapter_reads_the_data_bag_without_events() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "input_adapter_supplied",
-            "optional_input_absent",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::InputAdapterSupplied,
+            EventKind::OptionalInputAbsent,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
 }

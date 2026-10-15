@@ -6,6 +6,7 @@ use crate::engine::fixtures::{
     CHARGE, Charging, Counted, DRAFT, Read, Seen, attempting, broken, charge, crashed, failing_on,
     instance, kinds, scripted, seen, timed_out, travel_before, travel_workflow,
 };
+use crate::event::EventKind;
 use crate::journey::JourneyStatus;
 use crate::policy::{
     HookNeeds, OnFailure, OnStepAbnormalTermination, PolicyName, Requested,
@@ -41,7 +42,11 @@ fn a_step_whose_factory_fails_aborts_the_journey_as_it_could_not_be_built() {
     ));
     assert_eq!(
         kinds(&events),
-        ["journey_started", "attempt_started", "journey_aborted"]
+        [
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::JourneyAborted
+        ]
     );
 }
 
@@ -111,7 +116,7 @@ fn an_abnormal_termination_carries_no_contributions_to_its_hooks() {
     let (_, events) = travel_workflow(orders().step(step.policy(policy)));
 
     assert_eq!(seen(&saw), ["None"]);
-    assert!(kinds(&events).contains(&"optional_input_absent"));
+    assert!(kinds(&events).contains(&EventKind::OptionalInputAbsent));
 }
 
 #[test]
@@ -144,7 +149,11 @@ fn a_step_policy_that_cannot_be_built_aborts_the_journey_before_the_steps_inputs
     assert_eq!(error.to_string(), "no counter");
     assert_eq!(
         kinds(&events),
-        ["journey_started", "attempt_started", "journey_aborted"]
+        [
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::JourneyAborted
+        ]
     );
 }
 

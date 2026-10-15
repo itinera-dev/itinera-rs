@@ -73,7 +73,7 @@ fn no_engine_event_carries(world: &World, values: &[&Value], key: &str) -> Resul
 
 /// Whether the engine emitted the event, rather than a step or a hook emitting it.
 fn is_engine_event(event: &Event) -> bool {
-    !Level::is_emitted(event.kind())
+    !Level::is_emitted(&event.kind().to_string())
 }
 
 #[then(expr = "no event carries the message {string}")]

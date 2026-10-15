@@ -10,7 +10,7 @@ use crate::service::implementation_named;
 impl From<&Event> for Line {
     fn from(event: &Event) -> Self {
         let mut line = Self {
-            event: event.kind().to_owned(),
+            event: event.kind().to_string(),
             data: Data::Absent,
             ..Self::default()
         };

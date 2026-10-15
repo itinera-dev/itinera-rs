@@ -170,7 +170,7 @@ impl<I: WorkflowInstance, M, S> AttemptScripting<I, M, S> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::event::{Event, Level};
+    /// use itinera::event::{Event, EventKind, Level};
     /// use itinera::instance::WorkflowInstance;
     /// use itinera::journey::StatusKind;
     /// use itinera::report::RecordingReporter;
@@ -222,7 +222,7 @@ impl<I: WorkflowInstance, M, S> AttemptScripting<I, M, S> {
     ///     .run()?;
     /// assert_eq!(run.result.status.kind(), StatusKind::Succeeded);
     /// let kinds: Vec<_> = recorder.events().iter().map(Event::kind).collect();
-    /// assert!(kinds.contains(&"step_warning"));
+    /// assert!(kinds.contains(&EventKind::StepWarning));
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn will_emit(
@@ -247,7 +247,7 @@ impl<I: WorkflowInstance, M, S> AttemptScripting<I, M, S> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::event::{Event, Level};
+    /// use itinera::event::{Event, EventKind, Level};
     /// use itinera::instance::WorkflowInstance;
     /// use itinera::journey::StatusKind;
     /// use itinera::report::RecordingReporter;
@@ -299,7 +299,7 @@ impl<I: WorkflowInstance, M, S> AttemptScripting<I, M, S> {
     ///     .run()?;
     /// assert_eq!(run.result.status.kind(), StatusKind::Succeeded);
     /// let kinds: Vec<_> = recorder.events().iter().map(Event::kind).collect();
-    /// assert!(kinds.contains(&"step_info"));
+    /// assert!(kinds.contains(&EventKind::StepInfo));
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn will_emit_with(

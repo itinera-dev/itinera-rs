@@ -1,7 +1,8 @@
 //! What an event says, one variant per kind of event.
 
 use super::{
-    GiveUpCause, HookSource, JourneyAbort, JourneyFailure, RequestSource, RescueCause, Source,
+    EventKind, GiveUpCause, HookSource, JourneyAbort, JourneyFailure, RequestSource, RescueCause,
+    Source,
 };
 use crate::policy::{Lifecycle, PolicyName, RetryCause};
 use crate::service::{Implementation, ProviderName};
@@ -286,48 +287,51 @@ pub enum EventBody {
     },
 }
 impl EventBody {
-    /// The kind of event, in snake_case, for example `step_failed`.
+    /// The kind of event, which displays in snake_case, for example `step_failed`.
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::event::EventBody;
+    /// use itinera::event::{EventBody, EventKind};
     ///
     /// fn is_emitted_by_a_step(body: &EventBody) -> bool {
-    ///     matches!(body.kind(), "step_info" | "step_warning" | "step_error")
+    ///     matches!(
+    ///         body.kind(),
+    ///         EventKind::StepInfo | EventKind::StepWarning | EventKind::StepError
+    ///     )
     /// }
     /// ```
-    pub fn kind(&self) -> &'static str {
+    pub fn kind(&self) -> EventKind {
         match self {
-            Self::JourneyStarted { .. } => "journey_started",
-            Self::AttemptStarted { .. } => "attempt_started",
-            Self::InputAdapterSupplied { .. } => "input_adapter_supplied",
-            Self::InputAdapterFailed { .. } => "input_adapter_failed",
-            Self::OptionalInputAbsent { .. } => "optional_input_absent",
-            Self::ServiceProvided { .. } => "service_provided",
-            Self::ServiceProviderFailed { .. } => "service_provider_failed",
-            Self::StepSucceeded { .. } => "step_succeeded",
-            Self::StepFailed { .. } => "step_failed",
-            Self::StepSkipped { .. } => "step_skipped",
-            Self::StepAbnormalTermination { .. } => "step_abnormal_termination",
-            Self::HookCalled { .. } => "hook_called",
-            Self::ContributionCommitted { .. } => "contribution_committed",
-            Self::ContributionsDiscarded { .. } => "contributions_discarded",
-            Self::DataOverwritten { .. } => "data_overwritten",
-            Self::GlobalMetadataSet { .. } => "global_metadata_set",
-            Self::JourneyAborted { .. } => "journey_aborted",
-            Self::StepRetrying { .. } => "step_retrying",
-            Self::StepGivenUp { .. } => "step_given_up",
-            Self::StepRescuing { .. } => "step_rescuing",
-            Self::StepRescued { .. } => "step_rescued",
-            Self::JourneySucceeded { .. } => "journey_succeeded",
-            Self::JourneyFailed { .. } => "journey_failed",
-            Self::StepInfo { .. } => "step_info",
-            Self::StepWarning { .. } => "step_warning",
-            Self::StepError { .. } => "step_error",
-            Self::JourneyInfo { .. } => "journey_info",
-            Self::JourneyWarning { .. } => "journey_warning",
-            Self::JourneyError { .. } => "journey_error",
+            Self::JourneyStarted { .. } => EventKind::JourneyStarted,
+            Self::AttemptStarted { .. } => EventKind::AttemptStarted,
+            Self::InputAdapterSupplied { .. } => EventKind::InputAdapterSupplied,
+            Self::InputAdapterFailed { .. } => EventKind::InputAdapterFailed,
+            Self::OptionalInputAbsent { .. } => EventKind::OptionalInputAbsent,
+            Self::ServiceProvided { .. } => EventKind::ServiceProvided,
+            Self::ServiceProviderFailed { .. } => EventKind::ServiceProviderFailed,
+            Self::StepSucceeded { .. } => EventKind::StepSucceeded,
+            Self::StepFailed { .. } => EventKind::StepFailed,
+            Self::StepSkipped { .. } => EventKind::StepSkipped,
+            Self::StepAbnormalTermination { .. } => EventKind::StepAbnormalTermination,
+            Self::HookCalled { .. } => EventKind::HookCalled,
+            Self::ContributionCommitted { .. } => EventKind::ContributionCommitted,
+            Self::ContributionsDiscarded { .. } => EventKind::ContributionsDiscarded,
+            Self::DataOverwritten { .. } => EventKind::DataOverwritten,
+            Self::GlobalMetadataSet { .. } => EventKind::GlobalMetadataSet,
+            Self::JourneyAborted { .. } => EventKind::JourneyAborted,
+            Self::StepRetrying { .. } => EventKind::StepRetrying,
+            Self::StepGivenUp { .. } => EventKind::StepGivenUp,
+            Self::StepRescuing { .. } => EventKind::StepRescuing,
+            Self::StepRescued { .. } => EventKind::StepRescued,
+            Self::JourneySucceeded { .. } => EventKind::JourneySucceeded,
+            Self::JourneyFailed { .. } => EventKind::JourneyFailed,
+            Self::StepInfo { .. } => EventKind::StepInfo,
+            Self::StepWarning { .. } => EventKind::StepWarning,
+            Self::StepError { .. } => EventKind::StepError,
+            Self::JourneyInfo { .. } => EventKind::JourneyInfo,
+            Self::JourneyWarning { .. } => EventKind::JourneyWarning,
+            Self::JourneyError { .. } => EventKind::JourneyError,
         }
     }
 }

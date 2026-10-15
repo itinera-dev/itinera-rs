@@ -8,7 +8,7 @@ use crate::engine::fixtures::{
     instance, kinds, seen, travel, travel_needing, travel_recorded, travel_workflow,
 };
 use crate::error::Error;
-use crate::event::{Event, EventBody, HookSource, JourneyAbort, RequestSource, Source};
+use crate::event::{Event, EventBody, EventKind, HookSource, JourneyAbort, RequestSource, Source};
 use crate::instance::WorkflowInstance;
 use crate::journey::{Abort, FailureRequester, JourneyStatus, MissingData, Requester};
 use crate::policy::{
@@ -98,11 +98,11 @@ fn a_step_hook_receives_what_it_requests_from_the_step_and_the_workflow_before_i
     assert_eq!(
         kinds(&events)[3..],
         [
-            "step_given_up",
-            "optional_input_absent",
-            "optional_input_absent",
-            "hook_called",
-            "journey_failed"
+            EventKind::StepGivenUp,
+            EventKind::OptionalInputAbsent,
+            EventKind::OptionalInputAbsent,
+            EventKind::HookCalled,
+            EventKind::JourneyFailed
         ]
     );
 }
@@ -160,7 +160,7 @@ fn a_required_request_without_a_value_aborts_the_journey_before_the_hook_runs(
         panic!("the journey was not aborted for missing data: {status:?}");
     };
     assert_eq!(missing, expected);
-    assert!(!kinds(&events).contains(&"hook_called"));
+    assert!(!kinds(&events).contains(&EventKind::HookCalled));
     assert!(matches!(
         events.last().map(|event| &event.body),
         Some(EventBody::JourneyAborted { abort }) if abort.step() == Some(CHARGE)
@@ -170,22 +170,28 @@ fn a_required_request_without_a_value_aborts_the_journey_before_the_hook_runs(
 #[rstest]
 #[case::the_error_before_the_draft(
     HookNeeds::new().error().optional_from_step(&DRAFT),
-    &["journey_started", "attempt_started", "step_failed", "step_given_up", "journey_aborted"]
+    &[
+        EventKind::JourneyStarted,
+        EventKind::AttemptStarted,
+        EventKind::StepFailed,
+        EventKind::StepGivenUp,
+        EventKind::JourneyAborted,
+    ]
 )]
 #[case::the_draft_before_the_error(
     HookNeeds::new().optional_from_step(&DRAFT).error(),
     &[
-        "journey_started",
-        "attempt_started",
-        "step_failed",
-        "step_given_up",
-        "optional_input_absent",
-        "journey_aborted"
+        EventKind::JourneyStarted,
+        EventKind::AttemptStarted,
+        EventKind::StepFailed,
+        EventKind::StepGivenUp,
+        EventKind::OptionalInputAbsent,
+        EventKind::JourneyAborted
     ]
 )]
 fn a_hooks_requests_are_resolved_in_the_order_declared(
     #[case] needs: HookNeeds<StepFailure>,
-    #[case] expected: &[&str],
+    #[case] expected: &[EventKind],
 ) {
     let (status, events) = travel_needing(needs, declined);
 
@@ -236,10 +242,10 @@ fn a_value_of_another_type_for_a_hook_aborts_the_journey_naming_the_hook() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_succeeded",
-            "journey_aborted"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepSucceeded,
+            EventKind::JourneyAborted
         ]
     );
 }
@@ -275,26 +281,29 @@ fn a_hooks_contributions_are_committed_once_it_returns_with_the_hook_as_their_so
         hook: StepHook::OnStepSuccess,
         step: StepAttempt::first(CHARGE),
     };
-    let sources: Vec<(&str, &Source)> = events.iter().filter_map(committed).collect();
+    let sources: Vec<(EventKind, &Source)> = events.iter().filter_map(committed).collect();
     assert_eq!(
         sources,
         [
             (
-                "contribution_committed",
+                EventKind::ContributionCommitted,
                 &Source::Step(StepAttempt::first(CHARGE))
             ),
-            ("contribution_committed", &Source::Hook(hook.clone())),
-            ("data_overwritten", &Source::Hook(hook.clone())),
+            (
+                EventKind::ContributionCommitted,
+                &Source::Hook(hook.clone())
+            ),
+            (EventKind::DataOverwritten, &Source::Hook(hook.clone())),
         ]
     );
     assert_eq!(
         kinds(&events)[4..],
         [
-            "journey_info",
-            "hook_called",
-            "contribution_committed",
-            "data_overwritten",
-            "journey_succeeded"
+            EventKind::JourneyInfo,
+            EventKind::HookCalled,
+            EventKind::ContributionCommitted,
+            EventKind::DataOverwritten,
+            EventKind::JourneySucceeded
         ]
     );
     assert!(matches!(
@@ -304,7 +313,7 @@ fn a_hooks_contributions_are_committed_once_it_returns_with_the_hook_as_their_so
     ));
 }
 
-fn committed(event: &Event) -> Option<(&'static str, &Source)> {
+fn committed(event: &Event) -> Option<(EventKind, &Source)> {
     match &event.body {
         EventBody::ContributionCommitted { source, .. }
         | EventBody::DataOverwritten { source, .. } => Some((event.kind(), source)),
@@ -327,7 +336,10 @@ fn a_reporter_failing_on_a_hooks_event_aborts_the_journey_whatever_the_hook_does
         JourneyStatus::Aborted(Abort::ReporterFailed(_))
     ));
     let events = events.lock().unwrap().clone();
-    assert_eq!(kinds(&events)[4..], ["journey_info", "journey_aborted"]);
+    assert_eq!(
+        kinds(&events)[4..],
+        [EventKind::JourneyInfo, EventKind::JourneyAborted]
+    );
 }
 
 /// `on step success`, which fails.
@@ -357,7 +369,7 @@ fn a_hook_that_fails_aborts_the_journey_with_its_error() {
             error: "the ledger is closed".to_string(),
         }
     ));
-    assert!(!kinds(&events).contains(&"hook_called"));
+    assert!(!kinds(&events).contains(&EventKind::HookCalled));
 }
 
 #[cfg(feature = "async")]
@@ -405,12 +417,12 @@ mod asynchronous {
         assert_eq!(
             kinds(&events),
             [
-                "journey_started",
-                "attempt_started",
-                "step_succeeded",
-                "journey_info",
-                "hook_called",
-                "journey_succeeded"
+                EventKind::JourneyStarted,
+                EventKind::AttemptStarted,
+                EventKind::StepSucceeded,
+                EventKind::JourneyInfo,
+                EventKind::HookCalled,
+                EventKind::JourneySucceeded
             ]
         );
     }

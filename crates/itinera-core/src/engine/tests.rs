@@ -8,7 +8,7 @@ use crate::engine::fixtures::{
     travel_workflow,
 };
 use crate::error::Error;
-use crate::event::{Event, EventBody};
+use crate::event::{Event, EventBody, EventKind};
 use crate::executor::LocalExecutor;
 use crate::executor::fixtures::{Recorder, Shop, shop_builder};
 use crate::policy::{
@@ -20,7 +20,7 @@ use crate::step::Outcome;
 use crate::workflow::WorkflowBuilder;
 use crate::workflow::fixtures::{Orders, orders};
 
-fn kind_and_step(event: &Event) -> (&'static str, Option<StepName>) {
+fn kind_and_step(event: &Event) -> (EventKind, Option<StepName>) {
     let step = match &event.body {
         EventBody::AttemptStarted { step } | EventBody::StepSucceeded { step } => Some(step.step),
         _ => None,
@@ -40,12 +40,12 @@ fn steps_run_in_the_order_they_were_added() {
     assert_eq!(
         stream,
         [
-            ("journey_started", None),
-            ("attempt_started", Some(CHARGE)),
-            ("step_succeeded", Some(CHARGE)),
-            ("attempt_started", Some(SHIP)),
-            ("step_succeeded", Some(SHIP)),
-            ("journey_succeeded", None),
+            (EventKind::JourneyStarted, None),
+            (EventKind::AttemptStarted, Some(CHARGE)),
+            (EventKind::StepSucceeded, Some(CHARGE)),
+            (EventKind::AttemptStarted, Some(SHIP)),
+            (EventKind::StepSucceeded, Some(SHIP)),
+            (EventKind::JourneySucceeded, None),
         ]
     );
 }
@@ -127,12 +127,12 @@ fn closing(seen: &Seen) -> WorkflowBuilder<Orders> {
 }
 
 #[rstest]
-#[case::a_success(succeed, &["success"], "journey_succeeded")]
-#[case::a_failure(declined, &["failure"], "journey_failed")]
+#[case::a_success(succeed, &["success"], EventKind::JourneySucceeded)]
+#[case::a_failure(declined, &["failure"], EventKind::JourneyFailed)]
 fn the_workflow_hook_for_how_the_journey_ended_runs_before_it_is_reported(
     #[case] ends: fn() -> Result<Outcome, Error>,
     #[case] called: &[&str],
-    #[case] last: &str,
+    #[case] last: EventKind,
 ) {
     let saw = Seen::default();
     let workflow = closing(&saw).step(StepDescriptor::new(CHARGE, ends));
@@ -140,7 +140,10 @@ fn the_workflow_hook_for_how_the_journey_ended_runs_before_it_is_reported(
     let (_, events) = travel_workflow(workflow);
 
     assert_eq!(seen(&saw), called);
-    assert_eq!(kinds(&events)[events.len() - 2..], ["hook_called", last]);
+    assert_eq!(
+        kinds(&events)[events.len() - 2..],
+        [EventKind::HookCalled, last]
+    );
 }
 
 /// What the workflow knows of its customers' balances, a role it provides to its policies.
@@ -189,7 +192,11 @@ fn a_workflow_hooks_contributions_are_committed_before_the_journey_is_reported()
     assert_eq!(data_of(&status), [("balance".to_string(), 42)]);
     assert_eq!(
         kinds(&events)[events.len() - 3..],
-        ["hook_called", "contribution_committed", "journey_succeeded"]
+        [
+            EventKind::HookCalled,
+            EventKind::ContributionCommitted,
+            EventKind::JourneySucceeded
+        ]
     );
 }
 
@@ -266,13 +273,13 @@ mod asynchronous {
         assert_eq!(
             kinds(&events),
             [
-                "journey_started",
-                "attempt_started",
-                "step_failed",
-                "step_given_up",
-                "journey_warning",
-                "hook_called",
-                "journey_failed"
+                EventKind::JourneyStarted,
+                EventKind::AttemptStarted,
+                EventKind::StepFailed,
+                EventKind::StepGivenUp,
+                EventKind::JourneyWarning,
+                EventKind::HookCalled,
+                EventKind::JourneyFailed
             ]
         );
     }

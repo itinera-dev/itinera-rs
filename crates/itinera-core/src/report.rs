@@ -47,12 +47,12 @@ pub use recording_reporter::RecordingReporter;
 ///
 /// ```
 /// use itinera::error::Result;
-/// use itinera::event::Event;
+/// use itinera::event::{Event, EventKind};
 /// use itinera::report::Reporter;
 ///
 /// #[derive(Default)]
 /// struct Kinds {
-///     kinds: Vec<&'static str>,
+///     kinds: Vec<EventKind>,
 /// }
 ///
 /// impl Reporter for Kinds {

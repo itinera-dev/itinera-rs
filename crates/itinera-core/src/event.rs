@@ -13,6 +13,7 @@ mod emitted;
 mod failure;
 #[cfg(test)]
 pub(crate) mod fixtures;
+mod kind;
 mod level;
 mod requester;
 mod source;
@@ -26,6 +27,7 @@ pub use emitted::Emitted;
 #[cfg(any(test, feature = "testing"))]
 pub(crate) use emitted::Recorded;
 pub use failure::JourneyFailure;
+pub use kind::EventKind;
 pub use level::Level;
 pub use requester::{FailureRequester, Requester};
 pub use source::{HookSource, RequestSource, Source};
@@ -68,18 +70,18 @@ pub struct Event {
     pub body: EventBody,
 }
 impl Event {
-    /// The event's kind, in snake_case, for example `step_failed`.
+    /// The event's kind, which displays in snake_case, for example `step_failed`.
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::event::Event;
+    /// use itinera::event::{Event, EventKind};
     ///
-    /// fn is_last(event: &Event) -> bool {
-    ///     matches!(event.kind(), "journey_succeeded" | "journey_failed" | "journey_aborted")
+    /// fn is_a_step_failure(event: &Event) -> bool {
+    ///     event.kind() == EventKind::StepFailed
     /// }
     /// ```
-    pub fn kind(&self) -> &'static str {
+    pub fn kind(&self) -> EventKind {
         self.body.kind()
     }
 }
