@@ -400,7 +400,7 @@ impl<I: WorkflowInstance, M, S> AttemptScripting<I, M, S> {
     /// let orders = WorkflowDescriptor::builder("orders")
     ///     .step(
     ///         StepDescriptor::new(step_name!("charge"), || {
-    ///             Ok(Outcome::failure("declined".into()))
+    ///             Ok(Outcome::failure("declined"))
     ///         }),
     ///     )
     ///     .build()?;
