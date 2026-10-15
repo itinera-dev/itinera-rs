@@ -17,7 +17,7 @@ Status: done in stage 7. Stage 3 ran the steps in order; stage 5 built each step
 |---|---|
 | Steps run in the order of their descriptors, and nothing reorders or skips them | the scan goes through the descriptor's steps in order, and only the step's own outcome ends it as skipped |
 | Run-once: a step that succeeded, failed or skipped itself never runs again | the scan moves to the next step once a step is done, and the journey ends when a step fails |
-| Attempts are counted from 1, and a step with a budget of N is attempted at most N + 1 times | types: attempts are `step::Attempt`, a `NonZeroU32` starting at `Attempt::FIRST`; the decision allows another attempt only while the attempt's number is at most the budget |
+| Attempts are counted from 1, and a step with a budget of N is attempted at most N + 1 times | types: attempts are `step::Attempt`, a newtype over `NonZeroU32` starting at `Attempt::FIRST`; the decision allows another attempt only while the attempt's number is at most the budget |
 | Attempt numbers never overflow | types: the budget is a `u16`, so the last attempt it allows is 65,536 |
 | A failure, or an abnormal termination unless the step turns off `retry on abnormal termination`, is retried while the budget allows | the pure decision function in the engine, then `on step retry`, which may give the step up by returning `FailWorkflow`, then `step_retrying` |
 | A retry happens immediately | the engine never waits: it only awaits the workflow's own parts |

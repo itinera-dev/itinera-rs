@@ -6,7 +6,7 @@ use super::StepName;
 
 /// The number of one attempt of a step, counted from 1.
 ///
-/// It displays as its number, and converts into a `NonZeroU32`.
+/// It displays and debugs as its number, and converts into a `NonZeroU32`.
 ///
 /// # Examples
 ///
@@ -23,16 +23,16 @@ use super::StepName;
 #[derive(
     Clone,
     Copy,
-    Debug,
     PartialEq,
     Eq,
     PartialOrd,
     Ord,
     Hash,
+    derive_more::Debug,
     derive_more::Display,
     derive_more::Into,
 )]
-#[display("{number}")]
+#[debug("{number:?}")]
 pub struct Attempt {
     number: NonZeroU32,
 }
@@ -64,11 +64,11 @@ impl Attempt {
     /// ```
     /// use itinera::step::Attempt;
     ///
-    /// fn retried(attempt: Attempt) -> bool {
+    /// fn later(attempt: Attempt) -> bool {
     ///     !attempt.is_first()
     /// }
     ///
-    /// assert!(!retried(Attempt::FIRST));
+    /// assert!(!later(Attempt::FIRST));
     /// ```
     #[must_use]
     pub fn is_first(self) -> bool {
@@ -135,5 +135,10 @@ mod tests {
     #[test]
     fn the_attempt_after_another_is_numbered_one_more() {
         assert_eq!(Attempt::FIRST.next().to_string(), "2");
+    }
+
+    #[test]
+    fn an_attempt_debugs_as_its_number() {
+        assert_eq!(format!("{:?}", Attempt::FIRST.next()), "2");
     }
 }
