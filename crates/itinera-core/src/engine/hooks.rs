@@ -82,7 +82,7 @@ impl<D: Delivery> Journey<D> {
             self.answer(&mut answers, &requesting, request, data_bag, left.as_ref())
                 .await?;
         }
-        let mut contributions = Contributor::default();
+        let mut contributions = Contributor::new();
         let returned = {
             let contributor = if needs.wants_contributor() {
                 Some(&mut contributions)

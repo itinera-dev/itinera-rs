@@ -20,9 +20,9 @@ use crate::value::{AnyValue, Value};
 pub enum Read<T> {
     /// A value of the type asked for.
     Present(T),
-    /// The data bag holds nothing under the key.
+    /// Nothing is held under the key.
     Absent,
-    /// The data bag holds a value of another type under the key.
+    /// A value of another type is held under the key.
     OtherType,
 }
 

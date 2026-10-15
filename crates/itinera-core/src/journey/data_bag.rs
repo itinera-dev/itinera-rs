@@ -102,6 +102,9 @@ impl DataBag {
 
     /// Reads the value under a key as a `T`: a copy of it, or what kept it from being one.
     ///
+    /// A read is the reader's own business: it emits no event and aborts nothing, whatever it
+    /// finds.
+    ///
     /// # Examples
     ///
     /// ```

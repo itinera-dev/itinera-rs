@@ -7,7 +7,7 @@ struct Charge<'a> {
 }
 
 impl Step for Charge<'_> {
-    fn run(mut self) -> Result<Outcome, Error> {
+    fn run(self) -> Result<Outcome, Error> {
         self.contributor.contribute("callback", || 1);
         Ok(Outcome::success())
     }

@@ -61,7 +61,7 @@ impl<D: Delivery> Journey<D> {
                 }
             }
         }
-        let mut contributed = Contributor::default();
+        let mut contributed = Contributor::new();
         let ran = {
             let kept = Arc::clone(&self.kept);
             let provided = self
@@ -138,7 +138,7 @@ impl<W, M> Attempting<'_, W, M> {
 fn kept(ran: &Result<Outcome, Error>, contributed: Contributor) -> Contributor {
     match ran {
         Ok(_) => contributed,
-        Err(_) => Contributor::default(),
+        Err(_) => Contributor::new(),
     }
 }
 

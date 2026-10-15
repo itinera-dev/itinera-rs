@@ -97,7 +97,7 @@ fn answer(
 }
 
 /// What the adapter answers when a test calls it alone for the input `key` of the step, with
-/// the read access a data bag of its own lends.
+/// reading a data bag of its own.
 pub(crate) fn answer_alone(
     adapter: &Adapter,
     key: &str,
@@ -112,13 +112,13 @@ pub(crate) fn answer_alone(
     Ok(answered(&answers, key, step_name(step)?, || Ok(bag)))
 }
 
-/// What the adapter answers for the input `key` of the step, reading the data bag through the
-/// access `access` gives, when its answer reads it.
+/// What the adapter answers for the input `key` of the step, reading the data bag `data_bag`
+/// gives, when its answer reads it.
 fn answered<'a>(
     answers: &[Answering],
     key: &str,
     step: StepName,
-    access: impl FnOnce() -> Result<&'a DataBag, Error>,
+    data_bag: impl FnOnce() -> Result<&'a DataBag, Error>,
 ) -> Result<Supplied, Error> {
     let answered = answers
         .iter()
@@ -130,7 +130,7 @@ fn answered<'a>(
         Some(Answered::ReadFromDataBag(key, value_type)) => Ok(for_type(
             *value_type,
             Reading {
-                access: access()?,
+                data_bag: data_bag()?,
                 key,
             },
         )),
@@ -139,9 +139,9 @@ fn answered<'a>(
     }
 }
 
-/// Reads a key through an adapter's access to the data bag, as one type.
+/// Reads a key of the data bag, as one type.
 struct Reading<'a, 'k> {
-    access: &'a DataBag,
+    data_bag: &'a DataBag,
     key: &'k str,
 }
 
@@ -149,7 +149,7 @@ impl ForType for Reading<'_, '_> {
     type Output = Supplied;
 
     fn of<T: Storable>(self) -> Supplied {
-        match self.access.read::<T>(self.key) {
+        match self.data_bag.read::<T>(self.key) {
             Read::Present(value) => Supplied::value(value),
             Read::Absent | Read::OtherType => Supplied::FromDataBag,
         }

@@ -3,8 +3,10 @@ use crate::value::{AnyValue, Value};
 /// A step's or hook's means of contributing data to the journey: values under keys, which are not
 /// declared in advance.
 ///
-/// itinera keeps one for each attempt and lends it as `&mut Contributor`, so a step or hook cannot
-/// keep it beyond the attempt. Each value is captured when
+/// itinera keeps one for each attempt, and for each call of a hook, and lends it as
+/// `&mut Contributor`, so a step or hook cannot keep it beyond that attempt or call. Outside the
+/// `testing` feature only itinera makes one, so a step cannot replace what it lends; with it, a
+/// contributor implements `Default`, for the recorder `Contributions`. Each value is captured when
 /// it is contributed, and a key contributed twice in one attempt keeps its last value. A step's
 /// contributions reach the data bag only when its attempt succeeds, in the order their keys were
 /// first contributed.
@@ -43,12 +45,27 @@ use crate::value::{AnyValue, Value};
 ///     }
 /// }
 /// ```
-#[derive(Clone, Debug, Default)]
+#[derive(Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(Default))]
 pub struct Contributor {
     contributions: Vec<Contribution>,
 }
 
 impl Contributor {
+    pub(crate) fn new() -> Self {
+        Self {
+            contributions: Vec::new(),
+        }
+    }
+
+    /// A copy of what was contributed, for the engine alone: a public `Clone` would let a step
+    /// take back what it contributed.
+    pub(crate) fn copied(&self) -> Self {
+        Self {
+            contributions: self.contributions.clone(),
+        }
+    }
+
     /// Contributes a value under a key, replacing what this attempt contributed under it before.
     ///
     /// # Examples

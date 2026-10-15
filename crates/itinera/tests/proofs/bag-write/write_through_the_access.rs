@@ -1,14 +1,14 @@
 use itinera::error::Error;
+use itinera::journey::DataBag;
 use itinera::policy::{HookNeeds, InputAdapter, Requested};
 use itinera::step::step_name;
-use itinera::value::AnyValue;
 use itinera::workflow::{InputAdapterDescriptor, Supplied};
 
 struct Orders;
 
 impl Orders {
     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Supplied, Error> {
-        got.data_bag()?.insert("amount", AnyValue::new(0_i64));
+        *got.data_bag()? = DataBag::default();
         Ok(Supplied::FromDataBag)
     }
 }

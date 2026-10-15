@@ -14,9 +14,9 @@ Status: done in stage 5. Stage 7 gave hooks their own contributor and reporter, 
 
 | Rule | Enforced by |
 |---|---|
-| The engine makes the handles for one attempt, or one hook's call | types: only the engine can make a reporter, and it lends a new contributor for every attempt and every call of a hook; a `Contributor` made elsewhere is never committed |
+| The engine makes the handles for one attempt, or one hook's call | types: only the engine can make a handle, and it makes new ones for every attempt and every call of a hook; a `Contributor` has no public constructor, `Clone` or `Default` outside the `testing` feature, so a step cannot replace what it is lent |
 | A handle cannot be used once its attempt or hook has ended | types: a handle borrows its attempt or call, as the `&'a mut` of a contributor does, so the borrow checker refuses any code that keeps it beyond `'a`, in the factory, the policy, a `static`, or a thread that may outlive it |
-| During its attempt, a step contributes and emits freely, in any order | the handles take `&mut self`, and the step owns them |
+| During its attempt, a step contributes and emits freely, in any order | the handles take `&mut self`; the step owns its reporter and holds its contributor's `&mut` for the attempt |
 
 ## Tests
 

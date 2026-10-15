@@ -1,10 +1,5 @@
-error[E0624]: method `insert` is private
-  --> tests/proofs/bag-write/write_through_the_access.rs:11:25
+error[E0594]: cannot assign to data in a `&` reference
+  --> tests/proofs/bag-write/write_through_the_access.rs:11:9
    |
-11 |         got.data_bag()?.insert("amount", AnyValue::new(0_i64));
-   |                         ^^^^^^ private method
-   |
-  ::: $WORKSPACE/crates/itinera-core/src/journey/data_bag.rs
-   |
-   |     pub(crate) fn insert(&mut self, key: String, value: AnyValue) -> Option<AnyValue> {
-   |     --------------------------------------------------------------------------------- private method defined here
+11 |         *got.data_bag()? = DataBag::default();
+   |         ^^^^^^^^^^^^^^^^ cannot assign

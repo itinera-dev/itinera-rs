@@ -69,7 +69,7 @@ impl<D: Delivery> Journey<D> {
             rescue: rescue.name(),
         })
         .await?;
-        let rescuing = LeftForRescue::new(attempting.contributed.clone(), failed);
+        let rescuing = LeftForRescue::new(attempting.contributed.copied(), failed);
         Ok(Next::Rescue(rescue, Box::new(rescuing)))
     }
 

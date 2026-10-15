@@ -164,7 +164,7 @@ impl Shop {
         #[journey_id] journey: &JourneyId,
         #[data_bag] data: &DataBag,
     ) -> Result<Supplied, Error> {
-        priced(self.fee, key, price, step, journey, &data)
+        priced(self.fee, key, price, step, journey, data)
     }
 
     #[id_generator]
@@ -180,7 +180,7 @@ fn priced(
     price: Option<i64>,
     step: StepName,
     journey: &JourneyId,
-    data: &&DataBag,
+    data: &DataBag,
 ) -> Result<Supplied, Error> {
     if step != step_name!("charge") || key != "amount" {
         return Err(Error::msg(format!("{journey} asked for {key} of {step}")));
@@ -230,7 +230,7 @@ fn hand_priced(
         price,
         got.step_name(),
         got.journey_id(),
-        &data,
+        data,
     )
 }
 
