@@ -53,7 +53,7 @@ For each item, the reviewer lists every place in the diff where the item applies
 
 **Pull requests and writing**
 
-20. The commit message and pull request description, against "Every pull request names an open issue" and "Commit messages and pull request descriptions".
+20. The commit messages and pull request description, against "Every pull request names an open issue", the bullets on commit messages and changelog trailers, and "Pull request descriptions". Check each commit's type, scope and `!` against its diff and the last release, as the [commit skill](../commit/SKILL.md) says under "The subject", and each changelog entry against what an application meets, compared with the last release, as it says under "The entries". A finding on a message already pushed becomes a correcting entry in a further commit, as that skill says under "After pushing", unless the `commit messages` check refuses the message.
 21. Every document, description and diagram, against the "Writing" section.
 22. Every file the diff changes, against the bullet on `docs/architecture.md`. Follow the [architecture skill](../architecture/SKILL.md) to name each section of that document the diff makes untrue, and check that the diff updates it.
 

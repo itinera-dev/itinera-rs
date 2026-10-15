@@ -11,26 +11,27 @@ Claude never pushes a tag and never publishes to crates.io. The maintainer pushe
 
 ## The release pull request
 
-One pull request, titled "Release <version>" with a release commit of the same name, sets the version and writes its changelog section. It names its issue as AGENTS.md says, normally `Refs #7`.
+One pull request, titled "Release <version>" with a release commit `chore(release): release <version>`, sets the version and writes its changelog section. It names its issue as AGENTS.md says, normally `Refs #7`.
 
 1. Branch from the latest `main`.
-2. After `git fetch --tags`, list what changed since the last release with `git log v<last version>..origin/main`, and read each commit's message.
+2. After `git fetch --tags`, list what changed since the last release with `git log v<last version>..origin/main`, and read each commit's message, its changelog trailers included.
 3. Raise the version:
    - in `Cargo.toml`, the workspace version and the `version` of the `itinera-core` and `itinera-macros` path dependencies;
    - in `Cargo.lock`, with `cargo update --workspace`;
    - in the status paragraph of `README.md`.
 4. Check that `conformance.json` lists every tier 1 proposal of the cases it pins, which the release gate in docs/contributing.md "Releasing" requires. If it does not, stop and tell the maintainer, since the tag would be refused.
-5. Write the version's section at the top of `CHANGELOG.md`, in the form of the sections below it:
-   - a heading `## [<version>]`, and its link at the bottom of the file, to `releases/tag/v<version>`;
-   - one paragraph naming which release it is, whether it breaks code written for the last one, the specification version, the tier, the capabilities, the conformance cases of `conformance.json` and the minimum supported Rust version, and saying "What a journey does is unchanged" when that is so;
-   - `### Added`, `### Changed`, `### Fixed` or `### Removed`, each only when it has entries.
-6. Each entry says what an application meets, by its public path, such as `journey::Read::present`:
-   - every breaking change, with what replaces what is gone;
+5. Write the version's section at the top of `CHANGELOG.md`, above the last release's, in the form of the sections below it:
+   - `git cliff --unreleased --tag v<version> --strip all` prints the heading `## [<version>]` and the entries that commits since the last release carry as trailers, under `### Added`, `### Changed`, `### Fixed` and `### Removed`, each only when it has entries; `docs/contributing.md` "Commit messages and the changelog" says how;
+   - after the heading, one paragraph naming which release it is, whether it breaks code written for the last one, the specification version, the tier, the capabilities, the conformance cases of `conformance.json` and the minimum supported Rust version, and saying "What a journey does is unchanged" when that is so;
+   - the heading's link at the bottom of the file, to `releases/tag/v<version>`.
+6. Reconcile the entries, since a commit's entries cannot change once it merges. Each entry follows AGENTS.md, and the section as a whole says what an application meets, compared with the last release:
+   - entries that a later commit made untrue, such as an addition renamed before the release, become one entry saying what the release holds;
+   - entries that say the same thing merge;
    - nothing that was already true in the last release, which `git show v<last version>:<file>` settles;
    - nothing about how the documentation spells something the language already allowed, such as a lifetime the language lets code leave out;
-   - CI and release changes only when they change what is published or how it is published, such as docs.rs features or the release workflow.
+   - a commit since the last release that changes what an application meets but carries no entry, such as one merged before commits carried them, gets its entry here; changes to CI, the release workflow or the documentation get one only when they change what is published or how, as docs/contributing.md "Commit messages and the changelog" says.
 7. Move `book.json` as "The book" in docs/contributing.md says. `git ls-remote https://github.com/itinera-dev/book refs/heads/next` gives `next`'s head.
-8. Check the change against every condition of the release gate. Run the checks of AGENTS.md "Running the checks", and have the change reviewed as the `review-change` skill says. Ask the reviewer to check every changelog entry against the code at both versions.
+8. Check the change against every condition of the release gate. Run the checks of AGENTS.md "Running the checks", and have the change reviewed as the `review-change` skill says. Ask the reviewer to check every changelog entry against the code at both versions, and the section against the entries git-cliff printed.
 9. Open the pull request, in a cloud session with the REST form the `stack` skill gives, and report it as AGENTS.md "Working with the maintainer" says.
 
 ## After the merge
