@@ -222,7 +222,7 @@ fn hand_priced(
     shop: &HandShop,
     mut got: Requested<'_, HandShop, InputAdapter>,
 ) -> Result<Supplied, Error> {
-    let price = got.optional_from_workflow(&PRICE)?;
+    let price = got.from_workflow(&PRICE)?;
     let data = got.data_bag()?;
     priced(
         shop.fee,
@@ -245,7 +245,7 @@ fn by_hand() -> WorkflowDescriptor<HandShop> {
         .policy(Receipt::descriptor())
         .policy(Watch::descriptor());
     let pricing = InputAdapterDescriptor::new("pricing", step_name!("charge"), hand_priced)
-        .needing(HookNeeds::new().optional_from_workflow(&PRICE).data_bag());
+        .needing(HookNeeds::new().from_workflow(&PRICE).data_bag());
     WorkflowDescriptor::builder("shop")
         .step(charge)
         .step(Ship::descriptor(step_name!("ship")))

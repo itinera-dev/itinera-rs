@@ -155,7 +155,7 @@ impl OnStepSuccess<Orders> for HandAudit {
     fn needs() -> HookNeeds<StepSuccess> {
         HookNeeds::new()
             .from_step(&RECEIPT)
-            .optional_from_workflow(&DECISION)
+            .from_workflow(&DECISION)
             .reporter()
     }
 
@@ -164,7 +164,7 @@ impl OnStepSuccess<Orders> for HandAudit {
         mut got: Requested<'_, Orders, StepSuccess>,
     ) -> Result<OnSuccess, Error> {
         let receipt = got.from_step(&RECEIPT)?;
-        let decision = got.optional_from_workflow(&DECISION)?;
+        let decision = got.from_workflow(&DECISION)?;
         let (step, attempt) = (got.step_name(), got.attempt());
         got.reporter()?
             .info(format!("{step} attempt {attempt} gave {receipt}"))?;
@@ -217,7 +217,7 @@ impl OnStepRetry<Orders> for HandAudit {
 
 impl OnStepAbnormalTermination<Orders> for HandAudit {
     fn needs() -> HookNeeds<StepAbnormalTermination> {
-        HookNeeds::new().error().optional_from_workflow(&DECISION)
+        HookNeeds::new().error().from_workflow(&DECISION)
     }
 
     fn on_step_abnormal_termination(
@@ -225,7 +225,7 @@ impl OnStepAbnormalTermination<Orders> for HandAudit {
         mut got: Requested<'_, Orders, StepAbnormalTermination>,
     ) -> Result<OnFailure, Error> {
         let error = got.error()?;
-        Ok(match got.optional_from_workflow(&DECISION)?.as_deref() {
+        Ok(match got.from_workflow(&DECISION)?.as_deref() {
             Some("fail") => {
                 OnFailure::fail_workflow(Reason::new("crashed").with_message(error.to_string()))
             }
@@ -241,7 +241,7 @@ struct HandNotify {
 impl OnWorkflowSuccess<Orders> for HandNotify {
     fn needs() -> HookNeeds<WorkflowSuccess> {
         HookNeeds::new()
-            .optional_from_workflow(&RECEIPT_IF_ANY)
+            .from_workflow(&RECEIPT_IF_ANY)
             .contributor()
     }
 
@@ -249,7 +249,7 @@ impl OnWorkflowSuccess<Orders> for HandNotify {
         &self,
         mut got: Requested<'_, Orders, WorkflowSuccess>,
     ) -> Result<(), Error> {
-        let receipt = got.optional_from_workflow(&RECEIPT_IF_ANY)?;
+        let receipt = got.from_workflow(&RECEIPT_IF_ANY)?;
         got.contributor()?
             .contribute("notified", format!("{} {receipt:?}", self.channel));
         Ok(())

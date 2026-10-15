@@ -6,7 +6,7 @@ Status: done in stage 7. Stage 5 gave each step its own copy of its inputs, and 
 
 ## API
 
-- **Everything received is the receiver's own.** `Resolved::input` and `optional_input`, for a step, and `Requested::from_step`, `from_workflow` and their optional forms, for a hook or an input adapter, return a `T` that the receiver owns, cloned from the data bag or from the attempt's contributions. `Requested::reason` returns an owned `Reason`. `Requested::error` returns a shared `&Error`, and `Requested::journey_id` a shared `&JourneyId`, neither of which can be changed through.
+- **Everything received is the receiver's own.** `Resolved::input`, for a step, and `Requested::from_step` and `from_workflow`, for a hook or an input adapter, return a `T`, or an `Option<T>` for an optional token, that the receiver owns, cloned from the data bag or from the attempt's contributions. `Requested::reason` returns an owned `Reason`. `Requested::error` returns a shared `&Error`, and `Requested::journey_id` a shared `&JourneyId`, neither of which can be changed through.
 - **Contributions are captured when made**: `Contributor::contribute(key, value)` takes the value by ownership.
 - **The documentation of `itinera::value::Value`** says that whoever receives a value gets its own clone, and that a type whose `Clone` shares mutable state, such as `Arc<Mutex<_>>`, lets one receiver change what another sees and should not be used as a value.
 - **An input adapter's read access to the data bag** is a shared `&DataBag`, whose public methods only read; `read` gives the adapter its own clone of the value in `Read::Present`.

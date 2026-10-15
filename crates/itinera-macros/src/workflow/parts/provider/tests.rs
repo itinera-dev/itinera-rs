@@ -93,7 +93,7 @@ fn a_provider_requesting_what_its_scope_allows_declares_its_needs_in_order() {
 
     assert!(compact(&descriptor).ends_with(&compact(
         r#".needing(::itinera::policy::HookNeeds::new()
-            .optional_from_workflow(&::itinera::step::OptionalInput::<String>::new("gateway"))
+            .from_workflow(&::itinera::step::OptionalInput::<String>::new("gateway"))
             .reporter())"#
     )));
 }

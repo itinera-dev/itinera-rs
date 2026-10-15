@@ -160,7 +160,7 @@ impl RescueFactory for RefreshFactory {
     fn needs(&self) -> RescueNeeds {
         RescueNeeds::new()
             .input(&OUTCOME)
-            .optional_from_rescued_step(&ACCOUNT_LEFT)
+            .from_rescued_step(&ACCOUNT_LEFT)
             .optional_reason()
             .optional_error()
             .contributor()
@@ -170,7 +170,7 @@ impl RescueFactory for RefreshFactory {
     fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<HandRefresh<'a>, Error> {
         Ok(HandRefresh {
             outcome: got.input(&OUTCOME)?,
-            account: got.optional_from_rescued_step(&ACCOUNT_LEFT)?,
+            account: got.from_rescued_step(&ACCOUNT_LEFT)?,
             reason: got.optional_reason()?,
             error: got.optional_error()?,
             contributor: got.contributor()?,

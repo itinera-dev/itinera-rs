@@ -11,9 +11,9 @@ Status: done in stage 7. Stage 4 added policy descriptors naming the hooks they 
 
   | Request | Declared with `HookNeeds` | Taken from `Requested` | Kinds |
   |---|---|---|---|
-  | data from the workflow | `from_workflow`, `optional_from_workflow` | `from_workflow`, `optional_from_workflow` | every kind |
+  | data from the workflow | `from_workflow` | `from_workflow` | every kind |
   | the journey ID | nothing to declare | `journey_id()` | every kind |
-  | data from the step | `from_step`, `optional_from_step` | `from_step`, `optional_from_step` | step hooks |
+  | data from the step | `from_step` | `from_step` | step hooks |
   | the step's name | nothing to declare | `step_name()` | step hooks, input adapters |
   | the attempt number | nothing to declare | `attempt()` | step hooks |
   | the failure's reason | `reason`, `optional_reason` | `reason`, `optional_reason` | `on step failure`, `on step retry` |

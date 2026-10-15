@@ -88,13 +88,13 @@ pub(super) struct Charging<'a> {
 
 impl Charge {
     fn inputs() -> StepNeeds {
-        StepNeeds::new().input(&AMOUNT).optional_input(&DISCOUNT)
+        StepNeeds::new().input(&AMOUNT).input(&DISCOUNT)
     }
 
     fn charging<'a, M>(&'a self, got: &mut Resolved<'a, M>) -> Result<Charging<'a>, Error> {
         Ok(Charging {
             amount: got.input(&AMOUNT)?,
-            discount: got.optional_input(&DISCOUNT)?,
+            discount: got.input(&DISCOUNT)?,
             read: &self.read,
         })
     }

@@ -53,13 +53,8 @@ impl Slots {
         self.received.push(received((key, value)));
     }
 
-    /// Takes a present value, unless it was not declared or was already taken.
-    pub(crate) fn take(&mut self, key: &str) -> Option<AnyValue> {
-        self.take_optional(key).flatten()
-    }
-
     /// Takes a value, present or absent, unless it was not declared or was already taken.
-    pub(crate) fn take_optional(&mut self, key: &str) -> Option<Option<AnyValue>> {
+    pub(crate) fn take(&mut self, key: &str) -> Option<Option<AnyValue>> {
         self.received
             .iter_mut()
             .find(|received| received.is(key))

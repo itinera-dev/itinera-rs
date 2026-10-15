@@ -40,7 +40,7 @@ pub use event_reporter::StepEventReporter;
 pub(crate) use factory::Attempts;
 pub use factory::StepFactory;
 pub use from_inputs::FromInputs;
-pub use input::{Input, OptionalInput};
+pub use input::{Input, InputToken, OptionalInput};
 #[cfg(feature = "macros")]
 pub use itinera_macros::{RescueStep, Step, rescue_step, step};
 pub use name::{StepName, step_name};

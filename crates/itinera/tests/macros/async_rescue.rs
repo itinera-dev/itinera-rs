@@ -115,7 +115,7 @@ impl AsyncRescueFactory for RefreshFactory {
 
     fn needs(&self) -> RescueNeeds {
         RescueNeeds::new()
-            .optional_from_rescued_step(&ACCOUNT)
+            .from_rescued_step(&ACCOUNT)
             .optional_reason()
             .contributor()
             .reporter()
@@ -126,7 +126,7 @@ impl AsyncRescueFactory for RefreshFactory {
         got: &mut RescueResolved<'a, Asynchronous>,
     ) -> Result<HandRefresh<'a>, Error> {
         Ok(HandRefresh {
-            account: got.optional_from_rescued_step(&ACCOUNT)?,
+            account: got.from_rescued_step(&ACCOUNT)?,
             reason: got.optional_reason()?,
             contributor: got.contributor()?,
             reporter: got.reporter()?,

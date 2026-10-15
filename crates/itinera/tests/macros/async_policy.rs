@@ -127,7 +127,7 @@ impl AsyncOnStepSuccess<Orders> for HandAudit {
     fn needs() -> HookNeeds<StepSuccess> {
         HookNeeds::new()
             .from_step(&RECEIPT)
-            .optional_from_workflow(&DECISION)
+            .from_workflow(&DECISION)
             .reporter()
     }
 
@@ -136,7 +136,7 @@ impl AsyncOnStepSuccess<Orders> for HandAudit {
         mut got: Requested<'_, Orders, StepSuccess, Asynchronous>,
     ) -> Result<OnSuccess, Error> {
         let receipt = got.from_step(&RECEIPT)?;
-        let decision = got.optional_from_workflow(&DECISION)?;
+        let decision = got.from_workflow(&DECISION)?;
         got.reporter()?.info(format!("gave {receipt}")).await?;
         Ok(match decision.as_deref() {
             Some("finish") => OnSuccess::FinishWorkflow,
@@ -180,7 +180,7 @@ impl AsyncOnStepRetry<Orders> for HandAudit {
 
 impl AsyncOnStepAbnormalTermination<Orders> for HandAudit {
     fn needs() -> HookNeeds<StepAbnormalTermination> {
-        HookNeeds::new().error().optional_from_workflow(&DECISION)
+        HookNeeds::new().error().from_workflow(&DECISION)
     }
 
     async fn on_step_abnormal_termination(
@@ -188,7 +188,7 @@ impl AsyncOnStepAbnormalTermination<Orders> for HandAudit {
         mut got: Requested<'_, Orders, StepAbnormalTermination, Asynchronous>,
     ) -> Result<OnFailure, Error> {
         let error = got.error()?;
-        Ok(match got.optional_from_workflow(&DECISION)?.as_deref() {
+        Ok(match got.from_workflow(&DECISION)?.as_deref() {
             Some("fail") => {
                 OnFailure::fail_workflow(Reason::new("crashed").with_message(error.to_string()))
             }

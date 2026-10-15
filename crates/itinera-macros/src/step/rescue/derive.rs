@@ -95,8 +95,8 @@ enum Source {
 }
 
 impl Source {
-    /// The prefix of the methods that request data from it.
-    fn prefix(self) -> &'static str {
+    /// The method that requests data from it.
+    fn method(self) -> &'static str {
         match self {
             Self::DataBag => "input",
             Self::RescuedStep => "from_rescued_step",
@@ -154,7 +154,7 @@ impl Request {
     /// The call that declares the request on the rescue step's needs.
     fn declared(&self) -> TokenStream {
         match self {
-            Self::Datum(datum, source) => datum.declared(source.prefix()),
+            Self::Datum(datum, source) => datum.declared(source.method()),
             Self::Left(left, optional, _) => {
                 let method = method(*left, *optional);
                 quote!(.#method())
@@ -165,7 +165,7 @@ impl Request {
     /// The expression that takes what was resolved for the request.
     fn taken(&self, got: &Ident) -> TokenStream {
         match self {
-            Self::Datum(datum, source) => datum.taken(got, source.prefix()),
+            Self::Datum(datum, source) => datum.taken(got, source.method()),
             Self::Left(left, optional, ty) => {
                 let method = method(*left, *optional);
                 quote_spanned!(ty.span()=> #got.#method()?)

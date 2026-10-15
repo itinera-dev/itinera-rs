@@ -7,8 +7,7 @@ use crate::policy::{
     ErrorHookKind, FailureHookKind, HookKind, InputAdapter, PolicyHookKind, ReportingHookKind,
     StepHookKind,
 };
-use crate::step::{Input, InputNeed, OptionalInput, Requirement};
-use crate::value::Value;
+use crate::step::{InputNeed, InputToken, Requirement};
 
 /// Everything a hook declares it needs, which the executor resolves before the hook runs: data
 /// from the step and from the workflow, the failure's reason, the error, and whether it needs a
@@ -34,7 +33,7 @@ use crate::value::Value;
 ///
 /// let needs = HookNeeds::<StepFailure>::new()
 ///     .from_step(&DECLINE)
-///     .optional_from_workflow(&CUSTOMER)
+///     .from_workflow(&CUSTOMER)
 ///     .reason()
 ///     .reporter();
 /// ```
@@ -69,84 +68,58 @@ impl<H: HookKind> HookNeeds<H> {
         Self::default()
     }
 
-    /// Needs data from the workflow: the value of type `T` under the input's key in the data
-    /// bag. Without it, the journey is aborted with `required data missing` before the hook runs.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::policy::{HookNeeds, WorkflowSuccess};
-    /// use itinera::step::Input;
-    ///
-    /// const AMOUNT: Input<i64> = Input::new("amount");
-    ///
-    /// let needs = HookNeeds::<WorkflowSuccess>::new().from_workflow(&AMOUNT);
-    /// ```
-    pub fn from_workflow<T: Value>(mut self, input: &Input<T>) -> Self {
-        self.needs
-            .request(Request::FromWorkflow(InputNeed::required::<T>(input.key())));
-        self
-    }
-
-    /// May use data from the workflow: the value of type `T` under the input's key in the data
-    /// bag, if there is one. Without it, the hook receives `None`, and `optional_input_absent`
+    /// Needs data from the workflow: the value of the input's type under its key in the data bag.
+    /// For an [`Input`], without it the journey is aborted with `required data missing` before the
+    /// hook runs; for an [`OptionalInput`], the hook receives `None`, and `optional_input_absent`
     /// is emitted.
+    ///
+    /// [`Input`]: crate::step::Input
+    /// [`OptionalInput`]: crate::step::OptionalInput
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::policy::{HookNeeds, WorkflowFailure};
-    /// use itinera::step::OptionalInput;
+    /// use itinera::step::{Input, OptionalInput};
     ///
+    /// const AMOUNT: Input<i64> = Input::new("amount");
     /// const CUSTOMER: OptionalInput<String> = OptionalInput::new("customer");
     ///
-    /// let needs = HookNeeds::<WorkflowFailure>::new().optional_from_workflow(&CUSTOMER);
+    /// let needs = HookNeeds::<WorkflowFailure>::new()
+    ///     .from_workflow(&AMOUNT)
+    ///     .from_workflow(&CUSTOMER);
     /// ```
-    pub fn optional_from_workflow<T: Value>(mut self, input: &OptionalInput<T>) -> Self {
+    pub fn from_workflow(mut self, input: &impl InputToken) -> Self {
         self.needs
-            .request(Request::FromWorkflow(InputNeed::optional::<T>(input.key())));
+            .request(Request::FromWorkflow(InputNeed::of(input)));
         self
     }
 }
 
 impl<H: StepHookKind> HookNeeds<H> {
-    /// Needs data from the step: the value of type `T` the attempt contributed under the input's
-    /// key, committed or not. Without it, the journey is aborted with `required data missing`
-    /// before the hook runs.
+    /// Needs data from the step: the value of the input's type the attempt contributed under the
+    /// input's key, committed or not. For an [`Input`], without it the journey is aborted with
+    /// `required data missing` before the hook runs; for an [`OptionalInput`], the hook receives
+    /// `None`, and `optional_input_absent` is emitted.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::policy::{HookNeeds, StepSuccess};
-    /// use itinera::step::Input;
-    ///
-    /// const RECEIPT: Input<String> = Input::new("receipt");
-    ///
-    /// let needs = HookNeeds::<StepSuccess>::new().from_step(&RECEIPT);
-    /// ```
-    pub fn from_step<T: Value>(mut self, input: &Input<T>) -> Self {
-        self.needs
-            .request(Request::FromStep(InputNeed::required::<T>(input.key())));
-        self
-    }
-
-    /// May use data from the step: the value of type `T` the attempt contributed under the
-    /// input's key, if it did. Without it, the hook receives `None`, and `optional_input_absent`
-    /// is emitted.
+    /// [`Input`]: crate::step::Input
+    /// [`OptionalInput`]: crate::step::OptionalInput
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::policy::{HookNeeds, StepRetry};
-    /// use itinera::step::OptionalInput;
+    /// use itinera::step::{Input, OptionalInput};
     ///
+    /// const RECEIPT: Input<String> = Input::new("receipt");
     /// const DRAFT: OptionalInput<String> = OptionalInput::new("draft");
     ///
-    /// let needs = HookNeeds::<StepRetry>::new().optional_from_step(&DRAFT);
+    /// let needs = HookNeeds::<StepRetry>::new()
+    ///     .from_step(&RECEIPT)
+    ///     .from_step(&DRAFT);
     /// ```
-    pub fn optional_from_step<T: Value>(mut self, input: &OptionalInput<T>) -> Self {
-        self.needs
-            .request(Request::FromStep(InputNeed::optional::<T>(input.key())));
+    pub fn from_step(mut self, input: &impl InputToken) -> Self {
+        self.needs.request(Request::FromStep(InputNeed::of(input)));
         self
     }
 }

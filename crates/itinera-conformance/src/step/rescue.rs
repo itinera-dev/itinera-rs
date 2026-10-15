@@ -54,7 +54,7 @@ impl ForType for Needing<'_> {
     fn of<T: Storable>(self) -> RescueNeeds {
         if self.data.optional {
             self.needs
-                .optional_from_rescued_step(&OptionalInput::<T>::new(self.data.key))
+                .from_rescued_step(&OptionalInput::<T>::new(self.data.key))
         } else {
             self.needs
                 .from_rescued_step(&Input::<T>::new(self.data.key))
@@ -100,7 +100,7 @@ impl<M> ForType for Taking<'_, '_, '_, M> {
     fn of<T: Storable>(self) -> Self::Output {
         if self.data.optional {
             self.got
-                .optional_from_rescued_step(&OptionalInput::<T>::new(self.data.key))?
+                .from_rescued_step(&OptionalInput::<T>::new(self.data.key))?
                 .map(json)
                 .transpose()
         } else {

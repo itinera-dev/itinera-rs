@@ -129,27 +129,23 @@ impl Datum {
         }
     }
 
-    /// The call that declares the datum on needs, for data named as `input` or `from_step`, or
-    /// any other prefix: `.input(&token)` or `.optional_input(&token)`.
-    pub(crate) fn declared(&self, prefix: &str) -> TokenStream {
+    /// The call that declares the datum on needs, with the method named for where the data comes
+    /// from, such as `input` or `from_step`: `.input(&token)`.
+    pub(crate) fn declared(&self, method: &str) -> TokenStream {
         let token = self.token();
-        let method = self.method(prefix);
+        let method = self.method(method);
         quote!(.#method(&#token))
     }
 
     /// The expression that takes the datum from what was resolved: `got.input(&token)?`.
-    pub(crate) fn taken(&self, got: &Ident, prefix: &str) -> TokenStream {
+    pub(crate) fn taken(&self, got: &Ident, method: &str) -> TokenStream {
         let token = self.token();
-        let method = self.method(prefix);
+        let method = self.method(method);
         quote!(#got.#method(&#token)?)
     }
 
-    fn method(&self, prefix: &str) -> Ident {
-        let name = match self.request {
-            Request::Required(_) => prefix.to_owned(),
-            Request::Optional(_) => format!("optional_{prefix}"),
-        };
-        Ident::new(&name, self.key.span())
+    fn method(&self, method: &str) -> Ident {
+        Ident::new(method, self.key.span())
     }
 }
 
@@ -211,15 +207,15 @@ mod tests {
     )]
     #[case::optional(
         "#[input] note: Option<String>",
-        r#".optional_input(&::itinera::step::OptionalInput::<String>::new("note"))"#
+        r#".input(&::itinera::step::OptionalInput::<String>::new("note"))"#
     )]
     #[case::optional_by_its_full_path(
         "#[input] note: ::core::option::Option<String>",
-        r#".optional_input(&::itinera::step::OptionalInput::<String>::new("note"))"#
+        r#".input(&::itinera::step::OptionalInput::<String>::new("note"))"#
     )]
     #[case::optional_after_a_trailing_comma(
         r#"#[input("note",)] note: Option<String>"#,
-        r#".optional_input(&::itinera::step::OptionalInput::<String>::new("note"))"#
+        r#".input(&::itinera::step::OptionalInput::<String>::new("note"))"#
     )]
     #[case::required_though_its_value_is_an_option(
         r#"#[input("note", required)] note: Option<String>"#,

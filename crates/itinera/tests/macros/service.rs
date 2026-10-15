@@ -265,7 +265,7 @@ fn hand_payments(
     shop: &HandShop,
     mut got: Requested<'_, HandShop, Provider<PerAttempt>>,
 ) -> Result<Provided<dyn PaymentGateway>, Error> {
-    let currency = got.optional_from_workflow(&CURRENCY)?;
+    let currency = got.from_workflow(&CURRENCY)?;
     let reporter = got.reporter()?;
     gateway(
         shop.gateway,
@@ -282,11 +282,7 @@ fn hand_order_id(_: &HandShop, data: &DataBag) -> Result<String, Error> {
 
 fn by_hand() -> WorkflowDescriptor<HandShop> {
     let charging = ServiceProviderDescriptor::per_attempt("charging", &PAYMENTS, hand_payments)
-        .needing(
-            HookNeeds::new()
-                .optional_from_workflow(&CURRENCY)
-                .reporter(),
-        )
+        .needing(HookNeeds::new().from_workflow(&CURRENCY).reporter())
         .step(step_name!("charge"));
     WorkflowDescriptor::builder("orders")
         .step(StepDescriptor::new(step_name!("charge"), ChargeFactory).retry_budget(1))

@@ -166,7 +166,7 @@ impl Provides<dyn Messages> for Orders {
 /// Works out the amount to charge: the price, less any discount.
 fn pricing(_: &Orders, mut got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied> {
     let price = got.from_workflow(&PRICE)?;
-    let discount = got.optional_from_workflow(&DISCOUNT)?;
+    let discount = got.from_workflow(&DISCOUNT)?;
     Ok(Supplied::value(price - discount.unwrap_or_default()))
 }
 
@@ -193,7 +193,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let adapter = InputAdapterDescriptor::new("pricing", step_name!("charge"), pricing).needing(
         HookNeeds::new()
             .from_workflow(&PRICE)
-            .optional_from_workflow(&DISCOUNT),
+            .from_workflow(&DISCOUNT),
     );
     let payments = ServiceProviderDescriptor::per_attempt("payments", &PAYMENTS, payments)
         .step(step_name!("charge"));

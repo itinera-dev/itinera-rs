@@ -1,8 +1,7 @@
 //! What a step declares it needs, which the executor resolves before the step is built.
 
-use super::{Input, OptionalInput};
+use super::InputToken;
 use crate::service::Service;
-use crate::value::Value;
 
 mod input_need;
 mod request;
@@ -29,7 +28,7 @@ pub(crate) use service_need::ServiceNeed;
 ///
 /// let needs = StepNeeds::new()
 ///     .input(&AMOUNT)
-///     .optional_input(&DISCOUNT)
+///     .input(&DISCOUNT)
 ///     .contributor()
 ///     .reporter();
 /// ```
@@ -55,30 +54,23 @@ impl StepNeeds {
         Self::default()
     }
 
-    /// Declares a required input, after those already declared.
+    /// Declares an input, after those already declared: required for an [`Input`], optional
+    /// for an [`OptionalInput`].
+    ///
+    /// [`Input`]: super::Input
+    /// [`OptionalInput`]: super::OptionalInput
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{Input, StepNeeds};
+    /// use itinera::step::{Input, OptionalInput, StepNeeds};
     ///
-    /// let needs = StepNeeds::new().input(&Input::<i64>::new("amount"));
+    /// let needs = StepNeeds::new()
+    ///     .input(&Input::<i64>::new("amount"))
+    ///     .input(&OptionalInput::<i64>::new("discount"));
     /// ```
-    pub fn input<T: Value>(self, input: &Input<T>) -> Self {
-        self.request(StepRequest::Input(InputNeed::required::<T>(input.key)))
-    }
-
-    /// Declares an optional input, after those already declared.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::step::{OptionalInput, StepNeeds};
-    ///
-    /// let needs = StepNeeds::new().optional_input(&OptionalInput::<i64>::new("discount"));
-    /// ```
-    pub fn optional_input<T: Value>(self, input: &OptionalInput<T>) -> Self {
-        self.request(StepRequest::Input(InputNeed::optional::<T>(input.key)))
+    pub fn input(self, input: &impl InputToken) -> Self {
+        self.request(StepRequest::Input(InputNeed::of(input)))
     }
 
     /// Declares that the step needs a contributor, for the data it contributes.

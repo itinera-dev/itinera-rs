@@ -4,6 +4,10 @@ use std::marker::PhantomData;
 
 use crate::value::Value;
 
+mod token;
+
+pub use token::InputToken;
+
 /// A required input of a step: a key, local to the step, and the type its value must have.
 ///
 /// A step factory keeps its inputs, declares them in its [`StepNeeds`], and takes their values

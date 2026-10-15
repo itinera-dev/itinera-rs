@@ -263,7 +263,7 @@ fn gateways() -> ServiceProviderDescriptor<Orders, PerJourney> {
     ServiceProviderDescriptor::new("gateways", &PAYMENTS, gateway).needing(
         HookNeeds::new()
             .from_workflow(&GATEWAY)
-            .optional_from_workflow(&REGION),
+            .from_workflow(&REGION),
     )
 }
 
@@ -272,7 +272,7 @@ fn gateway(
     mut got: Requested<'_, Orders, Provider<PerJourney>>,
 ) -> Result<Provided<dyn Labeller>, Error> {
     let gateway = got.from_workflow(&GATEWAY)?;
-    let region = got.optional_from_workflow(&REGION)?.unwrap_or_default();
+    let region = got.from_workflow(&REGION)?.unwrap_or_default();
     Ok(labelled(&format!("{gateway}{region}"), &Made::default()))
 }
 

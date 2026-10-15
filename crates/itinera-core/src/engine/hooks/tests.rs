@@ -31,9 +31,9 @@ impl OnStepFailure<Orders> for Alarm {
     fn needs() -> HookNeeds<StepFailure> {
         HookNeeds::new()
             .from_step(&DECLINE)
-            .optional_from_step(&DRAFT)
+            .from_step(&DRAFT)
             .from_workflow(&AMOUNT)
-            .optional_from_workflow(&COUPON)
+            .from_workflow(&COUPON)
             .reason()
             .optional_error()
     }
@@ -45,9 +45,9 @@ impl OnStepFailure<Orders> for Alarm {
         let saw = format!(
             "{} {:?} {} {:?} {} {} {} {} {} {}",
             got.from_step(&DECLINE)?,
-            got.optional_from_step(&DRAFT)?,
+            got.from_step(&DRAFT)?,
             got.from_workflow(&AMOUNT)?,
-            got.optional_from_workflow(&COUPON)?,
+            got.from_workflow(&COUPON)?,
             got.reason()?.code(),
             got.optional_error()?.is_some(),
             got.cause(),
@@ -169,7 +169,7 @@ fn a_required_request_without_a_value_aborts_the_journey_before_the_hook_runs(
 
 #[rstest]
 #[case::the_error_before_the_draft(
-    HookNeeds::new().error().optional_from_step(&DRAFT),
+    HookNeeds::new().error().from_step(&DRAFT),
     &[
         EventKind::JourneyStarted,
         EventKind::AttemptStarted,
@@ -179,7 +179,7 @@ fn a_required_request_without_a_value_aborts_the_journey_before_the_hook_runs(
     ]
 )]
 #[case::the_draft_before_the_error(
-    HookNeeds::new().optional_from_step(&DRAFT).error(),
+    HookNeeds::new().from_step(&DRAFT).error(),
     &[
         EventKind::JourneyStarted,
         EventKind::AttemptStarted,

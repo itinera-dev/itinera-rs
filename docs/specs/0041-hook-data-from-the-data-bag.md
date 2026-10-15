@@ -6,7 +6,7 @@ Status: done in stage 7, which added hooks and their requests.
 
 ## API
 
-- **`HookNeeds::from_workflow`** and **`optional_from_workflow`** declare data from the workflow with the tokens steps use, `Input<T>` and `OptionalInput<T>`, for every kind of hook. The hook takes it with `Requested::from_workflow` or `optional_from_workflow`, already of type `T`.
+- **`HookNeeds::from_workflow`** declares data from the workflow with the tokens steps use, `Input<T>` and `OptionalInput<T>`, for every kind of hook. The hook takes it with `Requested::from_workflow`, already of type `T` for an `Input<T>`, or `Option<T>` for an `OptionalInput<T>`.
 - **Aborts and events name the hook.** A request that cannot be resolved aborts the journey with `required data missing`, holding a `MissingData::Key`, or with `wrong type`, each with the key and a `Requester`, which is `Requester::StepHook` or `Requester::WorkflowHook`, with the policy and the hook; in events the requester also names the step a step hook acts on. `optional_input_absent` for a hook's request carries `RequestSource::Hook`, with the policy and the hook.
 
 ## How the rules are enforced

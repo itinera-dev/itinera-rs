@@ -264,11 +264,11 @@ impl RescueFactory for Refresh {
     type Step<'a> = Refreshing;
 
     fn needs(&self) -> RescueNeeds {
-        RescueNeeds::new().optional_from_rescued_step(&ATTEMPT)
+        RescueNeeds::new().from_rescued_step(&ATTEMPT)
     }
 
     fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<Refreshing, Error> {
-        got.optional_from_rescued_step(&ATTEMPT)?;
+        got.from_rescued_step(&ATTEMPT)?;
         Ok(Refreshing)
     }
 }

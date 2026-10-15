@@ -48,12 +48,8 @@ impl<'a> Got<'a> {
             .map(instance_of)
     }
 
-    pub(super) fn take(&mut self, key: &str) -> Option<AnyValue> {
+    pub(super) fn take(&mut self, key: &str) -> Option<Option<AnyValue>> {
         self.inputs.take(key)
-    }
-
-    pub(super) fn take_optional(&mut self, key: &str) -> Option<Option<AnyValue>> {
-        self.inputs.take_optional(key)
     }
 }
 

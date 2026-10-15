@@ -100,7 +100,7 @@ impl AsyncStepFactory for ChargeFactory {
     fn needs(&self) -> StepNeeds {
         StepNeeds::new()
             .input(&AMOUNT)
-            .optional_input(&COUPON)
+            .input(&COUPON)
             .contributor()
             .reporter()
     }
@@ -108,7 +108,7 @@ impl AsyncStepFactory for ChargeFactory {
     fn build<'a>(&'a self, got: &mut Resolved<'a, Asynchronous>) -> Result<HandCharge<'a>, Error> {
         Ok(HandCharge {
             amount: got.input(&AMOUNT)?,
-            discount: got.optional_input(&COUPON)?,
+            discount: got.input(&COUPON)?,
             contributor: got.contributor()?,
             reporter: got.reporter()?,
         })

@@ -172,7 +172,7 @@ impl RescueFactory for Refresh {
 
     fn needs(&self) -> RescueNeeds {
         RescueNeeds::new()
-            .optional_from_rescued_step(&ATTEMPT)
+            .from_rescued_step(&ATTEMPT)
             .optional_reason()
             .optional_error()
             .contributor()
@@ -180,7 +180,7 @@ impl RescueFactory for Refresh {
 
     fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<Refreshing<'a>, Error> {
         Ok(Refreshing {
-            attempt: got.optional_from_rescued_step(&ATTEMPT)?,
+            attempt: got.from_rescued_step(&ATTEMPT)?,
             reason: got.optional_reason()?,
             error: got.optional_error()?,
             contributor: got.contributor()?,
@@ -331,12 +331,12 @@ impl RescueFactory for ReadingToken {
     type Step<'a> = ReadToken<'a>;
 
     fn needs(&self) -> RescueNeeds {
-        RescueNeeds::new().optional_input(&TOKEN)
+        RescueNeeds::new().input(&TOKEN)
     }
 
     fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<ReadToken<'a>, Error> {
         Ok(ReadToken {
-            token: got.optional_input(&TOKEN)?,
+            token: got.input(&TOKEN)?,
             seen: &self.seen,
         })
     }

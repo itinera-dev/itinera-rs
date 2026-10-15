@@ -87,14 +87,14 @@ struct Drafts {
 
 impl OnStepAbnormalTermination<Orders> for Drafts {
     fn needs() -> HookNeeds<StepAbnormalTermination> {
-        HookNeeds::new().optional_from_step(&DRAFT)
+        HookNeeds::new().from_step(&DRAFT)
     }
 
     fn on_step_abnormal_termination(
         &self,
         mut got: Requested<'_, Orders, StepAbnormalTermination>,
     ) -> Result<OnFailure, Error> {
-        let draft = got.optional_from_step(&DRAFT)?;
+        let draft = got.from_step(&DRAFT)?;
         self.seen.lock().unwrap().push(format!("{draft:?}"));
         Ok(OnFailure::KeepDefault)
     }

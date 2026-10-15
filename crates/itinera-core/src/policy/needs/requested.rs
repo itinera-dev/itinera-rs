@@ -13,8 +13,7 @@ use crate::policy::{
     ReportingHookKind, RetryCause, StepFailure, StepFailureCause, StepHookKind, StepRetry,
 };
 use crate::service::PerAttempt;
-use crate::step::{Attempt, Input, OptionalInput, Reason, Reporting, StepName};
-use crate::value::{AnyValue, Value};
+use crate::step::{Attempt, InputToken, Reason, Reporting, StepName};
 
 /// What a hook receives when it is called: each thing it declared in its [`HookNeeds`], already
 /// resolved, and what the executor tells every hook of its kind `H`, such as the step's name for
@@ -85,26 +84,32 @@ impl<'a, W, H: HookKind, M> Requested<'a, W, H, M> {
             .ok_or_else(|| undeclared_handle("a reporter"))
     }
 
-    /// Takes the data from the workflow the hook declared under the input's key.
+    /// Takes the data from the workflow the hook declared under the input's key: the value for an
+    /// [`Input`], and for an [`OptionalInput`] an `Option` of it, `None` when the data bag holds
+    /// nothing there.
+    ///
+    /// [`Input`]: crate::step::Input
+    /// [`OptionalInput`]: crate::step::OptionalInput
     ///
     /// # Errors
     ///
-    /// When the hook did not declare it as required with this type, or took it already.
+    /// When the hook did not declare its key with its type, or took it already.
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowSuccess, Requested, WorkflowSuccess};
-    /// use itinera::step::Input;
+    /// use itinera::step::{Input, OptionalInput};
     ///
     /// const AMOUNT: Input<i64> = Input::new("amount");
+    /// const CUSTOMER: OptionalInput<String> = OptionalInput::new("customer");
     ///
     /// struct Totals;
     ///
     /// impl<W: Send + Sync + 'static> OnWorkflowSuccess<W> for Totals {
     ///     fn needs() -> HookNeeds<WorkflowSuccess> {
-    ///         HookNeeds::new().from_workflow(&AMOUNT)
+    ///         HookNeeds::new().from_workflow(&AMOUNT).from_workflow(&CUSTOMER)
     ///     }
     ///
     ///     fn on_workflow_success(
@@ -112,62 +117,16 @@ impl<'a, W, H: HookKind, M> Requested<'a, W, H, M> {
     ///         mut got: Requested<'_, W, WorkflowSuccess>,
     ///     ) -> Result<()> {
     ///         let amount: i64 = got.from_workflow(&AMOUNT)?;
-    ///         println!("sold for {amount}");
-    ///         Ok(())
-    ///     }
-    /// }
-    /// ```
-    pub fn from_workflow<T: Value>(&mut self, input: &Input<T>) -> Result<T, Error> {
-        self.answers
-            .from_workflow
-            .take(input.key())
-            .and_then(AnyValue::downcast)
-            .ok_or_else(|| undeclared::<T>("data from the workflow", input.key()))
-    }
-
-    /// Takes the optional data from the workflow the hook declared under the input's key: `None`
-    /// when the data bag holds nothing there.
-    ///
-    /// # Errors
-    ///
-    /// When the hook did not declare it as optional with this type, or took it already.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::error::Result;
-    /// use itinera::policy::{HookNeeds, OnWorkflowFailure, Requested, WorkflowFailure};
-    /// use itinera::step::OptionalInput;
-    ///
-    /// const CUSTOMER: OptionalInput<String> = OptionalInput::new("customer");
-    ///
-    /// struct Apology;
-    ///
-    /// impl<W: Send + Sync + 'static> OnWorkflowFailure<W> for Apology {
-    ///     fn needs() -> HookNeeds<WorkflowFailure> {
-    ///         HookNeeds::new().optional_from_workflow(&CUSTOMER)
-    ///     }
-    ///
-    ///     fn on_workflow_failure(
-    ///         &self,
-    ///         mut got: Requested<'_, W, WorkflowFailure>,
-    ///     ) -> Result<()> {
-    ///         if let Some(customer) = got.optional_from_workflow(&CUSTOMER)? {
-    ///             println!("sorry, {customer}");
+    ///         if let Some(customer) = got.from_workflow(&CUSTOMER)? {
+    ///             println!("sold to {customer} for {amount}");
     ///         }
     ///         Ok(())
     ///     }
     /// }
     /// ```
-    pub fn optional_from_workflow<T: Value>(
-        &mut self,
-        input: &OptionalInput<T>,
-    ) -> Result<Option<T>, Error> {
-        optional(
-            self.answers.from_workflow.take_optional(input.key()),
-            "data from the workflow",
-            input.key(),
-        )
+    pub fn from_workflow<K: InputToken>(&mut self, input: &K) -> Result<K::Given, Error> {
+        let slot = self.answers.from_workflow.take(input.key());
+        K::given(slot).ok_or_else(|| undeclared::<K::Value>("data from the workflow", input.key()))
     }
 
     /// The ID of the journey the hook is called in.
@@ -196,27 +155,32 @@ impl<'a, W, H: HookKind, M> Requested<'a, W, H, M> {
 }
 
 impl<W, H: StepHookKind, M> Requested<'_, W, H, M> {
-    /// Takes the data from the step the hook declared under the input's key: what the attempt
-    /// contributed there, committed or not.
+    /// Takes the data from the step the hook declared under the input's key, what the attempt
+    /// contributed there, committed or not: the value for an [`Input`], and for an
+    /// [`OptionalInput`] an `Option` of it, `None` when the attempt contributed nothing there.
+    ///
+    /// [`Input`]: crate::step::Input
+    /// [`OptionalInput`]: crate::step::OptionalInput
     ///
     /// # Errors
     ///
-    /// When the hook did not declare it as required with this type, or took it already.
+    /// When the hook did not declare its key with its type, or took it already.
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnFailure, OnStepFailure, Requested, StepFailure};
-    /// use itinera::step::Input;
+    /// use itinera::step::{Input, OptionalInput};
     ///
     /// const DECLINE: Input<String> = Input::new("decline");
+    /// const DRAFT: OptionalInput<String> = OptionalInput::new("draft");
     ///
     /// struct Bank;
     ///
     /// impl<W: Send + Sync + 'static> OnStepFailure<W> for Bank {
     ///     fn needs() -> HookNeeds<StepFailure> {
-    ///         HookNeeds::new().from_step(&DECLINE)
+    ///         HookNeeds::new().from_step(&DECLINE).from_step(&DRAFT)
     ///     }
     ///
     ///     fn on_step_failure(
@@ -224,61 +188,16 @@ impl<W, H: StepHookKind, M> Requested<'_, W, H, M> {
     ///         mut got: Requested<'_, W, StepFailure>,
     ///     ) -> Result<OnFailure> {
     ///         println!("the bank declined: {}", got.from_step(&DECLINE)?);
-    ///         Ok(OnFailure::KeepDefault)
-    ///     }
-    /// }
-    /// ```
-    pub fn from_step<T: Value>(&mut self, input: &Input<T>) -> Result<T, Error> {
-        self.answers
-            .from_step
-            .take(input.key())
-            .and_then(AnyValue::downcast)
-            .ok_or_else(|| undeclared::<T>("data from the step", input.key()))
-    }
-
-    /// Takes the optional data from the step the hook declared under the input's key: `None`
-    /// when the attempt contributed nothing there.
-    ///
-    /// # Errors
-    ///
-    /// When the hook did not declare it as optional with this type, or took it already.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::error::Result;
-    /// use itinera::policy::{HookNeeds, OnFailure, OnStepRetry, Requested, StepRetry};
-    /// use itinera::step::OptionalInput;
-    ///
-    /// const DRAFT: OptionalInput<String> = OptionalInput::new("draft");
-    ///
-    /// struct Drafts;
-    ///
-    /// impl<W: Send + Sync + 'static> OnStepRetry<W> for Drafts {
-    ///     fn needs() -> HookNeeds<StepRetry> {
-    ///         HookNeeds::new().optional_from_step(&DRAFT)
-    ///     }
-    ///
-    ///     fn on_step_retry(
-    ///         &self,
-    ///         mut got: Requested<'_, W, StepRetry>,
-    ///     ) -> Result<OnFailure> {
-    ///         if let Some(draft) = got.optional_from_step(&DRAFT)? {
+    ///         if let Some(draft) = got.from_step(&DRAFT)? {
     ///             println!("dropping the draft {draft}");
     ///         }
     ///         Ok(OnFailure::KeepDefault)
     ///     }
     /// }
     /// ```
-    pub fn optional_from_step<T: Value>(
-        &mut self,
-        input: &OptionalInput<T>,
-    ) -> Result<Option<T>, Error> {
-        optional(
-            self.answers.from_step.take_optional(input.key()),
-            "data from the step",
-            input.key(),
-        )
+    pub fn from_step<K: InputToken>(&mut self, input: &K) -> Result<K::Given, Error> {
+        let slot = self.answers.from_step.take(input.key());
+        K::given(slot).ok_or_else(|| undeclared::<K::Value>("data from the step", input.key()))
     }
 
     /// The name of the step the hook acts on.
@@ -796,22 +715,6 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     /// ```
     pub fn attempt(&self) -> Attempt {
         self.context.attempt
-    }
-}
-
-/// Reads an optional value a hook declared, which the executor resolved as present or absent.
-fn optional<T: Value>(
-    slot: Option<Option<AnyValue>>,
-    what: &str,
-    key: &str,
-) -> Result<Option<T>, Error> {
-    match slot {
-        Some(None) => Ok(None),
-        Some(Some(value)) => value
-            .downcast()
-            .map(Some)
-            .ok_or_else(|| undeclared::<T>(what, key)),
-        None => Err(undeclared::<T>(what, key)),
     }
 }
 

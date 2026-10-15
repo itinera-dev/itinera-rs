@@ -173,7 +173,7 @@ const QUANTITY: OptionalInput<i64> = OptionalInput::new("quantity");
 /// Supplies the amount: the price from the workflow, times the quantity when there is one.
 fn priced(_: &Orders, mut got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied, Error> {
     let price = got.from_workflow(&PRICE)?;
-    let amount = price * got.optional_from_workflow(&QUANTITY)?.unwrap_or(1);
+    let amount = price * got.from_workflow(&QUANTITY)?.unwrap_or(1);
     Ok(if got.key() == "amount" {
         Supplied::value(amount)
     } else {
@@ -186,7 +186,7 @@ fn charged_at_the_price(read: &Read) -> WorkflowBuilder<Orders> {
     let pricing = InputAdapterDescriptor::new("pricing", CHARGE, priced).needing(
         HookNeeds::new()
             .from_workflow(&PRICE)
-            .optional_from_workflow(&QUANTITY),
+            .from_workflow(&QUANTITY),
     );
     charged(read).input_adapter(pricing)
 }

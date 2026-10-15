@@ -100,7 +100,7 @@ impl<H: StepHookKind, M> ForType for TakingFromStep<'_, '_, '_, H, M> {
     fn of<T: Storable>(self) -> Self::Output {
         if self.data.optional {
             self.got
-                .optional_from_step(&OptionalInput::<T>::new(self.data.key))?
+                .from_step(&OptionalInput::<T>::new(self.data.key))?
                 .map(json)
                 .transpose()
         } else {
@@ -121,7 +121,7 @@ impl<H: HookKind, M> ForType for TakingFromWorkflow<'_, '_, '_, H, M> {
     fn of<T: Storable>(self) -> Self::Output {
         if self.data.optional {
             self.got
-                .optional_from_workflow(&OptionalInput::<T>::new(self.data.key))?
+                .from_workflow(&OptionalInput::<T>::new(self.data.key))?
                 .map(json)
                 .transpose()
         } else {
