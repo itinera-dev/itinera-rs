@@ -10,4 +10,4 @@ Below is only what is specific to Claude Code.
 - **The `architecture` skill** in `.claude/skills/architecture/` is how Claude finds which parts of `docs/architecture.md` a change makes untrue, and checks the whole document against the code.
 - **The `stack` skill** in `.claude/skills/stack/` is how Claude opens, links and follows a stack of pull requests, and why upper layers are not rebased by hand.
 - **The `commit` skill** in `.claude/skills/commit/` is how Claude writes a commit message, with its type, scope and changelog entries, and checks it before pushing.
-- **The `release` skill** in `.claude/skills/release/` is how Claude prepares a release's pull request and changelog section, and what follows the release in the book and the site.
+- **The `release` skill** in `.claude/skills/release/` is how Claude prepares a release's pull request and changelog section, and carries the release into the book and the site.
