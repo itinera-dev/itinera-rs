@@ -87,7 +87,7 @@ Pull requests merge with a merge commit, never squashed, because a squash folds 
 
 ## Releasing
 
-All three published crates share the workspace version and are published together. A maintainer requests a release by pushing a tag `v` followed by that version, such as `v0.1.0-beta.1`, on `main`, after the pull request that sets the version and adds its section to `CHANGELOG.md` has merged. The release workflow, `.github/workflows/release.yml`, then runs four jobs, each waiting for the one before:
+All three published crates share the workspace version and are published together. A maintainer requests a release by pushing, on `main`, an annotated tag `v` followed by that version, such as `v0.1.0-beta.1`, with the message `itinera <version>`, after the pull request that sets the version and adds its section to `CHANGELOG.md` has merged. The release workflow, `.github/workflows/release.yml`, then runs four jobs, each waiting for the one before:
 
 1. **release gate**: the `release-gate` action refuses the tag unless it matches the version in `Cargo.toml`, the commit is on `main`, `CHANGELOG.md` has a section for the version, and `conformance.json` lists every tier 1 proposal of the pinned cases;
 2. **CI**: the whole of `.github/workflows/ci.yml` runs again on the tagged commit, since its run on `main` after a merge blocks nothing, and its conformance job keeps the report;
@@ -108,4 +108,9 @@ The book has two branches. Its `main` follows the latest release of itinera from
 
 A change that breaks the book comes with a paired pull request in the book, against `next`, that fixes it. The change's own pull request moves `book.json` to the commit of the book's fix, and the book's pull request moves `next`'s revision of itinera to the change once it merges. If the book's pull request is squashed when it merges, a follow-up moves `book.json` to the book's merge commit, so that the pin stays on `next`.
 
-A pull request that only sets a new version needs no change in the book, since `next` names no version, but it moves `book.json` to `next`'s head, so that the book `main` will take is checked against the release. Once the release is on crates.io, the book merges into its `main` the last commit of `next` whose revision of itinera is the released commit or an earlier one, and raises `main`'s requirement to exactly the new version, `=<version>`, keeping `main`'s dependencies on crates.io. The maintainer then tags that book commit `rust-<version>`, which the published book keeps as that version's edition.
+A pull request that only sets a new version needs no change in the book, since `next`'s dependency on itinera names a revision rather than a version, but it moves `book.json` to `next`'s head, so that the book `main` will take is checked against the release. Once the release is on crates.io, the book:
+
+1. merges into its `main` the last commit of `next` whose revision of itinera is the released commit or an earlier one, raising `main`'s requirement to exactly the new version, `=<version>`, keeping `main`'s dependencies on crates.io and their comments, and regenerating its lock file from them;
+2. raises, on `main`, the prose that names the release to the new version, such as the installing chapter and the appendix on what the version supports;
+3. is tagged by the maintainer on the commit that finishes this, with an annotated tag `rust-<version>` and the message `The Rust book for itinera <version>`, which the published book keeps as that version's edition;
+4. merges `main` back into `next`, keeping `next`'s dependency lines and lock file.

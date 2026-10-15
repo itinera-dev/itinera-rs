@@ -1,6 +1,6 @@
 ---
 name: release
-description: How Claude prepares a release of itinera, itinera-core and itinera-macros, and what follows it in the book and the site. Use when the maintainer asks for a release, when writing a version's changelog section, and once a release reaches crates.io.
+description: How Claude prepares a release of itinera, itinera-core and itinera-macros, and carries it into the book and the site. Use when the maintainer asks for a release, when writing a version's changelog section, and as soon as a release reaches crates.io.
 ---
 
 # Releasing
@@ -36,11 +36,31 @@ One pull request, titled "Release <version>" with a release commit `chore(releas
 
 ## After the merge
 
-1. Tell the maintainer the commit to tag, `main`'s merge commit, and that `cargo publish --workspace --dry-run` at that commit comes before the tag, as docs/contributing.md says.
+1. Give the maintainer the commands that make the tag docs/contributing.md "Releasing" describes, at `main`'s merge commit:
+   1. `git fetch origin`
+   2. `git switch --detach <commit>`
+   3. `cargo publish --workspace --dry-run`
+   4. `git tag -a v<version> <commit> -m "itinera <version>"`
+   5. `git push origin v<version>`
+
+   Once it is pushed, check with `git ls-remote origin 'refs/tags/v<version>*'` that it shows a tag object, and a `^{}` line naming the commit.
 2. Once the release workflow has finished, check that:
    - `itinera`, `itinera-core` and `itinera-macros` are on crates.io at the version, and docs.rs built them;
    - the GitHub release exists, marked as a pre-release when the version has a pre-release part such as `-beta.3`, with the changelog section and the conformance report.
 
    If publishing stopped halfway, tell the maintainer, pointing at the recovery in docs/contributing.md "Releasing".
-3. The book follows the release as "The book" in docs/contributing.md says. Claude does the book's part from a thread working on the book, or asks the maintainer whether one should; the maintainer tags the book.
-4. The site, itinera-dev/itinera-dev.github.io, takes each language's version from its `src/data/languages.json`. Update it from a thread working on the site, or tell the maintainer it follows the release.
+
+## Once the crates are published
+
+As soon as all three crates are on crates.io at the version, Claude carries the release into the book and the site without waiting to be asked; a publish that stopped halfway is recovered first. The maintainer's standing preference is that both changes are pushed straight to each repository's `main`, with no pull request, once the checks its own manual asks for pass and a separate reviewer has passed them. When this session cannot reach a repository, Claude asks the maintainer for a thread working on it, and passes that preference on.
+
+1. **The book**, itinera-dev/book, follows the release as the numbered list at the end of "The book" in docs/contributing.md says. Once the commit that raises the prose naming the release is on the book's `main`, give the maintainer the commands that tag it:
+   1. `git fetch origin`
+   2. `git tag -a rust-<version> <commit> -m "The Rust book for itinera <version>"`
+   3. `git push origin rust-<version>`
+
+   The tag freezes its commit as the version's edition, so it goes only on the commit whose prose names the new version.
+2. **The site**, itinera-dev/itinera-dev.github.io, follows each language's release, as its own manual says. For Rust:
+   - in `src/data/languages.json`, the entry's `state` becomes `released`, and `version`, `install`, `tier` and `executors` match the release and its `conformance.json`;
+   - in the `facts` of `site.config.mjs`, `conformance-ref` matches the cases `conformance.json` pins;
+   - a post under `content/news/` announces the release.
