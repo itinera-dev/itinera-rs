@@ -86,7 +86,7 @@ flowchart TD
 6. An `Instance` holds the descriptor, the workflow's own value, the journey ID, the data bag, the initial global metadata the reporters will receive, and the reporters made for this journey. The workflow's own value is the type `W` every part is generic over, and it provides the workflow's roles.
 7. An executor runs an instance. It relies only on the `WorkflowInstance` trait, so it runs any instance, however it was made.
 
-Where it lives: `workflow/builder.rs`, `step/descriptor.rs`, `policy/descriptor/`, `workflow/input_adapter.rs`, `service/descriptor.rs`, `instance.rs`, `instance/workflow_instance.rs`, `instance/committed.rs`.
+Where it lives: `workflow/builder.rs`, `step/descriptor.rs`, `policy/descriptor/`, `workflow/input_adapter.rs`, `workflow/supplied.rs`, `service/descriptor.rs`, `instance.rs`, `instance/workflow_instance.rs`, `instance/committed.rs`.
 
 ### How the macros go into the mix
 
