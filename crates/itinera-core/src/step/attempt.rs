@@ -52,6 +52,7 @@ impl Attempt {
     };
 
     /// The attempt numbered `number`.
+    #[cfg(any(test, feature = "testing"))]
     pub(crate) fn new(number: NonZeroU32) -> Self {
         Self { number }
     }
