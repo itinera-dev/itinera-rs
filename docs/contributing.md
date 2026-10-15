@@ -36,12 +36,17 @@ The toolchain is pinned in `rust-toolchain.toml`, and the minimum supported Rust
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 - `cargo test --workspace --all-features`
-- `cargo check --workspace --no-default-features`
+- `cargo hack clippy -p itinera -p itinera-core --feature-powerset --exclude-features default --all-targets -- -D warnings`
+- `cargo hack test -p itinera --feature-powerset --exclude-features default,testing,unstable`
+- `cargo hack test -p itinera-core --feature-powerset --exclude-features unstable`
 - `cargo +1.85 check --workspace --exclude itinera-conformance`
 - `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings`
+- `cargo hack doc -p itinera -p itinera-core --feature-powerset --exclude-features default --no-deps`, with `RUSTDOCFLAGS=-D warnings`
 - `cargo deny check`
 
-`cargo xtask check` runs them all, in this order, and stops at the first that fails.
+`cargo xtask check` runs them all, in this order, and stops at the first that fails. The `cargo hack` checks need [cargo-hack](https://github.com/taiki-e/cargo-hack), and `cargo deny check` needs cargo-deny.
+
+The conformance runner turns on `async`, `macros` and `testing` for every crate built with it, so the `cargo hack` checks build only `itinera` and `itinera-core`, once for each combination of their features.
 
 ## Conformance in CI
 

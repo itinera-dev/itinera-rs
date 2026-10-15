@@ -13,12 +13,11 @@ use crate::report::DispatcherFactory;
 mod sealed;
 
 /// A dispatcher factory that the local executor of `M`'s workflows takes: a
-/// [`DispatcherFactory`] for `Synchronous`, an [`AsyncDispatcherFactory`] for `Asynchronous`.
+/// [`DispatcherFactory`] for `Synchronous`, an `AsyncDispatcherFactory` for `Asynchronous`.
 ///
 /// [`local_executor_for!`] requires it of the factory it is given. No other type can implement
 /// it.
 ///
-/// [`AsyncDispatcherFactory`]: crate::report::AsyncDispatcherFactory
 /// [`local_executor_for!`]: crate::executor::local_executor_for
 ///
 /// # Examples

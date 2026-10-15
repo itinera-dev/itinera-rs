@@ -14,7 +14,7 @@ use std::process::{Command, ExitCode};
 const WORKSPACE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
 
 /// Every check CI requires, in the order `cargo xtask check` runs them.
-static CHECKS: [Check; 7] = [
+static CHECKS: [Check; 10] = [
     Check::cargo(&["fmt", "--all", "--check"]),
     Check::cargo(&[
         "clippy",
@@ -26,7 +26,39 @@ static CHECKS: [Check; 7] = [
         "warnings",
     ]),
     Check::cargo(&["test", "--workspace", "--all-features"]),
-    Check::cargo(&["check", "--workspace", "--no-default-features"]),
+    Check::cargo(&[
+        "hack",
+        "clippy",
+        "-p",
+        "itinera",
+        "-p",
+        "itinera-core",
+        "--feature-powerset",
+        "--exclude-features",
+        "default",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings",
+    ]),
+    Check::cargo(&[
+        "hack",
+        "test",
+        "-p",
+        "itinera",
+        "--feature-powerset",
+        "--exclude-features",
+        "default,testing,unstable",
+    ]),
+    Check::cargo(&[
+        "hack",
+        "test",
+        "-p",
+        "itinera-core",
+        "--feature-powerset",
+        "--exclude-features",
+        "unstable",
+    ]),
     Check::cargo(&[
         "+1.85",
         "check",
@@ -37,6 +69,21 @@ static CHECKS: [Check; 7] = [
     Check {
         variable: Some(("RUSTDOCFLAGS", "-D warnings")),
         arguments: &["doc", "--workspace", "--no-deps"],
+    },
+    Check {
+        variable: Some(("RUSTDOCFLAGS", "-D warnings")),
+        arguments: &[
+            "hack",
+            "doc",
+            "-p",
+            "itinera",
+            "-p",
+            "itinera-core",
+            "--feature-powerset",
+            "--exclude-features",
+            "default",
+            "--no-deps",
+        ],
     },
     Check::cargo(&["deny", "check"]),
 ];

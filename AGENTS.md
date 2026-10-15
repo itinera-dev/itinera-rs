@@ -69,12 +69,15 @@ Each of these is a required CI check, and every one must pass before pushing:
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 - `cargo test --workspace --all-features`
-- `cargo check --workspace --no-default-features`
+- `cargo hack clippy -p itinera -p itinera-core --feature-powerset --exclude-features default --all-targets -- -D warnings`
+- `cargo hack test -p itinera --feature-powerset --exclude-features default,testing,unstable`
+- `cargo hack test -p itinera-core --feature-powerset --exclude-features unstable`
 - `cargo +1.85 check --workspace --exclude itinera-conformance`
 - `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`
+- `RUSTDOCFLAGS="-D warnings" cargo hack doc -p itinera -p itinera-core --feature-powerset --exclude-features default --no-deps`
 - `cargo deny check`
 
-`cargo xtask check` runs them all, in this order, and stops at the first that fails. A test in the `xtask` crate keeps its list the same as this one.
+`cargo xtask check` runs them all, in this order, and stops at the first that fails. The `cargo hack` checks need [cargo-hack](https://github.com/taiki-e/cargo-hack) installed, as `cargo deny check` needs cargo-deny. A test in the `xtask` crate keeps its list the same as this one.
 
 ## Running the conformance runner
 

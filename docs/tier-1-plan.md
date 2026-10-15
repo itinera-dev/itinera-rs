@@ -348,15 +348,20 @@ Each job runs one command, as the organisation's rules require. All are required
 | lints | `cargo clippy --workspace --all-targets --all-features -- -D warnings` |
 | tests, on Linux | `cargo test --workspace --all-features` |
 | tests, on Windows and macOS | `cargo test --workspace --all-features --exclude itinera` |
-| sync-only build | `cargo check --workspace --no-default-features` |
+| lints in every feature combination | `cargo hack clippy -p itinera -p itinera-core --feature-powerset --exclude-features default --all-targets -- -D warnings` |
+| tests of itinera in every feature combination | `cargo hack test -p itinera --feature-powerset --exclude-features default,testing,unstable` |
+| tests of itinera-core in every feature combination | `cargo hack test -p itinera-core --feature-powerset --exclude-features unstable` |
 | minimum Rust version | `cargo +1.85 check --workspace --exclude itinera-conformance` |
 | documentation | `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings` |
+| documentation in every feature combination | `cargo hack doc -p itinera -p itinera-core --feature-powerset --exclude-features default --no-deps`, with `RUSTDOCFLAGS=-D warnings` |
 | dependencies | `cargo deny check`, with the `cargo-deny` binary that `taiki-e/install-action` installs |
 | conformance, from stage 0 | `itinera-dev/actions/run-conformance@v1`, with `command: cargo run -p itinera-conformance --release`, after checking out and restoring the Rust cache |
 | pull request rules | `pr-has-issue` and `no-cross-repo-closing` |
 | weekly, not blocking | the tests on Rust beta, with `TRYBUILD=overwrite` so that the compile-fail tests accept beta's wording of compile errors |
 
 The tests of the `itinera` crate, which holds only re-exports, run on Linux only: most of them compare compiler messages, which read the same on every system.
+
+The conformance runner turns on `async`, `macros` and `testing` for every crate built with it, so the jobs that try each combination of features build only `itinera` and `itinera-core`. These jobs use the `cargo-hack` binary that `taiki-e/install-action` installs. docs.rs builds every published crate with all of its features except `unstable`.
 
 The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cache`; third-party actions are pinned to a commit.
 
