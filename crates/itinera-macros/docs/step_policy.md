@@ -38,7 +38,6 @@ The attribute implements `DescribedPolicy`, `StepPolicy` for every workflow prov
 ```
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::JourneyStatus;
 use itinera::policy::{FailWorkflow, OnSuccess, Provides, StepPolicy, step_policy};
 use itinera::step::{Outcome, Reason, StepDescriptor, step_name};
 use itinera::workflow::WorkflowDescriptor;
@@ -87,6 +86,6 @@ let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())
     .policy(Audit::descriptor());
 let orders = WorkflowDescriptor::builder("orders").step(charge).build()?;
 let result = LocalExecutor::new().run(orders.instance(Orders).create()?)?;
-assert!(matches!(result.status, JourneyStatus::Failed { .. }));
+assert!(result.status.is_failed());
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```

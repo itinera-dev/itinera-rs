@@ -16,7 +16,7 @@ The struct has named fields, or none, and is not generic. The standard `#[derive
 ```
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::{Contributor, JourneyStatus};
+use itinera::journey::Contributor;
 use itinera::step::{DescribedStep, Outcome, Step, step, step_name};
 use itinera::workflow::WorkflowDescriptor;
 
@@ -49,6 +49,6 @@ let orders = WorkflowDescriptor::builder("orders")
     .build()?;
 let instance = orders.instance(Orders).data("amount", 40_i64).create()?;
 let result = LocalExecutor::new().run(instance)?;
-assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+assert!(result.status.is_succeeded());
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```

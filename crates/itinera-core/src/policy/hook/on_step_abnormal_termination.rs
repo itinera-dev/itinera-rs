@@ -13,7 +13,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepAbnormalTermination}
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::policy::{
 ///     FailWorkflow, OnStepAbnormalTermination, Requested, StepAbnormalTermination,
 /// };
@@ -25,7 +25,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepAbnormalTermination}
 ///     fn on_step_abnormal_termination(
 ///         &self,
 ///         _got: Requested<'_, W, StepAbnormalTermination>,
-///     ) -> Result<Option<FailWorkflow>, Error> {
+///     ) -> Result<Option<FailWorkflow>> {
 ///         Ok(Some(FailWorkflow::from(Reason::new("crashed"))))
 ///     }
 /// }
@@ -55,7 +55,7 @@ pub trait OnStepAbnormalTermination<W>: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{
     ///     FailWorkflow, HookNeeds, OnStepAbnormalTermination, Requested, StepAbnormalTermination,
     /// };
@@ -70,7 +70,7 @@ pub trait OnStepAbnormalTermination<W>: Send + Sync + 'static {
     ///     fn on_step_abnormal_termination(
     ///         &self,
     ///         mut got: Requested<'_, W, StepAbnormalTermination>,
-    ///     ) -> Result<Option<FailWorkflow>, Error> {
+    ///     ) -> Result<Option<FailWorkflow>> {
     ///         println!("{} crashed: {}", got.step_name(), got.error()?);
     ///         Ok(None)
     ///     }

@@ -12,7 +12,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepRetry};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
 /// use itinera::policy::{AsyncOnStepRetry, FailWorkflow, Requested, StepRetry};
 ///
@@ -22,7 +22,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepRetry};
 ///     async fn on_step_retry(
 ///         &self,
 ///         got: Requested<'_, W, StepRetry, Asynchronous>,
-///     ) -> Result<Option<FailWorkflow>, Error> {
+///     ) -> Result<Option<FailWorkflow>> {
 ///         println!("{} is attempted again", got.step_name());
 ///         Ok(None)
 ///     }
@@ -53,14 +53,14 @@ pub trait AsyncOnStepRetry<W>: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{AsyncOnStepRetry, FailWorkflow, Requested, StepRetry};
     ///
     /// async fn decide<P: AsyncOnStepRetry<()>>(
     ///     policy: &P,
     ///     got: Requested<'_, (), StepRetry, Asynchronous>,
-    /// ) -> Result<Option<FailWorkflow>, Error> {
+    /// ) -> Result<Option<FailWorkflow>> {
     ///     policy.on_step_retry(got).await
     /// }
     /// ```

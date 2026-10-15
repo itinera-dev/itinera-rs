@@ -3,7 +3,7 @@ use itinera::executor::LocalExecutor;
 use itinera::policy::{
     FailWorkflow, OnStepFailure, OnSuccess, Requested, StepFailure, StepPolicyDescriptor,
 };
-use itinera::step::{Outcome, Reason, StepDescriptor, step_name};
+use itinera::step::{Outcome, StepDescriptor, step_name};
 use itinera::workflow::WorkflowDescriptor;
 
 struct Orders;
@@ -22,7 +22,7 @@ impl OnStepFailure<Orders> for Settle {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settle = StepPolicyDescriptor::new("settle", || Settle).on_step_failure();
     let charge = StepDescriptor::new(step_name!("charge"), || {
-        Ok(Outcome::failure(Reason::new("declined")))
+        Ok(Outcome::failure("declined"))
     })
     .policy(settle);
     let orders = WorkflowDescriptor::builder("orders").step(charge).build()?;

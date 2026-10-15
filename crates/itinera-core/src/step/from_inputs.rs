@@ -14,7 +14,7 @@ use crate::error::Error;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::step::{FromInputs, Input, OptionalInput, Resolved, StepNeeds};
 ///
 /// struct Charge {
@@ -30,7 +30,7 @@ use crate::error::Error;
 ///         StepNeeds::new().input(&AMOUNT).optional_input(&DISCOUNT)
 ///     }
 ///
-///     fn from_inputs<M>(got: &mut Resolved<'_, M>) -> Result<Self, Error> {
+///     fn from_inputs<M>(got: &mut Resolved<'_, M>) -> Result<Self> {
 ///         Ok(Charge {
 ///             amount: got.input(&AMOUNT)?,
 ///             discount: got.optional_input(&DISCOUNT)?,
@@ -68,10 +68,10 @@ pub trait FromInputs: Sized {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{FromInputs, Resolved};
     ///
-    /// fn build<S: FromInputs>(got: &mut Resolved<'_>) -> Result<S, Error> {
+    /// fn build<S: FromInputs>(got: &mut Resolved<'_>) -> Result<S> {
     ///     S::from_inputs(got)
     /// }
     /// ```

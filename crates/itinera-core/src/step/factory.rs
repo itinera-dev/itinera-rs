@@ -12,7 +12,7 @@ use crate::error::Error;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::step::{Input, Outcome, Resolved, Step, StepFactory, StepNeeds};
 ///
 /// struct Charge {
@@ -20,7 +20,7 @@ use crate::error::Error;
 /// }
 ///
 /// impl Step for Charge {
-///     fn run(self) -> Result<Outcome, Error> {
+///     fn run(self) -> Result<Outcome> {
 ///         Ok(Outcome::success())
 ///     }
 /// }
@@ -36,7 +36,7 @@ use crate::error::Error;
 ///         StepNeeds::new().input(&AMOUNT)
 ///     }
 ///
-///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge, Error> {
+///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge> {
 ///         Ok(Charge {
 ///             amount: got.input(&AMOUNT)?,
 ///         })
@@ -71,13 +71,13 @@ pub trait StepFactory: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{Resolved, StepFactory};
     ///
     /// fn build<'a, F: StepFactory>(
     ///     factory: &'a F,
     ///     got: &mut Resolved<'a>,
-    /// ) -> Result<F::Step<'a>, Error> {
+    /// ) -> Result<F::Step<'a>> {
     ///     factory.build(got)
     /// }
     /// ```

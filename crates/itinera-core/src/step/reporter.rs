@@ -16,7 +16,7 @@ use crate::value::{AnyValue, Value};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::step::{Outcome, Resolved, Step, StepFactory, StepNeeds, StepReporter};
 ///
 /// struct Charge<'a> {
@@ -24,7 +24,7 @@ use crate::value::{AnyValue, Value};
 /// }
 ///
 /// impl Step for Charge<'_> {
-///     fn run(mut self) -> Result<Outcome, Error> {
+///     fn run(mut self) -> Result<Outcome> {
 ///         self.reporter.info_with("charging", 42_i64)?;
 ///         Ok(Outcome::success())
 ///     }
@@ -39,7 +39,7 @@ use crate::value::{AnyValue, Value};
 ///         StepNeeds::new().reporter()
 ///     }
 ///
-///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge<'a>, Error> {
+///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge<'a>> {
 ///         Ok(Charge {
 ///             reporter: got.reporter()?,
 ///         })

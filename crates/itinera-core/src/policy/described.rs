@@ -23,7 +23,7 @@ use crate::step::Reason;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Synchronous;
 /// use itinera::policy::{DescribedPolicy, PolicyName};
 ///
@@ -36,7 +36,7 @@ use crate::step::Reason;
 ///         PolicyName::from("audit")
 ///     }
 ///
-///     fn build() -> Result<Self, Error> {
+///     fn build() -> Result<Self> {
 ///         Ok(Audit)
 ///     }
 /// }
@@ -77,10 +77,10 @@ pub trait DescribedPolicy: Sized + Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::DescribedPolicy;
     ///
-    /// fn built<P: DescribedPolicy>() -> Result<P, Error> {
+    /// fn built<P: DescribedPolicy>() -> Result<P> {
     ///     P::build()
     /// }
     /// ```
@@ -95,10 +95,10 @@ pub trait DescribedPolicy: Sized + Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{DescribedPolicy, FailWorkflow};
     ///
-    /// fn nothing_to_say<P: DescribedPolicy>() -> Result<Option<FailWorkflow>, Error> {
+    /// fn nothing_to_say<P: DescribedPolicy>() -> Result<Option<FailWorkflow>> {
     ///     P::carry_on()
     /// }
     /// ```
@@ -116,14 +116,14 @@ pub trait DescribedPolicy: Sized + Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{DescribedPolicy, FailWorkflow, OnSuccess};
     ///
-    /// fn after_a_failure<P: DescribedPolicy>() -> Result<Option<FailWorkflow>, Error> {
+    /// fn after_a_failure<P: DescribedPolicy>() -> Result<Option<FailWorkflow>> {
     ///     P::fail_workflow("fraud-suspected")
     /// }
     ///
-    /// fn after_a_success<P: DescribedPolicy>() -> Result<Option<OnSuccess>, Error> {
+    /// fn after_a_success<P: DescribedPolicy>() -> Result<Option<OnSuccess>> {
     ///     P::fail_workflow("fraud-suspected")
     /// }
     /// ```
@@ -141,10 +141,10 @@ pub trait DescribedPolicy: Sized + Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{DescribedPolicy, OnSuccess};
     ///
-    /// fn enough<P: DescribedPolicy>() -> Result<Option<OnSuccess>, Error> {
+    /// fn enough<P: DescribedPolicy>() -> Result<Option<OnSuccess>> {
     ///     P::finish_workflow()
     /// }
     /// ```

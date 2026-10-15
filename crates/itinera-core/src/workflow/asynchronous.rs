@@ -32,7 +32,7 @@ impl<W: Send + Sync + 'static> WorkflowBuilder<W, Asynchronous> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::AsyncReporter;
     /// use itinera::workflow::WorkflowDescriptor;
@@ -43,7 +43,7 @@ impl<W: Send + Sync + 'static> WorkflowBuilder<W, Asynchronous> {
     /// struct Forward;
     ///
     /// impl AsyncReporter for Forward {
-    ///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
+    ///     async fn report(&mut self, _event: &Event) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }

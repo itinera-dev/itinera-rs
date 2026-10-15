@@ -298,11 +298,11 @@ pub(super) fn amount_as_i32(journey: InstanceBuilder<Orders>) -> InstanceBuilder
 }
 
 pub(super) fn declined() -> Result<Outcome, Error> {
-    Ok(Outcome::failure(Reason::new("declined")))
+    Ok(Outcome::failure("declined"))
 }
 
 pub(crate) fn timed_out() -> Result<Outcome, Error> {
-    Ok(Outcome::failure(Reason::new("timeout")))
+    Ok(Outcome::failure("timeout"))
 }
 
 pub(crate) fn crashed() -> Result<Outcome, Error> {

@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::{Contributor, JourneyId, JourneyStatus};
+use itinera::journey::{Contributor, JourneyId};
 use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, RescueOutcome, RescueStep, Step, rescue_step, step};
 use itinera::workflow::workflow;
@@ -78,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .initial_data(Client { account: "A-7".to_owned() })
         .create()?;
     let result = LocalExecutor::new().run(instance)?;
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     Ok(())
 }
 

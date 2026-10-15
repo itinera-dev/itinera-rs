@@ -4,7 +4,7 @@
 
 use std::num::NonZeroU32;
 
-use itinera::error::Error;
+use itinera::error::Result;
 use itinera::event::Event;
 use itinera::executor::local_executor_for;
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
@@ -50,7 +50,7 @@ impl Charge {
         self,
         #[service] payments: &dyn PaymentGateway,
         #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<Outcome, Error> {
+    ) -> Result<Outcome> {
         if self.amount <= 0 {
             return Self::fail("declined");
         }
@@ -66,7 +66,7 @@ struct Ship;
 
 #[step]
 impl Ship {
-    fn run(self) -> Result<Outcome, Error> {
+    fn run(self) -> Result<Outcome> {
         Self::succeed()
     }
 }
@@ -82,7 +82,7 @@ impl Audit {
         &self,
         #[from_step] charged: i64,
         #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<Option<OnSuccess>> {
         contributor.contribute("audit", format!("charged {charged}"));
         Self::carry_on()
     }
@@ -106,7 +106,7 @@ impl Notify {
         #[from_workflow] charged: i64,
         #[from_workflow] payment: String,
         #[role] messages: &dyn Messages,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         messages.tell(&format!("order {journey_id}: paid {charged}, {payment}"));
         Ok(())
     }
@@ -117,7 +117,7 @@ impl Notify {
 struct Printer;
 
 impl Reporter for Printer {
-    fn report(&mut self, event: &Event) -> Result<(), Error> {
+    fn report(&mut self, event: &Event) -> Result<()> {
         println!("{} {}", event.journey_id, event.kind());
         Ok(())
     }
@@ -145,16 +145,13 @@ impl Orders {
         &self,
         #[from_workflow] price: i64,
         #[from_workflow] discount: Option<i64>,
-    ) -> Result<Option<AnyValue>, Error> {
+    ) -> Result<Option<AnyValue>> {
         Self::supply(price - discount.unwrap_or_default())
     }
 
     /// Lends each attempt to charge the shop's card terminal.
     #[provider(per_attempt, steps = ["charge"])]
-    fn payments(
-        &self,
-        #[attempt] attempt: NonZeroU32,
-    ) -> Result<Provided<dyn PaymentGateway>, Error> {
+    fn payments(&self, #[attempt] attempt: NonZeroU32) -> Result<Provided<dyn PaymentGateway>> {
         Ok(provide!(Terminal {
             shop: self.shop,
             attempt,
@@ -163,7 +160,7 @@ impl Orders {
 
     /// Names each journey after the shop and the order.
     #[id_generator]
-    fn order_id(&self, data: &DataBag) -> Result<String, Error> {
+    fn order_id(&self, data: &DataBag) -> Result<String> {
         let order: String = data.required("order")?;
         Ok(format!("{}-{order}", self.shop))
     }

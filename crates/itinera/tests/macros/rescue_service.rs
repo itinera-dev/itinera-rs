@@ -10,8 +10,8 @@ use itinera::service::{
     PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
 };
 use itinera::step::{
-    DescribedStep, Input, Outcome, Reason, RescueFactory, RescueNeeds, RescueOutcome,
-    RescueResolved, RescueStep, Step, StepName, rescue_step, step, step_name,
+    DescribedStep, Input, Outcome, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved,
+    RescueStep, Step, StepName, rescue_step, step, step_name,
 };
 use itinera::value::AnyValue;
 use itinera::workflow::{InputAdapterDescriptor, Workflow, WorkflowDescriptor, workflow};
@@ -91,7 +91,7 @@ fn refreshed(
             contributor.contribute("token", token);
             RescueOutcome::success()
         }
-        None => RescueOutcome::failure(Reason::new("no-token")),
+        None => RescueOutcome::failure("no-token"),
     }
 }
 

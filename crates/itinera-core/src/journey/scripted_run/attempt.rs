@@ -17,7 +17,7 @@ use crate::value::{AnyValue, Value};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::instance::WorkflowInstance;
 /// use itinera::journey::Read;
 /// use itinera::step::{Input, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds};
@@ -29,7 +29,7 @@ use crate::value::{AnyValue, Value};
 /// struct Charge;
 ///
 /// impl Step for Charge {
-///     fn run(self) -> Result<Outcome, Error> {
+///     fn run(self) -> Result<Outcome> {
 ///         Ok(Outcome::success())
 ///     }
 /// }
@@ -43,7 +43,7 @@ use crate::value::{AnyValue, Value};
 ///         StepNeeds::new().input(&AMOUNT)
 ///     }
 ///
-///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge, Error> {
+///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge> {
 ///         got.input(&AMOUNT)?;
 ///         Ok(Charge)
 ///     }
@@ -88,7 +88,7 @@ impl AttemptRecord {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::instance::WorkflowInstance;
     /// use itinera::journey::Read;
     /// use itinera::step::{Input, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds};
@@ -100,7 +100,7 @@ impl AttemptRecord {
     /// struct Charge;
     ///
     /// impl Step for Charge {
-    ///     fn run(self) -> Result<Outcome, Error> {
+    ///     fn run(self) -> Result<Outcome> {
     ///         Ok(Outcome::success())
     ///     }
     /// }
@@ -114,7 +114,7 @@ impl AttemptRecord {
     ///         StepNeeds::new().input(&AMOUNT)
     ///     }
     ///
-    ///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge, Error> {
+    ///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge> {
     ///         got.input(&AMOUNT)?;
     ///         Ok(Charge)
     ///     }

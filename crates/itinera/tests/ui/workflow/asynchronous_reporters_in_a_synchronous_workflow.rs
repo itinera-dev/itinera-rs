@@ -1,6 +1,6 @@
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::{JourneyStatus, Read};
+use itinera::journey::Read;
 use itinera::policy::{OnSuccess, step_policy, workflow_policy};
 use itinera::report::AsyncReporter;
 use itinera::step::{Outcome, Step, step};
@@ -126,7 +126,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .async_reporter(Silent)
         .create()?;
     let result = LocalExecutor::new().run(instance)?;
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     Ok(())
 }
 

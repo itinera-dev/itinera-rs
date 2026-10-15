@@ -9,13 +9,13 @@ use crate::policy::{HookNeeds, Requested, WorkflowSuccess};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::policy::{OnWorkflowSuccess, Requested, WorkflowSuccess};
 ///
 /// struct Celebrate;
 ///
 /// impl<W: Send + Sync + 'static> OnWorkflowSuccess<W> for Celebrate {
-///     fn on_workflow_success(&self, got: Requested<'_, W, WorkflowSuccess>) -> Result<(), Error> {
+///     fn on_workflow_success(&self, got: Requested<'_, W, WorkflowSuccess>) -> Result<()> {
 ///         println!("journey {} succeeded", got.journey_id());
 ///         Ok(())
 ///     }
@@ -46,7 +46,7 @@ pub trait OnWorkflowSuccess<W>: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowSuccess, Requested, WorkflowSuccess};
     ///
     /// struct Close;
@@ -59,7 +59,7 @@ pub trait OnWorkflowSuccess<W>: Send + Sync + 'static {
     ///     fn on_workflow_success(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.contributor()?.contribute("closed", true);
     ///         Ok(())
     ///     }

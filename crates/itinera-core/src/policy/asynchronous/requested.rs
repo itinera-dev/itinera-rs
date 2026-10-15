@@ -15,7 +15,7 @@ impl<'a, W, H: ReportingHookKind> Requested<'a, W, H, Asynchronous> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{AsyncOnWorkflowFailure, HookNeeds, Requested, WorkflowFailure};
     ///
@@ -29,7 +29,7 @@ impl<'a, W, H: ReportingHookKind> Requested<'a, W, H, Asynchronous> {
     ///     async fn on_workflow_failure(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowFailure, Asynchronous>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.reporter()?.error("the order failed").await?;
     ///         Ok(())
     ///     }

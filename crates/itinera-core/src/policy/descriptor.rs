@@ -44,7 +44,7 @@ pub enum Hookless {}
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Synchronous;
 /// use itinera::policy::{
 ///     Hooked, OnStepSuccess, OnSuccess, Requested, StepPolicyDescriptor, StepSuccess,
@@ -56,7 +56,7 @@ pub enum Hookless {}
 ///     fn on_step_success(
 ///         &self,
 ///         _got: Requested<'_, W, StepSuccess>,
-///     ) -> Result<Option<OnSuccess>, Error> {
+///     ) -> Result<Option<OnSuccess>> {
 ///         Ok(None)
 ///     }
 /// }

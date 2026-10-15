@@ -10,7 +10,7 @@ use crate::policy::{DescribedPolicy, StepHook, StepPolicyDescriptor};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Synchronous;
 /// use itinera::policy::{
 ///     DescribedPolicy, OnStepSuccess, OnSuccess, PolicyName, Requested, StepHook, StepPolicy,
@@ -27,7 +27,7 @@ use crate::policy::{DescribedPolicy, StepHook, StepPolicyDescriptor};
 ///         PolicyName::from("audit")
 ///     }
 ///
-///     fn build() -> Result<Self, Error> {
+///     fn build() -> Result<Self> {
 ///         Ok(Audit)
 ///     }
 /// }
@@ -36,7 +36,7 @@ use crate::policy::{DescribedPolicy, StepHook, StepPolicyDescriptor};
 ///     fn on_step_success(
 ///         &self,
 ///         _got: Requested<'_, W, StepSuccess>,
-///     ) -> Result<Option<OnSuccess>, Error> {
+///     ) -> Result<Option<OnSuccess>> {
 ///         Self::carry_on()
 ///     }
 /// }

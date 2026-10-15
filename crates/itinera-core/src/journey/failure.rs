@@ -52,6 +52,50 @@ impl Failure {
             Self::FailWorkflow(_) => FailureCause::FailWorkflow,
         }
     }
+
+    /// The reason the failure carries: a step's, the one `FailWorkflow` carried, or that of the
+    /// last attempt when the retries ran out after a failure. `None` when an error ended the last
+    /// attempt.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::journey::Failure;
+    ///
+    /// fn code(failure: &Failure) -> Option<&str> {
+    ///     failure.reason().map(|reason| reason.code())
+    /// }
+    /// ```
+    pub fn reason(&self) -> Option<&Reason> {
+        match self {
+            Self::Failure(reason)
+            | Self::FailWorkflow(reason)
+            | Self::RetriesExhausted(LastFailure::Reason(reason)) => Some(reason),
+            Self::AbnormalTermination(_) | Self::RetriesExhausted(LastFailure::Error(_)) => None,
+        }
+    }
+
+    /// The error that ended the last attempt, when an abnormal termination did, whether or not
+    /// retries were tried first. `None` when the failure carries a reason.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::journey::Failure;
+    ///
+    /// fn crashed(failure: &Failure) -> Option<String> {
+    ///     failure.error().map(ToString::to_string)
+    /// }
+    /// ```
+    pub fn error(&self) -> Option<&Error> {
+        match self {
+            Self::AbnormalTermination(error)
+            | Self::RetriesExhausted(LastFailure::Error(error)) => Some(error),
+            Self::Failure(_)
+            | Self::FailWorkflow(_)
+            | Self::RetriesExhausted(LastFailure::Reason(_)) => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -76,5 +120,46 @@ mod tests {
     )]
     fn a_failure_names_its_cause(#[case] failure: Failure, #[case] cause: FailureCause) {
         assert_eq!(failure.cause(), cause);
+    }
+
+    #[rstest]
+    #[case::failure(Failure::Failure(Reason::new("declined")), Some("declined"))]
+    #[case::fail_workflow(Failure::FailWorkflow(Reason::new("fraud")), Some("fraud"))]
+    #[case::retries_exhausted_after_a_failure(
+        Failure::RetriesExhausted(LastFailure::Reason(Reason::new("declined"))),
+        Some("declined")
+    )]
+    #[case::retries_exhausted_after_an_error(
+        Failure::RetriesExhausted(LastFailure::Error(Error::msg("timeout"))),
+        None
+    )]
+    #[case::abnormal_termination(Failure::AbnormalTermination(Error::msg("timeout")), None)]
+    fn a_failure_carries_the_reason_of_whatever_ended_it_with_one(
+        #[case] failure: Failure,
+        #[case] code: Option<&str>,
+    ) {
+        assert_eq!(failure.reason().map(Reason::code), code);
+    }
+
+    #[rstest]
+    #[case::failure(Failure::Failure(Reason::new("declined")), None)]
+    #[case::fail_workflow(Failure::FailWorkflow(Reason::new("fraud")), None)]
+    #[case::retries_exhausted_after_a_failure(
+        Failure::RetriesExhausted(LastFailure::Reason(Reason::new("declined"))),
+        None
+    )]
+    #[case::retries_exhausted_after_an_error(
+        Failure::RetriesExhausted(LastFailure::Error(Error::msg("timeout"))),
+        Some("timeout")
+    )]
+    #[case::abnormal_termination(
+        Failure::AbnormalTermination(Error::msg("closed")),
+        Some("closed")
+    )]
+    fn a_failure_carries_the_error_that_ended_the_last_attempt(
+        #[case] failure: Failure,
+        #[case] message: Option<&str>,
+    ) {
+        assert_eq!(failure.error().map(ToString::to_string).as_deref(), message);
     }
 }

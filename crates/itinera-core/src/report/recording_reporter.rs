@@ -97,13 +97,13 @@ impl RecordingReporter {
     /// ```
     /// use itinera::executor::LocalExecutor;
     /// use itinera::report::RecordingReporter;
-    /// use itinera::step::{Outcome, Reason, StepDescriptor, step_name};
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// struct Orders;
     ///
     /// let charge = StepDescriptor::new(step_name!("charge"), || {
-    ///     Ok(Outcome::failure(Reason::new("declined")))
+    ///     Ok(Outcome::failure("declined"))
     /// });
     /// let orders = WorkflowDescriptor::builder("orders")
     ///     .step(charge.retry_budget(1))
@@ -192,7 +192,7 @@ mod tests {
     use crate::engine::fixtures::CHARGE;
     use crate::executor::LocalExecutor;
     use crate::report::fixtures::started;
-    use crate::step::{Outcome, Reason, RescueOutcome, StepDescriptor};
+    use crate::step::{Outcome, RescueOutcome, StepDescriptor};
     use crate::workflow::fixtures::{Orders, orders};
 
     #[test]
@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn a_path_lists_the_flow_of_the_journey_in_the_order_it_went() {
-        let charge = StepDescriptor::new(CHARGE, || Ok(Outcome::failure(Reason::new("declined"))))
+        let charge = StepDescriptor::new(CHARGE, || Ok(Outcome::failure("declined")))
             .rescue(|| Ok(RescueOutcome::success()));
         let recorder = RecordingReporter::default();
         let instance = orders()

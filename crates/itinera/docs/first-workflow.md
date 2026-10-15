@@ -5,7 +5,7 @@ charge. The order is given as the journey's initial data, and the receipt is rea
 output.
 
 ```
-use itinera::error::Error;
+use itinera::error::Result;
 use itinera::executor::LocalExecutor;
 use itinera::journey::{Contributor, InitialData, Output};
 use itinera::policy::{OnSuccess, step_policy};
@@ -20,7 +20,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome> {
         if self.price <= 0 {
             return Self::fail("nothing-to-charge");
         }
@@ -39,7 +39,7 @@ impl Audit {
         &self,
         #[from_step] charged: i64,
         #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<Option<OnSuccess>> {
         contributor.contribute("audit", format!("charged {charged}"));
         Self::carry_on()
     }

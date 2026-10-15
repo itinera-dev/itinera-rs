@@ -70,7 +70,7 @@ fn the_step_runs_once() {
         .run(workflow.instance(Shop::new()).create().unwrap())
         .unwrap();
 
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     assert_eq!(*runs.lock().unwrap(), 1);
 }
 
@@ -85,7 +85,7 @@ fn a_journey_without_a_step_succeeds() {
         .run(workflow.instance(shop).reporter(audit).create().unwrap())
         .unwrap();
 
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     assert_eq!(
         entries(&log),
         [

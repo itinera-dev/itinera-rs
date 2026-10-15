@@ -74,19 +74,19 @@ pub(crate) use slots::Slots;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
-/// use itinera::step::{Outcome, Reason, Step};
+/// use itinera::error::Result;
+/// use itinera::step::{Outcome, Step};
 ///
 /// struct Charge {
 ///     amount: i64,
 /// }
 ///
 /// impl Step for Charge {
-///     fn run(self) -> Result<Outcome, Error> {
+///     fn run(self) -> Result<Outcome> {
 ///         if self.amount > 0 {
 ///             Ok(Outcome::success())
 ///         } else {
-///             Ok(Outcome::failure(Reason::new("nothing-to-charge")))
+///             Ok(Outcome::failure("nothing-to-charge"))
 ///         }
 ///     }
 /// }
@@ -103,10 +103,10 @@ pub trait Step {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{Outcome, Step};
     ///
-    /// fn outcome_of(step: impl Step) -> Result<Outcome, Error> {
+    /// fn outcome_of(step: impl Step) -> Result<Outcome> {
     ///     step.run()
     /// }
     /// ```

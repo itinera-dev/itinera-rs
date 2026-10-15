@@ -73,7 +73,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Asy
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{
     ///     AsyncOnWorkflowSuccess, Requested, WorkflowPolicyDescriptor, WorkflowSuccess,
@@ -85,7 +85,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Asy
     ///     async fn on_workflow_success(
     ///         &self,
     ///         _got: Requested<'_, W, WorkflowSuccess, Asynchronous>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }
@@ -111,7 +111,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Asy
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{
     ///     AsyncOnWorkflowSuccess, HookNeeds, Requested, WorkflowPolicyDescriptor, WorkflowSuccess,
@@ -126,7 +126,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Asy
     ///     async fn on_workflow_success(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowSuccess, Asynchronous>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         println!(
     ///             "{} came to {}",
     ///             got.journey_id(),
@@ -159,7 +159,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Asy
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{
     ///     AsyncOnWorkflowFailure, Requested, WorkflowFailure, WorkflowPolicyDescriptor,
@@ -171,7 +171,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Asy
     ///     async fn on_workflow_failure(
     ///         &self,
     ///         _got: Requested<'_, W, WorkflowFailure, Asynchronous>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }
@@ -197,7 +197,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Asy
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{
     ///     AsyncOnWorkflowFailure, HookNeeds, Requested, WorkflowFailure, WorkflowPolicyDescriptor,
@@ -209,7 +209,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Asy
     ///     async fn on_workflow_failure(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowFailure, Asynchronous>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         let journey = got.journey_id();
     ///         got.reporter()?.warning(format!("{journey} failed")).await?;
     ///         Ok(())

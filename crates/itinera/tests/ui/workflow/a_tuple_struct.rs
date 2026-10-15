@@ -1,6 +1,5 @@
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::JourneyStatus;
 use itinera::step::{Outcome, Step, step};
 use itinera::workflow::workflow;
 
@@ -21,6 +20,6 @@ struct Courier(&'static str);
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Courier::builder().create()?;
     let result = LocalExecutor::new().run(instance)?;
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     Ok(())
 }

@@ -11,7 +11,7 @@ use itinera::service::{
     PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
 };
 use itinera::step::{
-    Input, OptionalInput, Outcome, Reason, Resolved, Step, StepDescriptor, StepFactory, StepName,
+    Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepName,
     StepNeeds, step, step_name,
 };
 use itinera::workflow::{Workflow, WorkflowDescriptor, workflow};
@@ -71,7 +71,7 @@ fn charged(
             contributor.contribute("reservation", reservation);
             Outcome::success()
         }
-        _ => Outcome::failure(Reason::new("refused")),
+        _ => Outcome::failure("refused"),
     }
 }
 
@@ -402,7 +402,7 @@ impl Restock {
     fn run(self, #[service("stock")] stock: &dyn StockStore) -> Result<Outcome, Error> {
         match stock.reserve(1) {
             Some(_) => Ok(Outcome::success()),
-            None => Ok(Outcome::failure(Reason::new("out-of-stock"))),
+            None => Ok(Outcome::failure("out-of-stock")),
         }
     }
 }

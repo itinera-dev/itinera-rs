@@ -17,13 +17,13 @@ use crate::error::Error;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::step::{AsyncRescueStep, RescueOutcome};
 ///
 /// struct RefreshToken;
 ///
 /// impl AsyncRescueStep for RefreshToken {
-///     async fn run(self) -> Result<RescueOutcome, Error> {
+///     async fn run(self) -> Result<RescueOutcome> {
 ///         Ok(RescueOutcome::success())
 ///     }
 /// }
@@ -40,10 +40,10 @@ pub trait AsyncRescueStep: Send {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{AsyncRescueStep, RescueOutcome};
     ///
-    /// async fn outcome_of(rescue: impl AsyncRescueStep) -> Result<RescueOutcome, Error> {
+    /// async fn outcome_of(rescue: impl AsyncRescueStep) -> Result<RescueOutcome> {
     ///     rescue.run().await
     /// }
     /// ```

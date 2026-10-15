@@ -27,7 +27,7 @@ use crate::value::AnyValue;
 /// A dispatcher that ignores the workflow's reporters and delivers only to its own:
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::event::Event;
 /// use itinera::report::{Dispatcher, Reporter};
 /// use itinera::value::AnyValue;
@@ -37,15 +37,15 @@ use crate::value::AnyValue;
 /// }
 ///
 /// impl Dispatcher for OnlyMine {
-///     fn add(&mut self, _reporter: Box<dyn Reporter>) -> Result<(), Error> {
+///     fn add(&mut self, _reporter: Box<dyn Reporter>) -> Result<()> {
 ///         Ok(())
 ///     }
 ///
-///     fn dispatch(&mut self, event: &Event) -> Result<(), Error> {
+///     fn dispatch(&mut self, event: &Event) -> Result<()> {
 ///         self.reporter.report(event)
 ///     }
 ///
-///     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+///     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<()> {
 ///         self.reporter.set_global_metadata(key, value)
 ///     }
 /// }
@@ -56,14 +56,14 @@ pub trait Dispatcher: Send + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::{DefaultDispatcher, Dispatcher, Reporter};
     ///
     /// struct Silent;
     ///
     /// impl Reporter for Silent {
-    ///     fn report(&mut self, _event: &Event) -> Result<(), Error> {
+    ///     fn report(&mut self, _event: &Event) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }
@@ -78,11 +78,11 @@ pub trait Dispatcher: Send + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::Dispatcher;
     ///
-    /// fn deliver(dispatcher: &mut impl Dispatcher, event: &Event) -> Result<(), Error> {
+    /// fn deliver(dispatcher: &mut impl Dispatcher, event: &Event) -> Result<()> {
     ///     dispatcher.dispatch(event)
     /// }
     /// ```
@@ -93,11 +93,11 @@ pub trait Dispatcher: Send + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::report::Dispatcher;
     /// use itinera::value::AnyValue;
     ///
-    /// fn tell(dispatcher: &mut impl Dispatcher, user: &str) -> Result<(), Error> {
+    /// fn tell(dispatcher: &mut impl Dispatcher, user: &str) -> Result<()> {
     ///     dispatcher.set_global_metadata("user_id", &AnyValue::new(user.to_string()))
     /// }
     /// ```
@@ -111,7 +111,7 @@ pub trait Dispatcher: Send + 'static {
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::report::{DefaultDispatcher, DispatcherFactory};
 ///
 /// struct Counting {
@@ -121,7 +121,7 @@ pub trait Dispatcher: Send + 'static {
 /// impl DispatcherFactory for Counting {
 ///     type Dispatcher = DefaultDispatcher;
 ///
-///     fn create(&mut self) -> Result<DefaultDispatcher, Error> {
+///     fn create(&mut self) -> Result<DefaultDispatcher> {
 ///         self.created += 1;
 ///         Ok(DefaultDispatcher::new())
 ///     }

@@ -29,7 +29,7 @@ use crate::value::{AnyValue, Value};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::policy::{HookNeeds, OnStepSuccess, OnSuccess, Requested, StepSuccess};
 /// use itinera::step::Input;
 ///
@@ -45,7 +45,7 @@ use crate::value::{AnyValue, Value};
 ///     fn on_step_success(
 ///         &self,
 ///         mut got: Requested<'_, W, StepSuccess>,
-///     ) -> Result<Option<OnSuccess>, Error> {
+///     ) -> Result<Option<OnSuccess>> {
 ///         let receipt = got.from_step(&RECEIPT)?;
 ///         got.reporter()?.info(format!("{} issued {receipt}", got.step_name()))?;
 ///         Ok(None)
@@ -95,7 +95,7 @@ impl<'a, W, H: HookKind, M> Requested<'a, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowSuccess, Requested, WorkflowSuccess};
     /// use itinera::step::Input;
     ///
@@ -111,7 +111,7 @@ impl<'a, W, H: HookKind, M> Requested<'a, W, H, M> {
     ///     fn on_workflow_success(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         let amount: i64 = got.from_workflow(&AMOUNT)?;
     ///         println!("sold for {amount}");
     ///         Ok(())
@@ -136,7 +136,7 @@ impl<'a, W, H: HookKind, M> Requested<'a, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowFailure, Requested, WorkflowFailure};
     /// use itinera::step::OptionalInput;
     ///
@@ -152,7 +152,7 @@ impl<'a, W, H: HookKind, M> Requested<'a, W, H, M> {
     ///     fn on_workflow_failure(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowFailure>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         if let Some(customer) = got.optional_from_workflow(&CUSTOMER)? {
     ///             println!("sorry, {customer}");
     ///         }
@@ -176,7 +176,7 @@ impl<'a, W, H: HookKind, M> Requested<'a, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{OnWorkflowSuccess, Requested, WorkflowSuccess};
     ///
     /// struct Receipt;
@@ -185,7 +185,7 @@ impl<'a, W, H: HookKind, M> Requested<'a, W, H, M> {
     ///     fn on_workflow_success(
     ///         &self,
     ///         got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         println!("journey {} succeeded", got.journey_id());
     ///         Ok(())
     ///     }
@@ -207,7 +207,7 @@ impl<W, H: StepHookKind, M> Requested<'_, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnStepFailure, FailWorkflow, Requested, StepFailure};
     /// use itinera::step::Input;
     ///
@@ -223,7 +223,7 @@ impl<W, H: StepHookKind, M> Requested<'_, W, H, M> {
     ///     fn on_step_failure(
     ///         &self,
     ///         mut got: Requested<'_, W, StepFailure>,
-    ///     ) -> Result<Option<FailWorkflow>, Error> {
+    ///     ) -> Result<Option<FailWorkflow>> {
     ///         println!("the bank declined: {}", got.from_step(&DECLINE)?);
     ///         Ok(None)
     ///     }
@@ -247,7 +247,7 @@ impl<W, H: StepHookKind, M> Requested<'_, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{FailWorkflow, HookNeeds, OnStepRetry, Requested, StepRetry};
     /// use itinera::step::OptionalInput;
     ///
@@ -263,7 +263,7 @@ impl<W, H: StepHookKind, M> Requested<'_, W, H, M> {
     ///     fn on_step_retry(
     ///         &self,
     ///         mut got: Requested<'_, W, StepRetry>,
-    ///     ) -> Result<Option<FailWorkflow>, Error> {
+    ///     ) -> Result<Option<FailWorkflow>> {
     ///         if let Some(draft) = got.optional_from_step(&DRAFT)? {
     ///             println!("dropping the draft {draft}");
     ///         }
@@ -287,7 +287,7 @@ impl<W, H: StepHookKind, M> Requested<'_, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{OnStepSuccess, OnSuccess, Requested, StepSuccess};
     ///
     /// struct Trace;
@@ -296,7 +296,7 @@ impl<W, H: StepHookKind, M> Requested<'_, W, H, M> {
     ///     fn on_step_success(
     ///         &self,
     ///         got: Requested<'_, W, StepSuccess>,
-    ///     ) -> Result<Option<OnSuccess>, Error> {
+    ///     ) -> Result<Option<OnSuccess>> {
     ///         println!("{} succeeded", got.step_name());
     ///         Ok(None)
     ///     }
@@ -311,7 +311,7 @@ impl<W, H: StepHookKind, M> Requested<'_, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{OnStepSuccess, OnSuccess, Requested, StepSuccess};
     ///
     /// struct Trace;
@@ -320,7 +320,7 @@ impl<W, H: StepHookKind, M> Requested<'_, W, H, M> {
     ///     fn on_step_success(
     ///         &self,
     ///         got: Requested<'_, W, StepSuccess>,
-    ///     ) -> Result<Option<OnSuccess>, Error> {
+    ///     ) -> Result<Option<OnSuccess>> {
     ///         println!("succeeded at attempt {}", got.attempt());
     ///         Ok(None)
     ///     }
@@ -341,7 +341,7 @@ impl<W, H: FailureHookKind, M> Requested<'_, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{FailWorkflow, HookNeeds, OnStepFailure, Requested, StepFailure};
     ///
     /// struct Alarm;
@@ -354,7 +354,7 @@ impl<W, H: FailureHookKind, M> Requested<'_, W, H, M> {
     ///     fn on_step_failure(
     ///         &self,
     ///         mut got: Requested<'_, W, StepFailure>,
-    ///     ) -> Result<Option<FailWorkflow>, Error> {
+    ///     ) -> Result<Option<FailWorkflow>> {
     ///         println!("failed with {}", got.reason()?.code());
     ///         Ok(None)
     ///     }
@@ -378,7 +378,7 @@ impl<W, H: FailureHookKind, M> Requested<'_, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{FailWorkflow, HookNeeds, OnStepRetry, Requested, StepRetry};
     ///
     /// struct Watch;
@@ -391,7 +391,7 @@ impl<W, H: FailureHookKind, M> Requested<'_, W, H, M> {
     ///     fn on_step_retry(
     ///         &self,
     ///         mut got: Requested<'_, W, StepRetry>,
-    ///     ) -> Result<Option<FailWorkflow>, Error> {
+    ///     ) -> Result<Option<FailWorkflow>> {
     ///         if got.optional_reason()?.is_none() {
     ///             println!("retrying after an abnormal termination");
     ///         }
@@ -417,7 +417,7 @@ impl<'a, W, H: ErrorHookKind, M> Requested<'a, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{
     ///     FailWorkflow, HookNeeds, OnStepAbnormalTermination, Requested, StepAbnormalTermination,
     /// };
@@ -432,7 +432,7 @@ impl<'a, W, H: ErrorHookKind, M> Requested<'a, W, H, M> {
     ///     fn on_step_abnormal_termination(
     ///         &self,
     ///         mut got: Requested<'_, W, StepAbnormalTermination>,
-    ///     ) -> Result<Option<FailWorkflow>, Error> {
+    ///     ) -> Result<Option<FailWorkflow>> {
     ///         println!("crashed: {}", got.error()?);
     ///         Ok(None)
     ///     }
@@ -456,7 +456,7 @@ impl<'a, W, H: ErrorHookKind, M> Requested<'a, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{FailWorkflow, HookNeeds, OnStepFailure, Requested, StepFailure};
     ///
     /// struct Alarm;
@@ -469,7 +469,7 @@ impl<'a, W, H: ErrorHookKind, M> Requested<'a, W, H, M> {
     ///     fn on_step_failure(
     ///         &self,
     ///         mut got: Requested<'_, W, StepFailure>,
-    ///     ) -> Result<Option<FailWorkflow>, Error> {
+    ///     ) -> Result<Option<FailWorkflow>> {
     ///         if let Some(error) = got.optional_error()? {
     ///             println!("crashed: {error}");
     ///         }
@@ -491,7 +491,7 @@ impl<W, M> Requested<'_, W, StepFailure, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{
     ///     FailWorkflow, OnStepFailure, Requested, StepFailure, StepFailureCause,
     /// };
@@ -502,7 +502,7 @@ impl<W, M> Requested<'_, W, StepFailure, M> {
     ///     fn on_step_failure(
     ///         &self,
     ///         got: Requested<'_, W, StepFailure>,
-    ///     ) -> Result<Option<FailWorkflow>, Error> {
+    ///     ) -> Result<Option<FailWorkflow>> {
     ///         if got.cause() == StepFailureCause::RetriesExhausted {
     ///             println!("gave up after {} attempts", got.attempt());
     ///         }
@@ -521,7 +521,7 @@ impl<W, M> Requested<'_, W, StepRetry, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::RetryCause;
     /// use itinera::policy::{FailWorkflow, OnStepRetry, Requested, StepRetry};
     ///
@@ -531,7 +531,7 @@ impl<W, M> Requested<'_, W, StepRetry, M> {
     ///     fn on_step_retry(
     ///         &self,
     ///         got: Requested<'_, W, StepRetry>,
-    ///     ) -> Result<Option<FailWorkflow>, Error> {
+    ///     ) -> Result<Option<FailWorkflow>> {
     ///         if got.cause() == RetryCause::AbnormalTermination {
     ///             println!("retrying after a crash");
     ///         }
@@ -555,7 +555,7 @@ impl<'a, W, H: PolicyHookKind, M> Requested<'a, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowSuccess, Requested, WorkflowSuccess};
     ///
     /// struct Stamp;
@@ -568,7 +568,7 @@ impl<'a, W, H: PolicyHookKind, M> Requested<'a, W, H, M> {
     ///     fn on_workflow_success(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.contributor()?.contribute("closed", true);
     ///         Ok(())
     ///     }
@@ -586,11 +586,11 @@ impl<'a, W, H: PolicyHookKind, M> Requested<'a, W, H, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{OnWorkflowFailure, Provides, Requested, WorkflowFailure};
     ///
     /// trait Notifier {
-    ///     fn notify(&self, message: &str) -> Result<(), Error>;
+    ///     fn notify(&self, message: &str) -> Result<()>;
     /// }
     ///
     /// struct Notify;
@@ -602,7 +602,7 @@ impl<'a, W, H: PolicyHookKind, M> Requested<'a, W, H, M> {
     ///     fn on_workflow_failure(
     ///         &self,
     ///         got: Requested<'_, W, WorkflowFailure>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.role::<dyn Notifier>().notify("the order failed")
     ///     }
     /// }
@@ -625,7 +625,7 @@ impl<'a, W, H: ReportingHookKind> Requested<'a, W, H, Synchronous> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowFailure, Requested, WorkflowFailure};
     ///
     /// struct Alert;
@@ -638,7 +638,7 @@ impl<'a, W, H: ReportingHookKind> Requested<'a, W, H, Synchronous> {
     ///     fn on_workflow_failure(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowFailure>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.reporter()?.error("the order failed")?;
     ///         Ok(())
     ///     }
@@ -655,14 +655,14 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{InputAdapter, Requested};
     /// use itinera::value::AnyValue;
     ///
     /// struct Orders;
     ///
     /// impl Orders {
-    ///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
+    ///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>> {
     ///         println!("building {}", got.step_name());
     ///         Ok(None)
     ///     }
@@ -678,7 +678,7 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{InputAdapter, Requested};
     /// use itinera::value::AnyValue;
     ///
@@ -687,7 +687,7 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     /// }
     ///
     /// impl Orders {
-    ///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
+    ///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>> {
     ///         Ok((got.key() == "amount").then(|| AnyValue::new(self.price)))
     ///     }
     /// }
@@ -706,7 +706,7 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::journey::Read;
     /// use itinera::policy::{InputAdapter, Requested};
     /// use itinera::value::AnyValue;
@@ -716,7 +716,7 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     /// }
     ///
     /// impl Orders {
-    ///     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
+    ///     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>> {
     ///         match got.data_bag()?.read::<i64>("quantity") {
     ///             Read::Present(quantity) => Ok(Some(AnyValue::new(self.price * quantity))),
     ///             Read::Absent | Read::OtherType => Ok(None),
@@ -735,7 +735,7 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{Provider, Requested};
     /// use itinera::service::{PerAttempt, Provided, provide};
     ///
@@ -751,7 +751,7 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     ///     fn labels(
     ///         &self,
     ///         got: Requested<'_, Self, Provider<PerAttempt>>,
-    ///     ) -> Result<Provided<dyn Labeller>, Error> {
+    ///     ) -> Result<Provided<dyn Labeller>> {
     ///         Ok(provide!(Label(got.step_name().to_string())))
     ///     }
     /// }
@@ -765,7 +765,7 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{Provider, Requested};
     /// use itinera::service::{PerAttempt, Provided, provide};
     ///
@@ -783,7 +783,7 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     ///     fn payments(
     ///         &self,
     ///         got: Requested<'_, Self, Provider<PerAttempt>>,
-    ///     ) -> Result<Provided<dyn PaymentGateway>, Error> {
+    ///     ) -> Result<Provided<dyn PaymentGateway>> {
     ///         if got.attempt().get() == 1 {
     ///             Ok(provide!(Main))
     ///         } else {

@@ -30,7 +30,7 @@ A workflow with a field the builder requires, one it may leave unset, an input a
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
 use itinera::instance::WorkflowInstance;
-use itinera::journey::{InitialData, JourneyStatus};
+use itinera::journey::InitialData;
 use itinera::step::{Outcome, Step, step};
 use itinera::value::AnyValue;
 use itinera::workflow::{Workflow, workflow};
@@ -85,7 +85,7 @@ let instance = Orders::builder()
 assert_eq!(instance.journey_id().to_string(), "corner-1");
 assert_eq!(Orders::descriptor().listing().len(), 1);
 let result = LocalExecutor::new().run(instance)?;
-assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+assert!(result.status.is_succeeded());
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 

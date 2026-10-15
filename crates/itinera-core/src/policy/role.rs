@@ -16,17 +16,17 @@
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::{Error, Result};
 /// use itinera::policy::Provides;
 ///
 /// trait Notifier {
-///     fn notify(&self, message: &str) -> Result<(), Error>;
+///     fn notify(&self, message: &str) -> Result<()>;
 /// }
 ///
 /// struct Orders;
 ///
 /// impl Notifier for Orders {
-///     fn notify(&self, _message: &str) -> Result<(), Error> {
+///     fn notify(&self, _message: &str) -> Result<()> {
 ///         Ok(())
 ///     }
 /// }

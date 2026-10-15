@@ -17,7 +17,7 @@ use crate::value::AnyValue;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::event::Event;
 /// use itinera::report::{AsyncDispatcher, BoxedReporter};
 /// use itinera::value::AnyValue;
@@ -27,15 +27,15 @@ use crate::value::AnyValue;
 /// }
 ///
 /// impl AsyncDispatcher for OnlyMine {
-///     async fn add(&mut self, _reporter: BoxedReporter) -> Result<(), Error> {
+///     async fn add(&mut self, _reporter: BoxedReporter) -> Result<()> {
 ///         Ok(())
 ///     }
 ///
-///     async fn dispatch(&mut self, event: &Event) -> Result<(), Error> {
+///     async fn dispatch(&mut self, event: &Event) -> Result<()> {
 ///         self.reporter.report(event).await
 ///     }
 ///
-///     async fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+///     async fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<()> {
 ///         self.reporter.set_global_metadata(key, value)
 ///     }
 /// }
@@ -46,13 +46,13 @@ pub trait AsyncDispatcher: Send + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::report::{AsyncDispatcher, BoxedReporter};
     ///
     /// async fn add_all(
     ///     dispatcher: &mut impl AsyncDispatcher,
     ///     reporters: Vec<BoxedReporter>,
-    /// ) -> Result<(), Error> {
+    /// ) -> Result<()> {
     ///     for reporter in reporters {
     ///         dispatcher.add(reporter).await?;
     ///     }
@@ -66,11 +66,11 @@ pub trait AsyncDispatcher: Send + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::AsyncDispatcher;
     ///
-    /// async fn deliver(dispatcher: &mut impl AsyncDispatcher, event: &Event) -> Result<(), Error> {
+    /// async fn deliver(dispatcher: &mut impl AsyncDispatcher, event: &Event) -> Result<()> {
     ///     dispatcher.dispatch(event).await
     /// }
     /// ```
@@ -81,11 +81,11 @@ pub trait AsyncDispatcher: Send + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::report::AsyncDispatcher;
     /// use itinera::value::AnyValue;
     ///
-    /// async fn tell(dispatcher: &mut impl AsyncDispatcher, user: &str) -> Result<(), Error> {
+    /// async fn tell(dispatcher: &mut impl AsyncDispatcher, user: &str) -> Result<()> {
     ///     dispatcher
     ///         .set_global_metadata("user_id", &AnyValue::new(user.to_string()))
     ///         .await
@@ -105,7 +105,7 @@ pub trait AsyncDispatcher: Send + 'static {
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::report::{AsyncDispatcherFactory, BoxedReporter, DefaultDispatcher};
 ///
 /// struct Fresh;
@@ -113,7 +113,7 @@ pub trait AsyncDispatcher: Send + 'static {
 /// impl AsyncDispatcherFactory for Fresh {
 ///     type Dispatcher = DefaultDispatcher<BoxedReporter>;
 ///
-///     async fn create(&mut self) -> Result<Self::Dispatcher, Error> {
+///     async fn create(&mut self) -> Result<Self::Dispatcher> {
 ///         Ok(DefaultDispatcher::default())
 ///     }
 /// }
@@ -127,10 +127,10 @@ pub trait AsyncDispatcherFactory: Send + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::report::AsyncDispatcherFactory;
     ///
-    /// async fn fresh<F: AsyncDispatcherFactory>(factory: &mut F) -> Result<F::Dispatcher, Error> {
+    /// async fn fresh<F: AsyncDispatcherFactory>(factory: &mut F) -> Result<F::Dispatcher> {
     ///     factory.create().await
     /// }
     /// ```

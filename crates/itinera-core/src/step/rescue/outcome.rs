@@ -9,12 +9,12 @@ use crate::step::{Outcome, Reason};
 /// # Examples
 ///
 /// ```
-/// use itinera::step::{Reason, RescueOutcome};
+/// use itinera::step::RescueOutcome;
 ///
 /// fn refreshed(token: Option<&str>) -> RescueOutcome {
 ///     match token {
 ///         Some(_) => RescueOutcome::success(),
-///         None => RescueOutcome::failure(Reason::new("no-refresh")),
+///         None => RescueOutcome::failure("no-refresh"),
 ///     }
 /// }
 /// ```
@@ -40,16 +40,16 @@ impl RescueOutcome {
     }
 
     /// The rescue step could not fix the cause, for this reason. A rescue step is never attempted
-    /// again, so this fails the journey.
+    /// again, so this fails the journey. A text is the reason's code.
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{Reason, RescueOutcome};
+    /// use itinera::step::RescueOutcome;
     ///
-    /// let stuck = RescueOutcome::failure(Reason::new("no-refresh"));
+    /// let stuck = RescueOutcome::failure("no-refresh");
     /// ```
-    pub fn failure(reason: Reason) -> Self {
+    pub fn failure(reason: impl Into<Reason>) -> Self {
         Self {
             outcome: Outcome::failure(reason),
         }
@@ -74,9 +74,9 @@ impl RescueOutcome {
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{Reason, RescueOutcome};
+    /// use itinera::step::RescueOutcome;
     ///
-    /// assert!(RescueOutcome::failure(Reason::new("no-account")).is_failure());
+    /// assert!(RescueOutcome::failure("no-account").is_failure());
     /// ```
     #[must_use]
     pub fn is_failure(&self) -> bool {
@@ -90,7 +90,7 @@ impl RescueOutcome {
     /// ```
     /// use itinera::step::{Reason, RescueOutcome};
     ///
-    /// let busy = RescueOutcome::failure(Reason::new("busy"));
+    /// let busy = RescueOutcome::failure("busy");
     /// assert_eq!(busy.reason().map(Reason::code), Some("busy"));
     /// ```
     #[must_use]

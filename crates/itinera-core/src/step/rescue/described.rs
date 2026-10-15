@@ -16,7 +16,7 @@ use crate::step::{Reason, StepDescriptor};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Synchronous;
 /// use itinera::step::{
 ///     DescribedRescueStep, Outcome, RescueOutcome, RescueStep, StepDescriptor, step_name,
@@ -25,7 +25,7 @@ use crate::step::{Reason, StepDescriptor};
 /// struct RefreshToken;
 ///
 /// impl RescueStep for RefreshToken {
-///     fn run(self) -> Result<RescueOutcome, Error> {
+///     fn run(self) -> Result<RescueOutcome> {
 ///         Self::succeed()
 ///     }
 /// }
@@ -61,7 +61,7 @@ pub trait DescribedRescueStep {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Synchronous;
     /// use itinera::service::Service;
     /// use itinera::step::{
@@ -78,7 +78,7 @@ pub trait DescribedRescueStep {
     /// }
     ///
     /// impl RescueStep for Refresh<'_> {
-    ///     fn run(self) -> Result<RescueOutcome, Error> {
+    ///     fn run(self) -> Result<RescueOutcome> {
     ///         Ok(RescueOutcome::success())
     ///     }
     /// }
@@ -92,7 +92,7 @@ pub trait DescribedRescueStep {
     ///         RescueNeeds::new().service(&TOKENS)
     ///     }
     ///
-    ///     fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<Refresh<'a>, Error> {
+    ///     fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<Refresh<'a>> {
     ///         Ok(Refresh {
     ///             tokens: got.service(&TOKENS)?,
     ///         })
@@ -139,10 +139,10 @@ pub trait DescribedRescueStep {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{DescribedRescueStep, RescueOutcome};
     ///
-    /// fn fixed<R: DescribedRescueStep>() -> Result<RescueOutcome, Error> {
+    /// fn fixed<R: DescribedRescueStep>() -> Result<RescueOutcome> {
     ///     R::succeed()
     /// }
     /// ```
@@ -161,14 +161,14 @@ pub trait DescribedRescueStep {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{DescribedRescueStep, RescueOutcome};
     ///
-    /// fn stuck<R: DescribedRescueStep>() -> Result<RescueOutcome, Error> {
+    /// fn stuck<R: DescribedRescueStep>() -> Result<RescueOutcome> {
     ///     R::fail("no-refresh")
     /// }
     /// ```
     fn fail(reason: impl Into<Reason>) -> Result<RescueOutcome, Error> {
-        Ok(RescueOutcome::failure(reason.into()))
+        Ok(RescueOutcome::failure(reason))
     }
 }

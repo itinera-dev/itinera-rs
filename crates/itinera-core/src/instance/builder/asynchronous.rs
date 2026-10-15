@@ -11,7 +11,7 @@ impl<W: Send + Sync + 'static> InstanceBuilder<W, Asynchronous> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::AsyncReporter;
     /// use itinera::workflow::WorkflowDescriptor;
@@ -23,7 +23,7 @@ impl<W: Send + Sync + 'static> InstanceBuilder<W, Asynchronous> {
     /// }
     ///
     /// impl AsyncReporter for Forward {
-    ///     async fn report(&mut self, event: &Event) -> Result<(), Error> {
+    ///     async fn report(&mut self, event: &Event) -> Result<()> {
     ///         println!("[{}] {}", self.request_id, event.kind());
     ///         Ok(())
     ///     }

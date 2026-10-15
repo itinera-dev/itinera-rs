@@ -15,7 +15,7 @@ use crate::value::Value;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::{Error, Result};
 /// use itinera::journey::{Contributions, Contributor, Read};
 /// use itinera::step::Outcome;
 ///
@@ -24,7 +24,7 @@ use crate::value::Value;
 /// }
 ///
 /// impl Charge {
-///     fn run(self, mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+///     fn run(self, mut contributor: Contributor<'_>) -> Result<Outcome> {
 ///         contributor.contribute("charged", self.price);
 ///         Ok(Outcome::success())
 ///     }

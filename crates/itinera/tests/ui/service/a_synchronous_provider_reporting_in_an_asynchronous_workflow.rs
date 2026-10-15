@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use itinera::error::Error;
 use itinera::executor::AsyncLocalExecutor;
-use itinera::journey::{Contributor, JourneyStatus};
+use itinera::journey::Contributor;
 use itinera::policy::AsyncHookReporter;
 use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, step};
@@ -87,7 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .initial_data(NewOrder { amount: 40 })
         .create()?;
     let result = futures::executor::block_on(AsyncLocalExecutor::new().run(instance))?;
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     Ok(())
 }
 

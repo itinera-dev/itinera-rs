@@ -148,7 +148,7 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::Reporter;
     /// use itinera::workflow::WorkflowDescriptor;
@@ -160,7 +160,7 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
     /// }
     ///
     /// impl Reporter for RequestLog {
-    ///     fn report(&mut self, event: &Event) -> Result<(), Error> {
+    ///     fn report(&mut self, event: &Event) -> Result<()> {
     ///         println!("[{}] {}", self.request_id, event.kind());
     ///         Ok(())
     ///     }

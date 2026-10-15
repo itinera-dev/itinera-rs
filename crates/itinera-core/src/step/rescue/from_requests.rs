@@ -13,7 +13,7 @@ use crate::error::Error;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::step::{FromRescueRequests, Input, Reason, RescueNeeds, RescueResolved};
 ///
 /// struct RefreshToken {
@@ -28,7 +28,7 @@ use crate::error::Error;
 ///         RescueNeeds::new().from_rescued_step(&ACCOUNT).optional_reason()
 ///     }
 ///
-///     fn from_requests<M>(got: &mut RescueResolved<'_, M>) -> Result<Self, Error> {
+///     fn from_requests<M>(got: &mut RescueResolved<'_, M>) -> Result<Self> {
 ///         Ok(RefreshToken {
 ///             account: got.from_rescued_step(&ACCOUNT)?,
 ///             reason: got.optional_reason()?,
@@ -65,10 +65,10 @@ pub trait FromRescueRequests: Sized {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{FromRescueRequests, RescueResolved};
     ///
-    /// fn build<R: FromRescueRequests>(got: &mut RescueResolved<'_>) -> Result<R, Error> {
+    /// fn build<R: FromRescueRequests>(got: &mut RescueResolved<'_>) -> Result<R> {
     ///     R::from_requests(got)
     /// }
     /// ```

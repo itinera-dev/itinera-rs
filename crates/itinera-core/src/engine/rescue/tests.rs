@@ -116,7 +116,7 @@ fn a_step_that_fails_after_its_rescue_is_given_up_without_a_second_rescue(
 }
 
 fn refresh_failing() -> Result<RescueOutcome, Error> {
-    Ok(RescueOutcome::failure(Reason::new("no-refresh")))
+    Ok(RescueOutcome::failure("no-refresh"))
 }
 
 fn refresh_crashing() -> Result<RescueOutcome, Error> {

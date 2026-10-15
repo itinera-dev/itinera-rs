@@ -33,19 +33,19 @@ pub use resolved::RescueResolved;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
-/// use itinera::step::{Reason, RescueOutcome, RescueStep};
+/// use itinera::error::Result;
+/// use itinera::step::{RescueOutcome, RescueStep};
 ///
 /// struct RefreshToken {
 ///     refreshable: bool,
 /// }
 ///
 /// impl RescueStep for RefreshToken {
-///     fn run(self) -> Result<RescueOutcome, Error> {
+///     fn run(self) -> Result<RescueOutcome> {
 ///         if self.refreshable {
 ///             Ok(RescueOutcome::success())
 ///         } else {
-///             Ok(RescueOutcome::failure(Reason::new("no-refresh")))
+///             Ok(RescueOutcome::failure("no-refresh"))
 ///         }
 ///     }
 /// }
@@ -62,10 +62,10 @@ pub trait RescueStep {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{RescueOutcome, RescueStep};
     ///
-    /// fn outcome_of(rescue: impl RescueStep) -> Result<RescueOutcome, Error> {
+    /// fn outcome_of(rescue: impl RescueStep) -> Result<RescueOutcome> {
     ///     rescue.run()
     /// }
     /// ```

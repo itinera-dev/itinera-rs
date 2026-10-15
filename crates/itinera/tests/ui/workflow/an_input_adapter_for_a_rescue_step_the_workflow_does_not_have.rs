@@ -1,6 +1,6 @@
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::{Contributor, JourneyStatus};
+use itinera::journey::Contributor;
 use itinera::step::{Outcome, Reason, RescueOutcome, RescueStep, Step, rescue_step, step};
 use itinera::value::AnyValue;
 use itinera::workflow::workflow;
@@ -53,7 +53,7 @@ impl Orders {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Orders::builder().initial_data(Client { client: "C-1".to_owned() }).create()?;
     let result = LocalExecutor::new().run(instance)?;
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     Ok(())
 }
 

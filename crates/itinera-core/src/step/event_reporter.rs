@@ -19,7 +19,7 @@ use crate::step::StepReporter;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::{Error, Result};
 /// use itinera::step::{Outcome, StepEventReporter, StepReporter};
 ///
 /// struct Charge {
@@ -27,7 +27,7 @@ use crate::step::StepReporter;
 /// }
 ///
 /// impl Charge {
-///     fn run(self, mut reporter: StepReporter<'_>) -> Result<Outcome, Error> {
+///     fn run(self, mut reporter: StepReporter<'_>) -> Result<Outcome> {
 ///         reporter.info_with("charging", self.price)?;
 ///         Ok(Outcome::success())
 ///     }

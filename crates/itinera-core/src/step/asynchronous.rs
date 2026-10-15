@@ -19,13 +19,13 @@ pub use reporter::AsyncStepReporter;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::step::{AsyncStep, Outcome};
 ///
 /// struct Ship;
 ///
 /// impl AsyncStep for Ship {
-///     async fn run(self) -> Result<Outcome, Error> {
+///     async fn run(self) -> Result<Outcome> {
 ///         Ok(Outcome::success())
 ///     }
 /// }
@@ -42,10 +42,10 @@ pub trait AsyncStep: Send {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{AsyncStep, Outcome};
     ///
-    /// async fn outcome_of(step: impl AsyncStep) -> Result<Outcome, Error> {
+    /// async fn outcome_of(step: impl AsyncStep) -> Result<Outcome> {
     ///     step.run().await
     /// }
     /// ```
@@ -111,13 +111,13 @@ impl<'a> Resolved<'a, Asynchronous> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::step::{AsyncStepReporter, Resolved};
     ///
     /// fn reporter<'a>(
     ///     got: &mut Resolved<'a, Asynchronous>,
-    /// ) -> Result<AsyncStepReporter<'a>, Error> {
+    /// ) -> Result<AsyncStepReporter<'a>> {
     ///     got.reporter()
     /// }
     /// ```

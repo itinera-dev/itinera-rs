@@ -1,6 +1,5 @@
 use itinera::error::Error;
 use itinera::executor::AsyncLocalExecutor;
-use itinera::journey::JourneyStatus;
 use itinera::step::{Outcome, Step, step};
 use itinera::workflow::workflow;
 
@@ -41,6 +40,6 @@ struct Delivery;
 pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Delivery::builder().async_reporter(Log).create()?;
     let result = futures::executor::block_on(AsyncLocalExecutor::new().run(instance))?;
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     Ok(())
 }

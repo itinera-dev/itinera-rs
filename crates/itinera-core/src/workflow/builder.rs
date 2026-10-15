@@ -20,7 +20,7 @@ use crate::step::StepDescriptor;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::journey::DataBag;
 /// use itinera::workflow::WorkflowDescriptor;
 ///
@@ -28,7 +28,7 @@ use crate::step::StepDescriptor;
 ///     prefix: &'static str,
 /// }
 ///
-/// fn first_order(orders: &Orders, _: &DataBag) -> Result<String, Error> {
+/// fn first_order(orders: &Orders, _: &DataBag) -> Result<String> {
 ///     Ok(format!("{}-1", orders.prefix))
 /// }
 ///
@@ -84,7 +84,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{
     ///     OnWorkflowSuccess, Requested, WorkflowPolicyDescriptor, WorkflowSuccess,
     /// };
@@ -96,7 +96,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     ///     fn on_workflow_success(
     ///         &self,
     ///         _got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }
@@ -162,19 +162,19 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::service::{Service, ServiceProviderDescriptor, provide};
     /// use itinera::step::{Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds, step_name};
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// trait StockStore: Send + Sync {
-    ///     fn reserve(&self) -> Result<(), Error>;
+    ///     fn reserve(&self) -> Result<()>;
     /// }
     ///
     /// struct Warehouse;
     ///
     /// impl StockStore for Warehouse {
-    ///     fn reserve(&self) -> Result<(), Error> {
+    ///     fn reserve(&self) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }
@@ -186,7 +186,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// }
     ///
     /// impl Step for Reserve<'_> {
-    ///     fn run(self) -> Result<Outcome, Error> {
+    ///     fn run(self) -> Result<Outcome> {
     ///         self.stock.reserve()?;
     ///         Ok(Outcome::success())
     ///     }
@@ -201,7 +201,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     ///         StepNeeds::new().service(&STOCK)
     ///     }
     ///
-    ///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Reserve<'a>, Error> {
+    ///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Reserve<'a>> {
     ///         Ok(Reserve { stock: got.service(&STOCK)? })
     ///     }
     /// }
@@ -231,7 +231,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::Reporter;
     /// use itinera::workflow::WorkflowDescriptor;
@@ -242,7 +242,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// struct Audit;
     ///
     /// impl Reporter for Audit {
-    ///     fn report(&mut self, _event: &Event) -> Result<(), Error> {
+    ///     fn report(&mut self, _event: &Event) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }
@@ -264,13 +264,13 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::{Error, Result};
     /// use itinera::journey::DataBag;
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// struct Orders;
     ///
-    /// fn order_number(_: &Orders, data: &DataBag) -> Result<String, Error> {
+    /// fn order_number(_: &Orders, data: &DataBag) -> Result<String> {
     ///     let number = data
     ///         .get("number")
     ///         .and_then(|value| value.downcast_ref::<i64>())

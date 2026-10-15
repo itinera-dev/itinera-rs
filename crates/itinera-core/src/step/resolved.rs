@@ -22,12 +22,12 @@ pub(crate) use got::Got;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::step::{Input, Resolved};
 ///
 /// const AMOUNT: Input<i64> = Input::new("amount");
 ///
-/// fn amount(got: &mut Resolved<'_>) -> Result<i64, Error> {
+/// fn amount(got: &mut Resolved<'_>) -> Result<i64> {
 ///     got.input(&AMOUNT)
 /// }
 /// ```
@@ -57,10 +57,10 @@ impl<'a, M> Resolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{Input, Resolved};
     ///
-    /// fn customer(got: &mut Resolved<'_>) -> Result<String, Error> {
+    /// fn customer(got: &mut Resolved<'_>) -> Result<String> {
     ///     got.input(&Input::new("customer"))
     /// }
     /// ```
@@ -81,10 +81,10 @@ impl<'a, M> Resolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{OptionalInput, Resolved};
     ///
-    /// fn discount(got: &mut Resolved<'_>) -> Result<i64, Error> {
+    /// fn discount(got: &mut Resolved<'_>) -> Result<i64> {
     ///     Ok(got.optional_input(&OptionalInput::new("discount"))?.unwrap_or(0))
     /// }
     /// ```
@@ -112,11 +112,11 @@ impl<'a, M> Resolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::journey::Contributor;
     /// use itinera::step::Resolved;
     ///
-    /// fn contributor<'a>(got: &mut Resolved<'a>) -> Result<Contributor<'a>, Error> {
+    /// fn contributor<'a>(got: &mut Resolved<'a>) -> Result<Contributor<'a>> {
     ///     got.contributor()
     /// }
     /// ```
@@ -145,7 +145,7 @@ impl<'a, M> Resolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::service::Service;
     /// use itinera::step::Resolved;
     ///
@@ -153,7 +153,7 @@ impl<'a, M> Resolved<'a, M> {
     ///
     /// const PAYMENTS: Service<dyn PaymentGateway> = Service::new("payments");
     ///
-    /// fn payments<'a>(got: &Resolved<'a>) -> Result<&'a dyn PaymentGateway, Error> {
+    /// fn payments<'a>(got: &Resolved<'a>) -> Result<&'a dyn PaymentGateway> {
     ///     got.service(&PAYMENTS)
     /// }
     /// ```
@@ -184,10 +184,10 @@ impl<'a> Resolved<'a, Synchronous> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{Resolved, StepReporter};
     ///
-    /// fn reporter<'a>(got: &mut Resolved<'a>) -> Result<StepReporter<'a>, Error> {
+    /// fn reporter<'a>(got: &mut Resolved<'a>) -> Result<StepReporter<'a>> {
     ///     got.reporter()
     /// }
     /// ```

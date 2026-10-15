@@ -14,7 +14,7 @@ use crate::policy::{HookNeeds, OnSuccess, Requested, StepSuccess};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::policy::{OnStepSuccess, OnSuccess, Requested, StepSuccess};
 /// use itinera::step::StepName;
 ///
@@ -26,7 +26,7 @@ use crate::policy::{HookNeeds, OnSuccess, Requested, StepSuccess};
 ///     fn on_step_success(
 ///         &self,
 ///         got: Requested<'_, W, StepSuccess>,
-///     ) -> Result<Option<OnSuccess>, Error> {
+///     ) -> Result<Option<OnSuccess>> {
 ///         Ok((got.step_name() == CHARGE).then_some(OnSuccess::FinishWorkflow))
 ///     }
 /// }
@@ -56,7 +56,7 @@ pub trait OnStepSuccess<W>: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{OnStepSuccess, OnSuccess, Requested, StepSuccess};
     /// use itinera::step::Reason;
     ///
@@ -66,7 +66,7 @@ pub trait OnStepSuccess<W>: Send + Sync + 'static {
     ///     fn on_step_success(
     ///         &self,
     ///         got: Requested<'_, W, StepSuccess>,
-    ///     ) -> Result<Option<OnSuccess>, Error> {
+    ///     ) -> Result<Option<OnSuccess>> {
     ///         if got.attempt().get() > 1 {
     ///             return Ok(Some(OnSuccess::FailWorkflow(Reason::new("not idempotent"))));
     ///         }

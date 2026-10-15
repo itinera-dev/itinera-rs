@@ -9,13 +9,13 @@ use crate::policy::{HookNeeds, Requested, WorkflowFailure};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::policy::{OnWorkflowFailure, Requested, WorkflowFailure};
 ///
 /// struct Apologise;
 ///
 /// impl<W: Send + Sync + 'static> OnWorkflowFailure<W> for Apologise {
-///     fn on_workflow_failure(&self, got: Requested<'_, W, WorkflowFailure>) -> Result<(), Error> {
+///     fn on_workflow_failure(&self, got: Requested<'_, W, WorkflowFailure>) -> Result<()> {
 ///         println!("journey {} failed", got.journey_id());
 ///         Ok(())
 ///     }
@@ -46,7 +46,7 @@ pub trait OnWorkflowFailure<W>: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowFailure, Requested, WorkflowFailure};
     ///
     /// struct Alert;
@@ -59,7 +59,7 @@ pub trait OnWorkflowFailure<W>: Send + Sync + 'static {
     ///     fn on_workflow_failure(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowFailure>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.reporter()?.warning("the order failed")?;
     ///         Ok(())
     ///     }

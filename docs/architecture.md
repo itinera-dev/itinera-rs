@@ -47,7 +47,7 @@ The features are `macros` (on by default), `async`, which adds the asynchronous 
 | `event` | `Event`, its bodies, who did or decided what, and the `Level` of the events steps and hooks emit; with `testing`, `Emitted` |
 | `report` | Reporters, dispatchers and their factories, `DefaultDispatcher`, `GlobalMetadata` |
 | `mode` | `Synchronous` and `Asynchronous`, `HasMode` for the types that know their workflow's mode; with `async`, the `async_trait` attribute |
-| `error` | `Error` and `Interrupted` |
+| `error` | `Error`, `Interrupted`, and `Result`, whose error is `Error` unless another is named |
 | `engine` | Private: the one engine both executors share |
 
 Where it lives: `crates/`, and each module in `crates/itinera-core/src/`.
@@ -601,4 +601,4 @@ An abort has one variant per reason:
 
 The result holds the error itself, where events carry only its message. Step statuses and attempt counts are not in the result: they are in the event stream.
 
-Where it lives: `engine/end.rs`, `journey/result.rs`, `journey/abort.rs` and `journey/abort/`, and `executor/refusal.rs`.
+Where it lives: `engine/end.rs`, `journey/result.rs` and `journey/result/`, `journey/failure.rs`, `journey/abort.rs` and `journey/abort/`, and `executor/refusal.rs`.

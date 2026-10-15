@@ -12,7 +12,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepFailure};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
 /// use itinera::policy::{AsyncOnStepFailure, FailWorkflow, Requested, StepFailure};
 ///
@@ -22,7 +22,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepFailure};
 ///     async fn on_step_failure(
 ///         &self,
 ///         got: Requested<'_, W, StepFailure, Asynchronous>,
-///     ) -> Result<Option<FailWorkflow>, Error> {
+///     ) -> Result<Option<FailWorkflow>> {
 ///         println!("{} was given up", got.step_name());
 ///         Ok(None)
 ///     }
@@ -53,14 +53,14 @@ pub trait AsyncOnStepFailure<W>: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{AsyncOnStepFailure, FailWorkflow, Requested, StepFailure};
     ///
     /// async fn decide<P: AsyncOnStepFailure<()>>(
     ///     policy: &P,
     ///     got: Requested<'_, (), StepFailure, Asynchronous>,
-    /// ) -> Result<Option<FailWorkflow>, Error> {
+    /// ) -> Result<Option<FailWorkflow>> {
     ///     policy.on_step_failure(got).await
     /// }
     /// ```

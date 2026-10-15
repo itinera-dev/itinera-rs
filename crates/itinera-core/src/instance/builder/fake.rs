@@ -30,13 +30,11 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::executor::LocalExecutor;
     /// use itinera::report::RecordingReporter;
     /// use itinera::service::{Service, ServiceProviderDescriptor, provide};
-    /// use itinera::step::{
-    ///     Outcome, Reason, Resolved, Step, StepDescriptor, StepFactory, StepNeeds, step_name,
-    /// };
+    /// use itinera::step::{Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds, step_name};
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// trait StockStore: Send + Sync {
@@ -66,11 +64,11 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
     /// }
     ///
     /// impl Step for Reserve<'_> {
-    ///     fn run(self) -> Result<Outcome, Error> {
+    ///     fn run(self) -> Result<Outcome> {
     ///         if self.stock.in_stock() {
     ///             Ok(Outcome::success())
     ///         } else {
-    ///             Ok(Outcome::failure(Reason::new("sold-out")))
+    ///             Ok(Outcome::failure("sold-out"))
     ///         }
     ///     }
     /// }
@@ -84,7 +82,7 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
     ///         StepNeeds::new().service(&STOCK)
     ///     }
     ///
-    ///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Reserve<'a>, Error> {
+    ///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Reserve<'a>> {
     ///         Ok(Reserve { stock: got.service(&STOCK)? })
     ///     }
     /// }

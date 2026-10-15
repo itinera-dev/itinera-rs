@@ -9,7 +9,7 @@ use crate::report::BoxedReporter;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::event::Event;
 /// use itinera::mode::Asynchronous;
 /// use itinera::report::AsyncReporter;
@@ -21,7 +21,7 @@ use crate::report::BoxedReporter;
 /// struct Forward;
 ///
 /// impl AsyncReporter for Forward {
-///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
+///     async fn report(&mut self, _event: &Event) -> Result<()> {
 ///         Ok(())
 ///     }
 /// }

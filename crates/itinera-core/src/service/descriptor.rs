@@ -41,7 +41,7 @@ pub(crate) use entry::{ProviderEntry, serving};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::policy::{Provider, Requested};
 /// use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
 /// use itinera::step::step_name;
@@ -62,7 +62,7 @@ pub(crate) use entry::{ProviderEntry, serving};
 ///     fn payments(
 ///         &self,
 ///         got: Requested<'_, Self, Provider<PerAttempt>>,
-///     ) -> Result<Provided<dyn PaymentGateway>, Error> {
+///     ) -> Result<Provided<dyn PaymentGateway>> {
 ///         if got.attempt().get() == 1 {
 ///             Ok(provide!(Main))
 ///         } else {
@@ -191,7 +191,7 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, Provider, Requested};
     /// use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
     /// use itinera::step::Input;
@@ -211,7 +211,7 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
     ///     fn payments(
     ///         &self,
     ///         mut got: Requested<'_, Self, Provider<PerAttempt>>,
-    ///     ) -> Result<Provided<dyn PaymentGateway>, Error> {
+    ///     ) -> Result<Provided<dyn PaymentGateway>> {
     ///         Ok(provide!(Gateway(got.from_workflow(&GATEWAY)?)))
     ///     }
     /// }
