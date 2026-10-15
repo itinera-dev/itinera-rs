@@ -82,6 +82,8 @@ These required CI checks build `itinera` and `itinera-core` once for each combin
 
 They take several minutes, so before pushing they are run only when a change adds, moves or removes a feature gate, changes code under one, names an item under one, in code or in a documentation link, or changes a crate's features or dependencies. CI runs them on every pull request.
 
+The `commit messages` check is required as well. Before pushing, run it on the commits not pushed yet, as docs/contributing.md "Commit messages and the changelog" says, since a pushed commit that has a layer of a stack above it cannot be reworded without rebasing that layer.
+
 `cargo xtask check` runs the first list, in this order, and stops at the first that fails. `cargo xtask check --feature-combinations` runs the second list after it. The `cargo hack` checks need [cargo-hack](https://github.com/taiki-e/cargo-hack) installed, as `cargo deny check` needs cargo-deny. A test in the `xtask` crate keeps its lists the same as these.
 
 ## Running the conformance runner
@@ -101,7 +103,10 @@ The features under `crates/itinera-conformance/features/macros`, tagged `@macros
 - Each stage is one stack of pull requests, made with `gh stack`, one layer per coherent piece. Every layer passes all of `main`'s checks.
 - Every pull request names an open issue in this repository: `Refs #N` when it contributes, `Closes #N` when it finishes. Work that belongs to no proposal refers to #7, or to an issue of its own.
 - Public API of a proposal not yet listed in `conformance.json`, or of one the specification has not accepted yet, stays behind the `unstable` feature, as an item gated with `#[cfg(feature = "unstable")]`. So does a listed proposal's API while it holds a stand-in that a later stage replaces, or names API of a proposal not yet listed.
-- Commit messages and pull request descriptions say what changed and why, in plain prose.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/). The subject is `type(scope): description`, or `type: description`, with the description in the imperative and starting in lower case, such as `feat(step)!: give an attempt a type of its own`. The type is one of `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `ci`, `build`, `chore` and `revert`. The scope, when there is one, is a module or an area, such as `step`, `macros`, `release` or `book`. A `!` before the colon marks a change that breaks code written for the last release. The body says what changed and why, in plain prose.
+- A commit that changes what an application meets, compared with the last release, carries its changelog entries as trailers, in the paragraphs that close the message, after the body: one `Added:`, `Changed:`, `Fixed:` or `Removed:` line per entry, before `Refs #N` or `Closes #N`. An entry says what an application meets, by its public path, such as `journey::Read::present`, and for a breaking change what replaces what is gone. A `feat`, `fix` or breaking commit that changes nothing an application meets, such as a fix to work no release has shipped yet, says `Changelog: none` instead. The `commit messages` check refuses a message that breaks this form, and git-cliff builds each release's changelog section from the entries, as `docs/contributing.md` says.
+- Pull requests merge with a merge commit, never squashed, since a squash folds every commit's trailers into one message.
+- Pull request descriptions say what changed and why, in plain prose.
 - Every change an agent makes is also reviewed by a separate reviewer agent. A new pull request is reviewed before it is opened, since that is the version the maintainer reads first. A later change to an open pull request is pushed as soon as the checks under "Running the checks" that it calls for pass, and is reviewed while CI runs; an accepted finding becomes a further push, reviewed in the same way. A review passes when it has no accepted finding left.
 
 ## Writing

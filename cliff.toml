@@ -1,0 +1,32 @@
+# git-cliff writes a release's section of CHANGELOG.md from the changelog
+# entries that commits carry as trailers, such as "Added: ...".
+
+[changelog]
+body = """
+## [{{ version | trim_start_matches(pat="v") }}]
+{% set_global entries = [] %}\
+{% for commit in commits %}{% for trailer in commit.footers %}\
+{% if trailer.token in ["Added", "Changed", "Fixed", "Removed"] %}\
+{% set_global entries = entries | concat(with=trailer) %}\
+{% endif %}{% endfor %}{% endfor %}\
+{% for section in ["Added", "Changed", "Fixed", "Removed"] %}\
+{% set these = entries | filter(attribute="token", value=section) %}\
+{% if these | length > 0 %}
+### {{ section }}
+{% for entry in these %}
+- {{ entry.value }}\
+{% endfor %}
+{% endif %}\
+{% endfor %}
+"""
+trim = false
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+# git-cliff's default parsers skip some commits, such as chore(deps) and
+# chore(pr), whose entries would then be lost.
+commit_parsers = []
+split_commits = false
+sort_commits = "oldest"
+tag_pattern = "v[0-9].*"

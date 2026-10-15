@@ -59,6 +59,32 @@ The conformance runner turns on `async`, `macros` and `testing` for every crate 
 
 In CI, the `run-conformance` action of [itinera-dev/actions](https://github.com/itinera-dev/actions) reads `conformance.json`, checks the excluded scenarios, runs the scenarios whose proposals are all listed, and writes the report. While no proposal is listed, it checks the manifest without starting the runner.
 
+## Commit messages and the changelog
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/), and each commit that changes what an application meets carries its changelog entries as trailers, which [git-cliff](https://git-cliff.org/) gathers into a release's section of `CHANGELOG.md`. For example:
+
+```text
+feat(step)!: give an attempt a type of its own
+
+An attempt's number was a bare NonZeroU32, so nothing said that it
+counted from 1 or named the first attempt.
+
+Added: `step::Attempt`, an attempt's number, counted from 1, with `Attempt::FIRST` and `is_first()`.
+Changed: An attempt's number is a `step::Attempt` instead of a `NonZeroU32` wherever it is public.
+Refs #7
+```
+
+1. The subject is `type(scope): description`, or `type: description`. The types are `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `ci`, `build`, `chore` and `revert`, and the scope is a module or an area, such as `step`, `macros`, `release` or `book`. A `!` before the colon marks a change that breaks code written for the last release.
+2. The body, after a blank line, says what changed and why.
+3. The trailers close the message: one `Added:`, `Changed:`, `Fixed:` or `Removed:` line for each changelog entry, then `Refs #N` or `Closes #N`. An entry says what an application meets, by its public path, and for a breaking change what replaces what is gone. Changes to CI, the release workflow or the documentation have entries only when they change what is published or how.
+4. A `feat`, `fix` or breaking commit with no entry, such as a fix to work that no release has shipped yet, says `Changelog: none`.
+
+The required `commit messages` check runs the `commit-messages` action of [itinera-dev/actions](https://github.com/itinera-dev/actions) on every commit of a pull request other than merges. It refuses a subject of another form, a type outside the list, a body that does not follow a blank line, a `feat`, `fix` or breaking commit with neither entries nor `Changelog: none`, entries together with `Changelog: none`, and any entry that git-cliff would not read, would cut short or would read with more attached, such as an entry on several lines or a misspelt section. It does not check the wording. Before pushing, `PYTHONPATH=<actions> python3 <actions>/commit-messages/main.py origin/main..HEAD`, run in this repository with `<actions>` a checkout of itinera-dev/actions and Python 3.11 or later, checks the local commits the same way.
+
+Pull requests merge with a merge commit, never squashed, because a squash folds every commit's trailers into one message. A commit's entries cannot change once it merges, so the release pull request reconciles entries that a later commit made untrue.
+
+`cliff.toml` holds git-cliff's template. `git cliff --unreleased --tag v<version> --strip all` prints the section for `<version>` from the entries of the commits since the last release. The template is written for git-cliff 2.14.2, which installs with `cargo install git-cliff --version 2.14.2 --locked` or `pip install git-cliff==2.14.2`.
+
 ## Releasing
 
 All three published crates share the workspace version and are published together. A maintainer requests a release by pushing a tag `v` followed by that version, such as `v0.1.0-beta.1`, on `main`, after the pull request that sets the version and adds its section to `CHANGELOG.md` has merged. The release workflow, `.github/workflows/release.yml`, then runs four jobs, each waiting for the one before:

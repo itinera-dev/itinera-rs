@@ -23,3 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: itinera-dev/actions/no-cross-repo-closing@v1
+
+  commit-messages:
+    name: commit messages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: itinera-dev/actions/commit-messages@v1
