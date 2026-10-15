@@ -75,7 +75,7 @@ pub(crate) use slots::Slots;
 ///
 /// ```
 /// use itinera::error::Result;
-/// use itinera::step::{Outcome, Reason, Step};
+/// use itinera::step::{Outcome, Step};
 ///
 /// struct Charge {
 ///     amount: i64,

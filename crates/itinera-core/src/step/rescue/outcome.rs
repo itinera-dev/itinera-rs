@@ -9,7 +9,7 @@ use crate::step::{Outcome, Reason};
 /// # Examples
 ///
 /// ```
-/// use itinera::step::{Reason, RescueOutcome};
+/// use itinera::step::RescueOutcome;
 ///
 /// fn refreshed(token: Option<&str>) -> RescueOutcome {
 ///     match token {
@@ -74,7 +74,7 @@ impl RescueOutcome {
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{Reason, RescueOutcome};
+    /// use itinera::step::RescueOutcome;
     ///
     /// assert!(RescueOutcome::failure("no-account").is_failure());
     /// ```

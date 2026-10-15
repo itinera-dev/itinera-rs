@@ -30,7 +30,7 @@ A workflow with a field the builder requires, one it may leave unset, an input a
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
 use itinera::instance::WorkflowInstance;
-use itinera::journey::{InitialData, JourneyStatus};
+use itinera::journey::InitialData;
 use itinera::step::{Outcome, Step, step};
 use itinera::value::AnyValue;
 use itinera::workflow::{Workflow, workflow};

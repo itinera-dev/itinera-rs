@@ -7,7 +7,7 @@ Status: done in stage 6. Stage 3 added the result's types, and the executors tha
 ## API
 
 - **`itinera::journey::JourneyResult`** holds the `journey_id` and the `status`. It is `#[non_exhaustive]`, so only itinera makes one, and it is not `Clone`, since it may hold an `Error`.
-- **`JourneyStatus`** has one variant per final status, each carrying its payload: `Succeeded { data }`, `Failed { failure, data }` and `Aborted(Abort)`. `kind()` gives the plain `StatusKind`, and `data()` the data bag of a journey that succeeded or failed.
+- **`JourneyStatus`** has one variant per final status, each carrying its payload: `Succeeded { data }`, `Failed { failure, data }` and `Aborted(Abort)`. `kind()` gives the plain `StatusKind`, and `data()` the data bag of a journey that succeeded or failed. `is_succeeded()`, `is_failed()` and `is_aborted()` say which status it is, `failure()` and `abort()` give what explains a failed or an aborted journey, and `Failure::reason()` and `Failure::error()` give the reason or the error behind a failure.
 - **`Failure`** has one variant per cause, and **`Abort`** one per abort reason; the tech spec of 0083 says what each holds.
 - **`DataBag`** is the journey's output. It gives the value under a key with `get`, its keys in order with `keys`, and iterates over its keys and values.
 

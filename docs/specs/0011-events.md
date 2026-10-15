@@ -35,7 +35,7 @@ Status: done in stage 7. Stage 1 added the events, reporters and dispatchers. St
 
 ## Tests
 
-- Unit tests in `itinera-core/src/policy.rs`, `policy/lifecycle.rs`, `journey.rs` and `journey/result.rs`: `hooks_and_causes_display_as_the_specification_writes_them`, `lifecycles_display_as_the_specification_writes_them`, `causes_and_abort_reasons_display_as_the_specification_writes_them` and `statuses_display_as_the_specification_writes_them`.
+- Unit tests in `itinera-core/src/policy.rs`, `policy/lifecycle.rs`, `journey.rs` and `journey/result/status_kind.rs`: `hooks_and_causes_display_as_the_specification_writes_them`, `lifecycles_display_as_the_specification_writes_them`, `causes_and_abort_reasons_display_as_the_specification_writes_them` and `statuses_display_as_the_specification_writes_them`.
 - Unit tests in `itinera-core/src/event.rs`: `every_kind_of_event_has_its_own_kind`, `names_display_as_the_specification_writes_them`, `a_timestamp_displays_in_utc_in_iso_8601`, `a_timestamp_just_before_1970_borrows_from_the_previous_second` and `a_year_outside_0_to_9999_is_written_as_an_expanded_year`.
 - Unit tests in `itinera-core/src/report.rs`: `with_no_reporter_dispatching_succeeds_and_goes_nowhere`.
 - Unit tests in `itinera-core/src/engine.rs`: `events_are_numbered_from_one_and_carry_the_journey_the_workflow_and_the_time`; `a_step_emits_its_own_events_stamped_with_its_attempt_before_its_outcome`; `a_reporter_failing_on_a_step_event_aborts_the_journey_whatever_the_step_does_next`; with the `async` feature, `an_asynchronous_step_awaits_its_own_events` and `a_reporter_failing_on_an_asynchronous_steps_event_aborts_the_journey`.

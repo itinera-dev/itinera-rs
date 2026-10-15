@@ -97,7 +97,7 @@ impl RecordingReporter {
     /// ```
     /// use itinera::executor::LocalExecutor;
     /// use itinera::report::RecordingReporter;
-    /// use itinera::step::{Outcome, Reason, StepDescriptor, step_name};
+    /// use itinera::step::{Outcome, StepDescriptor, step_name};
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// struct Orders;

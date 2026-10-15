@@ -34,7 +34,7 @@ pub use resolved::RescueResolved;
 ///
 /// ```
 /// use itinera::error::Result;
-/// use itinera::step::{Reason, RescueOutcome, RescueStep};
+/// use itinera::step::{RescueOutcome, RescueStep};
 ///
 /// struct RefreshToken {
 ///     refreshable: bool,

@@ -11,7 +11,7 @@ A workflow policy whose factory may fail:
 ```
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::{JourneyId, JourneyStatus};
+use itinera::journey::JourneyId;
 use itinera::policy::{HookReporter, WorkflowPolicy, workflow_policy};
 use itinera::step::{Outcome, StepDescriptor, step_name};
 use itinera::workflow::WorkflowDescriptor;

@@ -9,7 +9,7 @@ A step policy that prints receipts at the till of the workflow running it:
 ```
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::{Contributor, JourneyStatus};
+use itinera::journey::Contributor;
 use itinera::policy::{OnSuccess, step_policy};
 use itinera::step::{Outcome, Step, step};
 use itinera::workflow::{role, workflow};

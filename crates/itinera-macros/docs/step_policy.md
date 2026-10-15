@@ -38,7 +38,6 @@ The attribute implements `DescribedPolicy`, `StepPolicy` for every workflow prov
 ```
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::JourneyStatus;
 use itinera::policy::{FailWorkflow, OnSuccess, Provides, StepPolicy, step_policy};
 use itinera::step::{Outcome, Reason, StepDescriptor, step_name};
 use itinera::workflow::WorkflowDescriptor;

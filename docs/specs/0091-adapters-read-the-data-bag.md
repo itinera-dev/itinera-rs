@@ -8,7 +8,7 @@ Status: done.
 
 - **`HookNeeds::<InputAdapter>::data_bag()`** declares read access to the data bag. Only `HookNeeds<InputAdapter>` offers it.
 - **`Requested::<'a, W, InputAdapter>::data_bag()`** takes it, as an `itinera::journey::DataBagAccess<'a>`, where `'a` is the adapter's call. It fails when the adapter did not declare it, or took it already, so an adapter that does not declare it does not receive it.
-- **`DataBagAccess::read::<T>(key)`** gives an `itinera::journey::Read<T>`: `Present(value)`, a clone of the value, which is the adapter's own copy; `Absent` when the data bag holds nothing under the key; or `OtherType` when it holds a value of another type than `T`.
+- **`DataBagAccess::read::<T>(key)`** gives an `itinera::journey::Read<T>`: `Present(value)`, a clone of the value, which is the adapter's own copy; `Absent` when the data bag holds nothing under the key; or `OtherType` when it holds a value of another type than `T`. `Read::present()` gives the value when it is present, and `None` otherwise.
 
 ## How the rules are enforced
 

@@ -177,18 +177,9 @@ mod tests {
     use crate::step::Reason;
 
     #[rstest]
-    #[case::succeeded(JourneyStatus::Succeeded { data: bag() }, true)]
-    #[case::failed(
-        JourneyStatus::Failed {
-            failure: Failure::Failure(Reason::new("declined")),
-            data: bag(),
-        },
-        true
-    )]
-    #[case::aborted(
-        JourneyStatus::Aborted(Abort::ReporterFailed(Error::msg("down"))),
-        false
-    )]
+    #[case::succeeded(succeeded(), true)]
+    #[case::failed(failed(), true)]
+    #[case::aborted(aborted(), false)]
     fn only_a_journey_that_succeeded_or_failed_has_a_data_bag(
         #[case] status: JourneyStatus,
         #[case] has_data: bool,
@@ -197,18 +188,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case::succeeded(JourneyStatus::Succeeded { data: bag() }, StatusKind::Succeeded)]
-    #[case::failed(
-        JourneyStatus::Failed {
-            failure: Failure::Failure(Reason::new("declined")),
-            data: bag(),
-        },
-        StatusKind::Failed
-    )]
-    #[case::aborted(
-        JourneyStatus::Aborted(Abort::HookFailed(Error::msg("down"))),
-        StatusKind::Aborted
-    )]
+    #[case::succeeded(succeeded(), StatusKind::Succeeded)]
+    #[case::failed(failed(), StatusKind::Failed)]
+    #[case::aborted(aborted(), StatusKind::Aborted)]
     fn a_status_names_its_kind(#[case] status: JourneyStatus, #[case] kind: StatusKind) {
         assert_eq!(status.kind(), kind);
     }

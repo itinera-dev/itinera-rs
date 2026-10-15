@@ -18,7 +18,6 @@ use crate::value::{AnyValue, Value};
 /// use std::sync::LazyLock;
 ///
 /// use itinera::executor::LocalExecutor;
-/// use itinera::journey::JourneyStatus;
 /// use itinera::mode::Synchronous;
 /// use itinera::step::{Outcome, StepDescriptor, step_name};
 /// use itinera::workflow::{Workflow, WorkflowDescriptor};

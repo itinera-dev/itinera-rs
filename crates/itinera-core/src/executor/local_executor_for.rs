@@ -135,7 +135,6 @@ mod tests {
     use crate::executor::local_executor_for;
     use crate::executor::{LocalExecutor, Refusal};
     use crate::instance::{Instance, WorkflowInstance};
-
     use crate::workflow::WorkflowDescriptor;
 
     type Pick = fn(&Instance<Shop>) -> LocalExecutor;
@@ -222,7 +221,6 @@ mod tests {
         use crate::executor::fixtures::{Shop, mixed_instance};
         use crate::executor::local_executor_for;
         use crate::instance::Instance;
-
         use crate::mode::Asynchronous;
         use crate::workflow::WorkflowDescriptor;
 

@@ -8,7 +8,7 @@ use super::Reason;
 /// # Examples
 ///
 /// ```
-/// use itinera::step::{Outcome, Reason};
+/// use itinera::step::Outcome;
 ///
 /// fn charge(balance: i64, amount: i64) -> Outcome {
 ///     if amount == 0 {
@@ -117,7 +117,7 @@ impl Outcome {
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{Outcome, Reason};
+    /// use itinera::step::Outcome;
     ///
     /// assert!(Outcome::failure("declined").is_failure());
     /// assert!(!Outcome::skipped().is_failure());

@@ -16,7 +16,7 @@ The struct has named fields, or none, and is not generic. The standard `#[derive
 ```
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::{Contributor, JourneyStatus};
+use itinera::journey::Contributor;
 use itinera::step::{DescribedStep, Outcome, Step, step, step_name};
 use itinera::workflow::WorkflowDescriptor;
 
