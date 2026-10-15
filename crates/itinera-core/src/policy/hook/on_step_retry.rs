@@ -22,7 +22,7 @@ use crate::policy::{HookNeeds, OnFailure, Requested, StepRetry};
 ///         &self,
 ///         got: Requested<'_, W, StepRetry>,
 ///     ) -> Result<OnFailure> {
-///         Ok(if got.attempt().get() >= 2 {
+///         Ok(if !got.attempt().is_first() {
 ///             OnFailure::fail_workflow("too many tries")
 ///         } else {
 ///             OnFailure::KeepDefault

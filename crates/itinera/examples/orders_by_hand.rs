@@ -2,8 +2,6 @@
 //! without the `macros` feature declares it. Run it with
 //! `cargo run -p itinera --example orders_by_hand --no-default-features`.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Result;
 use itinera::event::Event;
 use itinera::executor::LocalExecutor;
@@ -15,7 +13,7 @@ use itinera::policy::{
 use itinera::report::Reporter;
 use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
 use itinera::step::{
-    Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds,
+    Attempt, Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds,
     step_name,
 };
 use itinera::workflow::{InputAdapterDescriptor, Supplied, WorkflowDescriptor};
@@ -36,7 +34,7 @@ trait PaymentGateway: Send + Sync {
 /// The shop's card terminal, lent to one attempt to charge.
 struct Terminal {
     shop: &'static str,
-    attempt: NonZeroU32,
+    attempt: Attempt,
 }
 
 impl PaymentGateway for Terminal {

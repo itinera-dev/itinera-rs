@@ -4,11 +4,12 @@ use super::*;
 use crate::event::fixtures::event;
 use crate::journey::LastFailure;
 use crate::policy::{StepHook, WorkflowHook};
+use crate::step::Attempt;
 
 fn charge(attempt: u32) -> StepAttempt {
     StepAttempt {
         step: StepName::new("charge"),
-        attempt: NonZeroU32::new(attempt).unwrap(),
+        attempt: Attempt::new(NonZeroU32::new(attempt).unwrap()),
     }
 }
 

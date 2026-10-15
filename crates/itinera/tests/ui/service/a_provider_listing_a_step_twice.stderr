@@ -1,5 +1,5 @@
 error: this service provider lists step charge already
-  --> tests/ui/service/a_provider_listing_a_step_twice.rs:89:48
+  --> tests/ui/service/a_provider_listing_a_step_twice.rs:87:48
    |
-89 |     #[provider(per_attempt, steps = ["charge", "charge"], key = "payments", name = "charging")]
+87 |     #[provider(per_attempt, steps = ["charge", "charge"], key = "payments", name = "charging")]
    |                                                ^^^^^^^^

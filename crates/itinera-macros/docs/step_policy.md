@@ -18,7 +18,7 @@ Each parameter after `&self` carries one attribute saying what it requests:
 | `#[from_step]` or `#[from_step("key")]` | `T` or `Option<T>`, `T` a value | all |
 | `#[from_workflow]` or `#[from_workflow("key")]` | `T` or `Option<T>`, `T` a value | all |
 | `#[step_name]` | `StepName` | all |
-| `#[attempt]` | `NonZeroU32` | all |
+| `#[attempt]` | `Attempt` | all |
 | `#[reason]` | `Reason` or `Option<Reason>` | on step failure, on step retry |
 | `#[cause]` | `StepFailureCause` on step failure, `RetryCause` on step retry | on step failure, on step retry |
 | `#[error]` | `&Error` or `Option<&Error>` | on step failure, on step retry, on step abnormal termination |

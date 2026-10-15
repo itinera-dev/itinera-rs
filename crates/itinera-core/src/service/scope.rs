@@ -43,14 +43,13 @@ pub enum PerJourney {}
 /// # Examples
 ///
 /// ```
-/// use std::num::NonZeroU32;
-///
 /// use itinera::policy::{Provider, Requested};
 /// use itinera::service::PerAttempt;
+/// use itinera::step::Attempt;
 ///
 /// struct Orders;
 ///
-/// fn attempt(got: &Requested<'_, Orders, Provider<PerAttempt>>) -> NonZeroU32 {
+/// fn attempt(got: &Requested<'_, Orders, Provider<PerAttempt>>) -> Attempt {
 ///     got.attempt()
 /// }
 /// ```

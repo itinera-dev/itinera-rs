@@ -63,7 +63,7 @@ pub(crate) use entry::{ProviderEntry, serving};
 ///         &self,
 ///         got: Requested<'_, Self, Provider<PerAttempt>>,
 ///     ) -> Result<Provided<dyn PaymentGateway>> {
-///         if got.attempt().get() == 1 {
+///         if got.attempt().is_first() {
 ///             Ok(provide!(Main))
 ///         } else {
 ///             Ok(provide!(Backup))

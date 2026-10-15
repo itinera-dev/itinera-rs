@@ -1,15 +1,13 @@
 //! The courier workflow: packs a parcel and dispatches it, asynchronously, with the labels and
 //! the courier its service providers supply.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::instance::{Instance, InstanceError};
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::mode::Asynchronous;
 use itinera::policy::AsyncHookReporter;
 use itinera::service::{Provided, provide};
-use itinera::step::{Outcome, Step, step};
+use itinera::step::{Attempt, Outcome, Step, step};
 use itinera::workflow::workflow;
 
 /// Labels the parcels of a journey.
@@ -107,7 +105,7 @@ impl Couriers {
     #[provider(per_attempt, steps = ["dispatch"])]
     async fn courier(
         &self,
-        #[attempt] attempt: NonZeroU32,
+        #[attempt] attempt: Attempt,
         #[from_workflow] company: String,
         #[reporter] reporter: AsyncHookReporter<'_>,
     ) -> Result<Provided<dyn Courier>, Error> {
@@ -123,15 +121,16 @@ impl Couriers {
 
 async fn sent(
     company: &str,
-    attempt: NonZeroU32,
+    attempt: Attempt,
     mut reporter: AsyncHookReporter<'_>,
 ) -> Result<Provided<dyn Courier>, Error> {
     if company == "none" {
         return Err(Error::msg("no courier"));
     }
-    let (vehicle, reach) = match attempt.get() {
-        1 => ("van", 5),
-        _ => ("lorry", usize::MAX),
+    let (vehicle, reach) = if attempt.is_first() {
+        ("van", 5)
+    } else {
+        ("lorry", usize::MAX)
     };
     reporter
         .info(format!("sending the {company} {vehicle}"))

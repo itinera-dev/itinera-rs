@@ -61,7 +61,7 @@ fn a_provider_is_named_and_keyed_after_its_method_unless_its_settings_say_otherw
     "a service provider returns the instance it makes, as `Result<Provided<T>, Error>`"
 )]
 #[case::of_journey_scope_requesting_the_attempt(
-    "#[provider] fn stock(&self, #[attempt] attempt: NonZeroU32) -> Result<Provided<dyn StockStore>, Error> {}",
+    "#[provider] fn stock(&self, #[attempt] attempt: Attempt) -> Result<Provided<dyn StockStore>, Error> {}",
     "`#[attempt]` is requested only by a provider of attempt scope, marked `#[provider(per_attempt)]`: one of journey scope serves whichever step needs its service first"
 )]
 #[case::of_journey_scope_requesting_the_step_name(
@@ -83,7 +83,7 @@ fn a_provider_is_refused_when_its_method_or_settings_cannot_describe_one(
 #[test]
 fn a_provider_requesting_what_its_scope_allows_declares_its_needs_in_order() {
     let provider = provider(
-        "#[provider(per_attempt)] fn payments(&self, #[attempt] attempt: NonZeroU32, \
+        "#[provider(per_attempt)] fn payments(&self, #[attempt] attempt: Attempt, \
          #[from_workflow] gateway: Option<String>, #[reporter] reporter: HookReporter<'_>) \
          -> Result<Provided<dyn PaymentGateway>, Error> {}",
     );

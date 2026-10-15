@@ -96,8 +96,8 @@ impl Verdict {
         }
     }
 
-    fn planned(&self, attempt: NonZeroU32) -> Attempt {
-        self.attempts[usize::try_from(attempt.get()).unwrap() - 1]
+    fn planned(&self, attempt: itinera::step::Attempt) -> Attempt {
+        self.attempts[usize::try_from(NonZeroU32::from(attempt).get()).unwrap() - 1]
     }
 }
 

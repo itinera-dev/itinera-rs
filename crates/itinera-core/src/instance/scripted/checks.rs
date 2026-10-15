@@ -6,7 +6,7 @@ use std::ops::ControlFlow;
 
 use super::target::{Kind, Target};
 use crate::mode::Mode;
-use crate::step::{AttemptScript, Ending, StepDescriptor, StepName};
+use crate::step::{Attempt, AttemptScript, Ending, StepDescriptor, StepName};
 use crate::workflow::WorkflowDescriptor;
 
 /// Checks that each scripted step covers every attempt it can have, that the rescue step of each
@@ -50,13 +50,14 @@ pub(super) fn check<W: Send + Sync + 'static, M: Mode>(
 fn first_uncovered(target: &Target) -> Option<String> {
     let first = (1..=target.most_attempts().get())
         .filter_map(NonZeroU32::new)
+        .map(Attempt::new)
         .try_for_each(|attempt| covering(target, attempt));
     first.break_value().flatten()
 }
 
 /// Goes on when the script covers the attempt and the step can have another after it; stops
 /// with what is left out when it does not cover it, and with nothing when no attempt can follow.
-fn covering(target: &Target, attempt: NonZeroU32) -> ControlFlow<Option<String>> {
+fn covering(target: &Target, attempt: Attempt) -> ControlFlow<Option<String>> {
     match target.script.attempt(attempt) {
         None => ControlFlow::Break(Some(format!("attempt {attempt} of {}", target.name))),
         Some(scripted) if continues(target.kind, scripted, attempt) => ControlFlow::Continue(()),
@@ -65,8 +66,8 @@ fn covering(target: &Target, attempt: NonZeroU32) -> ControlFlow<Option<String>>
 }
 
 /// Whether the step may be attempted again after this attempt, budget aside.
-fn continues(kind: Kind, scripted: &AttemptScript, attempt: NonZeroU32) -> bool {
-    let rescued_first = attempt == NonZeroU32::MIN
+fn continues(kind: Kind, scripted: &AttemptScript, attempt: Attempt) -> bool {
+    let rescued_first = attempt.is_first()
         && matches!(
             kind,
             Kind::Step {
@@ -100,7 +101,7 @@ fn unscripted_rescue(targets: &[Target], target: &Target) -> Option<String> {
     else {
         return None;
     };
-    let can_fail = target.script.attempt(NonZeroU32::MIN).is_some_and(can_fail);
+    let can_fail = target.script.attempt(Attempt::FIRST).is_some_and(can_fail);
     if can_fail && unscripted(targets, &rescue) {
         Some(format!(
             "{rescue}, since {} can fail on attempt 1",

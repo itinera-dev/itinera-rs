@@ -1,11 +1,9 @@
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
 use itinera::journey::Contributor;
 use itinera::policy::HookReporter;
 use itinera::service::{Provided, provide};
-use itinera::step::{Outcome, Step, StepName, step};
+use itinera::step::{Attempt, Outcome, Step, StepName, step};
 use itinera::workflow::workflow;
 
 trait PaymentGateway: Send + Sync {
@@ -82,7 +80,7 @@ struct Orders {
 #[workflow]
 impl Orders {
     #[provider]
-    fn stock(&self, #[attempt] _attempt: NonZeroU32) -> Result<Provided<dyn StockStore>, Error> {
+    fn stock(&self, #[attempt] _attempt: Attempt) -> Result<Provided<dyn StockStore>, Error> {
         Ok(provide!(Warehouse))
     }
 
@@ -90,7 +88,7 @@ impl Orders {
     fn payments(
         &self,
         #[step_name] step: StepName,
-        #[attempt] attempt: NonZeroU32,
+        #[attempt] attempt: Attempt,
         #[from_workflow] currency: Option<String>,
         #[reporter] mut reporter: HookReporter<'_>,
     ) -> Result<Provided<dyn PaymentGateway>, Error> {

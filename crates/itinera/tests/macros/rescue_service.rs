@@ -1,8 +1,6 @@
 //! A rescue step that requests a service, declared with the macros, against the same rescue step,
 //! providers and input adapter written for the builder, in a synchronous workflow.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::journey::{Contributor, InitialData, JourneyId};
 use itinera::policy::{HookNeeds, InputAdapter, Provider, Requested};
@@ -10,8 +8,8 @@ use itinera::service::{
     PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
 };
 use itinera::step::{
-    DescribedStep, Input, Outcome, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved,
-    RescueStep, Step, StepName, rescue_step, step, step_name,
+    Attempt, DescribedStep, Input, Outcome, RescueFactory, RescueNeeds, RescueOutcome,
+    RescueResolved, RescueStep, Step, StepName, rescue_step, step, step_name,
 };
 use itinera::workflow::{InputAdapterDescriptor, Supplied, Workflow, WorkflowDescriptor, workflow};
 use rstest::rstest;
@@ -102,7 +100,7 @@ fn vault(journey: &JourneyId) -> Provided<dyn TokenService> {
 }
 
 /// A vault lent to one attempt of a step, named after both.
-fn charging_vault(step: StepName, attempt: NonZeroU32) -> Provided<dyn TokenService> {
+fn charging_vault(step: StepName, attempt: Attempt) -> Provided<dyn TokenService> {
     provide!(Vault {
         label: format!("{step} vault {attempt}"),
     })
@@ -126,7 +124,7 @@ impl Vaulted {
     fn charging(
         &self,
         #[step_name] step: StepName,
-        #[attempt] attempt: NonZeroU32,
+        #[attempt] attempt: Attempt,
     ) -> Result<Provided<dyn TokenService>, Error> {
         Ok(charging_vault(step, attempt))
     }
@@ -261,7 +259,7 @@ impl Rerouted {
     fn refreshing(
         &self,
         #[step_name] step: StepName,
-        #[attempt] attempt: NonZeroU32,
+        #[attempt] attempt: Attempt,
     ) -> Result<Provided<dyn TokenService>, Error> {
         Ok(charging_vault(step, attempt))
     }

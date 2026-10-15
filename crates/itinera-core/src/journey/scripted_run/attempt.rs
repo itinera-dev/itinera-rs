@@ -1,9 +1,7 @@
 //! The record of one attempt in a scripted run.
 
-use std::num::NonZeroU32;
-
 use crate::journey::Read;
-use crate::step::{StepAttempt, StepName};
+use crate::step::{Attempt, StepAttempt, StepName};
 use crate::value::{AnyValue, Value};
 
 /// The record of one attempt of a step, or rescue step, in a scripted run: what its step was
@@ -148,8 +146,6 @@ impl AttemptRecord {
     /// # Examples
     ///
     /// ```
-    /// use std::num::NonZeroU32;
-    ///
     /// use itinera::instance::WorkflowInstance;
     /// use itinera::journey::AttemptRecord;
     /// use itinera::step::{Outcome, StepDescriptor, step_name};
@@ -170,17 +166,18 @@ impl AttemptRecord {
     ///     .on_attempt(2)
     ///     .will_succeed()
     ///     .run()?;
-    /// let numbers: Vec<NonZeroU32> = run
+    /// let numbers: Vec<String> = run
     ///     .step("charge")
     ///     .attempts()
     ///     .iter()
     ///     .map(AttemptRecord::number)
+    ///     .map(|attempt| attempt.to_string())
     ///     .collect();
-    /// assert_eq!(numbers, [NonZeroU32::MIN, NonZeroU32::MIN.saturating_add(1)]);
+    /// assert_eq!(numbers, ["1", "2"]);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
-    pub fn number(&self) -> NonZeroU32 {
+    pub fn number(&self) -> Attempt {
         self.attempt.attempt
     }
 

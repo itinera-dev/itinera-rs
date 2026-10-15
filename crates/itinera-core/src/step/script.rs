@@ -2,7 +2,7 @@
 
 use std::num::NonZeroU32;
 
-use super::{Ending, StepAttempt, StepName};
+use super::{Attempt, Ending, StepAttempt, StepName};
 use crate::event::Level;
 use crate::value::AnyValue;
 
@@ -36,8 +36,8 @@ pub(crate) struct StepScript {
 
 impl StepScript {
     /// What the attempt does, if the script says.
-    pub(crate) fn attempt(&self, attempt: NonZeroU32) -> Option<&AttemptScript> {
-        usize::try_from(attempt.get() - 1)
+    pub(crate) fn attempt(&self, attempt: Attempt) -> Option<&AttemptScript> {
+        usize::try_from(NonZeroU32::from(attempt).get() - 1)
             .ok()
             .and_then(|index| self.numbered.get(index))
             .or(self.remaining.as_ref())

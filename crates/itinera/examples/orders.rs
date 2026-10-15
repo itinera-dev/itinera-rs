@@ -2,8 +2,6 @@
 //! through the shop's card terminal, then ships it, and tells the customer once the order is paid
 //! and shipped. Run it with `cargo run -p itinera --example orders`.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Result;
 use itinera::event::Event;
 use itinera::executor::local_executor_for;
@@ -11,7 +9,7 @@ use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::policy::{OnSuccess, step_policy, workflow_policy};
 use itinera::report::Reporter;
 use itinera::service::{Provided, provide};
-use itinera::step::{Outcome, Step, step};
+use itinera::step::{Attempt, Outcome, Step, step};
 use itinera::workflow::{Supplied, role, workflow};
 
 /// Takes payments: the service a charge is paid through.
@@ -23,7 +21,7 @@ trait PaymentGateway: Send + Sync {
 /// The shop's card terminal, lent to one attempt to charge.
 struct Terminal {
     shop: &'static str,
-    attempt: NonZeroU32,
+    attempt: Attempt,
 }
 
 impl PaymentGateway for Terminal {
@@ -150,7 +148,7 @@ impl Orders {
 
     /// Lends each attempt to charge the shop's card terminal.
     #[provider(per_attempt, steps = ["charge"])]
-    fn payments(&self, #[attempt] attempt: NonZeroU32) -> Result<Provided<dyn PaymentGateway>> {
+    fn payments(&self, #[attempt] attempt: Attempt) -> Result<Provided<dyn PaymentGateway>> {
         Ok(provide!(Terminal {
             shop: self.shop,
             attempt,

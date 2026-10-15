@@ -1,7 +1,7 @@
 error[E0308]: mismatched types
-  --> tests/ui/service/a_service_requested_as_two_types.rs:62:27
+  --> tests/ui/service/a_service_requested_as_two_types.rs:60:27
    |
-62 |         #[service] stock: &dyn Shelf,
+60 |         #[service] stock: &dyn Shelf,
    |                           ^ expected trait `StockStore`, found trait `Shelf`
    |
    = note: expected struct `PhantomData<dyn StockStore>`

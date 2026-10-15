@@ -1,8 +1,6 @@
 //! Policies the macros describe, against the same policies written for the builder, in a
 //! synchronous workflow.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::journey::{Contributor, JourneyId};
 use itinera::policy::{
@@ -13,7 +11,8 @@ use itinera::policy::{
     WorkflowPolicyDescriptor, WorkflowSuccess, step_policy, workflow_policy,
 };
 use itinera::step::{
-    DescribedStep, Input, OptionalInput, Outcome, Reason, StepDescriptor, StepName, step, step_name,
+    Attempt, DescribedStep, Input, OptionalInput, Outcome, Reason, StepDescriptor, StepName, step,
+    step_name,
 };
 use itinera::workflow::WorkflowDescriptor;
 use rstest::rstest;
@@ -60,7 +59,7 @@ impl Audit {
         #[from_step] receipt: String,
         #[from_workflow] decision: Option<String>,
         #[step_name] step: StepName,
-        #[attempt] attempt: NonZeroU32,
+        #[attempt] attempt: Attempt,
         #[reporter] mut reporter: HookReporter<'_>,
     ) -> Result<OnSuccess, Error> {
         reporter.info(format!("{step} attempt {attempt} gave {receipt}"))?;

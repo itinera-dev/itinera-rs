@@ -1,8 +1,6 @@
 //! Steps that request services, and the providers that supply them, declared with the macros,
 //! against the same written for the builder, in a synchronous workflow.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::policy::{HookNeeds, HookReporter, Provider, Requested};
@@ -11,7 +9,7 @@ use itinera::service::{
     PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
 };
 use itinera::step::{
-    Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepName,
+    Attempt, Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepName,
     StepNeeds, step, step_name,
 };
 use itinera::workflow::{Workflow, WorkflowDescriptor, workflow};
@@ -91,15 +89,16 @@ fn stocked(journey: &JourneyId) -> Provided<dyn StockStore> {
 fn gateway(
     name: &str,
     step: StepName,
-    attempt: NonZeroU32,
+    attempt: Attempt,
     currency: Option<String>,
     mut reporter: HookReporter<'_>,
 ) -> Result<Provided<dyn PaymentGateway>, Error> {
     reporter.info(format!("{step} attempt {attempt}"))?;
     let currency = currency.unwrap_or_default();
-    let (name, limit) = match attempt.get() {
-        1 => (format!("{name} {currency}"), 50),
-        _ => (format!("backup {currency}"), i64::MAX),
+    let (name, limit) = if attempt.is_first() {
+        (format!("{name} {currency}"), 50)
+    } else {
+        (format!("backup {currency}"), i64::MAX)
     };
     Ok(provide!(Gateway { name, limit }))
 }
@@ -162,7 +161,7 @@ impl Shop {
     fn payments(
         &self,
         #[step_name] step: StepName,
-        #[attempt] attempt: NonZeroU32,
+        #[attempt] attempt: Attempt,
         #[from_workflow] currency: Option<String>,
         #[reporter] reporter: HookReporter<'_>,
     ) -> Result<Provided<dyn PaymentGateway>, Error> {

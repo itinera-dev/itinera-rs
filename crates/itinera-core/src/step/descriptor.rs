@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::num::NonZeroU32;
 
 use super::{
-    Attempts, DescribedRescueStep, Got, Outcome, RescueFactory, Rescues, Resolved, Step,
+    Attempt, Attempts, DescribedRescueStep, Got, Outcome, RescueFactory, Rescues, Resolved, Step,
     StepFactory, StepName, StepNeeds,
 };
 use crate::error::Error;
@@ -303,8 +303,8 @@ impl<W, M> StepDescriptor<W, M> {
     }
 
     /// Whether the retry budget allows another attempt after this one.
-    pub(crate) fn budget_allows_after(&self, attempt: NonZeroU32) -> bool {
-        attempt.get() <= u32::from(self.retry_budget)
+    pub(crate) fn budget_allows_after(&self, attempt: Attempt) -> bool {
+        NonZeroU32::from(attempt).get() <= u32::from(self.retry_budget)
     }
 
     pub(crate) fn retries_abnormal_termination(&self) -> bool {

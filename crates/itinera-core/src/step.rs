@@ -30,7 +30,7 @@ mod slots;
 
 #[cfg(feature = "async")]
 pub use asynchronous::{AsyncStep, AsyncStepFactory, AsyncStepReporter};
-pub use attempt::StepAttempt;
+pub use attempt::{Attempt, StepAttempt};
 pub use described::DescribedStep;
 pub use descriptor::StepDescriptor;
 #[cfg(any(test, feature = "testing"))]

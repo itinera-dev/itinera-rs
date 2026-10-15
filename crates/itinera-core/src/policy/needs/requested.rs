@@ -2,7 +2,6 @@
 
 use std::any;
 use std::marker::PhantomData;
-use std::num::NonZeroU32;
 
 use super::Answers;
 use crate::error::Error;
@@ -14,7 +13,7 @@ use crate::policy::{
     ReportingHookKind, RetryCause, StepFailure, StepFailureCause, StepHookKind, StepRetry,
 };
 use crate::service::PerAttempt;
-use crate::step::{Input, OptionalInput, Reason, Reporting, StepName};
+use crate::step::{Attempt, Input, OptionalInput, Reason, Reporting, StepName};
 use crate::value::{AnyValue, Value};
 
 /// What a hook receives when it is called: each thing it declared in its [`HookNeeds`], already
@@ -326,7 +325,7 @@ impl<W, H: StepHookKind, M> Requested<'_, W, H, M> {
     ///     }
     /// }
     /// ```
-    pub fn attempt(&self) -> NonZeroU32 {
+    pub fn attempt(&self) -> Attempt {
         H::attempt(&self.context).attempt
     }
 }
@@ -786,7 +785,7 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     ///         &self,
     ///         got: Requested<'_, Self, Provider<PerAttempt>>,
     ///     ) -> Result<Provided<dyn PaymentGateway>> {
-    ///         if got.attempt().get() == 1 {
+    ///         if got.attempt().is_first() {
     ///             Ok(provide!(Main))
     ///         } else {
     ///             Ok(provide!(Backup))
@@ -794,7 +793,7 @@ impl<W, M> Requested<'_, W, Provider<PerAttempt>, M> {
     ///     }
     /// }
     /// ```
-    pub fn attempt(&self) -> NonZeroU32 {
+    pub fn attempt(&self) -> Attempt {
         self.context.attempt
     }
 }

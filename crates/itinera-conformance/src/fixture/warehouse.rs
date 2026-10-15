@@ -1,14 +1,12 @@
 //! The warehouse workflow: reserves an order's goods, charges it and ships it, through the stock
 //! and the payments its service providers supply.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::instance::{Instance, InstanceError};
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::policy::HookReporter;
 use itinera::service::{Provided, provide};
-use itinera::step::{Outcome, Step, StepName, step};
+use itinera::step::{Attempt, Outcome, Step, StepName, step};
 use itinera::workflow::workflow;
 
 /// The goods of a journey, which every step that needs them shares.
@@ -138,7 +136,7 @@ impl Warehouse {
     fn fresh_payments(
         &self,
         #[step_name] step: StepName,
-        #[attempt] attempt: NonZeroU32,
+        #[attempt] attempt: Attempt,
         #[from_workflow] gateway: Option<String>,
         #[reporter] reporter: HookReporter<'_>,
     ) -> Result<Provided<dyn Payments>, Error> {
@@ -156,7 +154,7 @@ impl Warehouse {
 fn chosen(
     gateway: &str,
     step: StepName,
-    attempt: NonZeroU32,
+    attempt: Attempt,
     mut reporter: HookReporter<'_>,
 ) -> Result<Provided<dyn Payments>, Error> {
     if gateway == "down" {
@@ -165,7 +163,7 @@ fn chosen(
     reporter.info(format!("choosing the {gateway} gateway"))?;
     Ok(provide!(Gateway {
         label: format!("{gateway} gateway for {step}, attempt {attempt}"),
-        reachable: gateway != "flaky" || attempt.get() > 1,
+        reachable: gateway != "flaky" || !attempt.is_first(),
     }))
 }
 

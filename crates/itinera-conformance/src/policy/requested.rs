@@ -52,7 +52,7 @@ pub(super) fn receive_for_step<H: StepHookKind, M>(
             received.step_data.insert(data.key.to_owned(), value);
         }
         Request::StepName => received.step_name = Some(got.step_name().to_string()),
-        Request::Attempt => received.attempt = Some(got.attempt()),
+        Request::Attempt => received.attempt = Some(got.attempt().into()),
         _ => return receive_for_any(got, request, received),
     }
     Ok(())

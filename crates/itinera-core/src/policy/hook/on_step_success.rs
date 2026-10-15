@@ -70,7 +70,7 @@ pub trait OnStepSuccess<W>: Send + Sync + 'static {
     ///         &self,
     ///         got: Requested<'_, W, StepSuccess>,
     ///     ) -> Result<OnSuccess> {
-    ///         if got.attempt().get() > 1 {
+    ///         if !got.attempt().is_first() {
     ///             return Ok(OnSuccess::fail_workflow("not idempotent"));
     ///         }
     ///         Ok(OnSuccess::KeepDefault)

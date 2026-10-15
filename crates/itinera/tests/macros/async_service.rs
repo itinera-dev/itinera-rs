@@ -1,8 +1,6 @@
 //! Steps that request services, and the providers that supply them, declared with the macros,
 //! against the same written for the builder, in an asynchronous workflow.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::journey::{Contributor, DataBag, InitialData};
 use itinera::mode::Asynchronous;
@@ -12,7 +10,8 @@ use itinera::service::{
     PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
 };
 use itinera::step::{
-    AsyncStep, AsyncStepFactory, Outcome, Resolved, StepDescriptor, StepNeeds, step, step_name,
+    AsyncStep, AsyncStepFactory, Attempt, Outcome, Resolved, StepDescriptor, StepNeeds, step,
+    step_name,
 };
 use itinera::workflow::{Workflow, WorkflowDescriptor, workflow};
 use rstest::rstest;
@@ -68,13 +67,14 @@ fn dispatched(
 /// A van that reaches parcels of up to five letters on a first attempt, and a lorry that
 /// reaches every parcel on later ones.
 async fn courier(
-    attempt: NonZeroU32,
+    attempt: Attempt,
     mut reporter: AsyncHookReporter<'_>,
 ) -> Result<Provided<dyn Courier>, Error> {
     reporter.info(format!("attempt {attempt}")).await?;
-    let (name, reach) = match attempt.get() {
-        1 => ("van", 5),
-        _ => ("lorry", usize::MAX),
+    let (name, reach) = if attempt.is_first() {
+        ("van", 5)
+    } else {
+        ("lorry", usize::MAX)
     };
     Ok(provide!(Van {
         name: name.to_owned(),
@@ -120,7 +120,7 @@ impl Parcels {
     #[provider(per_attempt)]
     async fn courier(
         &self,
-        #[attempt] attempt: NonZeroU32,
+        #[attempt] attempt: Attempt,
         #[reporter] reporter: AsyncHookReporter<'_>,
     ) -> Result<Provided<dyn Courier>, Error> {
         courier(attempt, reporter).await

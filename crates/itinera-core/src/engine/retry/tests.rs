@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use rstest::rstest;
 
 use super::*;
@@ -52,7 +54,7 @@ fn without_a_retry_budget_a_failed_attempt_is_the_steps_last_and_fails_the_journ
 
 fn attempt_of(event: &Event) -> Option<u32> {
     match &event.body {
-        EventBody::AttemptStarted { step } => Some(step.attempt.get()),
+        EventBody::AttemptStarted { step } => Some(NonZeroU32::from(step.attempt).get()),
         _ => None,
     }
 }
@@ -125,7 +127,7 @@ fn a_step_whose_budget_is_spent_is_given_up_with_its_last_failure() {
     assert!(matches!(
         events.get(6).map(|e| &e.body),
         Some(EventBody::StepGivenUp { cause: GiveUpCause::RetriesExhausted, step })
-            if step.attempt.get() == 2
+            if NonZeroU32::from(step.attempt).get() == 2
     ));
 }
 

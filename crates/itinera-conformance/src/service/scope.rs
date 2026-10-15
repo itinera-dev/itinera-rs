@@ -103,7 +103,7 @@ impl Scope for PerAttempt {
     ) -> Result<(), Error> {
         match request {
             Request::StepName => received.step_name = Some(got.step_name().to_string()),
-            Request::Attempt => received.attempt = Some(got.attempt()),
+            Request::Attempt => received.attempt = Some(got.attempt().into()),
             _ => return receive_for_any(got, request, received),
         }
         Ok(())

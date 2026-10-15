@@ -1,3 +1,4 @@
+use std::num::NonZeroU32;
 use std::sync::{Arc, Mutex};
 
 use super::*;
@@ -29,7 +30,7 @@ fn provided(events: &[Event]) -> Vec<(StepName, u32, ProviderName)> {
 fn provision(event: &Event) -> Option<(StepName, u32, ProviderName)> {
     match &event.body {
         EventBody::ServiceProvided { step, provider, .. } => {
-            Some((step.step, step.attempt.get(), *provider))
+            Some((step.step, NonZeroU32::from(step.attempt).get(), *provider))
         }
         _ => None,
     }
@@ -227,7 +228,7 @@ fn tell(
 ) -> Result<Provided<dyn Labeller>, Error> {
     told.lock().unwrap().push((
         got.step_name(),
-        got.attempt().get(),
+        NonZeroU32::from(got.attempt()).get(),
         got.journey_id().to_string(),
     ));
     Ok(labelled("payments", &Made::default()))
