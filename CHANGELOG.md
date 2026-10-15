@@ -2,6 +2,32 @@
 
 Every release of the crates `itinera`, `itinera-core` and `itinera-macros`, which share one version. Each release says the version of the [Itinera specification](https://github.com/itinera-dev/spec) it implements, the tier, the capabilities claimed and the [conformance cases](https://github.com/itinera-dev/conformance) it passes; its conformance report is attached to its GitHub release. Before 1.0, a breaking change raises the minor version and a fix the patch version.
 
+## [0.1.0-beta.3]
+
+The third beta, which makes the API friendlier and breaks code written for `0.1.0-beta.2`: specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.15`. What a journey does is unchanged. The minimum supported Rust version is 1.85.
+
+### Added
+
+- `error::Result<T, E = Error>`, the result custom code returns, such as `Result<Outcome>` from a step's `run`. A service provider declared with `#[workflow]` may return `Result<Provided<T>>`.
+- Readers on how a journey ended: `JourneyStatus::is_succeeded`, `is_failed`, `is_aborted`, `failure` and `abort`, and `Failure::reason` and `error`.
+- `step::Attempt`, an attempt's number, counted from 1, with `Attempt::FIRST` and `is_first()`.
+- `event::EventKind`, an event's kind, which displays as its snake_case name and parses from it.
+- `workflow::Supplied`, what an input adapter returns, with `Supplied::value` and the reader `downcast_ref::<T>()`.
+- `journey::Read::present`, the value read when it is present and of the type asked for.
+
+### Changed
+
+- Step hooks return `policy::OnSuccess` (`on step success`) or `policy::OnFailure` (`on step failure`, `on step retry` and `on step abnormal termination`) instead of an `Option` of a lifecycle: `KeepDefault`, `FinishWorkflow` for `OnSuccess` only, or `FailWorkflow` with a reason, made with `OnSuccess::fail_workflow` or `OnFailure::fail_workflow`, which take any text. They read themselves back with `keeps_default`, `fails_workflow` and, on `OnSuccess`, `finishes_workflow`. The shorthand `DescribedPolicy::carry_on()` is now `keep_default()`; the `ReturnedLifecycle` trait and the `FailWorkflow` struct are gone.
+- Input adapters return `workflow::Supplied`, a `Value` or `FromDataBag`, instead of an `Option` of a value, and take the data bag as `&DataBag`, whose `read` is now public; `DataBagAccess` and `DataBag::access` are gone.
+- Steps and hooks take the contributor as `&mut journey::Contributor`, with no lifetime.
+- The macros recognise a handle by its type, so `#[contributor]`, `#[reporter]`, `#[journey_id]`, `#[step_name]`, `#[attempt]`, `#[reason]`, `#[error]`, `#[cause]` and `#[data_bag]` are gone. Marks stay where the type cannot say what is requested: `#[input]`, `#[service]`, `#[from_step]`, `#[from_workflow]`, `#[from_rescued_step]`, `#[key]` and `#[role]`.
+- An attempt's number is a `step::Attempt` instead of a `NonZeroU32` wherever it is public; scripts still number attempts with plain integers.
+- `Event::kind` and `EventBody::kind` return an `EventKind` instead of a `&'static str`.
+- `Outcome::failure`, `Outcome::skipped_because` and `RescueOutcome::failure` take anything that converts into a `Reason`, so a text is the reason's code.
+- In the builder form, each source of data has one request method, which takes an `Input` or an `OptionalInput`, through the sealed `step::InputToken`, and gives the value or an `Option` of it: `optional_input`, `optional_from_workflow`, `optional_from_step` and `optional_from_rescued_step` are gone.
+- `Provides` and `InputAdapter` move from `policy` to `workflow`, and `Provider` to `service`.
+- A release is published only once every CI check passes on its tagged commit, and docs.rs builds each crate with its features other than `unstable`.
+
 ## [0.1.0-beta.2]
 
 The second beta, with the same implementation as `0.1.0-beta.1`: specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.15`. The minimum supported Rust version is 1.85.
@@ -31,5 +57,6 @@ The first beta: specification 0.1.0, tier 1, capabilities `sync`, `async` and `t
 - With the `macros` feature, on by default, attributes and derives that declare steps, rescue steps, policies, workflows with their service providers, roles and journey data as syntax over the builder. A workflow declared with `#[workflow]` takes its mode from its steps and refuses steps of both modes, and `#[service]` takes a service only as a trait object, such as `&dyn PaymentGateway`, refusing a concrete type.
 - Compile errors, instead of checks while a journey runs, for the rules the specification lets an implementation make impossible to express: a lifecycle a hook may not return, a role the workflow does not provide, an asynchronous part on the synchronous executor or an asynchronous service provider in a synchronous workflow, a rescue step that skips, a service provider of journey scope requesting the step being built or the attempt, a service provider returning nothing, a non-value entering the data bag, event data, a reason's details or global metadata, handles used after their attempt or call, and an input adapter writing to the data bag.
 
+[0.1.0-beta.3]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.3
 [0.1.0-beta.2]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.1
