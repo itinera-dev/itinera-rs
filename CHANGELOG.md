@@ -2,6 +2,15 @@
 
 Every release of the crates `itinera`, `itinera-core` and `itinera-macros`, which share one version. Each release says the version of the [Itinera specification](https://github.com/itinera-dev/spec) it implements, the tier, the capabilities claimed and the [conformance cases](https://github.com/itinera-dev/conformance) it passes; its conformance report is attached to its GitHub release. Before 1.0, a breaking change raises the minor version and a fix the patch version.
 
+## [0.1.0-beta.2]
+
+The second beta, with the same implementation as `0.1.0-beta.1`: specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.15`. The minimum supported Rust version is 1.85.
+
+### Changed
+
+- On crates.io, the crates are listed under the categories `asynchronous` and `rust-patterns` and found by the keyword `agent` instead of `events`, and the pages of `itinera-core` and `itinera-macros` send readers to `itinera`.
+- The crates are published by the release workflow, through crates.io's trusted publishing.
+
 ## [0.1.0-beta.1]
 
 The first beta: specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.15`. The minimum supported Rust version is 1.85.
@@ -22,4 +31,5 @@ The first beta: specification 0.1.0, tier 1, capabilities `sync`, `async` and `t
 - With the `macros` feature, on by default, attributes and derives that declare steps, rescue steps, policies, workflows with their service providers, roles and journey data as syntax over the builder. A workflow declared with `#[workflow]` takes its mode from its steps and refuses steps of both modes, and `#[service]` takes a service only as a trait object, such as `&dyn PaymentGateway`, refusing a concrete type.
 - Compile errors, instead of checks while a journey runs, for the rules the specification lets an implementation make impossible to express: a lifecycle a hook may not return, a role the workflow does not provide, an asynchronous part on the synchronous executor or an asynchronous service provider in a synchronous workflow, a rescue step that skips, a service provider of journey scope requesting the step being built or the attempt, a service provider returning nothing, a non-value entering the data bag, event data, a reason's details or global metadata, handles used after their attempt or call, and an input adapter writing to the data bag.
 
+[0.1.0-beta.2]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.1
