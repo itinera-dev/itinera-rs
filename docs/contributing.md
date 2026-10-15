@@ -64,7 +64,7 @@ In CI, the `run-conformance` action of [itinera-dev/actions](https://github.com/
 All three published crates share the workspace version and are published together. A maintainer requests a release by pushing a tag `v` followed by that version, such as `v0.1.0-beta.1`, on `main`, after the pull request that sets the version and adds its section to `CHANGELOG.md` has merged. The release workflow, `.github/workflows/release.yml`, then runs four jobs, each waiting for the one before:
 
 1. **release gate**: the `release-gate` action refuses the tag unless it matches the version in `Cargo.toml`, the commit is on `main`, `CHANGELOG.md` has a section for the version, and `conformance.json` lists every tier 1 proposal of the pinned cases;
-2. **conformance**: `run-conformance` runs the cases and keeps the report;
+2. **CI**: the whole of `.github/workflows/ci.yml` runs again on the tagged commit, since its run on `main` after a merge blocks nothing, and its conformance job keeps the report;
 3. **crates.io**: in the `crates-io` environment, which only tags `v*` may use, `rust-lang/crates-io-auth-action` exchanges the workflow's identity for a short-lived crates.io token through trusted publishing, and `cargo publish --workspace --locked` publishes the three crates;
 4. **GitHub release**: the `create-release` action creates the release with the notes of the version's changelog section, as a pre-release for a version such as `0.1.0-beta.1`, and attaches the conformance report.
 

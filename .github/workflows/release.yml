@@ -25,20 +25,16 @@ jobs:
           manifest: Cargo.toml
           tier: 1
 
-  conformance:
-    name: conformance
+  # Checks on main do not block anything once a pull request has merged,
+  # so the tagged commit passes every check again before it is published.
+  ci:
+    name: CI
     needs: gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - uses: itinera-dev/actions/run-conformance@v1
-        with:
-          command: cargo run -p itinera-conformance --release
+    uses: ./.github/workflows/ci.yml
 
   publish:
     name: crates.io
-    needs: conformance
+    needs: ci
     runs-on: ubuntu-latest
     environment: crates-io
     permissions:
@@ -62,6 +58,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # CI's conformance job uploads this report.
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: conformance-report
