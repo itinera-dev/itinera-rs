@@ -1,5 +1,5 @@
 error: a workflow's fields have names, which its builder's setters take
-  --> tests/ui/workflow/a_tuple_struct.rs:19:16
+  --> tests/ui/workflow/a_tuple_struct.rs:18:16
    |
-19 | struct Courier(&'static str);
+18 | struct Courier(&'static str);
    |                ^^^^^^^^^^^^

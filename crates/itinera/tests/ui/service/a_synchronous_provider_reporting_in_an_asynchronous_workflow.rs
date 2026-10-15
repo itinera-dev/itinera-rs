@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use itinera::error::Error;
 use itinera::executor::AsyncLocalExecutor;
-use itinera::journey::{Contributor, JourneyStatus};
+use itinera::journey::Contributor;
 use itinera::policy::AsyncHookReporter;
 use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, step};

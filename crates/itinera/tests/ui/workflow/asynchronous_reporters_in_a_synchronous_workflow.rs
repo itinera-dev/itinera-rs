@@ -1,6 +1,6 @@
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::{JourneyStatus, Read};
+use itinera::journey::Read;
 use itinera::policy::{OnSuccess, step_policy, workflow_policy};
 use itinera::report::AsyncReporter;
 use itinera::step::{Outcome, Step, step};
