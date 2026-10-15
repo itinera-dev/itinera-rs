@@ -4,8 +4,8 @@
 use itinera::error::Error;
 use itinera::journey::Contributor;
 use itinera::step::{
-    DescribedStep, Input, OptionalInput, Outcome, Reason, Resolved, Step, StepDescriptor,
-    StepFactory, StepNeeds, StepReporter, step, step_name,
+    DescribedStep, Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory,
+    StepNeeds, StepReporter, step, step_name,
 };
 use itinera::workflow::WorkflowDescriptor;
 use rstest::rstest;
@@ -81,7 +81,7 @@ struct HandCharge<'a> {
 impl Step for HandCharge<'_> {
     fn run(mut self) -> Result<Outcome, Error> {
         if self.amount <= 0 {
-            return Ok(Outcome::failure(Reason::new("nothing-to-charge")));
+            return Ok(Outcome::failure("nothing-to-charge"));
         }
         let fees = if self.discount.is_none() { 2 } else { 0 };
         let total = self.amount + fees;
@@ -123,7 +123,7 @@ impl Step for HandShip<'_> {
     fn run(mut self) -> Result<Outcome, Error> {
         match self.gift_note {
             Some(note) => self.reporter.info_with("gift note", note)?,
-            None => return Ok(Outcome::skipped_because(Reason::new("no-gift-note"))),
+            None => return Ok(Outcome::skipped_because("no-gift-note")),
         }
         Ok(Outcome::success())
     }

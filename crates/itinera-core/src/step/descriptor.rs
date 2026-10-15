@@ -42,7 +42,7 @@ impl<F: StepFactory> Attempts for Synchronously<F> {
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::policy::{OnStepSuccess, OnSuccess, Requested, StepPolicyDescriptor, StepSuccess};
 /// use itinera::step::{Outcome, StepDescriptor, step_name};
 ///
@@ -52,7 +52,7 @@ impl<F: StepFactory> Attempts for Synchronously<F> {
 ///     fn on_step_success(
 ///         &self,
 ///         _got: Requested<'_, W, StepSuccess>,
-///     ) -> Result<Option<OnSuccess>, Error> {
+///     ) -> Result<Option<OnSuccess>> {
 ///         Ok(None)
 ///     }
 /// }
@@ -155,7 +155,7 @@ impl<W, M> StepDescriptor<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Synchronous;
     /// use itinera::step::{
     ///     DescribedRescueStep, Outcome, RescueOutcome, RescueStep, StepDescriptor, step_name,
@@ -164,7 +164,7 @@ impl<W, M> StepDescriptor<W, M> {
     /// struct RefreshToken;
     ///
     /// impl RescueStep for RefreshToken {
-    ///     fn run(self) -> Result<RescueOutcome, Error> {
+    ///     fn run(self) -> Result<RescueOutcome> {
     ///         Self::succeed()
     ///     }
     /// }
@@ -232,7 +232,7 @@ impl<W, M> StepDescriptor<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{
     ///     FailWorkflow, OnStepFailure, OnStepSuccess, OnSuccess, Requested, StepFailure,
     ///     StepPolicyDescriptor, StepSuccess,
@@ -245,7 +245,7 @@ impl<W, M> StepDescriptor<W, M> {
     ///     fn on_step_success(
     ///         &self,
     ///         _got: Requested<'_, W, StepSuccess>,
-    ///     ) -> Result<Option<OnSuccess>, Error> {
+    ///     ) -> Result<Option<OnSuccess>> {
     ///         Ok(None)
     ///     }
     /// }
@@ -256,7 +256,7 @@ impl<W, M> StepDescriptor<W, M> {
     ///     fn on_step_failure(
     ///         &self,
     ///         _got: Requested<'_, W, StepFailure>,
-    ///     ) -> Result<Option<FailWorkflow>, Error> {
+    ///     ) -> Result<Option<FailWorkflow>> {
     ///         Ok(None)
     ///     }
     /// }

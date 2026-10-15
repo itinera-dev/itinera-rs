@@ -142,7 +142,7 @@ impl RescueStep for HandRefresh<'_> {
         let cause = cause(self.reason.as_ref(), self.error.as_ref());
         self.reporter.info_with("rescuing", cause)?;
         if self.outcome == "busy" {
-            return Ok(RescueOutcome::failure(Reason::new("still-busy")));
+            return Ok(RescueOutcome::failure("still-busy"));
         }
         match self.account {
             Some(account) => {
@@ -150,7 +150,7 @@ impl RescueStep for HandRefresh<'_> {
                     .contribute("token", format!("{account}-fresh"));
                 Ok(RescueOutcome::success())
             }
-            None => Ok(RescueOutcome::failure(Reason::new("no-account"))),
+            None => Ok(RescueOutcome::failure("no-account")),
         }
     }
 }

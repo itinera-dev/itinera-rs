@@ -135,7 +135,7 @@ mod tests {
     use crate::executor::local_executor_for;
     use crate::executor::{LocalExecutor, Refusal};
     use crate::instance::{Instance, WorkflowInstance};
-    use crate::journey::JourneyStatus;
+
     use crate::workflow::WorkflowDescriptor;
 
     type Pick = fn(&Instance<Shop>) -> LocalExecutor;
@@ -196,7 +196,7 @@ mod tests {
         let mut executor = pick(&instance);
 
         let result = executor.run(instance).unwrap();
-        assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+        assert!(result.status.is_succeeded());
     }
 
     #[rstest]
@@ -222,7 +222,7 @@ mod tests {
         use crate::executor::fixtures::{Shop, mixed_instance};
         use crate::executor::local_executor_for;
         use crate::instance::Instance;
-        use crate::journey::JourneyStatus;
+
         use crate::mode::Asynchronous;
         use crate::workflow::WorkflowDescriptor;
 
@@ -245,7 +245,7 @@ mod tests {
             let mut executor = pick(&instance);
 
             let result = futures::executor::block_on(executor.run(instance)).unwrap();
-            assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+            assert!(result.status.is_succeeded());
         }
     }
 }

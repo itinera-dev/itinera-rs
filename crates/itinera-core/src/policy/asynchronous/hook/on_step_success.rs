@@ -12,7 +12,7 @@ use crate::policy::{HookNeeds, OnSuccess, Requested, StepSuccess};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
 /// use itinera::policy::{AsyncOnStepSuccess, OnSuccess, Requested, StepSuccess};
 /// use itinera::step::StepName;
@@ -25,7 +25,7 @@ use crate::policy::{HookNeeds, OnSuccess, Requested, StepSuccess};
 ///     async fn on_step_success(
 ///         &self,
 ///         got: Requested<'_, W, StepSuccess, Asynchronous>,
-///     ) -> Result<Option<OnSuccess>, Error> {
+///     ) -> Result<Option<OnSuccess>> {
 ///         Ok((got.step_name() == CHARGE).then_some(OnSuccess::FinishWorkflow))
 ///     }
 /// }
@@ -55,14 +55,14 @@ pub trait AsyncOnStepSuccess<W>: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{AsyncOnStepSuccess, OnSuccess, Requested, StepSuccess};
     ///
     /// async fn decide<P: AsyncOnStepSuccess<()>>(
     ///     policy: &P,
     ///     got: Requested<'_, (), StepSuccess, Asynchronous>,
-    /// ) -> Result<Option<OnSuccess>, Error> {
+    /// ) -> Result<Option<OnSuccess>> {
     ///     policy.on_step_success(got).await
     /// }
     /// ```

@@ -19,10 +19,8 @@ impl OnStepFailure<Orders> for Settle {
 
 pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settle = StepPolicyDescriptor::new("settle", || Settle).on_step_failure();
-    let charge = StepDescriptor::new(step_name!("charge"), || {
-        Ok(Outcome::failure(Reason::new("declined")))
-    })
-    .policy(settle);
+    let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::failure("declined")))
+        .policy(settle);
     let orders = WorkflowDescriptor::builder("orders").step(charge).build()?;
     LocalExecutor::new().run(orders.instance(Orders).create()?)?;
     Ok(())

@@ -120,9 +120,11 @@ impl Provider {
     }
 
     /// The type of the instances the provider makes, read from its return type when it is written
-    /// `Result<Provided<T>, ...>`.
+    /// `Result<Provided<T>>`, with the error of `itinera::error::Result`, or `Result<Provided<T>, ...>`.
     pub(super) fn made(&self) -> Option<&Type> {
-        held_by(held_by(&self.output, "Result", 2)?, "Provided", 1)
+        let returned =
+            held_by(&self.output, "Result", 1).or_else(|| held_by(&self.output, "Result", 2))?;
+        held_by(returned, "Provided", 1)
     }
 
     /// Whether both providers' return types are written as `Result<Provided<T>, ...>` with the same
@@ -351,6 +353,10 @@ mod tests {
         "#[provider] fn stock(&self) -> Result<Provided<dyn StockStore>, Error> {}",
         Some("dyn StockStore")
     )]
+    #[case::written_as_provided_in_the_result_of_itinera(
+        "#[provider] fn stock(&self) -> Result<Provided<dyn StockStore>> {}",
+        Some("dyn StockStore")
+    )]
     #[case::written_with_paths(
         "#[provider] fn stock(&self) -> std::result::Result<itinera::service::Provided<Shelf>, Error> {}",
         Some("Shelf")
@@ -372,6 +378,11 @@ mod tests {
     #[case::providing_one_type_with_errors_written_apart(
         "#[provider] fn stock(&self) -> Result<Provided<dyn StockStore>, Error> {}",
         "#[provider] fn shelf(&self) -> Result<Provided<dyn StockStore>, itinera::error::Error> {}",
+        true
+    )]
+    #[case::providing_one_type_with_and_without_the_error(
+        "#[provider] fn stock(&self) -> Result<Provided<dyn StockStore>> {}",
+        "#[provider] fn shelf(&self) -> Result<Provided<dyn StockStore>, Error> {}",
         true
     )]
     #[case::providing_two_types(

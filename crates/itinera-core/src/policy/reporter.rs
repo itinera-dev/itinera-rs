@@ -18,7 +18,7 @@ use crate::value::{AnyValue, Value};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::policy::{HookNeeds, OnWorkflowSuccess, Requested, WorkflowSuccess};
 ///
 /// struct Audit;
@@ -31,7 +31,7 @@ use crate::value::{AnyValue, Value};
 ///     fn on_workflow_success(
 ///         &self,
 ///         mut got: Requested<'_, W, WorkflowSuccess>,
-///     ) -> Result<(), Error> {
+///     ) -> Result<()> {
 ///         got.reporter()?.info_with("closing", 42_i64)?;
 ///         Ok(())
 ///     }
@@ -52,7 +52,7 @@ impl HookReporter<'_> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowSuccess, Requested, WorkflowSuccess};
     ///
     /// struct Audit;
@@ -65,7 +65,7 @@ impl HookReporter<'_> {
     ///     fn on_workflow_success(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.reporter()?.info("closing")?;
     ///         Ok(())
     ///     }
@@ -84,7 +84,7 @@ impl HookReporter<'_> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowSuccess, Requested, WorkflowSuccess};
     ///
     /// struct Audit;
@@ -97,7 +97,7 @@ impl HookReporter<'_> {
     ///     fn on_workflow_success(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.reporter()?.info_with("closing", 42_i64)?;
     ///         Ok(())
     ///     }
@@ -123,7 +123,7 @@ impl HookReporter<'_> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowSuccess, Requested, WorkflowSuccess};
     ///
     /// struct Audit;
@@ -136,7 +136,7 @@ impl HookReporter<'_> {
     ///     fn on_workflow_success(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.reporter()?.warning("closing")?;
     ///         Ok(())
     ///     }
@@ -155,7 +155,7 @@ impl HookReporter<'_> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowSuccess, Requested, WorkflowSuccess};
     ///
     /// struct Audit;
@@ -168,7 +168,7 @@ impl HookReporter<'_> {
     ///     fn on_workflow_success(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.reporter()?.warning_with("closing", 42_i64)?;
     ///         Ok(())
     ///     }
@@ -194,7 +194,7 @@ impl HookReporter<'_> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowSuccess, Requested, WorkflowSuccess};
     ///
     /// struct Audit;
@@ -207,7 +207,7 @@ impl HookReporter<'_> {
     ///     fn on_workflow_success(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.reporter()?.error("closing")?;
     ///         Ok(())
     ///     }
@@ -226,7 +226,7 @@ impl HookReporter<'_> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, OnWorkflowSuccess, Requested, WorkflowSuccess};
     ///
     /// struct Audit;
@@ -239,7 +239,7 @@ impl HookReporter<'_> {
     ///     fn on_workflow_success(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.reporter()?.error_with("closing", 42_i64)?;
     ///         Ok(())
     ///     }

@@ -18,7 +18,7 @@ use crate::step::{
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
 /// use itinera::step::{
 ///     AsyncRescueFactory, AsyncRescueStep, RescueNeeds, RescueOutcome, RescueResolved,
@@ -29,7 +29,7 @@ use crate::step::{
 /// }
 ///
 /// impl AsyncRescueStep for RefreshToken {
-///     async fn run(self) -> Result<RescueOutcome, Error> {
+///     async fn run(self) -> Result<RescueOutcome> {
 ///         println!("refreshing after {:?}", self.message);
 ///         Ok(RescueOutcome::success())
 ///     }
@@ -47,7 +47,7 @@ use crate::step::{
 ///     fn build<'a>(
 ///         &'a self,
 ///         got: &mut RescueResolved<'a, Asynchronous>,
-///     ) -> Result<RefreshToken, Error> {
+///     ) -> Result<RefreshToken> {
 ///         Ok(RefreshToken {
 ///             message: got.optional_error()?.map(|error| error.to_string()),
 ///         })
@@ -83,14 +83,14 @@ pub trait AsyncRescueFactory: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::step::{AsyncRescueFactory, RescueResolved};
     ///
     /// fn build<'a, F: AsyncRescueFactory>(
     ///     factory: &'a F,
     ///     got: &mut RescueResolved<'a, Asynchronous>,
-    /// ) -> Result<F::Step<'a>, Error> {
+    /// ) -> Result<F::Step<'a>> {
     ///     factory.build(got)
     /// }
     /// ```

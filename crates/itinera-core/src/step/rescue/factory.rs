@@ -13,7 +13,7 @@ use crate::step::{Attempts, Got, Outcome};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::step::{
 ///     Input, Reason, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved, RescueStep,
 /// };
@@ -24,7 +24,7 @@ use crate::step::{Attempts, Got, Outcome};
 /// }
 ///
 /// impl RescueStep for RefreshToken {
-///     fn run(self) -> Result<RescueOutcome, Error> {
+///     fn run(self) -> Result<RescueOutcome> {
 ///         println!("refreshing {} after {}", self.account, self.reason.code());
 ///         Ok(RescueOutcome::success())
 ///     }
@@ -41,7 +41,7 @@ use crate::step::{Attempts, Got, Outcome};
 ///         RescueNeeds::new().from_rescued_step(&ACCOUNT).reason()
 ///     }
 ///
-///     fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<RefreshToken, Error> {
+///     fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<RefreshToken> {
 ///         Ok(RefreshToken {
 ///             account: got.from_rescued_step(&ACCOUNT)?,
 ///             reason: got.reason()?,
@@ -78,13 +78,13 @@ pub trait RescueFactory: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{RescueFactory, RescueResolved};
     ///
     /// fn build<'a, F: RescueFactory>(
     ///     factory: &'a F,
     ///     got: &mut RescueResolved<'a>,
-    /// ) -> Result<F::Step<'a>, Error> {
+    /// ) -> Result<F::Step<'a>> {
     ///     factory.build(got)
     /// }
     /// ```

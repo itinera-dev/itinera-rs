@@ -1,6 +1,6 @@
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::{Contributor, JourneyStatus};
+use itinera::journey::Contributor;
 use itinera::step::{Outcome, Reason, RescueOutcome, RescueStep, Step, rescue_step, step};
 use itinera::workflow::workflow;
 
@@ -48,7 +48,7 @@ pub(crate) fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .create()?;
     let result = LocalExecutor::new().run(instance)?;
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     Ok(())
 }
 

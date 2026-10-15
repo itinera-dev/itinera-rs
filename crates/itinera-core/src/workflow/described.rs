@@ -42,7 +42,7 @@ use crate::value::{AnyValue, Value};
 /// assert_eq!(Orders::descriptor().listing().len(), 1);
 /// let instance = Orders::descriptor().instance(Orders).create()?;
 /// let result = LocalExecutor::new().run(instance)?;
-/// assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+/// assert!(result.status.is_succeeded());
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[diagnostic::on_unimplemented(
@@ -77,11 +77,11 @@ pub trait Workflow: Send + Sync + Sized + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::value::AnyValue;
     /// use itinera::workflow::Workflow;
     ///
-    /// fn discounted<W: Workflow>(price: i64, discount: i64) -> Result<Option<AnyValue>, Error> {
+    /// fn discounted<W: Workflow>(price: i64, discount: i64) -> Result<Option<AnyValue>> {
     ///     W::supply(price - discount)
     /// }
     /// ```
@@ -98,11 +98,11 @@ pub trait Workflow: Send + Sync + Sized + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::value::AnyValue;
     /// use itinera::workflow::Workflow;
     ///
-    /// fn as_given<W: Workflow>() -> Result<Option<AnyValue>, Error> {
+    /// fn as_given<W: Workflow>() -> Result<Option<AnyValue>> {
     ///     W::from_data_bag()
     /// }
     /// ```

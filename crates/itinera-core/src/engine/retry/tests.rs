@@ -288,7 +288,7 @@ fn the_rescued_steps_retry_and_failure_hooks_are_not_called_for_the_attempt_it_r
         Lifecycle::FinishWorkflow,
     );
 
-    assert!(matches!(hooked.status, JourneyStatus::Succeeded { .. }));
+    assert!(hooked.status.is_succeeded());
     assert_eq!(hook_names(&hooked.calls), [StepHook::OnStepSuccess]);
 }
 

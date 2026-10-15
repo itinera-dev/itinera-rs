@@ -15,7 +15,7 @@
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::{Error, Result};
 /// use itinera::service::{Provided, provide};
 ///
 /// trait PaymentGateway: Send + Sync {}
@@ -26,7 +26,7 @@
 /// impl PaymentGateway for Bank {}
 /// impl PaymentGateway for Sandbox {}
 ///
-/// fn payments(testing: bool) -> Result<Provided<dyn PaymentGateway>, Error> {
+/// fn payments(testing: bool) -> Result<Provided<dyn PaymentGateway>> {
 ///     if testing {
 ///         Ok(provide!(Sandbox, "sandbox".to_string()))
 ///     } else {

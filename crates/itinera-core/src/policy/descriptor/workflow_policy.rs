@@ -29,7 +29,7 @@ use crate::policy::{
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::policy::{
 ///     OnWorkflowFailure, Requested, WorkflowFailure, WorkflowPolicyDescriptor,
 /// };
@@ -40,7 +40,7 @@ use crate::policy::{
 ///     fn on_workflow_failure(
 ///         &self,
 ///         _got: Requested<'_, W, WorkflowFailure>,
-///     ) -> Result<(), Error> {
+///     ) -> Result<()> {
 ///         Ok(())
 ///     }
 /// }
@@ -204,7 +204,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Syn
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{
     ///     OnWorkflowSuccess, Requested, WorkflowPolicyDescriptor, WorkflowSuccess,
     /// };
@@ -215,7 +215,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Syn
     ///     fn on_workflow_success(
     ///         &self,
     ///         _got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }
@@ -238,7 +238,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Syn
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{
     ///     HookNeeds, OnWorkflowSuccess, Requested, WorkflowPolicyDescriptor, WorkflowSuccess,
     /// };
@@ -252,7 +252,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Syn
     ///     fn on_workflow_success(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowSuccess>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         println!(
     ///             "{} came to {}",
     ///             got.journey_id(),
@@ -282,7 +282,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Syn
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{
     ///     OnWorkflowFailure, Requested, WorkflowFailure, WorkflowPolicyDescriptor,
     /// };
@@ -293,7 +293,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Syn
     ///     fn on_workflow_failure(
     ///         &self,
     ///         _got: Requested<'_, W, WorkflowFailure>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }
@@ -316,7 +316,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Syn
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{
     ///     HookNeeds, OnWorkflowFailure, Requested, WorkflowFailure, WorkflowPolicyDescriptor,
     /// };
@@ -327,7 +327,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> WorkflowPolicyDescriptor<P, W, Syn
     ///     fn on_workflow_failure(
     ///         &self,
     ///         mut got: Requested<'_, W, WorkflowFailure>,
-    ///     ) -> Result<(), Error> {
+    ///     ) -> Result<()> {
     ///         got.reporter()?
     ///             .warning(format!("{} failed", got.journey_id()))?;
     ///         Ok(())

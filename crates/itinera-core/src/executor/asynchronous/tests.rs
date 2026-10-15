@@ -6,7 +6,6 @@ use super::*;
 use crate::error::Error;
 use crate::event::Event;
 use crate::executor::fixtures::{Recorder, Shop, mixed_instance};
-use crate::journey::JourneyStatus;
 use crate::policy::fixtures::Quiet;
 use crate::policy::{PolicyName, WorkflowPolicyDescriptor};
 use crate::report::fixtures::entries;
@@ -26,7 +25,7 @@ fn an_asynchronous_workflow_emits_its_events_in_order_to_both_kinds_of_reporter(
 
     let result = block_on(assert_send(executor.run(instance))).unwrap();
 
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     assert_eq!(
         entries(&log),
         [
@@ -73,7 +72,7 @@ fn an_asynchronous_workflow_may_have_only_synchronous_reporters() {
     let result = block_on(AsyncLocalExecutor::new().run(instance)).unwrap();
 
     assert_eq!(result.journey_id.to_string(), "order-7");
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     assert_eq!(entries(&log).len(), 10);
 }
 

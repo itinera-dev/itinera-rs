@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use itinera::error::Error;
 use itinera::event::Event;
 use itinera::executor::AsyncLocalExecutor;
-use itinera::journey::{Contributor, InitialData, JourneyStatus};
+use itinera::journey::{Contributor, InitialData};
 use itinera::mode::Asynchronous;
 use itinera::policy::{OnSuccess, StepPolicy, WorkflowPolicy, step_policy, workflow_policy};
 use itinera::report::{AsyncReporter, GlobalMetadata};
@@ -198,7 +198,7 @@ fn delivered(van: &'static str, seen: &'static Mutex<Vec<String>>) {
         .create()
         .unwrap();
     let result = futures::executor::block_on(AsyncLocalExecutor::new().run(instance)).unwrap();
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
 }
 
 #[test]

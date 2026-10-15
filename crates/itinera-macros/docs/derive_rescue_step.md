@@ -70,7 +70,7 @@ struct Orders;
 
 let instance = Orders::builder().create()?;
 let result = LocalExecutor::new().run(instance)?;
-assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+assert!(result.status.is_succeeded());
 let listing = Orders::descriptor().listing();
 let rescue = listing.first().and_then(|step| step.rescue.as_ref());
 assert_eq!(rescue.map(|rescue| rescue.step.to_string()), Some("charge_rescue".to_owned()));

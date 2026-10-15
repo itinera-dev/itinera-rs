@@ -13,14 +13,14 @@ use crate::value::AnyValue;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::event::Event;
 /// use itinera::report::{BoxedReporter, Reporter};
 ///
 /// struct Silent;
 ///
 /// impl Reporter for Silent {
-///     fn report(&mut self, _event: &Event) -> Result<(), Error> {
+///     fn report(&mut self, _event: &Event) -> Result<()> {
 ///         Ok(())
 ///     }
 /// }
@@ -49,14 +49,14 @@ impl BoxedReporter {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::{BoxedReporter, Reporter};
     ///
     /// struct Silent;
     ///
     /// impl Reporter for Silent {
-    ///     fn report(&mut self, _event: &Event) -> Result<(), Error> {
+    ///     fn report(&mut self, _event: &Event) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }
@@ -74,14 +74,14 @@ impl BoxedReporter {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::{AsyncReporter, BoxedReporter};
     ///
     /// struct Silent;
     ///
     /// impl AsyncReporter for Silent {
-    ///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
+    ///     async fn report(&mut self, _event: &Event) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }
@@ -100,11 +100,11 @@ impl BoxedReporter {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::BoxedReporter;
     ///
-    /// async fn deliver(reporter: &mut BoxedReporter, event: &Event) -> Result<(), Error> {
+    /// async fn deliver(reporter: &mut BoxedReporter, event: &Event) -> Result<()> {
     ///     reporter.report(event).await
     /// }
     /// ```
@@ -124,11 +124,11 @@ impl BoxedReporter {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::report::BoxedReporter;
     /// use itinera::value::AnyValue;
     ///
-    /// fn tell(reporter: &mut BoxedReporter, user: &str) -> Result<(), Error> {
+    /// fn tell(reporter: &mut BoxedReporter, user: &str) -> Result<()> {
     ///     reporter.set_global_metadata("user_id", &AnyValue::new(user.to_string()))
     /// }
     /// ```

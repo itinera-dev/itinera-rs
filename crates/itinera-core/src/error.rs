@@ -13,9 +13,9 @@ use std::fmt;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 ///
-/// fn parse(text: &str) -> Result<i64, Error> {
+/// fn parse(text: &str) -> Result<i64> {
 ///     Ok(text.parse::<i64>()?)
 /// }
 ///
@@ -27,6 +27,28 @@ use std::fmt;
 pub struct Error {
     inner: Box<dyn std::error::Error + Send + Sync + 'static>,
 }
+
+/// What custom code returns: a `T`, or the [`Error`] it failed with, such as
+/// `Result<Outcome>` from a step's `run`. Another error can still be named, as in
+/// `Result<T, Interrupted>`.
+///
+/// # Examples
+///
+/// ```
+/// use itinera::error::{Error, Result};
+///
+/// fn halve(amount: i64) -> Result<i64> {
+///     if amount % 2 == 0 {
+///         Ok(amount / 2)
+///     } else {
+///         Err(Error::msg("an odd amount cannot be halved"))
+///     }
+/// }
+///
+/// assert_eq!(halve(40).ok(), Some(20));
+/// assert!(halve(41).is_err());
+/// ```
+pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 impl Error {
     /// Makes an error from a message alone.
@@ -106,9 +128,9 @@ where
 /// # Examples
 ///
 /// ```
-/// use itinera::error::{Error, Interrupted};
+/// use itinera::error::{Interrupted, Result};
 ///
-/// fn propagated(emitted: Result<(), Interrupted>) -> Result<(), Error> {
+/// fn propagated(emitted: Result<(), Interrupted>) -> Result<()> {
 ///     emitted?;
 ///     Ok(())
 /// }

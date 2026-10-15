@@ -12,7 +12,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepRetry};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::policy::{FailWorkflow, OnStepRetry, Requested, StepRetry};
 /// use itinera::step::Reason;
 ///
@@ -22,7 +22,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepRetry};
 ///     fn on_step_retry(
 ///         &self,
 ///         got: Requested<'_, W, StepRetry>,
-///     ) -> Result<Option<FailWorkflow>, Error> {
+///     ) -> Result<Option<FailWorkflow>> {
 ///         Ok((got.attempt().get() >= 2)
 ///             .then(|| FailWorkflow::from(Reason::new("too many tries"))))
 ///     }
@@ -53,7 +53,7 @@ pub trait OnStepRetry<W>: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{FailWorkflow, OnStepRetry, Requested, StepRetry};
     ///
     /// struct Log;
@@ -62,7 +62,7 @@ pub trait OnStepRetry<W>: Send + Sync + 'static {
     ///     fn on_step_retry(
     ///         &self,
     ///         got: Requested<'_, W, StepRetry>,
-    ///     ) -> Result<Option<FailWorkflow>, Error> {
+    ///     ) -> Result<Option<FailWorkflow>> {
     ///         println!("retrying {} after: {}", got.step_name(), got.cause());
     ///         Ok(None)
     ///     }

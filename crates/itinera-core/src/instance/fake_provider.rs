@@ -13,7 +13,7 @@ use crate::service::{Provided, ProviderName};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::instance::{FakeProvider, InstanceBuilder};
 /// use itinera::service::{Provided, provide};
 ///
@@ -23,7 +23,7 @@ use crate::service::{Provided, ProviderName};
 ///
 /// impl StockStore for Shelf {}
 ///
-/// fn shelf() -> Result<Provided<dyn StockStore>, Error> {
+/// fn shelf() -> Result<Provided<dyn StockStore>> {
 ///     Ok(provide!(Shelf))
 /// }
 ///
@@ -46,7 +46,7 @@ pub trait FakeProvider<T: ?Sized> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::instance::{FakeProvider, InstanceBuilder};
     /// use itinera::service::{Provided, provide};
     ///
@@ -56,7 +56,7 @@ pub trait FakeProvider<T: ?Sized> {
     ///
     /// impl StockStore for Shelf {}
     ///
-    /// fn shelf() -> Result<Provided<dyn StockStore>, Error> {
+    /// fn shelf() -> Result<Provided<dyn StockStore>> {
     ///     Ok(provide!(Shelf))
     /// }
     ///

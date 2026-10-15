@@ -46,7 +46,7 @@ pub use recording_reporter::RecordingReporter;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::event::Event;
 /// use itinera::report::Reporter;
 ///
@@ -56,7 +56,7 @@ pub use recording_reporter::RecordingReporter;
 /// }
 ///
 /// impl Reporter for Kinds {
-///     fn report(&mut self, event: &Event) -> Result<(), Error> {
+///     fn report(&mut self, event: &Event) -> Result<()> {
 ///         self.kinds.push(event.kind());
 ///         Ok(())
 ///     }
@@ -81,7 +81,7 @@ pub trait Reporter: Send + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::{GlobalMetadata, Reporter};
     /// use itinera::value::AnyValue;
@@ -93,12 +93,12 @@ pub trait Reporter: Send + 'static {
     /// }
     ///
     /// impl Reporter for Audit {
-    ///     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+    ///     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<()> {
     ///         self.metadata.insert(key, value.clone());
     ///         Ok(())
     ///     }
     ///
-    ///     fn report(&mut self, event: &Event) -> Result<(), Error> {
+    ///     fn report(&mut self, event: &Event) -> Result<()> {
     ///         let journey = self.metadata.get(GlobalMetadata::JOURNEY_ID);
     ///         eprintln!("{journey:?} {}", event.kind());
     ///         Ok(())
@@ -118,14 +118,14 @@ pub trait Reporter: Send + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::Reporter;
     ///
     /// struct Silent;
     ///
     /// impl Reporter for Silent {
-    ///     fn report(&mut self, _event: &Event) -> Result<(), Error> {
+    ///     fn report(&mut self, _event: &Event) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }

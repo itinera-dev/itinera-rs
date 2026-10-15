@@ -15,7 +15,7 @@ use crate::mode::Mode;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Synchronous;
 /// use itinera::step::{
 ///     DescribedStep, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepName, StepNeeds,
@@ -25,7 +25,7 @@ use crate::mode::Mode;
 /// struct Ship;
 ///
 /// impl Step for Ship {
-///     fn run(self) -> Result<Outcome, Error> {
+///     fn run(self) -> Result<Outcome> {
 ///         Self::succeed()
 ///     }
 /// }
@@ -39,7 +39,7 @@ use crate::mode::Mode;
 ///         StepNeeds::new()
 ///     }
 ///
-///     fn build<'a>(&'a self, _got: &mut Resolved<'a>) -> Result<Ship, Error> {
+///     fn build<'a>(&'a self, _got: &mut Resolved<'a>) -> Result<Ship> {
 ///         Ok(Ship)
 ///     }
 /// }
@@ -75,7 +75,7 @@ pub trait DescribedStep {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Synchronous;
     /// use itinera::service::Service;
     /// use itinera::step::{
@@ -91,7 +91,7 @@ pub trait DescribedStep {
     /// }
     ///
     /// impl Step for Charge<'_> {
-    ///     fn run(self) -> Result<Outcome, Error> {
+    ///     fn run(self) -> Result<Outcome> {
     ///         Ok(Outcome::success())
     ///     }
     /// }
@@ -105,7 +105,7 @@ pub trait DescribedStep {
     ///         StepNeeds::new().service(&PAYMENTS)
     ///     }
     ///
-    ///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge<'a>, Error> {
+    ///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge<'a>> {
     ///         Ok(Charge {
     ///             payments: got.service(&PAYMENTS)?,
     ///         })
@@ -151,10 +151,10 @@ pub trait DescribedStep {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{DescribedStep, Outcome};
     ///
-    /// fn done<S: DescribedStep>() -> Result<Outcome, Error> {
+    /// fn done<S: DescribedStep>() -> Result<Outcome> {
     ///     S::succeed()
     /// }
     /// ```
@@ -171,15 +171,15 @@ pub trait DescribedStep {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{DescribedStep, Outcome};
     ///
-    /// fn declined<S: DescribedStep>() -> Result<Outcome, Error> {
+    /// fn declined<S: DescribedStep>() -> Result<Outcome> {
     ///     S::fail("card-declined")
     /// }
     /// ```
     fn fail(reason: impl Into<Reason>) -> Result<Outcome, Error> {
-        Ok(Outcome::failure(reason.into()))
+        Ok(Outcome::failure(reason))
     }
 
     /// The step had nothing to do: [`Outcome::skipped`].
@@ -191,10 +191,10 @@ pub trait DescribedStep {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{DescribedStep, Outcome};
     ///
-    /// fn nothing_to_do<S: DescribedStep>() -> Result<Outcome, Error> {
+    /// fn nothing_to_do<S: DescribedStep>() -> Result<Outcome> {
     ///     S::skip()
     /// }
     /// ```
@@ -212,14 +212,14 @@ pub trait DescribedStep {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{DescribedStep, Outcome};
     ///
-    /// fn already_paid<S: DescribedStep>() -> Result<Outcome, Error> {
+    /// fn already_paid<S: DescribedStep>() -> Result<Outcome> {
     ///     S::skip_because("already-paid")
     /// }
     /// ```
     fn skip_because(reason: impl Into<Reason>) -> Result<Outcome, Error> {
-        Ok(Outcome::skipped_because(reason.into()))
+        Ok(Outcome::skipped_because(reason))
     }
 }

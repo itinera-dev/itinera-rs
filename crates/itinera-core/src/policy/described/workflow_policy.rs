@@ -11,7 +11,7 @@ use crate::policy::{DescribedPolicy, WorkflowHook, WorkflowPolicyDescriptor};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Synchronous;
 /// use itinera::policy::{
 ///     DescribedPolicy, OnWorkflowFailure, PolicyName, Requested, WorkflowFailure,
@@ -29,13 +29,13 @@ use crate::policy::{DescribedPolicy, WorkflowHook, WorkflowPolicyDescriptor};
 ///         PolicyName::from("notify")
 ///     }
 ///
-///     fn build() -> Result<Self, Error> {
+///     fn build() -> Result<Self> {
 ///         Ok(Notify)
 ///     }
 /// }
 ///
 /// impl<W: Send + Sync + 'static> OnWorkflowFailure<W> for Notify {
-///     fn on_workflow_failure(&self, _got: Requested<'_, W, WorkflowFailure>) -> Result<(), Error> {
+///     fn on_workflow_failure(&self, _got: Requested<'_, W, WorkflowFailure>) -> Result<()> {
 ///         Ok(())
 ///     }
 /// }

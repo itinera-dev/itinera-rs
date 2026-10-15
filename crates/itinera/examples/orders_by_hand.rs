@@ -4,7 +4,7 @@
 
 use std::num::NonZeroU32;
 
-use itinera::error::Error;
+use itinera::error::Result;
 use itinera::event::Event;
 use itinera::executor::LocalExecutor;
 use itinera::journey::{Contributor, DataBag};
@@ -15,7 +15,7 @@ use itinera::policy::{
 use itinera::report::Reporter;
 use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
 use itinera::step::{
-    Input, OptionalInput, Outcome, Reason, Resolved, Step, StepDescriptor, StepFactory, StepNeeds,
+    Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds,
     step_name,
 };
 use itinera::value::AnyValue;
@@ -58,9 +58,9 @@ struct Charge<'a> {
 }
 
 impl Step for Charge<'_> {
-    fn run(mut self) -> Result<Outcome, Error> {
+    fn run(mut self) -> Result<Outcome> {
         if self.amount <= 0 {
-            return Ok(Outcome::failure(Reason::new("declined")));
+            return Ok(Outcome::failure("declined"));
         }
         self.contributor
             .contribute("payment", self.payments.take(self.amount));
@@ -82,7 +82,7 @@ impl StepFactory for Charging {
             .service(&PAYMENTS)
     }
 
-    fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge<'a>, Error> {
+    fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Charge<'a>> {
         Ok(Charge {
             amount: got.input(&AMOUNT)?,
             payments: got.service(&PAYMENTS)?,
@@ -92,7 +92,7 @@ impl StepFactory for Charging {
 }
 
 /// Ships the order: a step that needs nothing, whose function is its own factory.
-fn ship() -> Result<Outcome, Error> {
+fn ship() -> Result<Outcome> {
     Ok(Outcome::success())
 }
 
@@ -107,7 +107,7 @@ impl OnStepSuccess<Orders> for Audit {
     fn on_step_success(
         &self,
         mut got: Requested<'_, Orders, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<Option<OnSuccess>> {
         let charged = got.from_step(&CHARGED)?;
         got.contributor()?
             .contribute("audit", format!("charged {charged}"));
@@ -130,10 +130,7 @@ impl OnWorkflowSuccess<Orders> for Notify {
             .from_workflow(&PAYMENT)
     }
 
-    fn on_workflow_success(
-        &self,
-        mut got: Requested<'_, Orders, WorkflowSuccess>,
-    ) -> Result<(), Error> {
+    fn on_workflow_success(&self, mut got: Requested<'_, Orders, WorkflowSuccess>) -> Result<()> {
         let charged = got.from_workflow(&CHARGED)?;
         let payment = got.from_workflow(&PAYMENT)?;
         let messages: &dyn Messages = got.role();
@@ -150,7 +147,7 @@ impl OnWorkflowSuccess<Orders> for Notify {
 struct Printer;
 
 impl Reporter for Printer {
-    fn report(&mut self, event: &Event) -> Result<(), Error> {
+    fn report(&mut self, event: &Event) -> Result<()> {
         println!("{} {}", event.journey_id, event.kind());
         Ok(())
     }
@@ -173,10 +170,7 @@ impl Provides<dyn Messages> for Orders {
 }
 
 /// Works out the amount to charge: the price, less any discount.
-fn pricing(
-    _: &Orders,
-    mut got: Requested<'_, Orders, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
+fn pricing(_: &Orders, mut got: Requested<'_, Orders, InputAdapter>) -> Result<Option<AnyValue>> {
     let price = got.from_workflow(&PRICE)?;
     let discount = got.optional_from_workflow(&DISCOUNT)?;
     Ok(Some(AnyValue::new(price - discount.unwrap_or_default())))
@@ -186,7 +180,7 @@ fn pricing(
 fn payments(
     orders: &Orders,
     got: Requested<'_, Orders, Provider<PerAttempt>>,
-) -> Result<Provided<dyn PaymentGateway>, Error> {
+) -> Result<Provided<dyn PaymentGateway>> {
     Ok(provide!(Terminal {
         shop: orders.shop,
         attempt: got.attempt(),
@@ -194,7 +188,7 @@ fn payments(
 }
 
 /// Names each journey after the shop and the order.
-fn order_id(orders: &Orders, data: &DataBag) -> Result<String, Error> {
+fn order_id(orders: &Orders, data: &DataBag) -> Result<String> {
     let order: String = data.required("order")?;
     Ok(format!("{}-{order}", orders.shop))
 }

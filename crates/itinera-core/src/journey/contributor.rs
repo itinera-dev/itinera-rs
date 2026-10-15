@@ -11,7 +11,7 @@ use crate::value::{AnyValue, Value};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::journey::Contributor;
 /// use itinera::step::{Outcome, Resolved, Step, StepFactory, StepNeeds};
 ///
@@ -20,7 +20,7 @@ use crate::value::{AnyValue, Value};
 /// }
 ///
 /// impl Step for Receipt<'_> {
-///     fn run(mut self) -> Result<Outcome, Error> {
+///     fn run(mut self) -> Result<Outcome> {
 ///         self.contributor.contribute("receipt", "R-1".to_string());
 ///         Ok(Outcome::success())
 ///     }
@@ -35,7 +35,7 @@ use crate::value::{AnyValue, Value};
 ///         StepNeeds::new().contributor()
 ///     }
 ///
-///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Receipt<'a>, Error> {
+///     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<Receipt<'a>> {
 ///         Ok(Receipt {
 ///             contributor: got.contributor()?,
 ///         })

@@ -12,7 +12,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepAbnormalTermination}
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
 /// use itinera::policy::{
 ///     AsyncOnStepAbnormalTermination, FailWorkflow, Requested, StepAbnormalTermination,
@@ -24,7 +24,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepAbnormalTermination}
 ///     async fn on_step_abnormal_termination(
 ///         &self,
 ///         got: Requested<'_, W, StepAbnormalTermination, Asynchronous>,
-///     ) -> Result<Option<FailWorkflow>, Error> {
+///     ) -> Result<Option<FailWorkflow>> {
 ///         println!("{} crashed", got.step_name());
 ///         Ok(None)
 ///     }
@@ -55,7 +55,7 @@ pub trait AsyncOnStepAbnormalTermination<W>: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{
     ///     AsyncOnStepAbnormalTermination, FailWorkflow, Requested, StepAbnormalTermination,
@@ -64,7 +64,7 @@ pub trait AsyncOnStepAbnormalTermination<W>: Send + Sync + 'static {
     /// async fn decide<P: AsyncOnStepAbnormalTermination<()>>(
     ///     policy: &P,
     ///     got: Requested<'_, (), StepAbnormalTermination, Asynchronous>,
-    /// ) -> Result<Option<FailWorkflow>, Error> {
+    /// ) -> Result<Option<FailWorkflow>> {
     ///     policy.on_step_abnormal_termination(got).await
     /// }
     /// ```

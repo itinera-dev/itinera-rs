@@ -17,7 +17,7 @@ use crate::value::AnyValue;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::event::Event;
 /// use itinera::report::{GlobalMetadata, Reporter};
 /// use itinera::value::AnyValue;
@@ -28,12 +28,12 @@ use crate::value::AnyValue;
 /// }
 ///
 /// impl Reporter for Audit {
-///     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+///     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<()> {
 ///         self.metadata.insert(key, value.clone());
 ///         Ok(())
 ///     }
 ///
-///     fn report(&mut self, event: &Event) -> Result<(), Error> {
+///     fn report(&mut self, event: &Event) -> Result<()> {
 ///         let user = self.metadata.get("user_id").and_then(AnyValue::downcast_ref::<String>);
 ///         eprintln!("{} for {user:?}", event.kind());
 ///         Ok(())

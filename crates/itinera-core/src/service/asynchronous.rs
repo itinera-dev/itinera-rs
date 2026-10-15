@@ -18,7 +18,7 @@ use crate::policy::{Provider, Requested};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
 /// use itinera::policy::{Provider, Requested};
 /// use itinera::service::{AsyncProvide, PerJourney, Provided, provide};
@@ -35,7 +35,7 @@ use crate::policy::{Provider, Requested};
 ///     async fn stock(
 ///         &self,
 ///         _got: Requested<'_, Self, Provider<PerJourney>, Asynchronous>,
-///     ) -> Result<Provided<dyn StockStore>, Error> {
+///     ) -> Result<Provided<dyn StockStore>> {
 ///         Ok(provide!(Warehouse))
 ///     }
 /// }
@@ -53,7 +53,7 @@ pub trait AsyncProvide<'a, W, S: ProviderScope, T: ?Sized>: Send + Sync + 'stati
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{Provider, Requested};
     /// use itinera::service::{AsyncProvide, PerJourney, Provided};
@@ -64,7 +64,7 @@ pub trait AsyncProvide<'a, W, S: ProviderScope, T: ?Sized>: Send + Sync + 'stati
     ///     provider: &P,
     ///     workflow: &'a W,
     ///     got: Requested<'a, W, Provider<PerJourney>, Asynchronous>,
-    /// ) -> Result<Provided<dyn StockStore>, Error> {
+    /// ) -> Result<Provided<dyn StockStore>> {
     ///     provider.provide(workflow, got).await
     /// }
     /// ```
@@ -97,7 +97,7 @@ impl<W> ServiceProviderDescriptor<W, PerJourney, Asynchronous> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{Provider, Requested};
     /// use itinera::service::{PerJourney, Provided, Service, ServiceProviderDescriptor, provide};
@@ -116,7 +116,7 @@ impl<W> ServiceProviderDescriptor<W, PerJourney, Asynchronous> {
     ///     async fn stock(
     ///         &self,
     ///         _got: Requested<'_, Self, Provider<PerJourney>, Asynchronous>,
-    ///     ) -> Result<Provided<dyn StockStore>, Error> {
+    ///     ) -> Result<Provided<dyn StockStore>> {
     ///         Ok(provide!(Warehouse))
     ///     }
     /// }
@@ -140,7 +140,7 @@ impl<W> ServiceProviderDescriptor<W, PerAttempt, Asynchronous> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{Provider, Requested};
     /// use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
@@ -159,7 +159,7 @@ impl<W> ServiceProviderDescriptor<W, PerAttempt, Asynchronous> {
     ///     async fn payments(
     ///         &self,
     ///         _got: Requested<'_, Self, Provider<PerAttempt>, Asynchronous>,
-    ///     ) -> Result<Provided<dyn PaymentGateway>, Error> {
+    ///     ) -> Result<Provided<dyn PaymentGateway>> {
     ///         Ok(provide!(Main))
     ///     }
     /// }

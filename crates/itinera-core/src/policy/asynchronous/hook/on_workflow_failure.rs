@@ -12,7 +12,7 @@ use crate::policy::{HookNeeds, Requested, WorkflowFailure};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
 /// use itinera::policy::{AsyncOnWorkflowFailure, Requested, WorkflowFailure};
 ///
@@ -22,7 +22,7 @@ use crate::policy::{HookNeeds, Requested, WorkflowFailure};
 ///     async fn on_workflow_failure(
 ///         &self,
 ///         got: Requested<'_, W, WorkflowFailure, Asynchronous>,
-///     ) -> Result<(), Error> {
+///     ) -> Result<()> {
 ///         println!("journey {} failed", got.journey_id());
 ///         Ok(())
 ///     }
@@ -53,14 +53,14 @@ pub trait AsyncOnWorkflowFailure<W>: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{AsyncOnWorkflowFailure, Requested, WorkflowFailure};
     ///
     /// async fn close<P: AsyncOnWorkflowFailure<()>>(
     ///     policy: &P,
     ///     got: Requested<'_, (), WorkflowFailure, Asynchronous>,
-    /// ) -> Result<(), Error> {
+    /// ) -> Result<()> {
     ///     policy.on_workflow_failure(got).await
     /// }
     /// ```

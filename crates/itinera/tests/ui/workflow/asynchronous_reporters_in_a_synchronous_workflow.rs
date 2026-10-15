@@ -126,7 +126,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .async_reporter(Silent)
         .create()?;
     let result = LocalExecutor::new().run(instance)?;
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     Ok(())
 }
 

@@ -28,7 +28,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{
     ///     OnStepSuccess, OnSuccess, Requested, StepPolicyDescriptor, StepSuccess,
     /// };
@@ -41,7 +41,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     ///     fn on_step_success(
     ///         &self,
     ///         _got: Requested<'_, W, StepSuccess>,
-    ///     ) -> Result<Option<OnSuccess>, Error> {
+    ///     ) -> Result<Option<OnSuccess>> {
     ///         Ok(None)
     ///     }
     /// }

@@ -18,12 +18,12 @@ use crate::value::{AnyValue, Value};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::step::{Input, RescueResolved};
 ///
 /// const ACCOUNT: Input<String> = Input::new("account");
 ///
-/// fn account(got: &mut RescueResolved<'_>) -> Result<String, Error> {
+/// fn account(got: &mut RescueResolved<'_>) -> Result<String> {
 ///     got.from_rescued_step(&ACCOUNT)
 /// }
 /// ```
@@ -50,10 +50,10 @@ impl<'a, M> RescueResolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{Input, RescueResolved};
     ///
-    /// fn client(got: &mut RescueResolved<'_>) -> Result<String, Error> {
+    /// fn client(got: &mut RescueResolved<'_>) -> Result<String> {
     ///     got.input(&Input::new("client"))
     /// }
     /// ```
@@ -72,10 +72,10 @@ impl<'a, M> RescueResolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{OptionalInput, RescueResolved};
     ///
-    /// fn region(got: &mut RescueResolved<'_>) -> Result<Option<String>, Error> {
+    /// fn region(got: &mut RescueResolved<'_>) -> Result<Option<String>> {
     ///     got.optional_input(&OptionalInput::new("region"))
     /// }
     /// ```
@@ -98,10 +98,10 @@ impl<'a, M> RescueResolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{Input, RescueResolved};
     ///
-    /// fn account(got: &mut RescueResolved<'_>) -> Result<String, Error> {
+    /// fn account(got: &mut RescueResolved<'_>) -> Result<String> {
     ///     got.from_rescued_step(&Input::new("account"))
     /// }
     /// ```
@@ -126,10 +126,10 @@ impl<'a, M> RescueResolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{OptionalInput, RescueResolved};
     ///
-    /// fn account(got: &mut RescueResolved<'_>) -> Result<Option<String>, Error> {
+    /// fn account(got: &mut RescueResolved<'_>) -> Result<Option<String>> {
     ///     got.optional_from_rescued_step(&OptionalInput::new("account"))
     /// }
     /// ```
@@ -158,10 +158,10 @@ impl<'a, M> RescueResolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{Reason, RescueResolved};
     ///
-    /// fn reason(got: &mut RescueResolved<'_>) -> Result<Reason, Error> {
+    /// fn reason(got: &mut RescueResolved<'_>) -> Result<Reason> {
     ///     got.reason()
     /// }
     /// ```
@@ -185,10 +185,10 @@ impl<'a, M> RescueResolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{Reason, RescueResolved};
     ///
-    /// fn reason(got: &mut RescueResolved<'_>) -> Result<Option<Reason>, Error> {
+    /// fn reason(got: &mut RescueResolved<'_>) -> Result<Option<Reason>> {
     ///     got.optional_reason()
     /// }
     /// ```
@@ -212,10 +212,10 @@ impl<'a, M> RescueResolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::{Error, Result};
     /// use itinera::step::RescueResolved;
     ///
-    /// fn error(got: &mut RescueResolved<'_>) -> Result<Error, Error> {
+    /// fn error(got: &mut RescueResolved<'_>) -> Result<Error> {
     ///     got.error()
     /// }
     /// ```
@@ -239,10 +239,10 @@ impl<'a, M> RescueResolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::{Error, Result};
     /// use itinera::step::RescueResolved;
     ///
-    /// fn error(got: &mut RescueResolved<'_>) -> Result<Option<Error>, Error> {
+    /// fn error(got: &mut RescueResolved<'_>) -> Result<Option<Error>> {
     ///     got.optional_error()
     /// }
     /// ```
@@ -264,11 +264,11 @@ impl<'a, M> RescueResolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::journey::Contributor;
     /// use itinera::step::RescueResolved;
     ///
-    /// fn contributor<'a>(got: &mut RescueResolved<'a>) -> Result<Contributor<'a>, Error> {
+    /// fn contributor<'a>(got: &mut RescueResolved<'a>) -> Result<Contributor<'a>> {
     ///     got.contributor()
     /// }
     /// ```
@@ -289,7 +289,7 @@ impl<'a, M> RescueResolved<'a, M> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::service::Service;
     /// use itinera::step::RescueResolved;
     ///
@@ -297,7 +297,7 @@ impl<'a, M> RescueResolved<'a, M> {
     ///
     /// const PAYMENTS: Service<dyn PaymentGateway> = Service::new("payments");
     ///
-    /// fn payments<'a>(got: &RescueResolved<'a>) -> Result<&'a dyn PaymentGateway, Error> {
+    /// fn payments<'a>(got: &RescueResolved<'a>) -> Result<&'a dyn PaymentGateway> {
     ///     got.service(&PAYMENTS)
     /// }
     /// ```
@@ -317,10 +317,10 @@ impl<'a> RescueResolved<'a, Synchronous> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::step::{RescueResolved, StepReporter};
     ///
-    /// fn reporter<'a>(got: &mut RescueResolved<'a>) -> Result<StepReporter<'a>, Error> {
+    /// fn reporter<'a>(got: &mut RescueResolved<'a>) -> Result<StepReporter<'a>> {
     ///     got.reporter()
     /// }
     /// ```
@@ -341,13 +341,13 @@ impl<'a> RescueResolved<'a, crate::mode::Asynchronous> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::step::{AsyncStepReporter, RescueResolved};
     ///
     /// fn reporter<'a>(
     ///     got: &mut RescueResolved<'a, Asynchronous>,
-    /// ) -> Result<AsyncStepReporter<'a>, Error> {
+    /// ) -> Result<AsyncStepReporter<'a>> {
     ///     got.reporter()
     /// }
     /// ```

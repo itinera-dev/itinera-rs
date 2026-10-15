@@ -6,7 +6,7 @@ use itinera::journey::Contributor;
 use itinera::mode::Asynchronous;
 use itinera::step::{
     AsyncStep, AsyncStepFactory, AsyncStepReporter, DescribedStep, Input, OptionalInput, Outcome,
-    Reason, Resolved, Step, StepDescriptor, StepNeeds, step, step_name,
+    Resolved, Step, StepDescriptor, StepNeeds, step, step_name,
 };
 use itinera::workflow::WorkflowDescriptor;
 use rstest::rstest;
@@ -82,7 +82,7 @@ struct HandCharge<'a> {
 impl AsyncStep for HandCharge<'_> {
     async fn run(mut self) -> Result<Outcome, Error> {
         if self.amount <= 0 {
-            return Ok(Outcome::failure(Reason::new("nothing-to-charge")));
+            return Ok(Outcome::failure("nothing-to-charge"));
         }
         let fees = if self.discount.is_none() { 2 } else { 0 };
         let total = self.amount + fees;
@@ -124,7 +124,7 @@ impl AsyncStep for HandShip<'_> {
     async fn run(mut self) -> Result<Outcome, Error> {
         match self.gift_note {
             Some(note) => self.reporter.info_with("gift note", note).await?,
-            None => return Ok(Outcome::skipped_because(Reason::new("no-gift-note"))),
+            None => return Ok(Outcome::skipped_because("no-gift-note")),
         }
         Ok(Outcome::success())
     }

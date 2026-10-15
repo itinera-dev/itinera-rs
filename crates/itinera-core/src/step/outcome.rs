@@ -16,7 +16,7 @@ use super::Reason;
 ///     } else if balance >= amount {
 ///         Outcome::success()
 ///     } else {
-///         Outcome::failure(Reason::new("insufficient-funds"))
+///         Outcome::failure("insufficient-funds")
 ///     }
 /// }
 /// ```
@@ -51,18 +51,19 @@ impl Outcome {
         }
     }
 
-    /// The step could not complete, for this reason.
+    /// The step could not complete, for this reason. A text is the reason's code.
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::step::{Outcome, Reason};
     ///
-    /// let declined = Outcome::failure(Reason::new("card-declined"));
+    /// let declined = Outcome::failure("card-declined");
+    /// let expired = Outcome::failure(Reason::new("card-expired").with_message("expired in May"));
     /// ```
-    pub fn failure(reason: Reason) -> Self {
+    pub fn failure(reason: impl Into<Reason>) -> Self {
         Self {
-            kind: OutcomeKind::Failure(reason),
+            kind: OutcomeKind::Failure(reason.into()),
         }
     }
 
@@ -81,18 +82,18 @@ impl Outcome {
         }
     }
 
-    /// The step decided not to do its work, for this reason.
+    /// The step decided not to do its work, for this reason. A text is the reason's code.
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{Outcome, Reason};
+    /// use itinera::step::Outcome;
     ///
-    /// let paid = Outcome::skipped_because(Reason::new("already-paid"));
+    /// let paid = Outcome::skipped_because("already-paid");
     /// ```
-    pub fn skipped_because(reason: Reason) -> Self {
+    pub fn skipped_because(reason: impl Into<Reason>) -> Self {
         Self {
-            kind: OutcomeKind::Skipped(Some(reason)),
+            kind: OutcomeKind::Skipped(Some(reason.into())),
         }
     }
 
@@ -118,7 +119,7 @@ impl Outcome {
     /// ```
     /// use itinera::step::{Outcome, Reason};
     ///
-    /// assert!(Outcome::failure(Reason::new("declined")).is_failure());
+    /// assert!(Outcome::failure("declined").is_failure());
     /// assert!(!Outcome::skipped().is_failure());
     /// ```
     #[must_use]
@@ -147,7 +148,7 @@ impl Outcome {
     /// ```
     /// use itinera::step::{Outcome, Reason};
     ///
-    /// let declined = Outcome::failure(Reason::new("declined"));
+    /// let declined = Outcome::failure("declined");
     /// assert_eq!(declined.reason().map(Reason::code), Some("declined"));
     /// assert!(Outcome::success().reason().is_none());
     /// ```
@@ -180,13 +181,13 @@ mod tests {
     #[rstest]
     #[case::a_success(Outcome::success(), [true, false, false], None)]
     #[case::a_failure(
-        Outcome::failure(Reason::new("declined")),
+        Outcome::failure("declined"),
         [false, true, false],
         Some("declined")
     )]
     #[case::a_skip(Outcome::skipped(), [false, false, true], None)]
     #[case::a_skip_with_a_reason(
-        Outcome::skipped_because(Reason::new("already-paid")),
+        Outcome::skipped_because("already-paid"),
         [false, false, true],
         Some("already-paid")
     )]

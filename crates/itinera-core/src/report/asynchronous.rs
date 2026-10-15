@@ -19,14 +19,14 @@ pub use dispatcher::{AsyncDispatcher, AsyncDispatcherFactory};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::event::Event;
 /// use itinera::report::AsyncReporter;
 ///
 /// struct Forward;
 ///
 /// impl AsyncReporter for Forward {
-///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
+///     async fn report(&mut self, _event: &Event) -> Result<()> {
 ///         Ok(())
 ///     }
 /// }
@@ -44,7 +44,7 @@ pub trait AsyncReporter: Send + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::{AsyncReporter, GlobalMetadata};
     /// use itinera::value::AnyValue;
@@ -56,12 +56,12 @@ pub trait AsyncReporter: Send + 'static {
     /// }
     ///
     /// impl AsyncReporter for Forward {
-    ///     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<(), Error> {
+    ///     fn set_global_metadata(&mut self, key: &str, value: &AnyValue) -> Result<()> {
     ///         self.metadata.insert(key, value.clone());
     ///         Ok(())
     ///     }
     ///
-    ///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
+    ///     async fn report(&mut self, _event: &Event) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }
@@ -80,14 +80,14 @@ pub trait AsyncReporter: Send + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::event::Event;
     /// use itinera::report::AsyncReporter;
     ///
     /// struct Silent;
     ///
     /// impl AsyncReporter for Silent {
-    ///     async fn report(&mut self, _event: &Event) -> Result<(), Error> {
+    ///     async fn report(&mut self, _event: &Event) -> Result<()> {
     ///         Ok(())
     ///     }
     /// }

@@ -56,6 +56,6 @@ impl Till for Shop {
 }
 
 let result = LocalExecutor::new().run(Shop::builder().create()?)?;
-assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+assert!(result.status.is_succeeded());
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```

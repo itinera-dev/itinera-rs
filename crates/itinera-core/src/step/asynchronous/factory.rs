@@ -16,7 +16,7 @@ use crate::step::{Outcome, Resolved, StepNeeds};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
 /// use itinera::step::{AsyncStep, AsyncStepFactory, Input, Outcome, Resolved, StepNeeds};
 ///
@@ -25,7 +25,7 @@ use crate::step::{Outcome, Resolved, StepNeeds};
 /// }
 ///
 /// impl AsyncStep for Charge {
-///     async fn run(self) -> Result<Outcome, Error> {
+///     async fn run(self) -> Result<Outcome> {
 ///         Ok(Outcome::success())
 ///     }
 /// }
@@ -41,7 +41,7 @@ use crate::step::{Outcome, Resolved, StepNeeds};
 ///         StepNeeds::new().input(&AMOUNT)
 ///     }
 ///
-///     fn build<'a>(&'a self, got: &mut Resolved<'a, Asynchronous>) -> Result<Charge, Error> {
+///     fn build<'a>(&'a self, got: &mut Resolved<'a, Asynchronous>) -> Result<Charge> {
 ///         Ok(Charge {
 ///             amount: got.input(&AMOUNT)?,
 ///         })
@@ -76,14 +76,14 @@ pub trait AsyncStepFactory: Send + Sync + 'static {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::step::{AsyncStepFactory, Resolved};
     ///
     /// fn build<'a, F: AsyncStepFactory>(
     ///     factory: &'a F,
     ///     got: &mut Resolved<'a, Asynchronous>,
-    /// ) -> Result<F::Step<'a>, Error> {
+    /// ) -> Result<F::Step<'a>> {
     ///     factory.build(got)
     /// }
     /// ```

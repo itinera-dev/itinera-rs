@@ -49,6 +49,6 @@ let orders = WorkflowDescriptor::builder("orders")
     .build()?;
 let instance = orders.instance(Orders).data("amount", 40_i64).create()?;
 let result = LocalExecutor::new().run(instance)?;
-assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+assert!(result.status.is_succeeded());
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```

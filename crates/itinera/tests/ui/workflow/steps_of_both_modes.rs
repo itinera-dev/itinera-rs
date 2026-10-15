@@ -32,6 +32,6 @@ struct Delivery;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Delivery::builder().create()?;
     let result = LocalExecutor::new().run(instance)?;
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
     Ok(())
 }

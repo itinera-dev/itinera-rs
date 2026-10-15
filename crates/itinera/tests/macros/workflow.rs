@@ -6,9 +6,7 @@ use itinera::error::Error;
 use itinera::event::Event;
 use itinera::executor::LocalExecutor;
 use itinera::instance::WorkflowInstance;
-use itinera::journey::{
-    Contributor, DataBag, DataBagAccess, InitialData, JourneyId, JourneyStatus, Read,
-};
+use itinera::journey::{Contributor, DataBag, DataBagAccess, InitialData, JourneyId, Read};
 use itinera::policy::{
     FailWorkflow, HookNeeds, InputAdapter, OnSuccess, Provides, Requested, StepPolicy,
     WorkflowPolicy, step_policy, workflow_policy,
@@ -372,7 +370,7 @@ fn tallied(basket: &str) {
         .create()
         .unwrap();
     let result = LocalExecutor::new().run(instance).unwrap();
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
 }
 
 #[test]
@@ -397,7 +395,7 @@ fn a_workflow_is_named_after_its_type_unless_its_attribute_names_it() {
 fn a_workflow_without_fields_is_created_without_setters() {
     let instance = Courier::builder().create().unwrap();
     let result = LocalExecutor::new().run(instance).unwrap();
-    assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+    assert!(result.status.is_succeeded());
 }
 
 #[test]

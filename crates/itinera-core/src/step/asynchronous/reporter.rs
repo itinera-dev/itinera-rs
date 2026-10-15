@@ -17,7 +17,7 @@ use crate::value::{AnyValue, Value};
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
 /// use itinera::step::{
 ///     AsyncStep, AsyncStepFactory, AsyncStepReporter, Outcome, Resolved, StepNeeds,
@@ -28,7 +28,7 @@ use crate::value::{AnyValue, Value};
 /// }
 ///
 /// impl AsyncStep for Charge<'_> {
-///     async fn run(mut self) -> Result<Outcome, Error> {
+///     async fn run(mut self) -> Result<Outcome> {
 ///         self.reporter.info_with("charging", 42_i64).await?;
 ///         Ok(Outcome::success())
 ///     }
@@ -43,7 +43,7 @@ use crate::value::{AnyValue, Value};
 ///         StepNeeds::new().reporter()
 ///     }
 ///
-///     fn build<'a>(&'a self, got: &mut Resolved<'a, Asynchronous>) -> Result<Charge<'a>, Error> {
+///     fn build<'a>(&'a self, got: &mut Resolved<'a, Asynchronous>) -> Result<Charge<'a>> {
 ///         Ok(Charge {
 ///             reporter: got.reporter()?,
 ///         })

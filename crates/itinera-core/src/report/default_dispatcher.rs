@@ -26,14 +26,14 @@ use crate::value::AnyValue;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::{Error, Result};
 /// use itinera::event::Event;
 /// use itinera::report::{DefaultDispatcher, Dispatcher, Reporter};
 ///
 /// struct Silent;
 ///
 /// impl Reporter for Silent {
-///     fn report(&mut self, _event: &Event) -> Result<(), Error> {
+///     fn report(&mut self, _event: &Event) -> Result<()> {
 ///         Ok(())
 ///     }
 /// }

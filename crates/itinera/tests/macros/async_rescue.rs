@@ -99,7 +99,7 @@ struct HandRefresh<'a> {
 impl AsyncRescueStep for HandRefresh<'_> {
     async fn run(mut self) -> Result<RescueOutcome, Error> {
         let Some(account) = self.account else {
-            return Ok(RescueOutcome::failure(Reason::new("no-account")));
+            return Ok(RescueOutcome::failure("no-account"));
         };
         let cause = cause(self.reason.as_ref());
         self.reporter.info_with("rescuing", cause).await?;

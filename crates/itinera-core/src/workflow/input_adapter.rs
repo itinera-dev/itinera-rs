@@ -26,7 +26,7 @@ use crate::value::AnyValue;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::Result;
 /// use itinera::policy::{InputAdapter, Requested};
 /// use itinera::step::step_name;
 /// use itinera::value::AnyValue;
@@ -37,7 +37,7 @@ use crate::value::AnyValue;
 /// }
 ///
 /// impl Orders {
-///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
+///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>> {
 ///         Ok((got.key() == "amount").then(|| AnyValue::new(self.price)))
 ///     }
 /// }
@@ -96,7 +96,7 @@ impl<W> InputAdapterDescriptor<W> {
     /// # Examples
     ///
     /// ```
-    /// use itinera::error::Error;
+    /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, InputAdapter, Requested};
     /// use itinera::step::{Input, step_name};
     /// use itinera::value::AnyValue;
@@ -107,7 +107,7 @@ impl<W> InputAdapterDescriptor<W> {
     /// struct Orders;
     ///
     /// impl Orders {
-    ///     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
+    ///     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>> {
     ///         let price = got.from_workflow(&PRICE)?;
     ///         Ok((got.key() == "amount").then(|| AnyValue::new(price)))
     ///     }

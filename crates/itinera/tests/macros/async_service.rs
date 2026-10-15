@@ -12,8 +12,7 @@ use itinera::service::{
     PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
 };
 use itinera::step::{
-    AsyncStep, AsyncStepFactory, Outcome, Reason, Resolved, StepDescriptor, StepNeeds, step,
-    step_name,
+    AsyncStep, AsyncStepFactory, Outcome, Resolved, StepDescriptor, StepNeeds, step, step_name,
 };
 use itinera::workflow::{Workflow, WorkflowDescriptor, workflow};
 use rstest::rstest;
@@ -62,7 +61,7 @@ fn dispatched(
             contributor.contribute("label", labeller.label(parcel));
             Outcome::success()
         }
-        None => Outcome::failure(Reason::new("unreachable")),
+        None => Outcome::failure("unreachable"),
     }
 }
 

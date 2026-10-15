@@ -113,7 +113,7 @@ let instance = Orders::builder()
     .initial_data(NewOrder { amount: 40 })
     .create()?;
 let result = LocalExecutor::new().run(instance)?;
-assert!(matches!(result.status, JourneyStatus::Succeeded { .. }));
+assert!(result.status.is_succeeded());
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 

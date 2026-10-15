@@ -6,7 +6,7 @@ struct Orders;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let charge = StepDescriptor::new(step_name!("charge"), || {
-        Ok(Outcome::failure(Reason::new("expired")))
+        Ok(Outcome::failure("expired"))
     })
     .rescue(|| Ok(RescueOutcome::skipped()));
     let orders = WorkflowDescriptor::builder("orders").step(charge).build()?;

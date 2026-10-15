@@ -19,13 +19,13 @@ use crate::report::GlobalMetadata;
 /// # Examples
 ///
 /// ```
-/// use itinera::error::Error;
+/// use itinera::error::{Error, Result};
 /// use itinera::policy::{HookEventReporter, HookReporter};
 ///
 /// struct Notify;
 ///
 /// impl Notify {
-///     fn failed(&self, order: String, mut reporter: HookReporter<'_>) -> Result<(), Error> {
+///     fn failed(&self, order: String, mut reporter: HookReporter<'_>) -> Result<()> {
 ///         reporter.warning_with("the customer was told", order)?;
 ///         Ok(())
 ///     }
