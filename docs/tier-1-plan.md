@@ -27,7 +27,7 @@ A Cargo workspace, edition 2024, resolver 3, under `crates/`.
 | `itinera-core` | yes | Values and the data bag, events, reporters and dispatchers, steps, policies, descriptors and their builder, the workflow instance, the engine and both local executors |
 | `itinera-macros` | yes | The procedural macros |
 | `itinera-conformance` | no | The conformance runner |
-| `xtask` | no | Development tasks: `cargo xtask check` runs every required check in order |
+| `xtask` | no | Development tasks: `cargo xtask check` runs the required checks in order, and `cargo xtask check --feature-combinations` adds those that try each combination of features |
 
 There is no separate executor crate in tier 1: both executors share one engine, which stays private. Executors of later tiers, such as durable ones, get crates of their own.
 
@@ -361,7 +361,7 @@ Each job runs one command, as the organisation's rules require. All are required
 
 The tests of the `itinera` crate, which holds only re-exports, run on Linux only: most of them compare compiler messages, which read the same on every system.
 
-The conformance runner turns on `async`, `macros` and `testing` for every crate built with it, so the jobs that try each combination of features build only `itinera` and `itinera-core`. These jobs use the `cargo-hack` binary that `taiki-e/install-action` installs. docs.rs builds every published crate with all of its features except `unstable`.
+The conformance runner turns on `async`, `macros` and `testing` for every crate built with it, so the jobs that try each combination of features build only `itinera` and `itinera-core`. The tests leave out `unstable`, which the tests with every feature on cover, and `itinera`'s tests always use `testing`, as an application's tests do. These jobs use the `cargo-hack` binary that `taiki-e/install-action` installs. docs.rs builds every published crate with all of its features except `unstable`.
 
 The toolchain comes from `rust-toolchain.toml`; caching uses `Swatinem/rust-cache`; third-party actions are pinned to a commit.
 

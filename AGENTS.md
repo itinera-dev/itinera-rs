@@ -69,15 +69,20 @@ Each of these is a required CI check, and every one must pass before pushing:
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 - `cargo test --workspace --all-features`
+- `cargo +1.85 check --workspace --exclude itinera-conformance`
+- `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`
+- `cargo deny check`
+
+These required CI checks build `itinera` and `itinera-core` once for each combination of their features:
+
 - `cargo hack clippy -p itinera -p itinera-core --feature-powerset --exclude-features default --all-targets -- -D warnings`
 - `cargo hack test -p itinera --feature-powerset --exclude-features default,testing,unstable`
 - `cargo hack test -p itinera-core --feature-powerset --exclude-features unstable`
-- `cargo +1.85 check --workspace --exclude itinera-conformance`
-- `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`
 - `RUSTDOCFLAGS="-D warnings" cargo hack doc -p itinera -p itinera-core --feature-powerset --exclude-features default --no-deps`
-- `cargo deny check`
 
-`cargo xtask check` runs them all, in this order, and stops at the first that fails. The `cargo hack` checks need [cargo-hack](https://github.com/taiki-e/cargo-hack) installed, as `cargo deny check` needs cargo-deny. A test in the `xtask` crate keeps its list the same as this one.
+They take several minutes, so before pushing they are run only when a change adds, moves or removes a feature gate, changes code under one, names an item under one, in code or in a documentation link, or changes a crate's features or dependencies. CI runs them on every pull request.
+
+`cargo xtask check` runs the first list, in this order, and stops at the first that fails. `cargo xtask check --feature-combinations` runs the second list after it. The `cargo hack` checks need [cargo-hack](https://github.com/taiki-e/cargo-hack) installed, as `cargo deny check` needs cargo-deny. A test in the `xtask` crate keeps its lists the same as these.
 
 ## Running the conformance runner
 
@@ -97,7 +102,7 @@ The features under `crates/itinera-conformance/features/macros`, tagged `@macros
 - Every pull request names an open issue in this repository: `Refs #N` when it contributes, `Closes #N` when it finishes. Work that belongs to no proposal refers to #7, or to an issue of its own.
 - Public API of a proposal not yet listed in `conformance.json`, or of one the specification has not accepted yet, stays behind the `unstable` feature, as an item gated with `#[cfg(feature = "unstable")]`. So does a listed proposal's API while it holds a stand-in that a later stage replaces, or names API of a proposal not yet listed.
 - Commit messages and pull request descriptions say what changed and why, in plain prose.
-- Every change an agent makes is also reviewed by a separate reviewer agent. A new pull request is reviewed before it is opened, since that is the version the maintainer reads first. A later change to an open pull request is pushed as soon as the checks under "Running the checks" pass, and is reviewed while CI runs; an accepted finding becomes a further push, reviewed in the same way. A review passes when it has no accepted finding left.
+- Every change an agent makes is also reviewed by a separate reviewer agent. A new pull request is reviewed before it is opened, since that is the version the maintainer reads first. A later change to an open pull request is pushed as soon as the checks under "Running the checks" that it calls for pass, and is reviewed while CI runs; an accepted finding becomes a further push, reviewed in the same way. A review passes when it has no accepted finding left.
 
 ## Writing
 

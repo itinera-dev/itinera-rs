@@ -62,8 +62,8 @@ jobs:
           tool: cargo-hack@0.6.45
       - run: cargo hack clippy -p itinera -p itinera-core --feature-powerset --exclude-features default --all-targets -- -D warnings
 
-  # The tests of itinera use the testing tools, as an application's tests do,
-  # and the tests with every feature on cover `unstable`.
+  # The tests with every feature on cover `unstable`,
+  # and the tests of itinera use the testing tools, as an application's tests do.
   itinera-feature-tests:
     name: tests of itinera in every feature combination
     runs-on: ubuntu-latest
@@ -75,6 +75,7 @@ jobs:
           tool: cargo-hack@0.6.45
       - run: cargo hack test -p itinera --feature-powerset --exclude-features default,testing,unstable
 
+  # The tests with every feature on cover `unstable`.
   itinera-core-feature-tests:
     name: tests of itinera-core in every feature combination
     runs-on: ubuntu-latest
