@@ -1,7 +1,7 @@
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::policy::{FailWorkflow, OnStepFailure, Requested, StepFailure, StepPolicyDescriptor};
-use itinera::step::{Outcome, Reason, StepDescriptor, step_name};
+use itinera::policy::{OnFailure, OnStepFailure, Requested, StepFailure, StepPolicyDescriptor};
+use itinera::step::{Outcome, StepDescriptor, step_name};
 use itinera::workflow::WorkflowDescriptor;
 
 struct Orders;
@@ -12,8 +12,8 @@ impl OnStepFailure<Orders> for Settle {
     fn on_step_failure(
         &self,
         _got: Requested<'_, Orders, StepFailure>,
-    ) -> Result<Option<FailWorkflow>, Error> {
-        Ok(Some(FailWorkflow::from(Reason::new("settled"))))
+    ) -> Result<OnFailure, Error> {
+        Ok(OnFailure::fail_workflow("settled"))
     }
 }
 

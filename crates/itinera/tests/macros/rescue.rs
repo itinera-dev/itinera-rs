@@ -24,7 +24,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         if let Some(token) = self.token {
             contributor.contribute("charged with", token);
             return Self::succeed();
@@ -46,9 +46,7 @@ struct Refresh {
     outcome: String,
     #[from_rescued_step("account")]
     account: Option<String>,
-    #[reason]
     reason: Option<Reason>,
-    #[error]
     error: Option<Error>,
 }
 
@@ -56,8 +54,8 @@ struct Refresh {
 impl Refresh {
     fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
-        #[reporter] mut reporter: StepReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: StepReporter,
     ) -> Result<RescueOutcome, Error> {
         reporter.info_with("rescuing", cause(self.reason.as_ref(), self.error.as_ref()))?;
         if self.outcome == "busy" {
@@ -77,7 +75,6 @@ impl Refresh {
 /// neither, aborts the journey.
 #[derive(RescueStep)]
 struct Insist {
-    #[reason]
     reason: Reason,
     #[from_rescued_step]
     account: String,
@@ -85,7 +82,7 @@ struct Insist {
 
 #[rescue_step]
 impl Insist {
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<RescueOutcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<RescueOutcome, Error> {
         let token = format!("{}-{}", self.account, self.reason.code());
         contributor.contribute("token", token);
         Self::succeed()
@@ -133,7 +130,7 @@ struct HandRefresh<'a> {
     account: Option<String>,
     reason: Option<Reason>,
     error: Option<Error>,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     reporter: StepReporter<'a>,
 }
 
@@ -163,7 +160,7 @@ impl RescueFactory for RefreshFactory {
     fn needs(&self) -> RescueNeeds {
         RescueNeeds::new()
             .input(&OUTCOME)
-            .optional_from_rescued_step(&ACCOUNT_LEFT)
+            .from_rescued_step(&ACCOUNT_LEFT)
             .optional_reason()
             .optional_error()
             .contributor()
@@ -173,7 +170,7 @@ impl RescueFactory for RefreshFactory {
     fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<HandRefresh<'a>, Error> {
         Ok(HandRefresh {
             outcome: got.input(&OUTCOME)?,
-            account: got.optional_from_rescued_step(&ACCOUNT_LEFT)?,
+            account: got.from_rescued_step(&ACCOUNT_LEFT)?,
             reason: got.optional_reason()?,
             error: got.optional_error()?,
             contributor: got.contributor()?,
@@ -185,11 +182,11 @@ impl RescueFactory for RefreshFactory {
 struct HandInsist<'a> {
     reason: Reason,
     account: String,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl RescueStep for HandInsist<'_> {
-    fn run(mut self) -> Result<RescueOutcome, Error> {
+    fn run(self) -> Result<RescueOutcome, Error> {
         let token = format!("{}-{}", self.account, self.reason.code());
         self.contributor.contribute("token", token);
         Ok(RescueOutcome::success())

@@ -27,7 +27,7 @@ use crate::step::StepReporter;
 /// }
 ///
 /// impl Charge {
-///     fn run(self, mut reporter: StepReporter<'_>) -> Result<Outcome> {
+///     fn run(self, mut reporter: StepReporter) -> Result<Outcome> {
 ///         reporter.info_with("charging", self.price)?;
 ///         Ok(Outcome::success())
 ///     }

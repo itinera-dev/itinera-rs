@@ -17,7 +17,7 @@ struct Dispatch {
 
 #[step]
 impl Dispatch {
-    async fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    async fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         if self.parcel.is_empty() {
             return Self::fail("no-parcel");
         }
@@ -36,10 +36,10 @@ impl Track {
     async fn tracked(
         &self,
         #[from_step] dispatched: String,
-        #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<Option<OnSuccess>, Error> {
+        contributor: &mut Contributor,
+    ) -> Result<OnSuccess, Error> {
         contributor.contribute("tracking", format!("track {dispatched}"));
-        Self::carry_on()
+        Self::keep_default()
     }
 }
 
@@ -50,7 +50,7 @@ struct Sign;
 #[workflow_policy(name = "sign")]
 impl Sign {
     #[on_workflow_success]
-    async fn signed(&self, #[contributor] mut contributor: Contributor<'_>) -> Result<(), Error> {
+    async fn signed(&self, contributor: &mut Contributor) -> Result<(), Error> {
         contributor.contribute("signed", true);
         Ok(())
     }

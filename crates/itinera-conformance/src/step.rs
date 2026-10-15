@@ -168,16 +168,16 @@ impl AsyncStepFactory for Scripted {
     }
 }
 
-pub(crate) fn contribute(contributor: &mut Contributor<'_>, key: &str, value: &Typed) {
+pub(crate) fn contribute(contributor: &mut Contributor, key: &str, value: &Typed) {
     value.clone().given_to(Contributing { contributor, key });
 }
 
-struct Contributing<'c, 'a> {
-    contributor: &'c mut Contributor<'a>,
+struct Contributing<'c> {
+    contributor: &'c mut Contributor,
     key: &'c str,
 }
 
-impl Takes for Contributing<'_, '_> {
+impl Takes for Contributing<'_> {
     type Output = ();
 
     fn take<T: Storable>(self, value: T) {

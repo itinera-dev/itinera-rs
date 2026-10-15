@@ -187,7 +187,7 @@ impl Provider {
                 #pattern: ::itinera::policy::Requested<
                     '_,
                     #workflow,
-                    ::itinera::policy::Provider<#scope>
+                    ::itinera::service::Provider<#scope>
                     #mode
                 >,
             ) -> #output {

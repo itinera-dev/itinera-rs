@@ -1,13 +1,13 @@
-error[E0599]: the method `attempt` exists for struct `Requested<'_, Orders, itinera::policy::Provider<PerJourney>>`, but its trait bounds were not satisfied
-  --> tests/proofs/journey-scope-request/journey_scoped_provider_asks_for_the_attempt.rs:20:28
+error[E0599]: the method `attempt` exists for struct `Requested<'_, Orders, itinera::service::Provider<PerJourney>>`, but its trait bounds were not satisfied
+  --> tests/proofs/journey-scope-request/journey_scoped_provider_asks_for_the_attempt.rs:22:28
    |
-20 |         let _attempt = got.attempt();
+22 |         let _attempt = got.attempt();
    |                            ^^^^^^^ method cannot be called due to unsatisfied trait bounds
    |
-  ::: $WORKSPACE/crates/itinera-core/src/policy/kind/provider.rs
+  ::: $WORKSPACE/crates/itinera-core/src/service/provider.rs
    |
    | pub struct Provider<S> {
    | ---------------------- doesn't satisfy `_: StepHookKind`
    |
    = note: the following trait bounds were not satisfied:
-           `itinera::policy::Provider<PerJourney>: StepHookKind`
+           `itinera::service::Provider<PerJourney>: StepHookKind`

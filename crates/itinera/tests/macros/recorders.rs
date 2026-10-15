@@ -3,12 +3,11 @@
 
 use itinera::error::Error;
 use itinera::event::Level;
-use itinera::journey::{Contributions, Contributor, DataBag, DataBagAccess, Read};
+use itinera::journey::{Contributions, Contributor, DataBag, Read};
 use itinera::policy::{HookEventReporter, HookReporter, OnSuccess, step_policy};
 use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, Reason, Step, StepEventReporter, StepReporter, step};
-use itinera::value::AnyValue;
-use itinera::workflow::workflow;
+use itinera::workflow::{Supplied, workflow};
 
 /// Takes payments.
 trait PaymentGateway: Send + Sync {
@@ -37,8 +36,8 @@ impl Charge {
     fn run(
         self,
         #[service] payments: &dyn PaymentGateway,
-        #[contributor] mut contributor: Contributor<'_>,
-        #[reporter] mut reporter: StepReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: StepReporter,
     ) -> Result<Outcome, Error> {
         reporter.info_with("charging", self.price)?;
         let Some(payment) = payments.take(self.price) else {
@@ -59,12 +58,12 @@ impl Audit {
     fn audited(
         &self,
         #[from_step] payment: String,
-        #[contributor] mut contributor: Contributor<'_>,
-        #[reporter] mut reporter: HookReporter<'_>,
-    ) -> Result<Option<OnSuccess>, Error> {
+        contributor: &mut Contributor,
+        mut reporter: HookReporter,
+    ) -> Result<OnSuccess, Error> {
         reporter.warning_with("audited", payment.clone())?;
         contributor.contribute("audit", format!("paid {payment}"));
-        Self::carry_on()
+        Self::keep_default()
     }
 }
 
@@ -77,11 +76,7 @@ struct Shop {
 #[workflow]
 impl Shop {
     #[input_adapter(steps = ["charge"])]
-    fn pricing(
-        &self,
-        #[key] key: &str,
-        #[data_bag] data: DataBagAccess<'_>,
-    ) -> Result<Option<AnyValue>, Error> {
+    fn pricing(&self, #[key] key: &str, data: &DataBag) -> Result<Supplied, Error> {
         match data.read::<i64>(key) {
             Read::Present(price) => Self::supply(price + self.fee),
             Read::Absent | Read::OtherType => Self::from_data_bag(),
@@ -149,7 +144,7 @@ fn a_hook_called_with_recorded_handles_leaves_its_contributions_and_events_to_re
         )
         .unwrap();
 
-    assert!(decided.is_none());
+    assert!(decided.keeps_default());
     assert_eq!(
         contributions.read::<String>("audit"),
         Read::Present("paid P-40".to_string())
@@ -162,9 +157,9 @@ fn an_input_adapter_reads_a_data_bag_a_test_builds_from_values() {
     let data = DataBag::default().with("price", 40_i64);
     let shop = Shop { fee: 2 };
 
-    let supplied = shop.pricing("price", data.access()).unwrap();
-    let left = shop.pricing("coupon", data.access()).unwrap();
+    let supplied = shop.pricing("price", &data).unwrap();
+    let left = shop.pricing("coupon", &data).unwrap();
 
-    assert_eq!(supplied.unwrap().downcast_ref::<i64>(), Some(&42));
-    assert!(left.is_none());
+    assert_eq!(supplied.downcast_ref::<i64>(), Some(&42));
+    assert!(matches!(left, Supplied::FromDataBag));
 }

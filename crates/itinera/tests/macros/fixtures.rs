@@ -11,10 +11,9 @@ use itinera::journey::{DataBag, JourneyResult};
 #[cfg(feature = "async")]
 use itinera::mode::Asynchronous;
 use itinera::mode::Mode;
-use itinera::policy::Provides;
 use itinera::report::RecordingReporter;
 use itinera::value::AnyValue;
-use itinera::workflow::{WorkflowBuilder, WorkflowDescriptor};
+use itinera::workflow::{Provides, WorkflowBuilder, WorkflowDescriptor};
 
 /// The workflow the tests run, which holds nothing of its own.
 pub(crate) struct Orders;

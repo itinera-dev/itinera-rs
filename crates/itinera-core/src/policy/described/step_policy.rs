@@ -36,8 +36,8 @@ use crate::policy::{DescribedPolicy, StepHook, StepPolicyDescriptor};
 ///     fn on_step_success(
 ///         &self,
 ///         _got: Requested<'_, W, StepSuccess>,
-///     ) -> Result<Option<OnSuccess>> {
-///         Self::carry_on()
+///     ) -> Result<OnSuccess> {
+///         Self::keep_default()
 ///     }
 /// }
 ///

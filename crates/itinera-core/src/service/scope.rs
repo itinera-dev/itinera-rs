@@ -9,8 +9,8 @@
 /// # Examples
 ///
 /// ```
-/// use itinera::policy::{HookNeeds, Provider};
-/// use itinera::service::ProviderScope;
+/// use itinera::policy::HookNeeds;
+/// use itinera::service::{Provider, ProviderScope};
 ///
 /// fn reporting<S: ProviderScope>() -> HookNeeds<Provider<S>> {
 ///     HookNeeds::new().reporter()
@@ -25,8 +25,8 @@ pub trait ProviderScope: sealed::Sealed + Copy + Send + Sync + 'static {}
 /// # Examples
 ///
 /// ```
-/// use itinera::policy::{Provider, Requested};
-/// use itinera::service::PerJourney;
+/// use itinera::policy::Requested;
+/// use itinera::service::{PerJourney, Provider};
 ///
 /// struct Orders;
 ///
@@ -43,14 +43,13 @@ pub enum PerJourney {}
 /// # Examples
 ///
 /// ```
-/// use std::num::NonZeroU32;
-///
-/// use itinera::policy::{Provider, Requested};
-/// use itinera::service::PerAttempt;
+/// use itinera::policy::Requested;
+/// use itinera::service::{PerAttempt, Provider};
+/// use itinera::step::Attempt;
 ///
 /// struct Orders;
 ///
-/// fn attempt(got: &Requested<'_, Orders, Provider<PerAttempt>>) -> NonZeroU32 {
+/// fn attempt(got: &Requested<'_, Orders, Provider<PerAttempt>>) -> Attempt {
 ///     got.attempt()
 /// }
 /// ```

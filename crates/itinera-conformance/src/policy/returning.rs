@@ -1,7 +1,6 @@
 //! How a hook ends: with what it returns, or failing with a message.
 
-use itinera::policy::FailWorkflow;
-use itinera::step::Reason;
+use itinera::policy::OnFailure;
 
 use crate::model::{Hook, HookReturn, Lifecycle, ModelError};
 
@@ -17,12 +16,10 @@ pub(super) fn fails<R>(message: Option<&str>) -> Returning<R> {
 pub(super) fn failing_returning(
     hook: Hook,
     returned: &HookReturn,
-) -> Result<Returning<Option<FailWorkflow>>, ModelError> {
+) -> Result<Returning<OnFailure>, ModelError> {
     Ok(match returned {
-        HookReturn::Nothing => Ok(None),
-        HookReturn::FailWorkflow { code } => {
-            Ok(Some(FailWorkflow::from(Reason::new(code.clone()))))
-        }
+        HookReturn::Nothing => Ok(OnFailure::KeepDefault),
+        HookReturn::FailWorkflow { code } => Ok(OnFailure::fail_workflow(code.clone())),
         HookReturn::FinishWorkflow => {
             return Err(ModelError::LifecycleNotAllowed(
                 hook,

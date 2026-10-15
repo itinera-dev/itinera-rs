@@ -1,14 +1,16 @@
 use std::num::NonZeroU32;
 
 use super::*;
+use crate::event::EventKind;
 use crate::event::fixtures::event;
 use crate::journey::LastFailure;
 use crate::policy::{StepHook, WorkflowHook};
+use crate::step::Attempt;
 
 fn charge(attempt: u32) -> StepAttempt {
     StepAttempt {
         step: StepName::new("charge"),
-        attempt: NonZeroU32::new(attempt).unwrap(),
+        attempt: Attempt::new(NonZeroU32::new(attempt).unwrap()),
     }
 }
 
@@ -101,6 +103,18 @@ fn every_kind() -> Vec<EventBody> {
             step: charge(1),
             rescue: StepName::new("charge_rescue"),
         },
+        EventBody::ServiceProvided {
+            step: charge(1),
+            key: "gateway".to_string(),
+            provider: ProviderName::from("payments"),
+            implementation: Implementation::of_type::<str>(),
+            data: None,
+        },
+        EventBody::ServiceProviderFailed {
+            step: charge(1),
+            key: "gateway".to_string(),
+            provider: ProviderName::from("payments"),
+        },
         EventBody::JourneySucceeded { decided_by: None },
         EventBody::JourneyFailed {
             step: StepName::new("charge"),
@@ -142,7 +156,7 @@ fn every_kind() -> Vec<EventBody> {
 #[test]
 fn every_kind_of_event_has_its_own_kind() {
     let kinds: std::collections::HashSet<_> = every_kind().iter().map(EventBody::kind).collect();
-    assert_eq!(kinds.len(), 27);
+    assert_eq!(kinds.len(), 29);
     let event = event(1, EventBody::AttemptStarted { step: charge(1) });
-    assert_eq!(event.kind(), "attempt_started");
+    assert_eq!(event.kind(), EventKind::AttemptStarted);
 }

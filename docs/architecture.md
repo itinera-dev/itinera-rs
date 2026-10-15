@@ -39,8 +39,8 @@ The features are `macros` (on by default), `async`, which adds the asynchronous 
 | `value` | `AnyValue`, the type-erased value of the data bag, event data and reasons' details |
 | `journey` | The data bag, journey IDs, contributors, the result, failures and aborts; with `testing`, `Contributions`, and `ScriptedRun` with its records of steps and attempts |
 | `step` | Step names, needs and their tokens, factories, steps, outcomes, reasons, attempts, step reporters, rescue steps; with `testing`, `StepEventReporter` and `Ending`, how a scripted attempt ends |
-| `policy` | Policy descriptors, the hook traits, hook needs, what a hook receives, hook reporters, lifecycles, roles; with `testing`, `HookEventReporter` |
-| `workflow` | Workflow descriptors, their builder, the `Workflow` trait, input adapters, violations, the listing |
+| `policy` | Policy descriptors, the hook traits, hook needs, what a hook receives, hook reporters, lifecycles, the roles hooks request; with `testing`, `HookEventReporter` |
+| `workflow` | Workflow descriptors, their builder, the `Workflow` trait, the roles a workflow provides, input adapters, violations, the listing |
 | `service` | Service tokens and service providers, of journey or attempt scope |
 | `instance` | The `WorkflowInstance` trait, `Instance` and its builder; with `testing`, `Scripted` and the builder of its script |
 | `executor` | `LocalExecutor`, `AsyncLocalExecutor`, the `local_executor_for!` macro that picks one from a workflow's mode, and refusals |
@@ -86,7 +86,7 @@ flowchart TD
 6. An `Instance` holds the descriptor, the workflow's own value, the journey ID, the data bag, the initial global metadata the reporters will receive, and the reporters made for this journey. The workflow's own value is the type `W` every part is generic over, and it provides the workflow's roles.
 7. An executor runs an instance. It relies only on the `WorkflowInstance` trait, so it runs any instance, however it was made.
 
-Where it lives: `workflow/builder.rs`, `step/descriptor.rs`, `policy/descriptor/`, `workflow/input_adapter.rs`, `service/descriptor.rs`, `instance.rs`, `instance/workflow_instance.rs`, `instance/committed.rs`.
+Where it lives: `workflow/builder.rs`, `step/descriptor.rs`, `policy/descriptor/`, `workflow/input_adapter.rs`, `workflow/supplied.rs`, `service/descriptor.rs`, `instance.rs`, `instance/workflow_instance.rs`, `instance/committed.rs`.
 
 ### How the macros go into the mix
 
@@ -172,7 +172,7 @@ sequenceDiagram
 5. The engine runs the hidden step, which calls the application's `run` with the handles and services it asked for.
 6. The outcome, or the error, goes back through the hidden step to the engine.
 
-Where it lives: `crates/itinera-macros/src/`, with `step.rs`, `policy.rs`, `role.rs` and `workflow.rs`; the traits they implement are in `step/described.rs`, `step/factory.rs`, `step/from_inputs.rs`, `step/rescue/described.rs`, `step/rescue/factory.rs`, `step/rescue/from_requests.rs`, `policy/described.rs`, `policy/role.rs`, `workflow/described.rs`, `journey/initial_data.rs` and `journey/output.rs` of `itinera-core`.
+Where it lives: `crates/itinera-macros/src/`, with `step.rs`, `policy.rs`, `role.rs` and `workflow.rs`; the traits they implement are in `step/described.rs`, `step/factory.rs`, `step/from_inputs.rs`, `step/rescue/described.rs`, `step/rescue/factory.rs`, `step/rescue/from_requests.rs`, `policy/described.rs`, `workflow/described.rs`, `workflow/role.rs`, `journey/initial_data.rs` and `journey/output.rs` of `itinera-core`.
 
 ### From declaration to result
 
@@ -368,13 +368,13 @@ What each requester may ask for, and where it comes from:
 | Input adapter | the step's name, the key, data from the workflow, the journey ID, read access to the data bag, and always the workflow's own value | the attempt and the key being adapted; the data bag; the workflow instance |
 | Service provider | data from the workflow, the journey ID, a reporter, and, of attempt scope only, the step's name and the attempt, and always the workflow's own value | the data bag; the attempt being provided; the workflow instance |
 
-A request a requester may not make does not compile. Roles come from the workflow's own value through `Provides<dyn Role>`, so a role it does not provide does not compile either. Received data is each receiver's own copy, never a reference into the data bag, and a contributor or reporter cannot outlive its attempt or hook.
+A request a requester may not make does not compile. Roles come from the workflow's own value through `Provides<dyn Role>`, so a role it does not provide does not compile either. Received data is each receiver's own copy, never a reference into the data bag, except that an input adapter may read the data bag itself through a shared `&DataBag`, which cannot write; and a contributor or reporter cannot outlive its attempt or hook.
 
-In a test, behind the `testing` feature, the handles can come from recorders instead of the engine: `Contributions` lends a contributor, `StepEventReporter` and `HookEventReporter` lend reporters, and a `DataBag` built from values lends read access. A test then calls `run`, a hook or an input adapter itself, with plain values for everything else, and reads back what was contributed and emitted. A reporter lent this way emits into its recorder through the same `Reporting` the engine's reporters use.
+In a test, behind the `testing` feature, the handles can come from recorders instead of the engine: `Contributions` lends a contributor, `StepEventReporter` and `HookEventReporter` lend reporters, and a `DataBag` built from values is lent to an input adapter as it is. A test then calls `run`, a hook or an input adapter itself, with plain values for everything else, and reads back what was contributed and emitted. A reporter lent this way emits into its recorder through the same `Reporting` the engine's reporters use.
 
 Also behind `testing`, a test can give an instance a fake in place of a service provider's function, with `fake_provider` on the instance builder or on the builder `#[workflow]` generates. The instance's own copy of the workflow descriptor keeps the fake under the provider's name, and the provider found to serve a step is then the fake, which keeps the provider's name, service, scope, attachment and needs. So the engine resolves what the provider requests, and keeps or drops what it makes, as it would for the provider, and only calls the fake in its place.
 
-Where it lives: `engine/inputs.rs`, `engine/request.rs`, `engine/services.rs`, `answer` in `engine/hooks.rs`, a hook's reason and error in `engine/hooks/step/left.rs`, `rescue_request` in `engine/rescue.rs`; what each requester may request in `policy/kind/`; the tokens and needs in `step/input.rs`, `step/needs.rs`, `policy/needs/` and `service/token.rs`; the recorders in `journey/contributions.rs`, `step/event_reporter.rs`, `policy/event_reporter.rs` and `event/emitted.rs`, and `DataBag::with` in `journey/data_bag.rs`; the fakes in `instance/builder/fake.rs`, `instance/fake_provider.rs`, `workflow/fake.rs` and `service/fake.rs`.
+Where it lives: `engine/inputs.rs`, `engine/request.rs`, `engine/services.rs`, `answer` in `engine/hooks.rs`, a hook's reason and error in `engine/hooks/step/left.rs`, `rescue_request` in `engine/rescue.rs`; what each requester may request in `policy/kind/`, `workflow/input_adapter/kind.rs` and `service/provider.rs`; the tokens and needs in `step/input.rs`, `step/input/`, `step/needs.rs`, `policy/needs/` and `service/token.rs`; the recorders in `journey/contributions.rs`, `step/event_reporter.rs`, `policy/event_reporter.rs` and `event/emitted.rs`, and `DataBag::with` in `journey/data_bag.rs`; the fakes in `instance/builder/fake.rs`, `instance/fake_provider.rs`, `workflow/fake.rs` and `service/fake.rs`.
 
 ### Outcomes
 
@@ -401,10 +401,10 @@ flowchart TD
 ```
 
 1. A success emits `step_succeeded`, then commits the attempt's contributions to the data bag, emitting `contribution_committed` for each key, and `data_overwritten` when the key already held a value.
-2. Then the engine calls `on step success`, if one of the step's policies defines it. Returning nothing goes on to the next step. `FinishWorkflow` finishes the workflow without running the steps left. `FailWorkflow` fails the journey, with the hook's reason.
+2. Then the engine calls `on step success`, if one of the step's policies defines it. Returning `KeepDefault` goes on to the next step. `FinishWorkflow` finishes the workflow without running the steps left. `FailWorkflow` fails the journey, with the hook's reason.
 3. A skip emits `step_skipped`, then `contributions_discarded`, and goes on to the next step.
 4. A failure emits `step_failed`, with its reason, and goes to the decision.
-5. An error emits `step_abnormal_termination`, then calls `on step abnormal termination`, if defined. `FailWorkflow` gives the step up, emitting `step_given_up` with that hook as its cause, and fails the journey. Returning nothing goes to the decision.
+5. An error emits `step_abnormal_termination`, then calls `on step abnormal termination`, if defined. `FailWorkflow` gives the step up, emitting `step_given_up` with that hook as its cause, and fails the journey. Returning `KeepDefault` goes to the decision.
 
 Where it lives: `engine/outcome.rs`, and the step hooks in `engine/hooks/step.rs`.
 
@@ -439,7 +439,7 @@ flowchart TD
 2. Otherwise, a failure is retried while the retry budget allows another attempt.
 3. An abnormal termination is retried in the same way, unless the step turns off `retry on abnormal termination`; then it gives the step up, with abnormal termination, whatever the budget.
 4. When the budget allows no other attempt, the step is given up: with retries exhausted when its budget is greater than 0 and spent, and otherwise, with a budget of 0, with what ended its only attempt, failure or abnormal termination.
-5. Before a retry, the engine calls `on step retry`, if defined. `FailWorkflow` gives the step up, emitting `step_given_up` with that hook as its cause, and fails the journey. Returning nothing emits `step_retrying`, and the step is attempted again, built anew.
+5. Before a retry, the engine calls `on step retry`, if defined. `FailWorkflow` gives the step up, emitting `step_given_up` with that hook as its cause, and fails the journey. Returning `KeepDefault` emits `step_retrying`, and the step is attempted again, built anew.
 6. Giving up emits `step_given_up`, with its cause: failure, abnormal termination or retries exhausted. Then the engine calls `on step failure`, if defined.
 7. The journey fails either way: with the failure, the abnormal termination or the retries exhausted, or, when `on step failure` returns `FailWorkflow`, with the hook's reason.
 
@@ -507,10 +507,10 @@ When each hook is called, and what it may return:
 
 | Hook | Called | May return |
 |---|---|---|
-| `on step success` | after a success, once its contributions are committed | nothing, `FinishWorkflow` or `FailWorkflow` |
-| `on step retry` | before a retry | nothing or `FailWorkflow` |
-| `on step abnormal termination` | after an error, before the decision | nothing or `FailWorkflow` |
-| `on step failure` | after the step's own rule gives it up, not when another hook's `FailWorkflow` gave it up | nothing or `FailWorkflow` |
+| `on step success` | after a success, once its contributions are committed | `KeepDefault`, `FinishWorkflow` or `FailWorkflow` |
+| `on step retry` | before a retry | `KeepDefault` or `FailWorkflow` |
+| `on step abnormal termination` | after an error, before the decision | `KeepDefault` or `FailWorkflow` |
+| `on step failure` | after the step's own rule gives it up, not when another hook's `FailWorkflow` gave it up | `KeepDefault` or `FailWorkflow` |
 | `on workflow success` | after the last step, or after `FinishWorkflow` | nothing |
 | `on workflow failure` | after the journey fails | nothing |
 

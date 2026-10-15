@@ -16,6 +16,7 @@ use crate::model::{json, rows};
 use crate::sentences::{Unmet, holds};
 use crate::value::{ForType, Typed, for_type};
 use crate::world::World;
+use itinera::workflow::Supplied;
 
 #[then(expr = "the contributions recorder holds:")]
 fn the_contributions_recorder_holds(
@@ -119,7 +120,8 @@ fn the_step_event_reporter_kept_the_global_metadata(
 fn the_input_adapter_returned(world: &mut World, value: String) -> Result<(), Unmet> {
     let expected = json(&value)?;
     let returned = match &world.tested.adapter_returned {
-        Some(Ok(returned)) => returned.as_ref().map(serde_json::to_value).transpose()?,
+        Some(Ok(Supplied::Value(value))) => Some(serde_json::to_value(value)?),
+        Some(Ok(Supplied::FromDataBag)) => None,
         Some(Err(error)) => {
             return Err(Unmet::Expected(format!(
                 "the input adapter to return {expected}; it failed: {error}"

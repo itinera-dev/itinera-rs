@@ -5,7 +5,7 @@ use itinera::journey::Contributor;
 use itinera::mode::Asynchronous;
 use itinera::policy::{
     AsyncOnStepAbnormalTermination, AsyncOnStepFailure, AsyncOnStepRetry, AsyncOnStepSuccess,
-    AsyncOnWorkflowFailure, AsyncOnWorkflowSuccess, FailWorkflow, HookNeeds, OnSuccess,
+    AsyncOnWorkflowFailure, AsyncOnWorkflowSuccess, HookNeeds, OnFailure, OnSuccess,
     PolicyHookKind, Requested, StepAbnormalTermination, StepFailure, StepRetry, StepSuccess,
     WorkflowFailure, WorkflowSuccess,
 };
@@ -18,7 +18,7 @@ use crate::plan::{Closing, Ending};
 /// One attempt of a scripted step in an asynchronous workflow.
 pub(crate) struct AsyncScriptedStep<'a> {
     ending: Ending,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     reporter: AsyncStepReporter<'a>,
 }
 
@@ -57,7 +57,7 @@ impl AsyncOnStepSuccess<Shop> for Verdict {
     async fn on_step_success(
         &self,
         mut got: Requested<'_, Shop, StepSuccess, Asynchronous>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         consult(&mut got).await?;
         on_success(self.planned(got.attempt()).on_step_success)
     }
@@ -71,7 +71,7 @@ impl AsyncOnStepFailure<Shop> for Verdict {
     async fn on_step_failure(
         &self,
         mut got: Requested<'_, Shop, StepFailure, Asynchronous>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         consult(&mut got).await?;
         decided(self.planned(got.attempt()).on_step_failure)
     }
@@ -85,7 +85,7 @@ impl AsyncOnStepRetry<Shop> for Verdict {
     async fn on_step_retry(
         &self,
         mut got: Requested<'_, Shop, StepRetry, Asynchronous>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         consult(&mut got).await?;
         decided(self.planned(got.attempt()).on_step_retry)
     }
@@ -99,7 +99,7 @@ impl AsyncOnStepAbnormalTermination<Shop> for Verdict {
     async fn on_step_abnormal_termination(
         &self,
         mut got: Requested<'_, Shop, StepAbnormalTermination, Asynchronous>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         consult(&mut got).await?;
         decided(self.planned(got.attempt()).on_step_abnormal_termination)
     }

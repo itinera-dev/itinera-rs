@@ -1,11 +1,9 @@
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::executor::AsyncLocalExecutor;
 use itinera::journey::Contributor;
 use itinera::policy::AsyncHookReporter;
 use itinera::service::{Provided, provide};
-use itinera::step::{Outcome, RescueOutcome, RescueStep, Step, rescue_step, step};
+use itinera::step::{Attempt, Outcome, RescueOutcome, RescueStep, Step, rescue_step, step};
 use itinera::workflow::workflow;
 
 trait PaymentGateway: Send + Sync {
@@ -46,7 +44,7 @@ impl Charge {
         self,
         #[service] payments: &dyn PaymentGateway,
         #[service] stock: &dyn StockStore,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         stock.reserve();
         contributor.contribute("receipt", payments.charge(self.amount));
@@ -78,7 +76,7 @@ impl Restock {
     async fn run(
         self,
         #[service] stock: &dyn StockStore,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         contributor.contribute("restocked", stock.reserve());
         Self::succeed()
@@ -102,8 +100,8 @@ impl Orders {
     #[provider(per_attempt)]
     async fn payments(
         &self,
-        #[attempt] attempt: NonZeroU32,
-        #[reporter] mut reporter: AsyncHookReporter<'_>,
+        attempt: Attempt,
+        mut reporter: AsyncHookReporter<'_>,
     ) -> Result<Provided<dyn PaymentGateway>, Error> {
         reporter.info(format!("attempt {attempt}")).await?;
         Ok(provide!(Gateway(self.gateway.to_owned())))

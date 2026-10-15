@@ -3,10 +3,9 @@
 
 use itinera::error::Error;
 use itinera::policy::{
-    FailWorkflow, HookNeeds, OnSuccess, PolicyHookKind, Requested, StepAbnormalTermination,
+    HookNeeds, OnFailure, OnSuccess, PolicyHookKind, Requested, StepAbnormalTermination,
     StepFailure, StepHook, StepRetry, StepSuccess, WorkflowFailure, WorkflowHook, WorkflowSuccess,
 };
-use itinera::step::Reason;
 
 use super::needs::{declare_for_any, declare_for_error, declare_for_failure, declare_for_step};
 use super::request::Request;
@@ -44,7 +43,7 @@ pub(crate) trait Scripting: PolicyHookKind + Sized {
 impl Scripting for StepSuccess {
     const HOOK: Hook = Hook::Step(StepHook::OnStepSuccess);
 
-    type Returns = Option<OnSuccess>;
+    type Returns = OnSuccess;
 
     fn script(scripts: &Scripts) -> Option<&Script<Self>> {
         scripts.on_step_success.as_ref()
@@ -52,11 +51,9 @@ impl Scripting for StepSuccess {
 
     fn returning(returned: &HookReturn) -> Result<Returning<Self::Returns>, ModelError> {
         Ok(match returned {
-            HookReturn::Nothing => Ok(None),
-            HookReturn::FinishWorkflow => Ok(Some(OnSuccess::FinishWorkflow)),
-            HookReturn::FailWorkflow { code } => {
-                Ok(Some(OnSuccess::FailWorkflow(Reason::new(code.clone()))))
-            }
+            HookReturn::Nothing => Ok(OnSuccess::KeepDefault),
+            HookReturn::FinishWorkflow => Ok(OnSuccess::FinishWorkflow),
+            HookReturn::FailWorkflow { code } => Ok(OnSuccess::fail_workflow(code.clone())),
             HookReturn::Fails(message) => fails(message.as_deref()),
         })
     }
@@ -77,7 +74,7 @@ impl Scripting for StepSuccess {
 impl Scripting for StepFailure {
     const HOOK: Hook = Hook::Step(StepHook::OnStepFailure);
 
-    type Returns = Option<FailWorkflow>;
+    type Returns = OnFailure;
 
     fn script(scripts: &Scripts) -> Option<&Script<Self>> {
         scripts.on_step_failure.as_ref()
@@ -110,7 +107,7 @@ impl Scripting for StepFailure {
 impl Scripting for StepRetry {
     const HOOK: Hook = Hook::Step(StepHook::OnStepRetry);
 
-    type Returns = Option<FailWorkflow>;
+    type Returns = OnFailure;
 
     fn script(scripts: &Scripts) -> Option<&Script<Self>> {
         scripts.on_step_retry.as_ref()
@@ -143,7 +140,7 @@ impl Scripting for StepRetry {
 impl Scripting for StepAbnormalTermination {
     const HOOK: Hook = Hook::Step(StepHook::OnStepAbnormalTermination);
 
-    type Returns = Option<FailWorkflow>;
+    type Returns = OnFailure;
 
     fn script(scripts: &Scripts) -> Option<&Script<Self>> {
         scripts.on_step_abnormal_termination.as_ref()

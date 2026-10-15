@@ -124,6 +124,7 @@ fn journey_event(
 mod tests {
     use super::*;
     use crate::engine::fixtures::{CHARGE, kinds, scripted, travel_workflow};
+    use crate::event::EventKind;
     use crate::step::Outcome;
     use crate::workflow::fixtures::orders;
 
@@ -141,13 +142,13 @@ mod tests {
         assert_eq!(
             kinds(&events),
             [
-                "journey_started",
-                "attempt_started",
-                "step_info",
-                "step_warning",
-                "step_error",
-                "step_succeeded",
-                "journey_succeeded"
+                EventKind::JourneyStarted,
+                EventKind::AttemptStarted,
+                EventKind::StepInfo,
+                EventKind::StepWarning,
+                EventKind::StepError,
+                EventKind::StepSucceeded,
+                EventKind::JourneySucceeded
             ]
         );
         let Some(EventBody::StepWarning {

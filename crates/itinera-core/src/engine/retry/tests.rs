@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use rstest::rstest;
 
 use super::*;
@@ -6,22 +8,22 @@ use crate::engine::fixtures::{
     kinds, skips, succeed, travel_hooked, travel_workflow,
 };
 use crate::error::Error;
-use crate::event::Event;
+use crate::event::{Event, EventKind};
 use crate::journey::{Failure, FailureCause, JourneyStatus, LastFailure};
 use crate::policy::Lifecycle;
 use crate::step::{Outcome, RescueOutcome, StepDescriptor};
 use crate::workflow::fixtures::{Orders, orders};
 
 #[rstest]
-#[case::a_failure(declined, "step_failed", FailureCause::Failure)]
+#[case::a_failure(declined, EventKind::StepFailed, FailureCause::Failure)]
 #[case::an_abnormal_termination(
     crashed,
-    "step_abnormal_termination",
+    EventKind::StepAbnormalTermination,
     FailureCause::AbnormalTermination
 )]
 fn without_a_retry_budget_a_failed_attempt_is_the_steps_last_and_fails_the_journey(
     #[case] ends: fn() -> Result<Outcome, Error>,
-    #[case] fact: &str,
+    #[case] fact: EventKind,
     #[case] cause: FailureCause,
 ) {
     let workflow = orders()
@@ -37,11 +39,11 @@ fn without_a_retry_budget_a_failed_attempt_is_the_steps_last_and_fails_the_journ
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
             fact,
-            "step_given_up",
-            "journey_failed"
+            EventKind::StepGivenUp,
+            EventKind::JourneyFailed
         ]
     );
     let Some(EventBody::JourneyFailed { step, failure }) = events.last().map(|e| &e.body) else {
@@ -52,7 +54,7 @@ fn without_a_retry_budget_a_failed_attempt_is_the_steps_last_and_fails_the_journ
 
 fn attempt_of(event: &Event) -> Option<u32> {
     match &event.body {
-        EventBody::AttemptStarted { step } => Some(step.attempt.get()),
+        EventBody::AttemptStarted { step } => Some(NonZeroU32::from(step.attempt).get()),
         _ => None,
     }
 }
@@ -74,17 +76,17 @@ fn a_failure_is_attempted_again_while_the_budget_allows() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_failed",
-            "step_retrying",
-            "attempt_started",
-            "step_failed",
-            "step_retrying",
-            "attempt_started",
-            "step_succeeded",
-            "contribution_committed",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepFailed,
+            EventKind::StepRetrying,
+            EventKind::AttemptStarted,
+            EventKind::StepFailed,
+            EventKind::StepRetrying,
+            EventKind::AttemptStarted,
+            EventKind::StepSucceeded,
+            EventKind::ContributionCommitted,
+            EventKind::JourneySucceeded
         ]
     );
     let attempts: Vec<_> = events.iter().filter_map(attempt_of).collect();
@@ -112,32 +114,32 @@ fn a_step_whose_budget_is_spent_is_given_up_with_its_last_failure() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_failed",
-            "step_retrying",
-            "attempt_started",
-            "step_failed",
-            "step_given_up",
-            "journey_failed"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepFailed,
+            EventKind::StepRetrying,
+            EventKind::AttemptStarted,
+            EventKind::StepFailed,
+            EventKind::StepGivenUp,
+            EventKind::JourneyFailed
         ]
     );
     assert!(matches!(
         events.get(6).map(|e| &e.body),
         Some(EventBody::StepGivenUp { cause: GiveUpCause::RetriesExhausted, step })
-            if step.attempt.get() == 2
+            if NonZeroU32::from(step.attempt).get() == 2
     ));
 }
 
 #[rstest]
-#[case::by_default(attempting(&[crashed]).retry_budget(1), "step_retrying")]
+#[case::by_default(attempting(&[crashed]).retry_budget(1), EventKind::StepRetrying)]
 #[case::not_when_the_step_turns_it_off(
     attempting(&[crashed]).retry_budget(1).no_retry_on_abnormal_termination(),
-    "step_given_up"
+    EventKind::StepGivenUp
 )]
 fn an_abnormal_termination_is_retried_unless_the_step_turns_it_off(
     #[case] step: StepDescriptor<Orders>,
-    #[case] decision: &str,
+    #[case] decision: EventKind,
 ) {
     let (_, events) = travel_workflow(orders().step(step));
 
@@ -145,9 +147,9 @@ fn an_abnormal_termination_is_retried_unless_the_step_turns_it_off(
         kinds(&events).get(..4),
         Some(
             &[
-                "journey_started",
-                "attempt_started",
-                "step_abnormal_termination",
+                EventKind::JourneyStarted,
+                EventKind::AttemptStarted,
+                EventKind::StepAbnormalTermination,
                 decision
             ][..]
         )
@@ -169,17 +171,17 @@ fn an_abnormal_termination_is_retried_with_its_own_cause() {
 #[case::on_step_retry(
     attempting(&[declined]).retry_budget(1),
     StepHook::OnStepRetry,
-    "step_failed"
+    EventKind::StepFailed
 )]
 #[case::on_step_abnormal_termination(
     attempting(&[crashed]).retry_budget(1),
     StepHook::OnStepAbnormalTermination,
-    "step_abnormal_termination"
+    EventKind::StepAbnormalTermination
 )]
 fn fail_workflow_from_a_hook_before_the_decision_gives_the_step_up_without_on_step_failure(
     #[case] step: StepDescriptor<Orders>,
     #[case] hook: StepHook,
-    #[case] fact: &str,
+    #[case] fact: EventKind,
 ) {
     let hooked = travel_hooked(step, None, hook, fail_workflow());
 
@@ -187,12 +189,12 @@ fn fail_workflow_from_a_hook_before_the_decision_gives_the_step_up_without_on_st
     assert_eq!(
         kinds(&hooked.events),
         [
-            "journey_started",
-            "attempt_started",
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
             fact,
-            "hook_called",
-            "step_given_up",
-            "journey_failed"
+            EventKind::HookCalled,
+            EventKind::StepGivenUp,
+            EventKind::JourneyFailed
         ]
     );
     assert!(matches!(
@@ -218,12 +220,12 @@ fn fail_workflow_from_on_step_failure_gives_the_journey_its_reason_after_the_ste
     assert_eq!(
         kinds(&hooked.events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_failed",
-            "step_given_up",
-            "hook_called",
-            "journey_failed"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepFailed,
+            EventKind::StepGivenUp,
+            EventKind::HookCalled,
+            EventKind::JourneyFailed
         ]
     );
     assert!(matches!(

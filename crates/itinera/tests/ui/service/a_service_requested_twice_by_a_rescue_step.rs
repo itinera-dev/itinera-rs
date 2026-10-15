@@ -1,10 +1,8 @@
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
 use itinera::journey::{Contributor, JourneyId};
 use itinera::service::{Provided, provide};
-use itinera::step::{Outcome, RescueOutcome, RescueStep, Step, rescue_step, step};
+use itinera::step::{Attempt, Outcome, RescueOutcome, RescueStep, Step, rescue_step, step};
 use itinera::workflow::workflow;
 
 trait TokenService: Send + Sync {
@@ -48,7 +46,7 @@ impl Refresh {
         self,
         #[service] tokens: &dyn TokenService,
         #[service("tokens")] spare: &dyn TokenService,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         spare.token(&self.account);
         contributor.contribute("token", tokens.token(&self.account));
@@ -63,12 +61,12 @@ struct Orders;
 #[workflow]
 impl Orders {
     #[provider]
-    fn tokens(&self, #[journey_id] journey: &JourneyId) -> Result<Provided<dyn TokenService>, Error> {
+    fn tokens(&self, journey: &JourneyId) -> Result<Provided<dyn TokenService>, Error> {
         Ok(provide!(Vault(format!("the vault of {journey}"))))
     }
 
     #[provider(per_attempt, steps = ["charge"], key = "tokens", name = "charging")]
-    fn charging(&self, #[attempt] attempt: NonZeroU32) -> Result<Provided<dyn TokenService>, Error> {
+    fn charging(&self, attempt: Attempt) -> Result<Provided<dyn TokenService>, Error> {
         Ok(provide!(Vault(format!("the vault of attempt {attempt}"))))
     }
 }

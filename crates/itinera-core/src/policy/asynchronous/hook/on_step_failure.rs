@@ -4,7 +4,7 @@ use std::future::Future;
 
 use crate::error::Error;
 use crate::mode::Asynchronous;
-use crate::policy::{FailWorkflow, HookNeeds, Requested, StepFailure};
+use crate::policy::{HookNeeds, OnFailure, Requested, StepFailure};
 
 /// `on step failure` of an asynchronous workflow's policy. Everything
 /// [`OnStepFailure`](crate::policy::OnStepFailure) says applies to it.
@@ -14,7 +14,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepFailure};
 /// ```
 /// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
-/// use itinera::policy::{AsyncOnStepFailure, FailWorkflow, Requested, StepFailure};
+/// use itinera::policy::{AsyncOnStepFailure, OnFailure, Requested, StepFailure};
 ///
 /// struct Alarm;
 ///
@@ -22,9 +22,9 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepFailure};
 ///     async fn on_step_failure(
 ///         &self,
 ///         got: Requested<'_, W, StepFailure, Asynchronous>,
-///     ) -> Result<Option<FailWorkflow>> {
+///     ) -> Result<OnFailure> {
 ///         println!("{} was given up", got.step_name());
-///         Ok(None)
+///         Ok(OnFailure::KeepDefault)
 ///     }
 /// }
 /// ```
@@ -55,17 +55,17 @@ pub trait AsyncOnStepFailure<W>: Send + Sync + 'static {
     /// ```
     /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
-    /// use itinera::policy::{AsyncOnStepFailure, FailWorkflow, Requested, StepFailure};
+    /// use itinera::policy::{AsyncOnStepFailure, OnFailure, Requested, StepFailure};
     ///
     /// async fn decide<P: AsyncOnStepFailure<()>>(
     ///     policy: &P,
     ///     got: Requested<'_, (), StepFailure, Asynchronous>,
-    /// ) -> Result<Option<FailWorkflow>> {
+    /// ) -> Result<OnFailure> {
     ///     policy.on_step_failure(got).await
     /// }
     /// ```
     fn on_step_failure(
         &self,
         got: Requested<'_, W, StepFailure, Asynchronous>,
-    ) -> impl Future<Output = Result<Option<FailWorkflow>, Error>> + Send;
+    ) -> impl Future<Output = Result<OnFailure, Error>> + Send;
 }

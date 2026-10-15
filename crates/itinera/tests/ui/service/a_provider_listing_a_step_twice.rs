@@ -1,11 +1,9 @@
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
 use itinera::journey::{Contributor, JourneyId};
 use itinera::policy::HookReporter;
 use itinera::service::{Provided, provide};
-use itinera::step::{Outcome, Step, StepName, step};
+use itinera::step::{Attempt, Outcome, Step, StepName, step};
 use itinera::workflow::workflow;
 
 trait PaymentGateway: Send + Sync {
@@ -50,7 +48,7 @@ impl Charge {
         self,
         #[service("payments")] gateway: &dyn PaymentGateway,
         #[service] stock: &dyn StockStore,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         stock.reserve();
         contributor.contribute("receipt", gateway.charge(self.amount));
@@ -82,17 +80,17 @@ struct Orders {
 #[workflow]
 impl Orders {
     #[provider]
-    fn stock(&self, #[journey_id] _journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
+    fn stock(&self, _journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
         Ok(provide!(Warehouse))
     }
 
     #[provider(per_attempt, steps = ["charge", "charge"], key = "payments", name = "charging")]
     fn payments(
         &self,
-        #[step_name] step: StepName,
-        #[attempt] attempt: NonZeroU32,
+        step: StepName,
+        attempt: Attempt,
         #[from_workflow] currency: Option<String>,
-        #[reporter] mut reporter: HookReporter<'_>,
+        mut reporter: HookReporter,
     ) -> Result<Provided<dyn PaymentGateway>, Error> {
         reporter.info(format!("{step} attempt {attempt}"))?;
         let currency = currency.unwrap_or_default();

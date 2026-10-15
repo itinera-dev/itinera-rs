@@ -27,13 +27,13 @@ use crate::error::Error;
 ///
 /// impl FromInputs for Charge {
 ///     fn needs() -> StepNeeds {
-///         StepNeeds::new().input(&AMOUNT).optional_input(&DISCOUNT)
+///         StepNeeds::new().input(&AMOUNT).input(&DISCOUNT)
 ///     }
 ///
 ///     fn from_inputs<M>(got: &mut Resolved<'_, M>) -> Result<Self> {
 ///         Ok(Charge {
 ///             amount: got.input(&AMOUNT)?,
-///             discount: got.optional_input(&DISCOUNT)?,
+///             discount: got.input(&DISCOUNT)?,
 ///         })
 ///     }
 /// }

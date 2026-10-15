@@ -5,7 +5,7 @@ use crate::engine::fixtures::{
     CHARGE, SHIP, attempting, audit, crashed, data_of, declined, fail_workflow, failed_by_the_hook,
     kinds, scripted, skips, succeed, travel_hooked, travel_with_amount, travel_workflow,
 };
-use crate::event::Event;
+use crate::event::{Event, EventKind};
 use crate::journey::JourneyStatus;
 use crate::policy::Lifecycle;
 use crate::step::{Outcome, RescueOutcome, StepAttempt, StepDescriptor};
@@ -23,13 +23,13 @@ fn a_skipped_step_discards_its_contributions_and_the_journey_goes_on() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_skipped",
-            "contributions_discarded",
-            "attempt_started",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepSkipped,
+            EventKind::ContributionsDiscarded,
+            EventKind::AttemptStarted,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
 }
@@ -47,12 +47,12 @@ fn finish_workflow_from_on_step_success_succeeds_the_journey_without_the_steps_l
     assert_eq!(
         kinds(&hooked.events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_succeeded",
-            "contribution_committed",
-            "hook_called",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepSucceeded,
+            EventKind::ContributionCommitted,
+            EventKind::HookCalled,
+            EventKind::JourneySucceeded
         ]
     );
     assert!(matches!(
@@ -75,12 +75,12 @@ fn fail_workflow_from_on_step_success_fails_the_journey_after_committing_the_con
     assert_eq!(
         kinds(&hooked.events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_succeeded",
-            "contribution_committed",
-            "hook_called",
-            "journey_failed"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepSucceeded,
+            EventKind::ContributionCommitted,
+            EventKind::HookCalled,
+            EventKind::JourneyFailed
         ]
     );
 }
@@ -112,13 +112,13 @@ fn a_successful_attempts_contributions_are_committed_in_order_reporting_what_the
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_succeeded",
-            "contribution_committed",
-            "contribution_committed",
-            "data_overwritten",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepSucceeded,
+            EventKind::ContributionCommitted,
+            EventKind::ContributionCommitted,
+            EventKind::DataOverwritten,
+            EventKind::JourneySucceeded
         ]
     );
     let keys: Vec<_> = events.iter().filter_map(key_of).collect();
@@ -143,7 +143,7 @@ fn an_attempt_that_does_not_succeed_commits_nothing(#[case] ends: fn() -> Result
     let (status, events) = travel_with_amount(workflow);
 
     assert_eq!(data_of(&status), [("amount".to_string(), 42)]);
-    assert!(!kinds(&events).contains(&"contribution_committed"));
+    assert!(!kinds(&events).contains(&EventKind::ContributionCommitted));
 }
 
 #[test]
@@ -161,12 +161,12 @@ fn fail_workflow_from_on_step_abnormal_termination_gives_the_step_up_instead_of_
     assert_eq!(
         kinds(&hooked.events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_abnormal_termination",
-            "hook_called",
-            "step_given_up",
-            "journey_failed"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepAbnormalTermination,
+            EventKind::HookCalled,
+            EventKind::StepGivenUp,
+            EventKind::JourneyFailed
         ]
     );
 }

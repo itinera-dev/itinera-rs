@@ -1,5 +1,5 @@
 error: rescued step retried: a step with a rescue step is never retried, so it has no `retry_budget`
-  --> tests/ui/workflow/a_rescued_step_with_a_retry_budget.rs:40:65
+  --> tests/ui/workflow/a_rescued_step_with_a_retry_budget.rs:39:65
    |
-40 | #[with_step(Charge, name = "charge", retry_budget = 2, rescue = Refresh)]
+39 | #[with_step(Charge, name = "charge", retry_budget = 2, rescue = Refresh)]
    |                                                                 ^^^^^^^

@@ -12,8 +12,8 @@ use crate::local::local;
 use crate::{block, described};
 use parameter::{Parameter, parameter, repeated};
 
-/// The attributes that mark the parameters of `run`.
-pub(super) const MARKS: [&str; 3] = ["contributor", "reporter", "service"];
+/// The attribute that marks the parameters of `run` which are not handles.
+pub(super) const MARKS: [&str; 1] = ["service"];
 
 /// What `run` takes besides the step, the handles and services, in the order it takes them,
 /// whether it is asynchronous, and the kind of step it runs.
@@ -51,7 +51,7 @@ impl Run {
             .collect::<syn::Result<Vec<_>>>()?;
         if let Some(repeated) = repeated(&parameters) {
             return Err(syn::Error::new(
-                repeated.mark,
+                repeated.ty,
                 format!("a {noun} takes each handle only once"),
             ));
         }

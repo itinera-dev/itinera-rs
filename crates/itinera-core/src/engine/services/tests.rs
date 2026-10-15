@@ -1,18 +1,19 @@
+use std::num::NonZeroU32;
 use std::sync::{Arc, Mutex};
 
 use super::*;
 use crate::engine::fixtures::{
     CHARGE, failing_on, instance, kinds, timed_out, travel, travel_before, travel_workflow,
 };
-use crate::event::Event;
+use crate::event::{Event, EventKind};
 use crate::journey::{DataBag, JourneyStatus, MissingData, Requester};
-use crate::policy::{HookNeeds, Provider, Requested};
+use crate::policy::{HookNeeds, Requested};
 use crate::service::fixtures::{
     Given, Label, Labeller, Made, PAYMENTS, STOCK, given, implementations, labelled, made,
     per_attempt, per_journey, requesting,
 };
 use crate::service::{
-    Implementation, PerAttempt, PerJourney, Provided, ServiceProviderDescriptor, provide,
+    Implementation, PerAttempt, PerJourney, Provided, Provider, ServiceProviderDescriptor, provide,
 };
 use crate::step::{Input, OptionalInput};
 use crate::workflow::WorkflowBuilder;
@@ -29,7 +30,7 @@ fn provided(events: &[Event]) -> Vec<(StepName, u32, ProviderName)> {
 fn provision(event: &Event) -> Option<(StepName, u32, ProviderName)> {
     match &event.body {
         EventBody::ServiceProvided { step, provider, .. } => {
-            Some((step.step, step.attempt.get(), *provider))
+            Some((step.step, NonZeroU32::from(step.attempt).get(), *provider))
         }
         _ => None,
     }
@@ -227,7 +228,7 @@ fn tell(
 ) -> Result<Provided<dyn Labeller>, Error> {
     told.lock().unwrap().push((
         got.step_name(),
-        got.attempt().get(),
+        NonZeroU32::from(got.attempt()).get(),
         got.journey_id().to_string(),
     ));
     Ok(labelled("payments", &Made::default()))
@@ -262,7 +263,7 @@ fn gateways() -> ServiceProviderDescriptor<Orders, PerJourney> {
     ServiceProviderDescriptor::new("gateways", &PAYMENTS, gateway).needing(
         HookNeeds::new()
             .from_workflow(&GATEWAY)
-            .optional_from_workflow(&REGION),
+            .from_workflow(&REGION),
     )
 }
 
@@ -271,7 +272,7 @@ fn gateway(
     mut got: Requested<'_, Orders, Provider<PerJourney>>,
 ) -> Result<Provided<dyn Labeller>, Error> {
     let gateway = got.from_workflow(&GATEWAY)?;
-    let region = got.optional_from_workflow(&REGION)?.unwrap_or_default();
+    let region = got.from_workflow(&REGION)?.unwrap_or_default();
     Ok(labelled(&format!("{gateway}{region}"), &Made::default()))
 }
 
@@ -286,12 +287,12 @@ fn a_provider_is_given_the_data_it_requests_and_optional_data_absent_is_reported
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "optional_input_absent",
-            "service_provided",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::OptionalInputAbsent,
+            EventKind::ServiceProvided,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
 }
@@ -316,7 +317,11 @@ fn a_providers_required_data_missing_aborts_the_journey_naming_the_provider() {
     assert!(given(&charged).is_empty());
     assert_eq!(
         kinds(&events),
-        ["journey_started", "attempt_started", "journey_aborted"]
+        [
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::JourneyAborted
+        ]
     );
 }
 
@@ -344,10 +349,10 @@ fn a_provider_that_fails_aborts_the_journey_as_its_step_could_not_be_built() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "service_provider_failed",
-            "journey_aborted"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::ServiceProviderFailed,
+            EventKind::JourneyAborted
         ]
     );
     assert!(events.iter().any(is_the_payments_failure));
@@ -391,12 +396,12 @@ fn a_providers_events_name_it_and_come_before_its_service_is_provided() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "journey_info",
-            "service_provided",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::JourneyInfo,
+            EventKind::ServiceProvided,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
     assert!(events.iter().any(is_the_providers_info));
@@ -426,10 +431,10 @@ fn a_reporter_failing_on_a_providers_event_aborts_the_journey_before_its_service
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "journey_info",
-            "journey_aborted"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::JourneyInfo,
+            EventKind::JourneyAborted
         ]
     );
 }
@@ -502,12 +507,12 @@ mod asynchronous {
         assert_eq!(
             kinds(&events),
             [
-                "journey_started",
-                "attempt_started",
-                "journey_info",
-                "service_provided",
-                "step_succeeded",
-                "journey_succeeded"
+                EventKind::JourneyStarted,
+                EventKind::AttemptStarted,
+                EventKind::JourneyInfo,
+                EventKind::ServiceProvided,
+                EventKind::StepSucceeded,
+                EventKind::JourneySucceeded
             ]
         );
     }

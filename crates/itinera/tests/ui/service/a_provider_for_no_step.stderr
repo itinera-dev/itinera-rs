@@ -1,5 +1,5 @@
 error: a service provider attached to steps lists at least one, as in `steps = ["charge"]`: leave `steps` out for one attached to no step
-  --> tests/ui/service/a_provider_for_no_step.rs:89:5
+  --> tests/ui/service/a_provider_for_no_step.rs:87:5
    |
-89 |     #[provider(per_attempt, steps = [], key = "payments", name = "charging")]
+87 |     #[provider(per_attempt, steps = [], key = "payments", name = "charging")]
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

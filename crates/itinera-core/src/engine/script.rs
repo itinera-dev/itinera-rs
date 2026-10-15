@@ -10,7 +10,7 @@ use super::{Delivery, run_with};
 use crate::error::{Error, Interrupted};
 use crate::executor::Started;
 use crate::instance::WorkflowInstance;
-use crate::journey::{AttemptRecord, Contributed, ScriptedRun};
+use crate::journey::{AttemptRecord, Contributor, ScriptedRun};
 use crate::step::{Action, Outcome, Played, Reporting, Script, StepDescriptor, StepName};
 use crate::value::AnyValue;
 
@@ -114,7 +114,7 @@ async fn play(attempt: Attempt<'_>, played: Played) -> Result<Result<Outcome, Er
 
 async fn acted(
     played: Played,
-    contributions: &mut Contributed,
+    contributions: &mut Contributor,
     mut reporting: Reporting<'_>,
 ) -> Result<Outcome, Error> {
     for action in played.actions {
@@ -125,7 +125,7 @@ async fn acted(
 
 async fn act(
     action: Action,
-    contributions: &mut Contributed,
+    contributions: &mut Contributor,
     reporting: &mut Reporting<'_>,
 ) -> Result<(), Interrupted> {
     match action {

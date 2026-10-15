@@ -1,15 +1,13 @@
 //! The courier workflow: packs a parcel and dispatches it, asynchronously, with the labels and
 //! the courier its service providers supply.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::instance::{Instance, InstanceError};
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::mode::Asynchronous;
 use itinera::policy::AsyncHookReporter;
 use itinera::service::{Provided, provide};
-use itinera::step::{Outcome, Step, step};
+use itinera::step::{Attempt, Outcome, Step, step};
 use itinera::workflow::workflow;
 
 /// Labels the parcels of a journey.
@@ -55,7 +53,7 @@ impl Pack {
     async fn run(
         self,
         #[service] labels: &dyn Labels,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("packed", labels.label(&self.parcel));
         Self::succeed()
@@ -75,7 +73,7 @@ impl Dispatch {
         self,
         #[service] courier: &dyn Courier,
         #[service] labels: &dyn Labels,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         let Some(carried) = courier.carry(&self.parcel) else {
             return Self::fail("unreachable");
@@ -95,7 +93,7 @@ pub(super) struct Couriers;
 impl Couriers {
     /// The journey's labels, made once and lent to every step and attempt.
     #[provider]
-    fn labels(&self, #[journey_id] journey_id: &JourneyId) -> Result<Provided<dyn Labels>, Error> {
+    fn labels(&self, journey_id: &JourneyId) -> Result<Provided<dyn Labels>, Error> {
         Ok(provide!(Printer {
             journey_id: journey_id.to_string(),
         }))
@@ -107,9 +105,9 @@ impl Couriers {
     #[provider(per_attempt, steps = ["dispatch"])]
     async fn courier(
         &self,
-        #[attempt] attempt: NonZeroU32,
+        attempt: Attempt,
         #[from_workflow] company: String,
-        #[reporter] reporter: AsyncHookReporter<'_>,
+        reporter: AsyncHookReporter<'_>,
     ) -> Result<Provided<dyn Courier>, Error> {
         sent(&company, attempt, reporter).await
     }
@@ -123,15 +121,16 @@ impl Couriers {
 
 async fn sent(
     company: &str,
-    attempt: NonZeroU32,
+    attempt: Attempt,
     mut reporter: AsyncHookReporter<'_>,
 ) -> Result<Provided<dyn Courier>, Error> {
     if company == "none" {
         return Err(Error::msg("no courier"));
     }
-    let (vehicle, reach) = match attempt.get() {
-        1 => ("van", 5),
-        _ => ("lorry", usize::MAX),
+    let (vehicle, reach) = if attempt.is_first() {
+        ("van", 5)
+    } else {
+        ("lorry", usize::MAX)
     };
     reporter
         .info(format!("sending the {company} {vehicle}"))

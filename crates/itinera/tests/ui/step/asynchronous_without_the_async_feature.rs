@@ -14,7 +14,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    async fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    async fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         contributor.contribute("total", self.amount);
         Self::succeed()
     }

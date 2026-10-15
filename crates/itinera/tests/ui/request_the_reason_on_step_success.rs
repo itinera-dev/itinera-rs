@@ -13,9 +13,9 @@ impl OnStepSuccess<Orders> for Audit {
     fn on_step_success(
         &self,
         mut got: Requested<'_, Orders, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         got.reason()?;
-        Ok(None)
+        Ok(OnSuccess::KeepDefault)
     }
 }
 

@@ -2,8 +2,6 @@
 //! policies, its service and its reporter are asynchronous, and it runs on the asynchronous
 //! executor. Run it with `cargo run -p itinera --example orders_async --features async`.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Result;
 use itinera::event::Event;
 use itinera::executor::local_executor_for;
@@ -12,9 +10,8 @@ use itinera::mode::async_trait;
 use itinera::policy::{OnSuccess, step_policy, workflow_policy};
 use itinera::report::AsyncReporter;
 use itinera::service::{Provided, provide};
-use itinera::step::{Outcome, Step, step};
-use itinera::value::AnyValue;
-use itinera::workflow::{role, workflow};
+use itinera::step::{Attempt, Outcome, Step, step};
+use itinera::workflow::{Supplied, role, workflow};
 
 /// Takes payments, asynchronously: the service a charge is paid through.
 #[async_trait]
@@ -26,7 +23,7 @@ trait PaymentGateway: Send + Sync {
 /// The shop's card terminal, lent to one attempt to charge.
 struct Terminal {
     shop: &'static str,
-    attempt: NonZeroU32,
+    attempt: Attempt,
 }
 
 #[async_trait]
@@ -52,7 +49,7 @@ impl Charge {
     async fn run(
         self,
         #[service] payments: &dyn PaymentGateway,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<Outcome> {
         if self.amount <= 0 {
             return Self::fail("declined");
@@ -84,10 +81,10 @@ impl Audit {
     async fn audited(
         &self,
         #[from_step] charged: i64,
-        #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<Option<OnSuccess>> {
+        contributor: &mut Contributor,
+    ) -> Result<OnSuccess> {
         contributor.contribute("audit", format!("charged {charged}"));
-        Self::carry_on()
+        Self::keep_default()
     }
 }
 
@@ -106,7 +103,7 @@ impl Notify {
     #[on_workflow_success]
     async fn paid(
         &self,
-        #[journey_id] journey_id: &JourneyId,
+        journey_id: &JourneyId,
         #[from_workflow] charged: i64,
         #[from_workflow] payment: String,
         #[role] messages: &dyn Messages,
@@ -149,16 +146,13 @@ impl Orders {
         &self,
         #[from_workflow] price: i64,
         #[from_workflow] discount: Option<i64>,
-    ) -> Result<Option<AnyValue>> {
+    ) -> Result<Supplied> {
         Self::supply(price - discount.unwrap_or_default())
     }
 
     /// Lends each attempt to charge the shop's card terminal.
     #[provider(per_attempt, steps = ["charge"])]
-    async fn payments(
-        &self,
-        #[attempt] attempt: NonZeroU32,
-    ) -> Result<Provided<dyn PaymentGateway>> {
+    async fn payments(&self, attempt: Attempt) -> Result<Provided<dyn PaymentGateway>> {
         Ok(provide!(Terminal {
             shop: self.shop,
             attempt,

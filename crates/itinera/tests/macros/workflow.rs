@@ -6,15 +6,18 @@ use itinera::error::Error;
 use itinera::event::Event;
 use itinera::executor::LocalExecutor;
 use itinera::instance::WorkflowInstance;
-use itinera::journey::{Contributor, DataBag, DataBagAccess, InitialData, JourneyId, Read};
+use itinera::journey::{Contributor, DataBag, InitialData, JourneyId, Read};
 use itinera::policy::{
-    FailWorkflow, HookNeeds, InputAdapter, OnSuccess, Provides, Requested, StepPolicy,
-    WorkflowPolicy, step_policy, workflow_policy,
+    HookNeeds, OnFailure, OnSuccess, Requested, StepPolicy, WorkflowPolicy, step_policy,
+    workflow_policy,
 };
 use itinera::report::{GlobalMetadata, RecordingReporter, Reporter};
 use itinera::step::{DescribedStep, OptionalInput, Outcome, Step, StepName, step, step_name};
 use itinera::value::AnyValue;
-use itinera::workflow::{InputAdapterDescriptor, Workflow, WorkflowDescriptor, role, workflow};
+use itinera::workflow::{
+    InputAdapter, InputAdapterDescriptor, Provides, Supplied, Workflow, WorkflowDescriptor, role,
+    workflow,
+};
 use rstest::rstest;
 
 use super::fixtures::{Journey, run_created};
@@ -33,7 +36,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         match self.amount {
             amount if amount < 0 => Err(Error::msg("the till cannot charge a negative amount")),
             0 => Self::fail("nothing-to-charge"),
@@ -65,10 +68,10 @@ impl Receipt {
         &self,
         #[from_step] charged: i64,
         #[role] till: &dyn Till,
-        #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<Option<OnSuccess>, Error> {
+        contributor: &mut Contributor,
+    ) -> Result<OnSuccess, Error> {
         contributor.contribute("receipt", format!("{charged} at the {}", till.till()));
-        Self::carry_on()
+        Self::keep_default()
     }
 }
 
@@ -78,7 +81,7 @@ struct Watch;
 #[step_policy(name = "watch")]
 impl Watch {
     #[on_step_abnormal_termination]
-    fn crashed(&self) -> Result<Option<FailWorkflow>, Error> {
+    fn crashed(&self) -> Result<OnFailure, Error> {
         Self::fail_workflow("till-broken")
     }
 }
@@ -89,7 +92,7 @@ struct Close;
 #[workflow_policy(name = "close")]
 impl Close {
     #[on_workflow_success]
-    fn closed(&self, #[contributor] mut contributor: Contributor<'_>) -> Result<(), Error> {
+    fn closed(&self, contributor: &mut Contributor) -> Result<(), Error> {
         contributor.contribute("closed", true);
         Ok(())
     }
@@ -101,7 +104,7 @@ struct Alarm;
 #[workflow_policy(name = "alarm")]
 impl Alarm {
     #[on_workflow_failure]
-    fn raised(&self, #[contributor] mut contributor: Contributor<'_>) -> Result<(), Error> {
+    fn raised(&self, contributor: &mut Contributor) -> Result<(), Error> {
         contributor.contribute("alarm", true);
         Ok(())
     }
@@ -158,11 +161,11 @@ impl Shop {
         &self,
         #[key] key: &str,
         #[from_workflow] price: Option<i64>,
-        #[step_name] step: StepName,
-        #[journey_id] journey: &JourneyId,
-        #[data_bag] data: DataBagAccess<'_>,
-    ) -> Result<Option<AnyValue>, Error> {
-        priced(self.fee, key, price, step, journey, &data)
+        step: StepName,
+        journey: &JourneyId,
+        data: &DataBag,
+    ) -> Result<Supplied, Error> {
+        priced(self.fee, key, price, step, journey, data)
     }
 
     #[id_generator]
@@ -178,15 +181,15 @@ fn priced(
     price: Option<i64>,
     step: StepName,
     journey: &JourneyId,
-    data: &DataBagAccess<'_>,
-) -> Result<Option<AnyValue>, Error> {
+    data: &DataBag,
+) -> Result<Supplied, Error> {
     if step != step_name!("charge") || key != "amount" {
         return Err(Error::msg(format!("{journey} asked for {key} of {step}")));
     }
     match (price, data.read::<i64>("amount")) {
-        (Some(price), _) => Ok(Some(AnyValue::new(price + fee))),
-        (None, Read::Present(amount)) => Ok(Some(AnyValue::new(amount))),
-        (None, _) => Ok(None),
+        (Some(price), _) => Ok(Supplied::value(price + fee)),
+        (None, Read::Present(amount)) => Ok(Supplied::value(amount)),
+        (None, _) => Ok(Supplied::FromDataBag),
     }
 }
 
@@ -219,8 +222,8 @@ const PRICE: OptionalInput<i64> = OptionalInput::new("price");
 fn hand_priced(
     shop: &HandShop,
     mut got: Requested<'_, HandShop, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
-    let price = got.optional_from_workflow(&PRICE)?;
+) -> Result<Supplied, Error> {
+    let price = got.from_workflow(&PRICE)?;
     let data = got.data_bag()?;
     priced(
         shop.fee,
@@ -228,7 +231,7 @@ fn hand_priced(
         price,
         got.step_name(),
         got.journey_id(),
-        &data,
+        data,
     )
 }
 
@@ -243,7 +246,7 @@ fn by_hand() -> WorkflowDescriptor<HandShop> {
         .policy(Receipt::descriptor())
         .policy(Watch::descriptor());
     let pricing = InputAdapterDescriptor::new("pricing", step_name!("charge"), hand_priced)
-        .needing(HookNeeds::new().optional_from_workflow(&PRICE).data_bag());
+        .needing(HookNeeds::new().from_workflow(&PRICE).data_bag());
     WorkflowDescriptor::builder("shop")
         .step(charge)
         .step(Ship::descriptor(step_name!("ship")))

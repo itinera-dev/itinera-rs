@@ -1,5 +1,5 @@
 error[E0080]: evaluation panicked: hook defined twice on the workflow: `on workflow success`, which two of its policies define
-  --> tests/ui/workflow/a_hook_defined_twice_on_the_workflow.rs:85:46
+  --> tests/ui/workflow/a_hook_defined_twice_on_the_workflow.rs:84:46
    |
-85 | #[workflow(name = "shop", policies = [Close, Alarm], reporters = [Silent])]
+84 | #[workflow(name = "shop", policies = [Close, Alarm], reporters = [Silent])]
    |                                              ^^^^^ evaluation of `_::_` failed here

@@ -17,8 +17,8 @@ struct Charge {
 impl Charge {
     async fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
-        #[reporter] mut reporter: AsyncStepReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: AsyncStepReporter<'_>,
     ) -> Result<Outcome, Error> {
         reporter.info_with("charging", self.price).await?;
         contributor.contribute("charged", self.price);
@@ -32,7 +32,7 @@ struct Close;
 #[workflow_policy(name = "close")]
 impl Close {
     #[on_workflow_failure]
-    async fn failed(&self, #[reporter] mut reporter: AsyncHookReporter<'_>) -> Result<(), Error> {
+    async fn failed(&self, mut reporter: AsyncHookReporter<'_>) -> Result<(), Error> {
         reporter.warning("the order failed").await?;
         Ok(())
     }

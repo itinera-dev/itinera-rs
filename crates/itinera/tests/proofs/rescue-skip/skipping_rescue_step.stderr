@@ -1,16 +1,16 @@
 error[E0599]: no associated function or constant named `skipped` found for struct `RescueOutcome` in the current scope
-  --> tests/proofs/rescue-skip/skipping_rescue_step.rs:11:34
-   |
-11 |     .rescue(|| Ok(RescueOutcome::skipped()));
-   |                                  ^^^^^^^ associated function or constant not found in `RescueOutcome`
-   |
+ --> tests/proofs/rescue-skip/skipping_rescue_step.rs:9:38
+  |
+9 |         .rescue(|| Ok(RescueOutcome::skipped()));
+  |                                      ^^^^^^^ associated function or constant not found in `RescueOutcome`
+  |
 note: if you're trying to build a new `RescueOutcome` consider using one of the following associated functions:
       RescueOutcome::success
       RescueOutcome::failure
-  --> $WORKSPACE/crates/itinera-core/src/step/rescue/outcome.rs
-   |
-   |     pub fn success() -> Self {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+ --> $WORKSPACE/crates/itinera-core/src/step/rescue/outcome.rs
+  |
+  |     pub fn success() -> Self {
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-   |     pub fn failure(reason: impl Into<Reason>) -> Self {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |     pub fn failure(reason: impl Into<Reason>) -> Self {
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

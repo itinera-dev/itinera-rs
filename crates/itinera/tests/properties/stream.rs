@@ -1,6 +1,6 @@
 //! Reading an event stream: how it ends, its attempts, and what each attempt holds.
 
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU32, NonZeroUsize};
 
 use itinera::event::{Event, EventBody};
 use itinera::journey::StatusKind;
@@ -151,5 +151,5 @@ fn is_of(attempt: &StepAttempt, step: StepName) -> bool {
 }
 
 fn number(attempt: &StepAttempt) -> u32 {
-    attempt.attempt.get()
+    NonZeroU32::from(attempt.attempt).get()
 }

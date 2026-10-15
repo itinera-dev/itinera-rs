@@ -1,6 +1,6 @@
 Describes a workflow policy from the block that holds its hooks, so that a workflow can attach the policy by its type, with `Notify::descriptor()`.
 
-Each hook is a method marked with its name, taking `&self`, then the parameters it requests, and returning `Result<(), Error>`: `#[on_workflow_success]` and `#[on_workflow_failure]`. A workflow hook makes no lifecycle decision, and an `Err` aborts the journey with `hook failed`. Its parameters carry the attributes `#[step_policy]` describes that every hook may request: `#[from_workflow]`, `#[journey_id]`, `#[role]`, `#[contributor]` and `#[reporter]`.
+Each hook is a method marked with its name, taking `&self`, then the parameters it requests, and returning `Result<(), Error>`: `#[on_workflow_success]` and `#[on_workflow_failure]`. A workflow hook makes no lifecycle decision, and an `Err` aborts the journey with `hook failed`. Its parameters request what `#[step_policy]` describes that every hook may request: `#[from_workflow]`, `#[role]`, and the handles `&JourneyId`, `&mut Contributor` and a reporter.
 
 Everything else is as `#[step_policy]` says: the hooks defined, an asynchronous policy, the name, `#[factory]`, and generic policies. The attribute implements `DescribedPolicy`, `WorkflowPolicy` for every workflow providing the roles requested, and the trait of each hook it defines.
 
@@ -30,9 +30,9 @@ impl Notify {
     #[on_workflow_success]
     fn announce(
         &self,
-        #[journey_id] journey_id: &JourneyId,
+        journey_id: &JourneyId,
         #[from_workflow("total")] total: i64,
-        #[reporter] mut reporter: HookReporter<'_>,
+        mut reporter: HookReporter,
     ) -> Result<(), Error> {
         reporter.info(format!("{journey_id} paid {total} on {}", self.channel))?;
         Ok(())

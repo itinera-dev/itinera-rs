@@ -56,8 +56,8 @@ pub enum Hookless {}
 ///     fn on_step_success(
 ///         &self,
 ///         _got: Requested<'_, W, StepSuccess>,
-///     ) -> Result<Option<OnSuccess>> {
-///         Ok(None)
+///     ) -> Result<OnSuccess> {
+///         Ok(OnSuccess::KeepDefault)
 ///     }
 /// }
 ///

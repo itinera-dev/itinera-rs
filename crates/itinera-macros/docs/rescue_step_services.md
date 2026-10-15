@@ -24,7 +24,7 @@ impl RefreshToken {
     fn run(
         self,
         #[service] tokens: &dyn TokenService,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         contributor.contribute("token", tokens.token(&self.client));
         Self::succeed()

@@ -1,18 +1,17 @@
 //! Steps that request services, and the providers that supply them, declared with the macros,
 //! against the same written for the builder, in an asynchronous workflow.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::journey::{Contributor, DataBag, InitialData};
 use itinera::mode::Asynchronous;
-use itinera::policy::{AsyncHookReporter, HookNeeds, Provider, Requested};
+use itinera::policy::{AsyncHookReporter, HookNeeds, Requested};
 use itinera::report::RecordingReporter;
 use itinera::service::{
-    PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
+    PerAttempt, PerJourney, Provided, Provider, Service, ServiceProviderDescriptor, provide,
 };
 use itinera::step::{
-    AsyncStep, AsyncStepFactory, Outcome, Resolved, StepDescriptor, StepNeeds, step, step_name,
+    AsyncStep, AsyncStepFactory, Attempt, Outcome, Resolved, StepDescriptor, StepNeeds, step,
+    step_name,
 };
 use itinera::workflow::{Workflow, WorkflowDescriptor, workflow};
 use rstest::rstest;
@@ -53,7 +52,7 @@ fn dispatched(
     parcel: &str,
     courier: &dyn Courier,
     labeller: &dyn Labeller,
-    mut contributor: Contributor<'_>,
+    contributor: &mut Contributor,
 ) -> Outcome {
     match courier.dispatch(parcel) {
         Some(dispatch) => {
@@ -68,13 +67,14 @@ fn dispatched(
 /// A van that reaches parcels of up to five letters on a first attempt, and a lorry that
 /// reaches every parcel on later ones.
 async fn courier(
-    attempt: NonZeroU32,
+    attempt: Attempt,
     mut reporter: AsyncHookReporter<'_>,
 ) -> Result<Provided<dyn Courier>, Error> {
     reporter.info(format!("attempt {attempt}")).await?;
-    let (name, reach) = match attempt.get() {
-        1 => ("van", 5),
-        _ => ("lorry", usize::MAX),
+    let (name, reach) = if attempt.is_first() {
+        ("van", 5)
+    } else {
+        ("lorry", usize::MAX)
     };
     Ok(provide!(Van {
         name: name.to_owned(),
@@ -100,7 +100,7 @@ impl Dispatch {
         self,
         #[service] courier: &dyn Courier,
         #[service] labeller: &dyn Labeller,
-        #[contributor] contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         Ok(dispatched(&self.parcel, courier, labeller, contributor))
     }
@@ -120,8 +120,8 @@ impl Parcels {
     #[provider(per_attempt)]
     async fn courier(
         &self,
-        #[attempt] attempt: NonZeroU32,
-        #[reporter] reporter: AsyncHookReporter<'_>,
+        attempt: Attempt,
+        reporter: AsyncHookReporter<'_>,
     ) -> Result<Provided<dyn Courier>, Error> {
         courier(attempt, reporter).await
     }
@@ -143,7 +143,7 @@ struct HandDispatch<'a> {
     parcel: String,
     courier: &'a dyn Courier,
     labeller: &'a dyn Labeller,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl AsyncStep for HandDispatch<'_> {

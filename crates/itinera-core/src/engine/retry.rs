@@ -8,7 +8,7 @@ use super::hooks::Decided;
 use super::{Delivery, Journey, Next};
 use crate::event::{DecidingHook, EventBody, GiveUpCause, GiveUpHook};
 use crate::instance::WorkflowInstance;
-use crate::policy::{FailWorkflow, RetryCause, StepFailureCause, StepHook};
+use crate::policy::{RetryCause, StepFailureCause, StepHook};
 use crate::step::Reason;
 
 impl<D: Delivery> Journey<D> {
@@ -74,11 +74,11 @@ impl<D: Delivery> Journey<D> {
             .on_step_failure(instance, attempting, &failed, cause)
             .await?
         {
-            Some(Decided { policy, lifecycle }) => Err(failed_by_hook(
+            Some(Decided { policy, decision }) => Err(failed_by_hook(
                 step,
                 policy,
                 StepHook::OnStepFailure,
-                lifecycle.into(),
+                decision,
             )),
             None => {
                 let (reported, failure) = failed.into_failure(cause);
@@ -93,9 +93,11 @@ impl<D: Delivery> Journey<D> {
         &mut self,
         attempting: &Attempting<'s, W, M>,
         hook: GiveUpHook,
-        Decided { policy, lifecycle }: Decided<FailWorkflow>,
+        Decided {
+            policy,
+            decision: reason,
+        }: Decided<Reason>,
     ) -> Result<Next<'s, W, M>, End> {
-        let reason: Reason = lifecycle.into();
         self.emit(EventBody::StepGivenUp {
             step: attempting.attempt.clone(),
             cause: GiveUpCause::FailWorkflow {

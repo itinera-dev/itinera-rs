@@ -4,12 +4,12 @@ use std::future::Future;
 
 use super::descriptor::Provide;
 use super::{
-    PerAttempt, PerJourney, Provided, ProviderName, ProviderScope, Service,
+    PerAttempt, PerJourney, Provided, Provider, ProviderName, ProviderScope, Service,
     ServiceProviderDescriptor,
 };
 use crate::error::Error;
 use crate::mode::Asynchronous;
-use crate::policy::{Provider, Requested};
+use crate::policy::Requested;
 
 /// The function of a service provider of an asynchronous workflow: given the workflow's own value
 /// and what the provider requested, it makes an instance of the service `T` once awaited. An
@@ -20,8 +20,8 @@ use crate::policy::{Provider, Requested};
 /// ```
 /// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
-/// use itinera::policy::{Provider, Requested};
-/// use itinera::service::{AsyncProvide, PerJourney, Provided, provide};
+/// use itinera::policy::Requested;
+/// use itinera::service::{AsyncProvide, PerJourney, Provided, Provider, provide};
 ///
 /// trait StockStore: Send + Sync {}
 ///
@@ -55,8 +55,8 @@ pub trait AsyncProvide<'a, W, S: ProviderScope, T: ?Sized>: Send + Sync + 'stati
     /// ```
     /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
-    /// use itinera::policy::{Provider, Requested};
-    /// use itinera::service::{AsyncProvide, PerJourney, Provided};
+    /// use itinera::policy::Requested;
+    /// use itinera::service::{AsyncProvide, PerJourney, Provided, Provider};
     ///
     /// trait StockStore: Send + Sync {}
     ///
@@ -99,8 +99,10 @@ impl<W> ServiceProviderDescriptor<W, PerJourney, Asynchronous> {
     /// ```
     /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
-    /// use itinera::policy::{Provider, Requested};
-    /// use itinera::service::{PerJourney, Provided, Service, ServiceProviderDescriptor, provide};
+    /// use itinera::policy::Requested;
+    /// use itinera::service::{
+    ///     PerJourney, Provided, Provider, Service, ServiceProviderDescriptor, provide,
+    /// };
     ///
     /// trait StockStore: Send + Sync {}
     ///
@@ -142,8 +144,10 @@ impl<W> ServiceProviderDescriptor<W, PerAttempt, Asynchronous> {
     /// ```
     /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
-    /// use itinera::policy::{Provider, Requested};
-    /// use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
+    /// use itinera::policy::Requested;
+    /// use itinera::service::{
+    ///     PerAttempt, Provided, Provider, Service, ServiceProviderDescriptor, provide,
+    /// };
     ///
     /// trait PaymentGateway: Send + Sync {}
     ///

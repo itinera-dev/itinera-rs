@@ -1,19 +1,18 @@
 //! Policies the macros describe, against the same policies written for the builder, in a
 //! synchronous workflow.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::journey::{Contributor, JourneyId};
 use itinera::policy::{
-    FailWorkflow, HookNeeds, HookReporter, OnStepAbnormalTermination, OnStepFailure, OnStepRetry,
+    HookNeeds, HookReporter, OnFailure, OnStepAbnormalTermination, OnStepFailure, OnStepRetry,
     OnStepSuccess, OnSuccess, OnWorkflowFailure, OnWorkflowSuccess, Requested, RetryCause,
     StepAbnormalTermination, StepFailure, StepFailureCause, StepHook, StepPolicy,
     StepPolicyDescriptor, StepRetry, StepSuccess, WorkflowFailure, WorkflowHook, WorkflowPolicy,
     WorkflowPolicyDescriptor, WorkflowSuccess, step_policy, workflow_policy,
 };
 use itinera::step::{
-    DescribedStep, Input, OptionalInput, Outcome, Reason, StepDescriptor, StepName, step, step_name,
+    Attempt, DescribedStep, Input, OptionalInput, Outcome, Reason, StepDescriptor, StepName, step,
+    step_name,
 };
 use itinera::workflow::WorkflowDescriptor;
 use rstest::rstest;
@@ -35,7 +34,7 @@ impl Settle {
         Self { outcome }
     }
 
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         match self.outcome.as_str() {
             "success" => {
                 contributor.contribute("receipt", "R-1".to_owned());
@@ -59,61 +58,61 @@ impl Audit {
         &self,
         #[from_step] receipt: String,
         #[from_workflow] decision: Option<String>,
-        #[step_name] step: StepName,
-        #[attempt] attempt: NonZeroU32,
-        #[reporter] mut reporter: HookReporter<'_>,
-    ) -> Result<Option<OnSuccess>, Error> {
+        step: StepName,
+        attempt: Attempt,
+        mut reporter: HookReporter,
+    ) -> Result<OnSuccess, Error> {
         reporter.info(format!("{step} attempt {attempt} gave {receipt}"))?;
         match decision.as_deref() {
             Some("finish") => Self::finish_workflow(),
             Some("fail") => Self::fail_workflow("refused"),
             Some("break") => Err(Error::msg("the audit log is full")),
-            _ => Self::carry_on(),
+            _ => Self::keep_default(),
         }
     }
 
     #[on_step_failure]
     fn failed(
         &self,
-        #[reason] reason: Option<Reason>,
-        #[cause] cause: StepFailureCause,
-        #[error] error: Option<&Error>,
-        #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+        reason: Option<Reason>,
+        cause: StepFailureCause,
+        error: Option<&Error>,
+        contributor: &mut Contributor,
+    ) -> Result<OnFailure, Error> {
         let code = reason.as_ref().map(Reason::code);
         let error = error.map(ToString::to_string);
         contributor.contribute("failure", format!("{cause}: {code:?} {error:?}"));
-        Self::carry_on()
+        Self::keep_default()
     }
 
     #[on_step_retry]
     fn retried(
         &self,
-        #[cause] cause: RetryCause,
-        #[reason] reason: Reason,
-        #[journey_id] journey_id: &JourneyId,
+        cause: RetryCause,
+        reason: Reason,
+        journey_id: &JourneyId,
         #[role] desk: &dyn Desk,
-        #[reporter] mut reporter: HookReporter<'_>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+        mut reporter: HookReporter,
+    ) -> Result<OnFailure, Error> {
         let code = reason.code();
         let desk = desk.desk();
         reporter.info(format!(
             "{journey_id} retried after {cause} {code} at the {desk}"
         ))?;
-        Self::carry_on()
+        Self::keep_default()
     }
 
     #[on_step_abnormal_termination]
     fn terminated(
         &self,
-        #[error] error: &Error,
+        error: &Error,
         #[from_workflow("decision")] decision: Option<String>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         match decision.as_deref() {
             Some("fail") => {
                 Self::fail_workflow(Reason::new("crashed").with_message(error.to_string()))
             }
-            _ => Self::carry_on(),
+            _ => Self::keep_default(),
         }
     }
 }
@@ -133,18 +132,14 @@ impl Notify {
     fn succeeded(
         &self,
         #[from_workflow] receipt: Option<String>,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<(), Error> {
         contributor.contribute("notified", format!("{} {receipt:?}", self.channel));
         Ok(())
     }
 
     #[on_workflow_failure]
-    fn failed(
-        &self,
-        #[role] desk: &dyn Desk,
-        #[reporter] mut reporter: HookReporter<'_>,
-    ) -> Result<(), Error> {
+    fn failed(&self, #[role] desk: &dyn Desk, mut reporter: HookReporter) -> Result<(), Error> {
         reporter.warning(format!("{} told the {}", self.channel, desk.desk()))?;
         Ok(())
     }
@@ -160,24 +155,24 @@ impl OnStepSuccess<Orders> for HandAudit {
     fn needs() -> HookNeeds<StepSuccess> {
         HookNeeds::new()
             .from_step(&RECEIPT)
-            .optional_from_workflow(&DECISION)
+            .from_workflow(&DECISION)
             .reporter()
     }
 
     fn on_step_success(
         &self,
         mut got: Requested<'_, Orders, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         let receipt = got.from_step(&RECEIPT)?;
-        let decision = got.optional_from_workflow(&DECISION)?;
+        let decision = got.from_workflow(&DECISION)?;
         let (step, attempt) = (got.step_name(), got.attempt());
         got.reporter()?
             .info(format!("{step} attempt {attempt} gave {receipt}"))?;
         Ok(match decision.as_deref() {
-            Some("finish") => Some(OnSuccess::FinishWorkflow),
-            Some("fail") => Some(OnSuccess::FailWorkflow(Reason::new("refused"))),
+            Some("finish") => OnSuccess::FinishWorkflow,
+            Some("fail") => OnSuccess::fail_workflow("refused"),
             Some("break") => return Err(Error::msg("the audit log is full")),
-            _ => None,
+            _ => OnSuccess::KeepDefault,
         })
     }
 }
@@ -193,14 +188,14 @@ impl OnStepFailure<Orders> for HandAudit {
     fn on_step_failure(
         &self,
         mut got: Requested<'_, Orders, StepFailure>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         let reason = got.optional_reason()?;
         let cause = got.cause();
         let error = got.optional_error()?.map(ToString::to_string);
         let code = reason.as_ref().map(Reason::code);
         got.contributor()?
             .contribute("failure", format!("{cause}: {code:?} {error:?}"));
-        Ok(None)
+        Ok(OnFailure::KeepDefault)
     }
 }
 
@@ -209,35 +204,32 @@ impl OnStepRetry<Orders> for HandAudit {
         HookNeeds::new().reason().reporter()
     }
 
-    fn on_step_retry(
-        &self,
-        mut got: Requested<'_, Orders, StepRetry>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    fn on_step_retry(&self, mut got: Requested<'_, Orders, StepRetry>) -> Result<OnFailure, Error> {
         let code = got.reason()?.code().to_owned();
         let desk = got.role::<dyn Desk>().desk();
         let (cause, journey_id) = (got.cause(), got.journey_id());
         got.reporter()?.info(format!(
             "{journey_id} retried after {cause} {code} at the {desk}"
         ))?;
-        Ok(None)
+        Ok(OnFailure::KeepDefault)
     }
 }
 
 impl OnStepAbnormalTermination<Orders> for HandAudit {
     fn needs() -> HookNeeds<StepAbnormalTermination> {
-        HookNeeds::new().error().optional_from_workflow(&DECISION)
+        HookNeeds::new().error().from_workflow(&DECISION)
     }
 
     fn on_step_abnormal_termination(
         &self,
         mut got: Requested<'_, Orders, StepAbnormalTermination>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         let error = got.error()?;
-        Ok(match got.optional_from_workflow(&DECISION)?.as_deref() {
-            Some("fail") => Some(FailWorkflow::from(
-                Reason::new("crashed").with_message(error.to_string()),
-            )),
-            _ => None,
+        Ok(match got.from_workflow(&DECISION)?.as_deref() {
+            Some("fail") => {
+                OnFailure::fail_workflow(Reason::new("crashed").with_message(error.to_string()))
+            }
+            _ => OnFailure::KeepDefault,
         })
     }
 }
@@ -249,7 +241,7 @@ struct HandNotify {
 impl OnWorkflowSuccess<Orders> for HandNotify {
     fn needs() -> HookNeeds<WorkflowSuccess> {
         HookNeeds::new()
-            .optional_from_workflow(&RECEIPT_IF_ANY)
+            .from_workflow(&RECEIPT_IF_ANY)
             .contributor()
     }
 
@@ -257,7 +249,7 @@ impl OnWorkflowSuccess<Orders> for HandNotify {
         &self,
         mut got: Requested<'_, Orders, WorkflowSuccess>,
     ) -> Result<(), Error> {
-        let receipt = got.optional_from_workflow(&RECEIPT_IF_ANY)?;
+        let receipt = got.from_workflow(&RECEIPT_IF_ANY)?;
         got.contributor()?
             .contribute("notified", format!("{} {receipt:?}", self.channel));
         Ok(())
@@ -362,8 +354,8 @@ impl Closed {
     }
 
     #[on_step_success]
-    fn succeeded(&self) -> Result<Option<OnSuccess>, Error> {
-        Self::carry_on()
+    fn succeeded(&self) -> Result<OnSuccess, Error> {
+        Self::keep_default()
     }
 }
 
@@ -377,8 +369,8 @@ impl OnStepSuccess<Orders> for HandClosed {
     fn on_step_success(
         &self,
         _got: Requested<'_, Orders, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
-        Ok(None)
+    ) -> Result<OnSuccess, Error> {
+        Ok(OnSuccess::KeepDefault)
     }
 }
 
@@ -404,9 +396,9 @@ struct W;
 #[step_policy]
 impl W {
     #[on_step_success]
-    fn succeeded(&self, #[role] desk: &dyn Desk) -> Result<Option<OnSuccess>, Error> {
+    fn succeeded(&self, #[role] desk: &dyn Desk) -> Result<OnSuccess, Error> {
         match desk.desk() {
-            "orders desk" => Self::carry_on(),
+            "orders desk" => Self::keep_default(),
             _ => Self::fail_workflow("lost"),
         }
     }

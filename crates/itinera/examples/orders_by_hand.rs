@@ -2,24 +2,25 @@
 //! without the `macros` feature declares it. Run it with
 //! `cargo run -p itinera --example orders_by_hand --no-default-features`.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Result;
 use itinera::event::Event;
 use itinera::executor::LocalExecutor;
 use itinera::journey::{Contributor, DataBag};
 use itinera::policy::{
-    HookNeeds, InputAdapter, OnStepSuccess, OnSuccess, OnWorkflowSuccess, Provider, Provides,
-    Requested, StepPolicyDescriptor, StepSuccess, WorkflowPolicyDescriptor, WorkflowSuccess,
+    HookNeeds, OnStepSuccess, OnSuccess, OnWorkflowSuccess, Requested, StepPolicyDescriptor,
+    StepSuccess, WorkflowPolicyDescriptor, WorkflowSuccess,
 };
 use itinera::report::Reporter;
-use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
+use itinera::service::{
+    PerAttempt, Provided, Provider, Service, ServiceProviderDescriptor, provide,
+};
 use itinera::step::{
-    Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds,
+    Attempt, Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds,
     step_name,
 };
-use itinera::value::AnyValue;
-use itinera::workflow::{InputAdapterDescriptor, WorkflowDescriptor};
+use itinera::workflow::{
+    InputAdapter, InputAdapterDescriptor, Provides, Supplied, WorkflowDescriptor,
+};
 
 const AMOUNT: Input<i64> = Input::new("amount");
 const CHARGED: Input<i64> = Input::new("charged");
@@ -37,7 +38,7 @@ trait PaymentGateway: Send + Sync {
 /// The shop's card terminal, lent to one attempt to charge.
 struct Terminal {
     shop: &'static str,
-    attempt: NonZeroU32,
+    attempt: Attempt,
 }
 
 impl PaymentGateway for Terminal {
@@ -54,11 +55,11 @@ impl PaymentGateway for Terminal {
 struct Charge<'a> {
     amount: i64,
     payments: &'a dyn PaymentGateway,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl Step for Charge<'_> {
-    fn run(mut self) -> Result<Outcome> {
+    fn run(self) -> Result<Outcome> {
         if self.amount <= 0 {
             return Ok(Outcome::failure("declined"));
         }
@@ -104,14 +105,11 @@ impl OnStepSuccess<Orders> for Audit {
         HookNeeds::new().from_step(&CHARGED).contributor()
     }
 
-    fn on_step_success(
-        &self,
-        mut got: Requested<'_, Orders, StepSuccess>,
-    ) -> Result<Option<OnSuccess>> {
+    fn on_step_success(&self, mut got: Requested<'_, Orders, StepSuccess>) -> Result<OnSuccess> {
         let charged = got.from_step(&CHARGED)?;
         got.contributor()?
             .contribute("audit", format!("charged {charged}"));
-        Ok(None)
+        Ok(OnSuccess::KeepDefault)
     }
 }
 
@@ -170,10 +168,10 @@ impl Provides<dyn Messages> for Orders {
 }
 
 /// Works out the amount to charge: the price, less any discount.
-fn pricing(_: &Orders, mut got: Requested<'_, Orders, InputAdapter>) -> Result<Option<AnyValue>> {
+fn pricing(_: &Orders, mut got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied> {
     let price = got.from_workflow(&PRICE)?;
-    let discount = got.optional_from_workflow(&DISCOUNT)?;
-    Ok(Some(AnyValue::new(price - discount.unwrap_or_default())))
+    let discount = got.from_workflow(&DISCOUNT)?;
+    Ok(Supplied::value(price - discount.unwrap_or_default()))
 }
 
 /// Lends each attempt to charge the shop's card terminal.
@@ -199,7 +197,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let adapter = InputAdapterDescriptor::new("pricing", step_name!("charge"), pricing).needing(
         HookNeeds::new()
             .from_workflow(&PRICE)
-            .optional_from_workflow(&DISCOUNT),
+            .from_workflow(&DISCOUNT),
     );
     let payments = ServiceProviderDescriptor::per_attempt("payments", &PAYMENTS, payments)
         .step(step_name!("charge"));

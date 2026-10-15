@@ -3,12 +3,11 @@
 use std::any;
 use std::marker::PhantomData;
 
-use super::{FromRescued, Input, OptionalInput, Reporting, StepReporter};
+use super::{FromRescued, InputToken, Reporting, StepReporter};
 use crate::error::Error;
 use crate::journey::Contributor;
 use crate::mode::Synchronous;
 use crate::service::{Service, lent};
-use crate::value::{AnyValue, Value};
 
 mod got;
 
@@ -46,60 +45,34 @@ impl<'a, M> Resolved<'a, M> {
         }
     }
 
-    /// Takes the value of a required input.
+    /// Takes the value of an input: the value for an [`Input`], and for an [`OptionalInput`] an
+    /// `Option` of it, `None` when there was none.
+    ///
+    /// [`Input`]: super::Input
+    /// [`OptionalInput`]: super::OptionalInput
     ///
     /// # Errors
     ///
-    /// When the step's needs do not declare this input with this type, or its value was already
-    /// taken. Building fails with that error, and the journey is aborted with
+    /// When the step's needs do not declare this input's key with its type, or its value was
+    /// already taken. Building fails with that error, and the journey is aborted with
     /// `step could not be built`.
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::step::{Input, Resolved};
+    /// use itinera::step::{Input, OptionalInput, Resolved};
     ///
     /// fn customer(got: &mut Resolved<'_>) -> Result<String> {
     ///     got.input(&Input::new("customer"))
     /// }
-    /// ```
-    pub fn input<T: Value>(&mut self, input: &Input<T>) -> Result<T, Error> {
-        self.got
-            .take(input.key)
-            .and_then(AnyValue::downcast)
-            .ok_or_else(|| undeclared::<T>(input.key))
-    }
-
-    /// Takes the value of an optional input: `None` when there was none.
-    ///
-    /// # Errors
-    ///
-    /// When the step's needs do not declare this input with this type, or it was already taken.
-    /// Building fails with that error, and the journey is aborted with `step could not be built`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::error::Result;
-    /// use itinera::step::{OptionalInput, Resolved};
     ///
     /// fn discount(got: &mut Resolved<'_>) -> Result<i64> {
-    ///     Ok(got.optional_input(&OptionalInput::new("discount"))?.unwrap_or(0))
+    ///     Ok(got.input(&OptionalInput::new("discount"))?.unwrap_or(0))
     /// }
     /// ```
-    pub fn optional_input<T: Value>(
-        &mut self,
-        input: &OptionalInput<T>,
-    ) -> Result<Option<T>, Error> {
-        match self.got.take_optional(input.key) {
-            Some(None) => Ok(None),
-            Some(Some(value)) => value
-                .downcast()
-                .map(Some)
-                .ok_or_else(|| undeclared::<T>(input.key)),
-            None => Err(undeclared::<T>(input.key)),
-        }
+    pub fn input<K: InputToken>(&mut self, input: &K) -> Result<K::Given, Error> {
+        K::given(self.got.take(input.key())).ok_or_else(|| undeclared::<K::Value>(input.key()))
     }
 
     /// Takes the step's contributor.
@@ -116,11 +89,11 @@ impl<'a, M> Resolved<'a, M> {
     /// use itinera::journey::Contributor;
     /// use itinera::step::Resolved;
     ///
-    /// fn contributor<'a>(got: &mut Resolved<'a>) -> Result<Contributor<'a>> {
+    /// fn contributor<'a>(got: &mut Resolved<'a>) -> Result<&'a mut Contributor> {
     ///     got.contributor()
     /// }
     /// ```
-    pub fn contributor(&mut self) -> Result<Contributor<'a>, Error> {
+    pub fn contributor(&mut self) -> Result<&'a mut Contributor, Error> {
         self.got
             .contributor
             .take()
@@ -221,6 +194,8 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::step::{Input, OptionalInput};
+    use crate::value::AnyValue;
 
     const AMOUNT: Input<i64> = Input::new("amount");
 
@@ -246,8 +221,7 @@ mod tests {
     }
 
     fn read_discount(got: &mut Resolved<'_>) -> Result<(), Error> {
-        got.optional_input(&OptionalInput::<i64>::new("discount"))
-            .map(drop)
+        got.input(&OptionalInput::<i64>::new("discount")).map(drop)
     }
 
     #[rstest]

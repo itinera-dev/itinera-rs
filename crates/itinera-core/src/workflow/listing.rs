@@ -33,7 +33,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     ///     OnStepSuccess, OnSuccess, Requested, StepPolicyDescriptor, StepSuccess,
     /// };
     /// use itinera::step::{Outcome, RescueOutcome, StepDescriptor, step_name};
-    /// use itinera::workflow::{AdapterName, InputAdapterDescriptor, WorkflowDescriptor};
+    /// use itinera::workflow::{AdapterName, InputAdapterDescriptor, Supplied, WorkflowDescriptor};
     ///
     /// struct Audit;
     ///
@@ -41,8 +41,8 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     ///     fn on_step_success(
     ///         &self,
     ///         _got: Requested<'_, W, StepSuccess>,
-    ///     ) -> Result<Option<OnSuccess>> {
-    ///         Ok(None)
+    ///     ) -> Result<OnSuccess> {
+    ///         Ok(OnSuccess::KeepDefault)
     ///     }
     /// }
     ///
@@ -56,11 +56,11 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     ///             .rescue(|| Ok(RescueOutcome::success())),
     ///     )
     ///     .step(StepDescriptor::new(step_name!("ship"), || Ok(Outcome::success())))
-    ///     .input_adapter(InputAdapterDescriptor::new("pricing", step_name!("charge"), |_, _| Ok(None)))
+    ///     .input_adapter(InputAdapterDescriptor::new("pricing", step_name!("charge"), |_, _| Ok(Supplied::FromDataBag)))
     ///     .input_adapter(InputAdapterDescriptor::new(
     ///         "credentials",
     ///         step_name!("charge_rescue"),
-    ///         |_, _| Ok(None),
+    ///         |_, _| Ok(Supplied::FromDataBag),
     ///     ))
     ///     .build()?;
     ///
@@ -148,6 +148,7 @@ mod tests {
     use crate::policy::{PolicyName, StepPolicyDescriptor};
     use crate::service::ProviderName;
     use crate::step::{Outcome, RescueOutcome};
+    use crate::workflow::Supplied;
 
     struct Orders;
 
@@ -173,12 +174,12 @@ mod tests {
             .input_adapter(InputAdapterDescriptor::new(
                 "pricing",
                 StepName::new("charge"),
-                |_, _| Ok(None),
+                |_, _| Ok(Supplied::FromDataBag),
             ))
             .input_adapter(InputAdapterDescriptor::new(
                 "credentials",
                 StepName::new("charge_rescue"),
-                |_, _| Ok(None),
+                |_, _| Ok(Supplied::FromDataBag),
             ))
             .build()
             .unwrap();

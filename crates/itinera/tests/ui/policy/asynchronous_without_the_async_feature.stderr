@@ -1,5 +1,5 @@
 error: an asynchronous hook needs the `async` feature of `itinera`
   --> tests/ui/policy/asynchronous_without_the_async_feature.rs:31:5
    |
-31 |     async fn checked(&self, #[from_step] receipt: Option<String>) -> Result<Option<OnSuccess>, Error> {
+31 |     async fn checked(&self, #[from_step] receipt: Option<String>) -> Result<OnSuccess, Error> {
    |     ^^^^^

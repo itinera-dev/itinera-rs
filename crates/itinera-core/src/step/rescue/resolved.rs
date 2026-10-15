@@ -6,8 +6,7 @@ use crate::error::Error;
 use crate::journey::Contributor;
 use crate::mode::Synchronous;
 use crate::service::Service;
-use crate::step::{Got, Input, OptionalInput, Reason, Resolved, StepReporter};
-use crate::value::{AnyValue, Value};
+use crate::step::{Got, InputToken, Reason, Resolved, StepReporter};
 
 /// What the executor resolved for a rescue step, from which its factory builds it: its inputs,
 /// what the failed attempt of the step it rescues left, and its handles.
@@ -39,112 +38,66 @@ impl<'a, M> RescueResolved<'a, M> {
         }
     }
 
-    /// Takes the value of a required input.
+    /// Takes the value of an input: the value for an [`Input`], and for an [`OptionalInput`] an
+    /// `Option` of it, `None` when there was none.
+    ///
+    /// [`Input`]: crate::step::Input
+    /// [`OptionalInput`]: crate::step::OptionalInput
     ///
     /// # Errors
     ///
-    /// When the rescue step's needs do not declare this input with this type, or its value was
-    /// already taken. Building fails with that error, and the journey is aborted with
+    /// When the rescue step's needs do not declare this input's key with its type, or its value
+    /// was already taken. Building fails with that error, and the journey is aborted with
     /// `step could not be built`.
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::step::{Input, RescueResolved};
+    /// use itinera::step::{Input, OptionalInput, RescueResolved};
     ///
     /// fn client(got: &mut RescueResolved<'_>) -> Result<String> {
     ///     got.input(&Input::new("client"))
     /// }
+    ///
+    /// fn region(got: &mut RescueResolved<'_>) -> Result<Option<String>> {
+    ///     got.input(&OptionalInput::new("region"))
+    /// }
     /// ```
-    pub fn input<T: Value>(&mut self, input: &Input<T>) -> Result<T, Error> {
+    pub fn input<K: InputToken>(&mut self, input: &K) -> Result<K::Given, Error> {
         self.resolved.input(input)
     }
 
-    /// Takes the value of an optional input: `None` when there was none.
-    ///
-    /// # Errors
-    ///
-    /// When the rescue step's needs do not declare this input with this type, or it was already
-    /// taken. Building fails with that error, and the journey is aborted with
-    /// `step could not be built`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::error::Result;
-    /// use itinera::step::{OptionalInput, RescueResolved};
-    ///
-    /// fn region(got: &mut RescueResolved<'_>) -> Result<Option<String>> {
-    ///     got.optional_input(&OptionalInput::new("region"))
-    /// }
-    /// ```
-    pub fn optional_input<T: Value>(
-        &mut self,
-        input: &OptionalInput<T>,
-    ) -> Result<Option<T>, Error> {
-        self.resolved.optional_input(input)
-    }
-
     /// Takes the data the failed attempt contributed under the input's key, as the rescue step
-    /// declared it, required.
+    /// declared it: the value for an [`Input`], and for an [`OptionalInput`] an `Option` of it,
+    /// `None` when the attempt contributed nothing there.
+    ///
+    /// [`Input`]: crate::step::Input
+    /// [`OptionalInput`]: crate::step::OptionalInput
     ///
     /// # Errors
     ///
-    /// When the rescue step's needs do not declare it as required with this type, or it was
-    /// already taken. Building fails with that error, and the journey is aborted with
+    /// When the rescue step's needs do not declare its key with its type, or it was already taken.
+    /// Building fails with that error, and the journey is aborted with
     /// `step could not be built`.
     ///
     /// # Examples
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::step::{Input, RescueResolved};
+    /// use itinera::step::{Input, OptionalInput, RescueResolved};
     ///
     /// fn account(got: &mut RescueResolved<'_>) -> Result<String> {
     ///     got.from_rescued_step(&Input::new("account"))
     /// }
-    /// ```
-    pub fn from_rescued_step<T: Value>(&mut self, input: &Input<T>) -> Result<T, Error> {
-        self.resolved
-            .rescued()
-            .contributed
-            .take(input.key)
-            .and_then(AnyValue::downcast)
-            .ok_or_else(|| undeclared::<T>(input.key))
-    }
-
-    /// Takes the data the failed attempt contributed under the input's key, as the rescue step
-    /// declared it, optional: `None` when the attempt contributed nothing there.
     ///
-    /// # Errors
-    ///
-    /// When the rescue step's needs do not declare it as optional with this type, or it was
-    /// already taken. Building fails with that error, and the journey is aborted with
-    /// `step could not be built`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::error::Result;
-    /// use itinera::step::{OptionalInput, RescueResolved};
-    ///
-    /// fn account(got: &mut RescueResolved<'_>) -> Result<Option<String>> {
-    ///     got.optional_from_rescued_step(&OptionalInput::new("account"))
+    /// fn note(got: &mut RescueResolved<'_>) -> Result<Option<String>> {
+    ///     got.from_rescued_step(&OptionalInput::new("note"))
     /// }
     /// ```
-    pub fn optional_from_rescued_step<T: Value>(
-        &mut self,
-        input: &OptionalInput<T>,
-    ) -> Result<Option<T>, Error> {
-        match self.resolved.rescued().contributed.take_optional(input.key) {
-            Some(None) => Ok(None),
-            Some(Some(value)) => value
-                .downcast()
-                .map(Some)
-                .ok_or_else(|| undeclared::<T>(input.key)),
-            None => Err(undeclared::<T>(input.key)),
-        }
+    pub fn from_rescued_step<K: InputToken>(&mut self, input: &K) -> Result<K::Given, Error> {
+        let slot = self.resolved.rescued().contributed.take(input.key());
+        K::given(slot).ok_or_else(|| undeclared::<K::Value>(input.key()))
     }
 
     /// Takes the reason of the failure it rescues, as the rescue step declared it, required.
@@ -268,11 +221,11 @@ impl<'a, M> RescueResolved<'a, M> {
     /// use itinera::journey::Contributor;
     /// use itinera::step::RescueResolved;
     ///
-    /// fn contributor<'a>(got: &mut RescueResolved<'a>) -> Result<Contributor<'a>> {
+    /// fn contributor<'a>(got: &mut RescueResolved<'a>) -> Result<&'a mut Contributor> {
     ///     got.contributor()
     /// }
     /// ```
-    pub fn contributor(&mut self) -> Result<Contributor<'a>, Error> {
+    pub fn contributor(&mut self) -> Result<&'a mut Contributor, Error> {
         self.resolved.contributor()
     }
 

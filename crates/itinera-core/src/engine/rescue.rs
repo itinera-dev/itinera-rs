@@ -10,7 +10,7 @@ use super::{Delivery, Journey, Next};
 use crate::error::Error;
 use crate::event::{self, EventBody, JourneyAbort, RescueCause};
 use crate::instance::WorkflowInstance;
-use crate::journey::{Abort, Contributed, FailureRequester, MissingData};
+use crate::journey::{Abort, Contributor, FailureRequester, MissingData};
 use crate::step::{FromRescued, Reason, Requirement, RescueRequest, StepAttempt, StepDescriptor};
 use crate::value::AnyValue;
 
@@ -21,13 +21,13 @@ mod tests;
 /// never committed, and the failure's reason or the error.
 #[derive(Debug)]
 pub(super) struct LeftForRescue {
-    contributed: Contributed,
+    contributed: Contributor,
     reason: Option<Reason>,
     error: Option<Error>,
 }
 
 impl LeftForRescue {
-    fn new(contributed: Contributed, failed: Failed) -> Self {
+    fn new(contributed: Contributor, failed: Failed) -> Self {
         let (reason, error) = match failed {
             Failed::Failure(reason) => (Some(reason), None),
             Failed::AbnormalTermination(error) => (None, Some(error)),
@@ -69,7 +69,7 @@ impl<D: Delivery> Journey<D> {
             rescue: rescue.name(),
         })
         .await?;
-        let rescuing = LeftForRescue::new(attempting.contributed.clone(), failed);
+        let rescuing = LeftForRescue::new(attempting.contributed.copied(), failed);
         Ok(Next::Rescue(rescue, Box::new(rescuing)))
     }
 

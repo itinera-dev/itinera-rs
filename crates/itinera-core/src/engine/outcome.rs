@@ -9,8 +9,8 @@ use super::{Delivery, Journey, Next};
 use crate::error::Error;
 use crate::event::{EventBody, GiveUpHook, Source};
 use crate::instance::{Committed, WorkflowInstance};
-use crate::journey::{Contributed, Contribution};
-use crate::policy::{OnSuccess, StepHook};
+use crate::journey::{Contribution, Contributor};
+use crate::policy::{Lifecycle, StepHook};
 use crate::step::OutcomeKind;
 
 impl<D: Delivery> Journey<D> {
@@ -65,9 +65,9 @@ impl<D: Delivery> Journey<D> {
         &mut self,
         instance: &mut I,
         source: Source,
-        contributions: &Contributed,
+        contributions: &Contributor,
     ) -> Result<(), End> {
-        for Contribution { key, value } in contributions {
+        for Contribution { key, value } in contributions.iter() {
             let committed = instance.commit(key.clone(), value.clone());
             self.emit(EventBody::ContributionCommitted {
                 key: key.clone(),
@@ -95,11 +95,11 @@ impl<D: Delivery> Journey<D> {
             None => Ok(Next::Step),
             Some(Decided {
                 policy,
-                lifecycle: OnSuccess::FinishWorkflow,
+                decision: Lifecycle::FinishWorkflow,
             }) => Ok(Next::Finish(policy)),
             Some(Decided {
                 policy,
-                lifecycle: OnSuccess::FailWorkflow(reason),
+                decision: Lifecycle::FailWorkflow(reason),
             }) => Err(failed_by_hook(
                 attempting.attempt.step,
                 policy,

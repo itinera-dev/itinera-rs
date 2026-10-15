@@ -1,5 +1,5 @@
 error[E0080]: evaluation panicked: hook defined twice on step charge: `on step success`, which two of its policies define
-  --> tests/ui/workflow/a_hook_defined_twice_on_a_step.rs:86:77
+  --> tests/ui/workflow/a_hook_defined_twice_on_a_step.rs:85:77
    |
-86 | #[with_step(Charge, name = "charge", retry_budget = 1, policies = [Receipt, Watch])]
+85 | #[with_step(Charge, name = "charge", retry_budget = 1, policies = [Receipt, Watch])]
    |                                                                             ^^^^^ evaluation of `_::_` failed here

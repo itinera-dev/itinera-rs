@@ -1,22 +1,22 @@
 error[E0277]: a step or rescue step of the workflow `Orders` requests a service as `(dyn Safe + 'static)`, which no provider of its key makes
-  --> tests/ui/service/a_rescue_steps_service_of_another_type_than_its_provider_makes.rs:68:47
+  --> tests/ui/service/a_rescue_steps_service_of_another_type_than_its_provider_makes.rs:66:47
    |
-68 | #[with_step(Charge, name = "charge", rescue = Refresh)]
+66 | #[with_step(Charge, name = "charge", rescue = Refresh)]
    |                                               ^^^^^^^ the step or rescue step listed here requests a service as `(dyn Safe + 'static)`
    |
    = note: a provider of the key returns `Result<Provided<T>, Error>` for the `T` that the `#[service]` parameter borrows, in a step's `run` or `new` or a rescue step's `run`; when no provider has the key, the error `service not provided` names it
 help: the trait `ProvidesService<(itinera::service::Char<'t'>, (itinera::service::Char<'o'>, (itinera::service::Char<'k'>, (itinera::service::Char<'e'>, (itinera::service::Char<'n'>, (itinera::service::Char<'s'>, ())))))), (dyn Safe + 'static)>` is not implemented for `Orders`
       but trait `ProvidesService<(itinera::service::Char<'t'>, (itinera::service::Char<'o'>, (itinera::service::Char<'k'>, (itinera::service::Char<'e'>, (itinera::service::Char<'n'>, (itinera::service::Char<'s'>, ())))))), (dyn TokenService + 'static)>` is implemented for it
-  --> tests/ui/service/a_rescue_steps_service_of_another_type_than_its_provider_makes.rs:71:1
+  --> tests/ui/service/a_rescue_steps_service_of_another_type_than_its_provider_makes.rs:69:1
    |
-71 | #[workflow]
+69 | #[workflow]
    | ^^^^^^^^^^^
 note: required by a bound in `_::<impl Refresh>::__itinera_services_fit`
-  --> tests/ui/service/a_rescue_steps_service_of_another_type_than_its_provider_makes.rs:59:28
+  --> tests/ui/service/a_rescue_steps_service_of_another_type_than_its_provider_makes.rs:57:28
    |
-55 | #[rescue_step]
+53 | #[rescue_step]
    | -------------- required by a bound in this associated function
 ...
-59 |         #[service] tokens: &dyn Safe,
+57 |         #[service] tokens: &dyn Safe,
    |                            ^ required by this bound in `_::<impl Refresh>::__itinera_services_fit`
    = note: this error originates in the attribute macro `workflow` (in Nightly builds, run with -Z macro-backtrace for more info)

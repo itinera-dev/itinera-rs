@@ -1,20 +1,19 @@
 //! The synchronous `on step failure` hook.
 
 use crate::error::Error;
-use crate::policy::{FailWorkflow, HookNeeds, Requested, StepFailure};
+use crate::policy::{HookNeeds, OnFailure, Requested, StepFailure};
 
 /// `on step failure`, called after a step was given up, once `step_given_up` is emitted. It
 /// decides only the journey's fate, which fails either way.
 ///
-/// Returning `None` fails the journey with the step's own failure; `FailWorkflow` fails it with
-/// its own reason. An `Err` aborts the journey with `hook failed`.
+/// Returning [`OnFailure::KeepDefault`] fails the journey with the step's own failure;
+/// `FailWorkflow` fails it with its own reason. An `Err` aborts the journey with `hook failed`.
 ///
 /// # Examples
 ///
 /// ```
 /// use itinera::error::Result;
-/// use itinera::policy::{FailWorkflow, OnStepFailure, Requested, StepFailure};
-/// use itinera::step::Reason;
+/// use itinera::policy::{OnFailure, OnStepFailure, Requested, StepFailure};
 ///
 /// struct Rename;
 ///
@@ -22,8 +21,8 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepFailure};
 ///     fn on_step_failure(
 ///         &self,
 ///         _got: Requested<'_, W, StepFailure>,
-///     ) -> Result<Option<FailWorkflow>> {
-///         Ok(Some(FailWorkflow::from(Reason::new("order failed"))))
+///     ) -> Result<OnFailure> {
+///         Ok(OnFailure::fail_workflow("order failed"))
 ///     }
 /// }
 /// ```
@@ -53,7 +52,7 @@ pub trait OnStepFailure<W>: Send + Sync + 'static {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::policy::{FailWorkflow, OnStepFailure, Requested, StepFailure};
+    /// use itinera::policy::{OnFailure, OnStepFailure, Requested, StepFailure};
     ///
     /// struct Log;
     ///
@@ -61,14 +60,11 @@ pub trait OnStepFailure<W>: Send + Sync + 'static {
     ///     fn on_step_failure(
     ///         &self,
     ///         got: Requested<'_, W, StepFailure>,
-    ///     ) -> Result<Option<FailWorkflow>> {
+    ///     ) -> Result<OnFailure> {
     ///         println!("{} was given up: {}", got.step_name(), got.cause());
-    ///         Ok(None)
+    ///         Ok(OnFailure::KeepDefault)
     ///     }
     /// }
     /// ```
-    fn on_step_failure(
-        &self,
-        got: Requested<'_, W, StepFailure>,
-    ) -> Result<Option<FailWorkflow>, Error>;
+    fn on_step_failure(&self, got: Requested<'_, W, StepFailure>) -> Result<OnFailure, Error>;
 }

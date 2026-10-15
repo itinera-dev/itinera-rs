@@ -8,9 +8,8 @@ mod provider;
 
 use itinera::error::Error;
 use itinera::journey::DataBag;
-use itinera::policy::Provides;
 use itinera::step::{StepDescriptor, StepName};
-use itinera::workflow::{ListedStep, Violations, WorkflowBuilder};
+use itinera::workflow::{ListedStep, Provides, Violations, WorkflowBuilder};
 
 pub(crate) use mode::Declares;
 

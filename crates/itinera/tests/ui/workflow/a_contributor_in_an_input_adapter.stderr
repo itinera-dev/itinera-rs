@@ -1,0 +1,5 @@
+error: every parameter of an input adapter after `&self` is the step's name, the journey ID or the data bag, as `StepName`, `&JourneyId` or `&DataBag`, or says what it requests, such as `#[key]` or `#[from_workflow("price")]`
+   --> tests/ui/workflow/a_contributor_in_an_input_adapter.rs:119:9
+    |
+119 |         contributor: &mut itinera::journey::Contributor,
+    |         ^^^^^^^^^^^

@@ -5,7 +5,7 @@ use crate::engine::fixtures::{
     CHARGE, Recording, declined, failing_on, instance, kinds, scripted, succeed,
     travel_with_entries,
 };
-use crate::event::{Event, HookSource};
+use crate::event::{Event, EventKind, HookSource};
 use crate::executor::fixtures::{FailingFactory, run_tagged_with};
 use crate::journey::JourneyStatus;
 use crate::policy::{
@@ -72,11 +72,11 @@ fn a_steps_entry_reaches_the_reporters_then_global_metadata_set_names_its_key_an
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "global_metadata_set",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::GlobalMetadataSet,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
     let set: Vec<(&str, &Source)> = events.iter().filter_map(set_by).collect();
@@ -119,7 +119,11 @@ fn a_step_that_sets_the_journey_id_aborts_the_journey_and_no_reporter_receives_i
     assert_eq!(keys(&entries), ["journey_id"]);
     assert_eq!(
         kinds(&events),
-        ["journey_started", "attempt_started", "journey_aborted"]
+        [
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::JourneyAborted
+        ]
     );
     let Some(EventBody::JourneyAborted { abort }) = events.last().map(|event| &event.body) else {
         panic!("the last event is not journey_aborted");
@@ -153,7 +157,11 @@ fn a_reporter_that_fails_on_an_entry_aborts_the_journey_and_interrupts_the_step(
     assert_eq!(keys(&entries), ["journey_id", "user_id"]);
     assert_eq!(
         kinds(&events),
-        ["journey_started", "attempt_started", "journey_aborted"]
+        [
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::JourneyAborted
+        ]
     );
 }
 
@@ -168,10 +176,10 @@ impl OnStepSuccess<Orders> for Tenant {
     fn on_step_success(
         &self,
         mut got: Requested<'_, Orders, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         got.reporter()?
             .set_global_metadata("tenant", "acme".to_string())?;
-        Ok(None)
+        Ok(OnSuccess::KeepDefault)
     }
 }
 
@@ -247,7 +255,11 @@ mod asynchronous {
         );
         assert_eq!(
             kinds(&events)[2..],
-            ["global_metadata_set", "step_succeeded", "journey_succeeded"]
+            [
+                EventKind::GlobalMetadataSet,
+                EventKind::StepSucceeded,
+                EventKind::JourneySucceeded
+            ]
         );
     }
 }

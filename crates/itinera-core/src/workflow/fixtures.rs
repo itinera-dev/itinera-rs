@@ -1,7 +1,7 @@
 //! Fixtures the tests of several modules share: a workflow, its steps, its input adapters and
 //! its descriptor's builder.
 
-use super::{InputAdapterDescriptor, WorkflowBuilder, WorkflowDescriptor};
+use super::{InputAdapterDescriptor, Supplied, WorkflowBuilder, WorkflowDescriptor};
 use crate::step::{Outcome, StepDescriptor, StepName};
 
 pub(crate) struct Orders;
@@ -11,7 +11,7 @@ pub(super) fn step(name: &'static str) -> StepDescriptor<Orders> {
 }
 
 pub(super) fn adapter(name: &'static str, step: &'static str) -> InputAdapterDescriptor<Orders> {
-    InputAdapterDescriptor::new(name, StepName::new(step), |_, _| Ok(None))
+    InputAdapterDescriptor::new(name, StepName::new(step), |_, _| Ok(Supplied::FromDataBag))
 }
 
 pub(crate) fn orders() -> WorkflowBuilder<Orders> {

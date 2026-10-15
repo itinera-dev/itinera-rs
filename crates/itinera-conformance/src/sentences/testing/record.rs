@@ -41,6 +41,7 @@ fn attempts_are(world: &World, step: &str, expected: &[NonZeroU32]) -> Result<()
         .attempts()
         .iter()
         .map(AttemptRecord::number)
+        .map(NonZeroU32::from)
         .collect();
     holds(
         found == expected,

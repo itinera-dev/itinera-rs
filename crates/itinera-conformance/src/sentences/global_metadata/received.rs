@@ -23,7 +23,9 @@ impl Received {
         Ok(Self {
             key: entry.key.clone(),
             value: serde_json::to_value(&entry.value)?,
-            after: entry.after.unwrap_or("none").to_owned(),
+            after: entry
+                .after
+                .map_or_else(|| "none".to_owned(), |kind| kind.to_string()),
         })
     }
 }

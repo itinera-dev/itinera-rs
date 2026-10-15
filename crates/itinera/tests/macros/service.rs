@@ -1,17 +1,15 @@
 //! Steps that request services, and the providers that supply them, declared with the macros,
 //! against the same written for the builder, in a synchronous workflow.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
-use itinera::policy::{HookNeeds, HookReporter, Provider, Requested};
+use itinera::policy::{HookNeeds, HookReporter, Requested};
 use itinera::report::RecordingReporter;
 use itinera::service::{
-    PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
+    PerAttempt, PerJourney, Provided, Provider, Service, ServiceProviderDescriptor, provide,
 };
 use itinera::step::{
-    Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepName,
+    Attempt, Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepName,
     StepNeeds, step, step_name,
 };
 use itinera::workflow::{Workflow, WorkflowDescriptor, workflow};
@@ -63,7 +61,7 @@ fn charged(
     amount: i64,
     gateway: &dyn PaymentGateway,
     stock: &dyn StockStore,
-    mut contributor: Contributor<'_>,
+    contributor: &mut Contributor,
 ) -> Outcome {
     match (gateway.charge(amount), stock.reserve(amount)) {
         (Some(receipt), Some(reservation)) => {
@@ -75,7 +73,7 @@ fn charged(
     }
 }
 
-fn shipped(stock: &dyn StockStore, mut contributor: Contributor<'_>) -> Outcome {
+fn shipped(stock: &dyn StockStore, contributor: &mut Contributor) -> Outcome {
     contributor.contribute("shipped", stock.reserve(1));
     Outcome::success()
 }
@@ -91,15 +89,16 @@ fn stocked(journey: &JourneyId) -> Provided<dyn StockStore> {
 fn gateway(
     name: &str,
     step: StepName,
-    attempt: NonZeroU32,
+    attempt: Attempt,
     currency: Option<String>,
-    mut reporter: HookReporter<'_>,
+    mut reporter: HookReporter,
 ) -> Result<Provided<dyn PaymentGateway>, Error> {
     reporter.info(format!("{step} attempt {attempt}"))?;
     let currency = currency.unwrap_or_default();
-    let (name, limit) = match attempt.get() {
-        1 => (format!("{name} {currency}"), 50),
-        _ => (format!("backup {currency}"), i64::MAX),
+    let (name, limit) = if attempt.is_first() {
+        (format!("{name} {currency}"), 50)
+    } else {
+        (format!("backup {currency}"), i64::MAX)
     };
     Ok(provide!(Gateway { name, limit }))
 }
@@ -124,7 +123,7 @@ impl Charge {
         self,
         #[service("payments")] gateway: &dyn PaymentGateway,
         #[service] stock: &dyn StockStore,
-        #[contributor] contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         Ok(charged(self.amount, gateway, stock, contributor))
     }
@@ -138,7 +137,7 @@ impl Ship {
     fn run(
         self,
         #[service] stock: &dyn StockStore,
-        #[contributor] contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         Ok(shipped(stock, contributor))
     }
@@ -154,17 +153,17 @@ struct Shop {
 #[workflow]
 impl Shop {
     #[provider]
-    fn stock(&self, #[journey_id] journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
+    fn stock(&self, journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
         Ok(stocked(journey))
     }
 
     #[provider(per_attempt, steps = ["charge"], key = "payments", name = "charging")]
     fn payments(
         &self,
-        #[step_name] step: StepName,
-        #[attempt] attempt: NonZeroU32,
+        step: StepName,
+        attempt: Attempt,
         #[from_workflow] currency: Option<String>,
-        #[reporter] reporter: HookReporter<'_>,
+        reporter: HookReporter,
     ) -> Result<Provided<dyn PaymentGateway>, Error> {
         gateway(self.gateway, step, attempt, currency, reporter)
     }
@@ -189,7 +188,7 @@ struct HandCharge<'a> {
     amount: i64,
     gateway: &'a dyn PaymentGateway,
     stock: &'a dyn StockStore,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl Step for HandCharge<'_> {
@@ -229,7 +228,7 @@ impl StepFactory for ChargeFactory {
 
 struct HandShip<'a> {
     stock: &'a dyn StockStore,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl Step for HandShip<'_> {
@@ -266,7 +265,7 @@ fn hand_payments(
     shop: &HandShop,
     mut got: Requested<'_, HandShop, Provider<PerAttempt>>,
 ) -> Result<Provided<dyn PaymentGateway>, Error> {
-    let currency = got.optional_from_workflow(&CURRENCY)?;
+    let currency = got.from_workflow(&CURRENCY)?;
     let reporter = got.reporter()?;
     gateway(
         shop.gateway,
@@ -283,11 +282,7 @@ fn hand_order_id(_: &HandShop, data: &DataBag) -> Result<String, Error> {
 
 fn by_hand() -> WorkflowDescriptor<HandShop> {
     let charging = ServiceProviderDescriptor::per_attempt("charging", &PAYMENTS, hand_payments)
-        .needing(
-            HookNeeds::new()
-                .optional_from_workflow(&CURRENCY)
-                .reporter(),
-        )
+        .needing(HookNeeds::new().from_workflow(&CURRENCY).reporter())
         .step(step_name!("charge"));
     WorkflowDescriptor::builder("orders")
         .step(StepDescriptor::new(step_name!("charge"), ChargeFactory).retry_budget(1))
@@ -414,12 +409,12 @@ struct Depot;
 #[workflow]
 impl Depot {
     #[provider]
-    fn stock(&self, #[journey_id] journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
+    fn stock(&self, journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
         Ok(stocked(journey))
     }
 
     #[provider(key = "stock", steps = ["restock"])]
-    fn shelf(&self, #[journey_id] journey: &JourneyId) -> Result<Provided<Warehouse>, Error> {
+    fn shelf(&self, journey: &JourneyId) -> Result<Provided<Warehouse>, Error> {
         Ok(provide!(Warehouse {
             journey: journey.to_string(),
         }))

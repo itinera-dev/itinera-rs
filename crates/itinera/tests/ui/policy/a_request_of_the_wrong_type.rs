@@ -1,8 +1,8 @@
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::policy::{FailWorkflow, OnSuccess, Provides, StepPolicy, step_policy};
+use itinera::policy::{OnFailure, OnSuccess, RetryCause, StepPolicy, step_policy};
 use itinera::step::{Outcome, StepDescriptor, step_name};
-use itinera::workflow::WorkflowDescriptor;
+use itinera::workflow::{Provides, WorkflowDescriptor};
 
 trait Desk {
     fn desk(&self) -> &'static str;
@@ -28,9 +28,9 @@ struct Audit;
 #[step_policy]
 impl Audit {
     #[on_step_success]
-    fn checked(&self, #[from_step] receipt: Option<String>) -> Result<Option<OnSuccess>, Error> {
+    fn checked(&self, #[from_step] receipt: Option<String>) -> Result<OnSuccess, Error> {
         match receipt {
-            Some(_) => Self::carry_on(),
+            Some(_) => Self::keep_default(),
             None => Self::finish_workflow(),
         }
     }
@@ -38,10 +38,10 @@ impl Audit {
     #[on_step_failure]
     fn reported(
         &self,
-        #[reason] reason: String,
+        cause: RetryCause,
         #[role] desk: &dyn Desk,
-    ) -> Result<Option<FailWorkflow>, Error> {
-        Self::fail_workflow(format!("{}-at-{}", reason, desk.desk()))
+    ) -> Result<OnFailure, Error> {
+        Self::fail_workflow(format!("{cause}-at-{}", desk.desk()))
     }
 }
 

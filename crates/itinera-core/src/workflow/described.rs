@@ -1,9 +1,9 @@
 //! Workflow types that know their own descriptor.
 
-use super::WorkflowDescriptor;
+use super::{Supplied, WorkflowDescriptor};
 use crate::error::Error;
 use crate::mode::Mode;
-use crate::value::{AnyValue, Value};
+use crate::value::Value;
 
 /// A workflow type that knows its own descriptor, declared once and shared by every instance.
 ///
@@ -77,15 +77,14 @@ pub trait Workflow: Send + Sync + Sized + 'static {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::value::AnyValue;
-    /// use itinera::workflow::Workflow;
+    /// use itinera::workflow::{Supplied, Workflow};
     ///
-    /// fn discounted<W: Workflow>(price: i64, discount: i64) -> Result<Option<AnyValue>> {
+    /// fn discounted<W: Workflow>(price: i64, discount: i64) -> Result<Supplied> {
     ///     W::supply(price - discount)
     /// }
     /// ```
-    fn supply<T: Value>(value: T) -> Result<Option<AnyValue>, Error> {
-        Ok(Some(AnyValue::new(value)))
+    fn supply<T: Value>(value: T) -> Result<Supplied, Error> {
+        Ok(Supplied::value(value))
     }
 
     /// An input adapter supplies nothing, so the input is read from the data bag.
@@ -98,14 +97,13 @@ pub trait Workflow: Send + Sync + Sized + 'static {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::value::AnyValue;
-    /// use itinera::workflow::Workflow;
+    /// use itinera::workflow::{Supplied, Workflow};
     ///
-    /// fn as_given<W: Workflow>() -> Result<Option<AnyValue>> {
+    /// fn as_given<W: Workflow>() -> Result<Supplied> {
     ///     W::from_data_bag()
     /// }
     /// ```
-    fn from_data_bag() -> Result<Option<AnyValue>, Error> {
-        Ok(None)
+    fn from_data_bag() -> Result<Supplied, Error> {
+        Ok(Supplied::FromDataBag)
     }
 }

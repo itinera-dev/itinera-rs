@@ -1,6 +1,6 @@
 //! The kind of input adapters.
 
-use super::{HookKind, sealed};
+use crate::policy::{HookKind, SealedHookKind};
 use crate::step::StepName;
 
 /// `input adapter`, a hook of the workflow itself, called for each input of a step it is
@@ -10,8 +10,9 @@ use crate::step::StepName;
 /// # Examples
 ///
 /// ```
-/// use itinera::policy::{HookNeeds, InputAdapter};
+/// use itinera::policy::HookNeeds;
 /// use itinera::step::Input;
+/// use itinera::workflow::InputAdapter;
 ///
 /// const PRICE: Input<i64> = Input::new("price");
 ///
@@ -20,7 +21,7 @@ use crate::step::StepName;
 #[derive(Clone, Copy, Debug)]
 pub enum InputAdapter {}
 
-impl sealed::Sealed for InputAdapter {}
+impl SealedHookKind for InputAdapter {}
 
 impl HookKind for InputAdapter {
     /// The step being built, and the key of the input being resolved.

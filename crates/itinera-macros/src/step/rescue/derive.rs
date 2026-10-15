@@ -6,7 +6,8 @@ use quote::{format_ident, quote, quote_spanned};
 use syn::spanned::Spanned as _;
 use syn::{Attribute, Data, DeriveInput, Field, Fields, Ident, Type};
 
-use crate::datum::{Arguments, Datum, option_of};
+use crate::datum::{Arguments, Datum};
+use crate::handle::Handle;
 use crate::{described, marker};
 
 /// Implements `FromRescueRequests` for the struct, from its fields. On an error, it implements a
@@ -27,7 +28,7 @@ fn derive(input: &DeriveInput) -> syn::Result<TokenStream> {
         return Err(syn::Error::new_spanned(
             &input.ident,
             "a rescue step deriving `RescueStep` has named fields, each an `#[input]`, a \
-             `#[from_rescued_step]`, a `#[reason]` or an `#[error]`",
+             `#[from_rescued_step]`, the reason or the error",
         ));
     }
     let requests = data
@@ -81,9 +82,9 @@ fn failed(error: syn::Error, input: &DeriveInput) -> TokenStream {
 enum Request {
     /// Data by key, from where the source says.
     Datum(Datum, Source),
-    /// What the failed attempt left, required unless the field is an `Option`. The field's type
-    /// says where the request is written.
-    Left(Left, Type),
+    /// What the failed attempt left, and whether the field is an `Option` of it. The field's
+    /// type says where the request is written.
+    Left(Left, bool, Type),
 }
 
 /// Where data requested by key comes from.
@@ -94,8 +95,8 @@ enum Source {
 }
 
 impl Source {
-    /// The prefix of the methods that request data from it.
-    fn prefix(self) -> &'static str {
+    /// The method that requests data from it.
+    fn method(self) -> &'static str {
         match self {
             Self::DataBag => "input",
             Self::RescuedStep => "from_rescued_step",
@@ -122,20 +123,25 @@ impl Left {
 
 /// What the field requests.
 fn request(field: &Field) -> syn::Result<Request> {
-    let mark = marker::single(
-        marker::found(
-            &field.attrs,
-            &["input", "from_rescued_step", "reason", "error"],
-        ),
-        field,
-        "every field of a rescue step deriving `RescueStep` is an `#[input]`, a \
-         `#[from_rescued_step]`, a `#[reason]` or an `#[error]`",
+    let mark = marker::at_most_one(
+        marker::found(&field.attrs, &["input", "from_rescued_step"]),
+        "this attribute is one too many: each field carries at most one of them",
     )?;
-    match marker::name(mark).as_str() {
-        "input" => keyed(mark, field, Source::DataBag),
-        "from_rescued_step" => keyed(mark, field, Source::RescuedStep),
-        "reason" => unkeyed(mark, field, Left::Reason),
-        _ => unkeyed(mark, field, Left::Error),
+    match (mark, Handle::of(&field.ty)) {
+        (Some(mark), _) if marker::name(mark) == "input" => keyed(mark, field, Source::DataBag),
+        (Some(mark), _) => keyed(mark, field, Source::RescuedStep),
+        (None, Some(Handle::Reason { optional })) => {
+            Ok(Request::Left(Left::Reason, optional, field.ty.clone()))
+        }
+        (None, Some(Handle::Error { optional })) => {
+            Ok(Request::Left(Left::Error, optional, field.ty.clone()))
+        }
+        (None, _) => Err(syn::Error::new_spanned(
+            field,
+            "every field of a rescue step deriving `RescueStep` is an `#[input]`, a \
+             `#[from_rescued_step]`, the reason, as `Reason` or `Option<Reason>`, or the error, \
+             as `Error` or `Option<Error>`",
+        )),
     }
 }
 
@@ -144,32 +150,13 @@ fn keyed(mark: &Attribute, field: &Field, source: Source) -> syn::Result<Request
     Ok(Request::Datum(datum, source))
 }
 
-/// The request of what the attempt left, whose attribute takes no arguments.
-fn unkeyed(mark: &Attribute, field: &Field, left: Left) -> syn::Result<Request> {
-    mark.meta
-        .require_path_only()
-        .map_err(|_| arguments_refused(mark, left))?;
-    Ok(Request::Left(left, field.ty.clone()))
-}
-
-fn arguments_refused(mark: &Attribute, left: Left) -> syn::Error {
-    let name = left.name();
-    syn::Error::new_spanned(
-        &mark.meta,
-        format!(
-            "`#[{name}]` takes no arguments: a failed attempt leaves at most one {name}, under \
-             no key"
-        ),
-    )
-}
-
 impl Request {
     /// The call that declares the request on the rescue step's needs.
     fn declared(&self) -> TokenStream {
         match self {
-            Self::Datum(datum, source) => datum.declared(source.prefix()),
-            Self::Left(left, ty) => {
-                let method = method(*left, ty);
+            Self::Datum(datum, source) => datum.declared(source.method()),
+            Self::Left(left, optional, _) => {
+                let method = method(*left, *optional);
                 quote!(.#method())
             }
         }
@@ -178,21 +165,21 @@ impl Request {
     /// The expression that takes what was resolved for the request.
     fn taken(&self, got: &Ident) -> TokenStream {
         match self {
-            Self::Datum(datum, source) => datum.taken(got, source.prefix()),
-            Self::Left(left, ty) => {
-                let method = method(*left, ty);
+            Self::Datum(datum, source) => datum.taken(got, source.method()),
+            Self::Left(left, optional, ty) => {
+                let method = method(*left, *optional);
                 quote_spanned!(ty.span()=> #got.#method()?)
             }
         }
     }
 }
 
-/// The method requesting what the attempt left into a field of this type, such as
-/// `optional_reason` for an `Option`.
-fn method(left: Left, ty: &Type) -> Ident {
+/// The method requesting what the attempt left, such as `optional_reason` into an `Option`.
+fn method(left: Left, optional: bool) -> Ident {
     let name = left.name();
-    match option_of(ty) {
-        Some(_) => format_ident!("optional_{name}"),
-        None => format_ident!("{name}"),
+    if optional {
+        format_ident!("optional_{name}")
+    } else {
+        format_ident!("{name}")
     }
 }

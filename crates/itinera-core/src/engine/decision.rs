@@ -2,13 +2,11 @@
 //! another attempt, or giving the step up. It reads only the attempt's end, the attempt number
 //! and the step descriptor, and changes nothing.
 
-use std::num::NonZeroU32;
-
 use crate::error::Error;
 use crate::event::{GiveUpCause, JourneyFailure, RescueCause};
 use crate::journey::{Failure, LastFailure};
 use crate::policy::{RetryCause, StepFailureCause};
-use crate::step::{Reason, StepDescriptor};
+use crate::step::{Attempt, Reason, StepDescriptor};
 
 /// How an attempt that did not succeed ended, with what it carries.
 #[derive(Debug)]
@@ -37,13 +35,11 @@ pub(crate) enum Decision<'s, W, M> {
 /// unless the attempt ended in an abnormal termination and the step does not retry those.
 pub(crate) fn decide<'s, W, M>(
     failed: &Failed,
-    attempt: NonZeroU32,
+    attempt: Attempt,
     step: &'s StepDescriptor<W, M>,
 ) -> Decision<'s, W, M> {
     match (step.rescue_step(), failed) {
-        (Some(rescue), _) if attempt == NonZeroU32::MIN => {
-            Decision::Rescue(rescue, rescue_cause(failed))
-        }
+        (Some(rescue), _) if attempt.is_first() => Decision::Rescue(rescue, rescue_cause(failed)),
         (_, Failed::Failure(_)) => within_budget(RetryCause::Failure, attempt, step),
         (_, Failed::AbnormalTermination(_)) if step.retries_abnormal_termination() => {
             within_budget(RetryCause::AbnormalTermination, attempt, step)
@@ -59,7 +55,7 @@ pub(crate) fn decide<'s, W, M>(
 /// budget, since nothing was retried.
 fn within_budget<'s, W, M>(
     cause: RetryCause,
-    attempt: NonZeroU32,
+    attempt: Attempt,
     step: &StepDescriptor<W, M>,
 ) -> Decision<'s, W, M> {
     match (
@@ -168,6 +164,8 @@ impl<W, M> PartialEq for Decision<'_, W, M> {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroU32;
+
     use rstest::rstest;
 
     use super::*;
@@ -190,8 +188,8 @@ mod tests {
         Failed::AbnormalTermination(Error::msg("the gateway crashed"))
     }
 
-    fn attempt(number: u32) -> NonZeroU32 {
-        NonZeroU32::new(number).unwrap()
+    fn attempt(number: u32) -> Attempt {
+        Attempt::new(NonZeroU32::new(number).unwrap())
     }
 
     #[rstest]

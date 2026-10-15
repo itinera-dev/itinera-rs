@@ -1,9 +1,7 @@
 use itinera::error::Error;
-use itinera::policy::{
-    OnStepSuccess, OnSuccess, Provides, Requested, StepPolicyDescriptor, StepSuccess,
-};
+use itinera::policy::{OnStepSuccess, OnSuccess, Requested, StepPolicyDescriptor, StepSuccess};
 use itinera::step::{Outcome, StepDescriptor, step_name};
-use itinera::workflow::WorkflowDescriptor;
+use itinera::workflow::{Provides, WorkflowDescriptor};
 
 trait Notifier {
     fn notify(&self);
@@ -24,12 +22,9 @@ impl Provides<dyn Notifier> for Orders {
 struct Tell;
 
 impl<W: Provides<dyn Notifier> + Send + Sync + 'static> OnStepSuccess<W> for Tell {
-    fn on_step_success(
-        &self,
-        got: Requested<'_, W, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    fn on_step_success(&self, got: Requested<'_, W, StepSuccess>) -> Result<OnSuccess, Error> {
         got.role::<dyn Notifier>().notify();
-        Ok(None)
+        Ok(OnSuccess::KeepDefault)
     }
 }
 

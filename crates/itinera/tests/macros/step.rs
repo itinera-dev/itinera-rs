@@ -29,8 +29,8 @@ struct Charge {
 impl Charge {
     fn run(
         mut self,
-        #[contributor] mut contributor: Contributor<'_>,
-        #[reporter] mut reporter: StepReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: StepReporter,
     ) -> Result<Outcome, Error> {
         if self.amount <= 0 {
             return Self::fail("nothing-to-charge");
@@ -58,7 +58,7 @@ impl Ship {
         Ok(Self { gift_note })
     }
 
-    fn run(self, #[reporter] mut reporter: StepReporter<'_>) -> Result<Outcome, Error> {
+    fn run(self, mut reporter: StepReporter) -> Result<Outcome, Error> {
         match self.gift_note {
             Some(note) => reporter.info_with("gift note", note)?,
             None => return Self::skip_because("no-gift-note"),
@@ -74,7 +74,7 @@ const GIFT_NOTE: Input<Option<String>> = Input::new("gift_note");
 struct HandCharge<'a> {
     amount: i64,
     discount: Option<String>,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     reporter: StepReporter<'a>,
 }
 
@@ -99,7 +99,7 @@ impl StepFactory for ChargeFactory {
     fn needs(&self) -> StepNeeds {
         StepNeeds::new()
             .input(&AMOUNT)
-            .optional_input(&COUPON)
+            .input(&COUPON)
             .contributor()
             .reporter()
     }
@@ -107,7 +107,7 @@ impl StepFactory for ChargeFactory {
     fn build<'a>(&'a self, got: &mut Resolved<'a>) -> Result<HandCharge<'a>, Error> {
         Ok(HandCharge {
             amount: got.input(&AMOUNT)?,
-            discount: got.optional_input(&COUPON)?,
+            discount: got.input(&COUPON)?,
             contributor: got.contributor()?,
             reporter: got.reporter()?,
         })

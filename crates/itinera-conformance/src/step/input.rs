@@ -34,7 +34,7 @@ impl<'a, G: Builds<'a>> ForType for Taking<'_, '_, G> {
     fn of<T: Storable>(self) -> Self::Output {
         if self.input.optional {
             self.got
-                .optional_input(&OptionalInput::<T>::new(self.input.key))?
+                .input(&OptionalInput::<T>::new(self.input.key))?
                 .map(json)
                 .transpose()
         } else {
@@ -58,8 +58,7 @@ impl<N: Needs> ForType for Needing<'_, N> {
 
     fn of<T: Storable>(self) -> N {
         if self.input.optional {
-            self.needs
-                .optional_input(&OptionalInput::<T>::new(self.input.key))
+            self.needs.input(&OptionalInput::<T>::new(self.input.key))
         } else {
             self.needs.input(&Input::<T>::new(self.input.key))
         }

@@ -8,20 +8,21 @@ use crate::engine::fixtures::{
     travel_with_amount, travel_workflow,
 };
 use crate::error::Error;
-use crate::event::{self, Event, JourneyAbort, RequestSource};
+use crate::event::{self, Event, EventKind, JourneyAbort, RequestSource};
 use crate::instance::InstanceBuilder;
 use crate::journey::{Abort, JourneyStatus, MissingData, Read as Found, Requester};
-use crate::policy::{HookNeeds, InputAdapter};
+use crate::policy::HookNeeds;
 use crate::step::{Input, OptionalInput, StepDescriptor, StepName};
 use crate::workflow::fixtures::Orders;
-use crate::workflow::{AdapterName, InputAdapterDescriptor, WorkflowBuilder};
+use crate::workflow::{AdapterName, InputAdapter, InputAdapterDescriptor, WorkflowBuilder};
 
 /// Supplies an amount of 7, and nothing else.
-fn pricing(
-    _: &Orders,
-    got: Requested<'_, Orders, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
-    Ok((got.key() == "amount").then(|| AnyValue::new(7_i64)))
+fn pricing(_: &Orders, got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied, Error> {
+    Ok(if got.key() == "amount" {
+        Supplied::value(7_i64)
+    } else {
+        Supplied::FromDataBag
+    })
 }
 
 #[test]
@@ -38,10 +39,10 @@ fn a_step_is_built_with_the_inputs_it_declares_read_from_the_data_bag() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
 }
@@ -58,12 +59,12 @@ fn an_input_adapter_supplies_an_input_before_the_data_bag_is_read() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "input_adapter_supplied",
-            "optional_input_absent",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::InputAdapterSupplied,
+            EventKind::OptionalInputAbsent,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
 }
@@ -84,10 +85,10 @@ fn an_input_adapter_that_fails_aborts_the_journey_as_its_step_could_not_be_built
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "input_adapter_failed",
-            "journey_aborted"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::InputAdapterFailed,
+            EventKind::JourneyAborted
         ]
     );
 }
@@ -96,7 +97,7 @@ fn an_input_adapter_that_fails_aborts_the_journey_as_its_step_could_not_be_built
 fn a_value_of_another_type_from_an_input_adapter_aborts_the_journey_with_wrong_type() {
     let read = Read::default();
     let wrong = InputAdapterDescriptor::new("pricing", CHARGE, |_: &Orders, _| {
-        Ok(Some(AnyValue::new("seven".to_string())))
+        Ok(Supplied::value("seven".to_string()))
     });
 
     let (status, events) = travel_workflow(charged(&read).input_adapter(wrong));
@@ -114,10 +115,10 @@ fn a_value_of_another_type_from_an_input_adapter_aborts_the_journey_with_wrong_t
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "input_adapter_supplied",
-            "journey_aborted"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::InputAdapterSupplied,
+            EventKind::JourneyAborted
         ]
     );
 }
@@ -148,7 +149,8 @@ fn an_input_adapter_that_returned_nothing_is_not_named_in_the_abort(
     #[case] aborted: fn(&JourneyStatus) -> bool,
 ) {
     let read = Read::default();
-    let silent = InputAdapterDescriptor::new("pricing", CHARGE, |_: &Orders, _| Ok(None));
+    let silent =
+        InputAdapterDescriptor::new("pricing", CHARGE, |_: &Orders, _| Ok(Supplied::FromDataBag));
     let workflow = charged(&read).input_adapter(silent);
 
     let (status, events) = travel(data(instance(workflow)).create().unwrap());
@@ -157,7 +159,11 @@ fn an_input_adapter_that_returned_nothing_is_not_named_in_the_abort(
     assert!(reads(&read).is_empty());
     assert_eq!(
         kinds(&events),
-        ["journey_started", "attempt_started", "journey_aborted"]
+        [
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::JourneyAborted
+        ]
     );
 }
 
@@ -165,13 +171,14 @@ const PRICE: Input<i64> = Input::new("price");
 const QUANTITY: OptionalInput<i64> = OptionalInput::new("quantity");
 
 /// Supplies the amount: the price from the workflow, times the quantity when there is one.
-fn priced(
-    _: &Orders,
-    mut got: Requested<'_, Orders, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
+fn priced(_: &Orders, mut got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied, Error> {
     let price = got.from_workflow(&PRICE)?;
-    let amount = price * got.optional_from_workflow(&QUANTITY)?.unwrap_or(1);
-    Ok((got.key() == "amount").then(|| AnyValue::new(amount)))
+    let amount = price * got.from_workflow(&QUANTITY)?.unwrap_or(1);
+    Ok(if got.key() == "amount" {
+        Supplied::value(amount)
+    } else {
+        Supplied::FromDataBag
+    })
 }
 
 /// The charge step, adapted by `priced`.
@@ -179,7 +186,7 @@ fn charged_at_the_price(read: &Read) -> WorkflowBuilder<Orders> {
     let pricing = InputAdapterDescriptor::new("pricing", CHARGE, priced).needing(
         HookNeeds::new()
             .from_workflow(&PRICE)
-            .optional_from_workflow(&QUANTITY),
+            .from_workflow(&QUANTITY),
     );
     charged(read).input_adapter(pricing)
 }
@@ -197,12 +204,12 @@ fn an_input_adapter_receives_the_data_from_the_workflow_it_requests() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "input_adapter_supplied",
-            "optional_input_absent",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::InputAdapterSupplied,
+            EventKind::OptionalInputAbsent,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
 }
@@ -233,14 +240,14 @@ fn an_input_adapters_absent_optional_data_is_reported_before_what_it_supplied() 
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "optional_input_absent",
-            "input_adapter_supplied",
-            "optional_input_absent",
-            "optional_input_absent",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::OptionalInputAbsent,
+            EventKind::InputAdapterSupplied,
+            EventKind::OptionalInputAbsent,
+            EventKind::OptionalInputAbsent,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
 }
@@ -286,7 +293,11 @@ fn an_input_adapters_required_data_from_the_workflow_aborts_the_journey_before_i
     assert!(reads(&read).is_empty());
     assert_eq!(
         kinds(&events),
-        ["journey_started", "attempt_started", "journey_aborted"]
+        [
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::JourneyAborted
+        ]
     );
     assert_eq!(
         events.last().and_then(aborting_requester),
@@ -317,14 +328,14 @@ type Names = Arc<Mutex<Vec<StepName>>>;
 /// Records the name of the step it supplies an input to, and supplies nothing.
 fn naming(
     names: &Names,
-) -> impl for<'a> Fn(&'a Orders, Requested<'a, Orders, InputAdapter>) -> Result<Option<AnyValue>, Error>
+) -> impl for<'a> Fn(&'a Orders, Requested<'a, Orders, InputAdapter>) -> Result<Supplied, Error>
 + Send
 + Sync
 + 'static {
     let names = Arc::clone(names);
     move |_, got| {
         names.lock().unwrap().push(got.step_name());
-        Ok(None)
+        Ok(Supplied::FromDataBag)
     }
 }
 
@@ -345,14 +356,11 @@ fn an_input_adapter_is_told_the_step_it_supplies_for_each_of_its_inputs() {
 }
 
 /// Supplies the amount as twice the base read through its access to the data bag.
-fn doubled(
-    _: &Orders,
-    mut got: Requested<'_, Orders, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
+fn doubled(_: &Orders, mut got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied, Error> {
     let base = got.data_bag()?.read::<i64>("base");
     match (got.key(), base) {
-        ("amount", Found::Present(base)) => Ok(Some(AnyValue::new(base * 2))),
-        _ => Ok(None),
+        ("amount", Found::Present(base)) => Ok(Supplied::value(base * 2)),
+        _ => Ok(Supplied::FromDataBag),
     }
 }
 
@@ -370,12 +378,12 @@ fn an_input_adapter_reads_the_data_bag_without_events() {
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "input_adapter_supplied",
-            "optional_input_absent",
-            "step_succeeded",
-            "journey_succeeded"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::InputAdapterSupplied,
+            EventKind::OptionalInputAbsent,
+            EventKind::StepSucceeded,
+            EventKind::JourneySucceeded
         ]
     );
 }

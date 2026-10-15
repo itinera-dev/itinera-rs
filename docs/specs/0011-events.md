@@ -6,7 +6,7 @@ Status: done in stage 7. Stage 1 added the events, reporters and dispatchers. St
 
 ## API
 
-- **`Event`** carries a sequence number from 1, a `Timestamp`, which displays in ISO 8601 in UTC, the `JourneyId`, the workflow name, and an `EventBody` with one variant per event of the catalogue. `kind()` gives the snake_case name.
+- **`Event`** carries a sequence number from 1, a `Timestamp`, which displays in ISO 8601 in UTC, the `JourneyId`, the workflow name, and an `EventBody` with one variant per event of the catalogue. `kind()` gives its `EventKind`, which displays as the snake_case name and parses from it.
 - Only itinera constructs events: `Event` and every `EventBody` variant are `#[non_exhaustive]`, readable but not constructible outside the crate.
 - An event about a step carries a `StepAttempt`; one from or about a hook carries a `HookSource`, either a step hook with its policy and the triggering `StepAttempt`, or a workflow hook with its policy and no step.
 - `optional_input_absent` carries a `RequestSource`: the step for its input, the hook, or the input adapter with the step it was resolving for.
@@ -36,7 +36,9 @@ Status: done in stage 7. Stage 1 added the events, reporters and dispatchers. St
 ## Tests
 
 - Unit tests in `itinera-core/src/policy.rs`, `policy/lifecycle.rs`, `journey.rs` and `journey/result/status_kind.rs`: `hooks_and_causes_display_as_the_specification_writes_them`, `lifecycles_display_as_the_specification_writes_them`, `causes_and_abort_reasons_display_as_the_specification_writes_them` and `statuses_display_as_the_specification_writes_them`.
-- Unit tests in `itinera-core/src/event.rs`: `every_kind_of_event_has_its_own_kind`, `names_display_as_the_specification_writes_them`, `a_timestamp_displays_in_utc_in_iso_8601`, `a_timestamp_just_before_1970_borrows_from_the_previous_second` and `a_year_outside_0_to_9999_is_written_as_an_expanded_year`.
+- Unit tests in `itinera-core/src/event/body/tests.rs`: `every_kind_of_event_has_its_own_kind`.
+- Unit tests in `itinera-core/src/event/kind.rs`: `kinds_display_as_the_specification_writes_them` and `a_kind_parses_only_from_its_own_name`.
+- Unit tests in `itinera-core/src/event/decision.rs` and `event/timestamp.rs`: `names_display_as_the_specification_writes_them`, `a_timestamp_displays_in_utc_in_iso_8601`, `a_timestamp_just_before_1970_borrows_from_the_previous_second` and `a_year_outside_0_to_9999_is_written_as_an_expanded_year`.
 - Unit tests in `itinera-core/src/report.rs`: `with_no_reporter_dispatching_succeeds_and_goes_nowhere`.
 - Unit tests in `itinera-core/src/engine.rs`: `events_are_numbered_from_one_and_carry_the_journey_the_workflow_and_the_time`; `a_step_emits_its_own_events_stamped_with_its_attempt_before_its_outcome`; `a_reporter_failing_on_a_step_event_aborts_the_journey_whatever_the_step_does_next`; with the `async` feature, `an_asynchronous_step_awaits_its_own_events` and `a_reporter_failing_on_an_asynchronous_steps_event_aborts_the_journey`.
 - Unit tests in `itinera-core/src/engine/hooks.rs`: `a_hooks_contributions_are_committed_once_it_returns_with_the_hook_as_their_source` and `a_reporter_failing_on_a_hooks_event_aborts_the_journey_whatever_the_hook_does_next`.

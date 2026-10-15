@@ -1,20 +1,16 @@
-//! What a parameter of an input adapter requests, which its attribute says.
+//! What a parameter of an input adapter requests, which its attribute says, or its type for a
+//! handle.
 
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Ident, PatType};
 
 use crate::datum::{Arguments, Datum};
+use crate::handle::Handle;
 use crate::marker;
 
-/// The attributes that mark an input adapter's parameters.
-pub(in crate::workflow) const MARKS: [&str; 5] = [
-    "step_name",
-    "key",
-    "from_workflow",
-    "journey_id",
-    "data_bag",
-];
+/// The attributes that mark an input adapter's parameters, which are not handles.
+pub(in crate::workflow) const MARKS: [&str; 2] = ["key", "from_workflow"];
 
 /// What one parameter of an input adapter requests.
 pub(super) enum Request {
@@ -28,28 +24,38 @@ pub(super) enum Request {
 impl Request {
     /// Reads what the parameter requests, and removes its attribute.
     pub(super) fn read(parameter: &mut PatType) -> syn::Result<Self> {
-        let mark = marker::single(
+        let mark = marker::at_most_one(
             marker::take(&mut parameter.attrs, &MARKS),
-            &parameter.pat,
-            "every parameter of an input adapter after `&self` says what it requests, such as \
-             `#[key]` or `#[from_workflow(\"price\")]`",
+            "this attribute is one too many: each parameter carries at most one of them",
         )?;
-        let request = match marker::name(&mark).as_str() {
-            "from_workflow" => {
-                let name = match &*parameter.pat {
-                    syn::Pat::Ident(pattern) => Some(&pattern.ident),
-                    _ => None,
-                };
-                let datum = Arguments::of(&mark)?.datum(name, &parameter.ty)?;
-                return Ok(Self::FromWorkflow(Box::new(datum)));
-            }
-            "step_name" => Self::StepName,
-            "key" => Self::Key,
-            "journey_id" => Self::JourneyId,
-            _ => Self::DataBag,
+        let Some(mark) = mark else {
+            return Self::handle(parameter);
         };
-        mark.meta.require_path_only()?;
-        Ok(request)
+        if marker::name(&mark) == "key" {
+            mark.meta.require_path_only()?;
+            return Ok(Self::Key);
+        }
+        let name = match &*parameter.pat {
+            syn::Pat::Ident(pattern) => Some(&pattern.ident),
+            _ => None,
+        };
+        let datum = Arguments::of(&mark)?.datum(name, &parameter.ty)?;
+        Ok(Self::FromWorkflow(Box::new(datum)))
+    }
+
+    /// The handle an unmarked parameter takes, as its type says.
+    fn handle(parameter: &PatType) -> syn::Result<Self> {
+        match Handle::of(&parameter.ty) {
+            Some(Handle::StepName) => Ok(Self::StepName),
+            Some(Handle::JourneyId) => Ok(Self::JourneyId),
+            Some(Handle::DataBag) => Ok(Self::DataBag),
+            _ => Err(syn::Error::new_spanned(
+                &parameter.pat,
+                "every parameter of an input adapter after `&self` is the step's name, the \
+                 journey ID or the data bag, as `StepName`, `&JourneyId` or `&DataBag`, or says \
+                 what it requests, such as `#[key]` or `#[from_workflow(\"price\")]`",
+            )),
+        }
     }
 
     /// The call that declares the request on the adapter's needs, if the needs declare it.

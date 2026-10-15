@@ -1,71 +1,26 @@
 //! Scripted reporters and dispatchers.
 
-use itinera::event::Event;
+use itinera::event::{Event, EventKind as Kind};
 
 use super::ModelError;
 
-/// The kinds of event of the catalogue, by the names the cases use.
-const EVENT_KINDS: [&str; 29] = [
-    "journey_started",
-    "attempt_started",
-    "input_adapter_supplied",
-    "input_adapter_failed",
-    "optional_input_absent",
-    "service_provided",
-    "service_provider_failed",
-    "step_succeeded",
-    "step_failed",
-    "step_skipped",
-    "step_abnormal_termination",
-    "hook_called",
-    "contribution_committed",
-    "contributions_discarded",
-    "data_overwritten",
-    "journey_aborted",
-    "step_retrying",
-    "step_given_up",
-    "step_rescuing",
-    "step_rescued",
-    "journey_succeeded",
-    "journey_failed",
-    "step_info",
-    "step_warning",
-    "step_error",
-    "journey_info",
-    "journey_warning",
-    "journey_error",
-    "global_metadata_set",
-];
-
-/// The name of a kind of event of the catalogue, as `Event::kind` returns it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_more::Display)]
+/// A kind of event of the catalogue, read from the name the cases use.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_more::Display, derive_more::From)]
 pub(crate) struct EventKind {
-    name: &'static str,
+    kind: Kind,
 }
 
 impl EventKind {
     pub(crate) fn named(name: &str) -> Result<Self, ModelError> {
-        EVENT_KINDS
-            .into_iter()
-            .find(|kind| is_named(kind, name))
-            .map(Self::of)
-            .ok_or_else(|| ModelError::UnknownEvent(name.to_owned()))
-    }
-
-    /// The kind of this name, which `named` has found in the catalogue.
-    fn of(name: &'static str) -> Self {
-        Self { name }
+        name.parse::<Kind>()
+            .map(Self::from)
+            .map_err(|_| ModelError::UnknownEvent(name.to_owned()))
     }
 
     /// Whether the event is of this kind.
     pub(crate) fn is_of(self, event: &Event) -> bool {
-        event.kind() == self.name
+        event.kind() == self.kind
     }
-}
-
-/// Whether the kind of event of the catalogue has this name.
-fn is_named(kind: &&str, name: &str) -> bool {
-    *kind == name
 }
 
 /// When a scripted reporter fails.
@@ -116,15 +71,15 @@ mod tests {
     use super::*;
 
     #[rstest]
-    #[case::a_kind_of_the_catalogue("step_retrying", Ok("step_retrying"))]
+    #[case::a_kind_of_the_catalogue("step_retrying", Ok(Kind::StepRetrying))]
     #[case::a_kind_outside_it(
         "step_started",
         Err(ModelError::UnknownEvent("step_started".to_owned()))
     )]
     fn only_the_kinds_of_the_catalogue_are_events(
         #[case] name: &str,
-        #[case] read: Result<&str, ModelError>,
+        #[case] read: Result<Kind, ModelError>,
     ) {
-        assert_eq!(EventKind::named(name).map(|kind| kind.name), read);
+        assert_eq!(EventKind::named(name).map(|kind| kind.kind), read);
     }
 }

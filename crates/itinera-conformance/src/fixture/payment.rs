@@ -6,8 +6,7 @@ use itinera::instance::{Instance, InstanceError};
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::policy::{OnSuccess, step_policy, workflow_policy};
 use itinera::step::{Outcome, Reason, RescueOutcome, RescueStep, Step, rescue_step, step};
-use itinera::value::AnyValue;
-use itinera::workflow::{role, workflow};
+use itinera::workflow::{Supplied, role, workflow};
 
 /// Charges the amount an input adapter supplies.
 #[derive(Step)]
@@ -18,7 +17,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         if self.amount <= 0 {
             return Self::fail("declined");
         }
@@ -38,7 +37,7 @@ struct Ship {
 
 #[step]
 impl Ship {
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         if self.fragile == Some(true) && self.packed.is_none() {
             return Self::fail("unpacked");
         }
@@ -52,13 +51,12 @@ impl Ship {
 struct Pack {
     #[input]
     order: String,
-    #[reason]
     reason: Reason,
 }
 
 #[rescue_step]
 impl Pack {
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<RescueOutcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<RescueOutcome, Error> {
         let packing = format!(
             "order {} packed, since it was {}",
             self.order,
@@ -80,10 +78,10 @@ impl Audit {
     fn audited(
         &self,
         #[from_step] charged: i64,
-        #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<Option<OnSuccess>, Error> {
+        contributor: &mut Contributor,
+    ) -> Result<OnSuccess, Error> {
         contributor.contribute("audited", format!("charged {charged}"));
-        Self::carry_on()
+        Self::keep_default()
     }
 }
 
@@ -101,10 +99,10 @@ impl Receipt {
     #[on_workflow_success]
     fn paid(
         &self,
-        #[journey_id] journey_id: &JourneyId,
+        journey_id: &JourneyId,
         #[from_workflow] charged: i64,
         #[role] shop: &dyn Shop,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<(), Error> {
         let receipt = format!("{journey_id} paid {charged} at the {} shop", shop.shop());
         contributor.contribute("receipt", receipt);
@@ -112,7 +110,7 @@ impl Receipt {
     }
 
     #[on_workflow_failure]
-    fn declined(&self, #[contributor] mut contributor: Contributor<'_>) -> Result<(), Error> {
+    fn declined(&self, contributor: &mut Contributor) -> Result<(), Error> {
         contributor.contribute("receipt", "declined".to_owned());
         Ok(())
     }
@@ -139,7 +137,7 @@ impl Payment {
         &self,
         #[from_workflow] price: Option<i64>,
         #[from_workflow] discount: Option<i64>,
-    ) -> Result<Option<AnyValue>, Error> {
+    ) -> Result<Supplied, Error> {
         match price {
             Some(price) => Self::supply(less(price, discount)),
             None => Self::from_data_bag(),

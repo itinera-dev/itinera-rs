@@ -1,29 +1,29 @@
 error[E0277]: a step or rescue step of the workflow `Orders` requests a service as `(dyn PaymentGateway + 'static)`, which no provider of its key makes
-  --> tests/ui/service/a_service_of_another_type_than_its_provider_makes.rs:77:26
+  --> tests/ui/service/a_service_of_another_type_than_its_provider_makes.rs:75:26
    |
-77 | #[with_step(Ship, name = "ship")]
+75 | #[with_step(Ship, name = "ship")]
    |                          ^^^^^^ the step or rescue step listed here requests a service as `(dyn PaymentGateway + 'static)`
    |
 help: the trait `itinera::service::ProvidesService<(itinera::service::Char<'s'>, (itinera::service::Char<'t'>, (itinera::service::Char<'o'>, (itinera::service::Char<'c'>, (itinera::service::Char<'k'>, ()))))), (dyn PaymentGateway + 'static)>` is not implemented for `Orders`
-  --> tests/ui/service/a_service_of_another_type_than_its_provider_makes.rs:78:1
+  --> tests/ui/service/a_service_of_another_type_than_its_provider_makes.rs:76:1
    |
-78 | struct Orders {
+76 | struct Orders {
    | ^^^^^^^^^^^^^
    = note: a provider of the key returns `Result<Provided<T>, Error>` for the `T` that the `#[service]` parameter borrows, in a step's `run` or `new` or a rescue step's `run`; when no provider has the key, the error `service not provided` names it
 help: `Orders` implements trait `itinera::service::ProvidesService<K, T>`
-  --> tests/ui/service/a_service_of_another_type_than_its_provider_makes.rs:82:1
+  --> tests/ui/service/a_service_of_another_type_than_its_provider_makes.rs:80:1
    |
-82 | #[workflow]
+80 | #[workflow]
    | ^^^^^^^^^^^
    | |
    | `itinera::service::ProvidesService<(itinera::service::Char<'p'>, (itinera::service::Char<'a'>, (itinera::service::Char<'y'>, (itinera::service::Char<'m'>, (itinera::service::Char<'e'>, (itinera::service::Char<'n'>, (itinera::service::Char<'t'>, (itinera::service::Char<'s'>, ())))))))), dyn PaymentGateway>`
    | `itinera::service::ProvidesService<(itinera::service::Char<'s'>, (itinera::service::Char<'t'>, (itinera::service::Char<'o'>, (itinera::service::Char<'c'>, (itinera::service::Char<'k'>, ()))))), dyn StockStore>`
 note: required by a bound in `_::<impl Ship>::__itinera_services_fit`
-  --> tests/ui/service/a_service_of_another_type_than_its_provider_makes.rs:66:36
+  --> tests/ui/service/a_service_of_another_type_than_its_provider_makes.rs:64:36
    |
-64 | #[step]
+62 | #[step]
    | ------- required by a bound in this associated function
-65 | impl Ship {
-66 |     fn run(self, #[service] stock: &dyn PaymentGateway) -> Result<Outcome, Error> {
+63 | impl Ship {
+64 |     fn run(self, #[service] stock: &dyn PaymentGateway) -> Result<Outcome, Error> {
    |                                    ^ required by this bound in `_::<impl Ship>::__itinera_services_fit`
    = note: this error originates in the attribute macro `workflow` (in Nightly builds, run with -Z macro-backtrace for more info)

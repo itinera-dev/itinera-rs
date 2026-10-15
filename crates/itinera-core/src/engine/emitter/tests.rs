@@ -4,7 +4,7 @@ use super::*;
 use crate::engine::fixtures::{
     CHARGE, failing_on, instance, kinds, noon, scripted, succeed, travel_before, travel_with_amount,
 };
-use crate::event::JourneyAbort;
+use crate::event::{EventKind, JourneyAbort};
 use crate::executor::LocalExecutor;
 use crate::executor::fixtures::{FailingFactory, Shop, recorded, run, run_shop_with, run_with};
 use crate::report::fixtures::entries;
@@ -61,10 +61,10 @@ fn a_reporter_failing_on_a_step_event_aborts_the_journey_whatever_the_step_does_
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_info",
-            "journey_aborted"
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepInfo,
+            EventKind::JourneyAborted
         ]
     );
     let Some(EventBody::JourneyAborted { abort }) = events.last().map(|e| &e.body) else {
@@ -232,11 +232,11 @@ mod asynchronous {
         assert_eq!(
             kinds(&events),
             [
-                "journey_started",
-                "attempt_started",
-                "step_info",
-                "step_succeeded",
-                "journey_succeeded"
+                EventKind::JourneyStarted,
+                EventKind::AttemptStarted,
+                EventKind::StepInfo,
+                EventKind::StepSucceeded,
+                EventKind::JourneySucceeded
             ]
         );
     }
@@ -260,10 +260,10 @@ mod asynchronous {
         assert_eq!(
             kinds(&events),
             [
-                "journey_started",
-                "attempt_started",
-                "step_info",
-                "journey_aborted"
+                EventKind::JourneyStarted,
+                EventKind::AttemptStarted,
+                EventKind::StepInfo,
+                EventKind::JourneyAborted
             ]
         );
     }

@@ -30,8 +30,8 @@ struct Charge {
 impl Charge {
     async fn run(
         mut self,
-        #[contributor] mut contributor: Contributor<'_>,
-        #[reporter] mut reporter: AsyncStepReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: AsyncStepReporter<'_>,
     ) -> Result<Outcome, Error> {
         if self.amount <= 0 {
             return Self::fail("nothing-to-charge");
@@ -59,7 +59,7 @@ impl Ship {
         Ok(Self { gift_note })
     }
 
-    async fn run(self, #[reporter] mut reporter: AsyncStepReporter<'_>) -> Result<Outcome, Error> {
+    async fn run(self, mut reporter: AsyncStepReporter<'_>) -> Result<Outcome, Error> {
         match self.gift_note {
             Some(note) => reporter.info_with("gift note", note).await?,
             None => return Self::skip_because("no-gift-note"),
@@ -75,7 +75,7 @@ const GIFT_NOTE: Input<Option<String>> = Input::new("gift_note");
 struct HandCharge<'a> {
     amount: i64,
     discount: Option<String>,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     reporter: AsyncStepReporter<'a>,
 }
 
@@ -100,7 +100,7 @@ impl AsyncStepFactory for ChargeFactory {
     fn needs(&self) -> StepNeeds {
         StepNeeds::new()
             .input(&AMOUNT)
-            .optional_input(&COUPON)
+            .input(&COUPON)
             .contributor()
             .reporter()
     }
@@ -108,7 +108,7 @@ impl AsyncStepFactory for ChargeFactory {
     fn build<'a>(&'a self, got: &mut Resolved<'a, Asynchronous>) -> Result<HandCharge<'a>, Error> {
         Ok(HandCharge {
             amount: got.input(&AMOUNT)?,
-            discount: got.optional_input(&COUPON)?,
+            discount: got.input(&COUPON)?,
             contributor: got.contributor()?,
             reporter: got.reporter()?,
         })

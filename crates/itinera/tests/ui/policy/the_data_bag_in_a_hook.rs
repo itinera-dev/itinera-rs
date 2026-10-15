@@ -1,0 +1,55 @@
+use itinera::error::Error;
+use itinera::executor::LocalExecutor;
+use itinera::policy::{OnFailure, OnSuccess, StepPolicy, step_policy};
+use itinera::journey::DataBag;
+use itinera::step::{Outcome, Reason, StepDescriptor, step_name};
+use itinera::workflow::{Provides, WorkflowDescriptor};
+
+trait Desk {
+    fn desk(&self) -> &'static str;
+}
+
+struct Orders;
+
+impl Desk for Orders {
+    fn desk(&self) -> &'static str {
+        "orders desk"
+    }
+}
+
+impl Provides<dyn Desk> for Orders {
+    fn role(&self) -> &(dyn Desk + 'static) {
+        self
+    }
+}
+
+#[derive(Default)]
+struct Audit;
+
+#[step_policy]
+impl Audit {
+    #[on_step_success]
+    fn checked(&self, data: &DataBag) -> Result<OnSuccess, Error> {
+        match data.get("receipt") {
+            Some(_) => Self::keep_default(),
+            None => Self::finish_workflow(),
+        }
+    }
+
+    #[on_step_failure]
+    fn reported(
+        &self,
+        reason: Reason,
+        #[role] desk: &dyn Desk,
+    ) -> Result<OnFailure, Error> {
+        Self::fail_workflow(format!("{}-at-{}", reason.code(), desk.desk()))
+    }
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let charge = StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success()))
+        .policy(Audit::descriptor());
+    let orders = WorkflowDescriptor::builder("orders").step(charge).build()?;
+    LocalExecutor::new().run(orders.instance(Orders).create()?)?;
+    Ok(())
+}

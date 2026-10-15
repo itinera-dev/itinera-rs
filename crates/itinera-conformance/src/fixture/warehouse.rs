@@ -1,14 +1,12 @@
 //! The warehouse workflow: reserves an order's goods, charges it and ships it, through the stock
 //! and the payments its service providers supply.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::instance::{Instance, InstanceError};
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::policy::HookReporter;
 use itinera::service::{Provided, provide};
-use itinera::step::{Outcome, Step, StepName, step};
+use itinera::step::{Attempt, Outcome, Step, StepName, step};
 use itinera::workflow::workflow;
 
 /// The goods of a journey, which every step that needs them shares.
@@ -57,7 +55,7 @@ impl Reserve {
     fn run(
         self,
         #[service] stock: &dyn Stock,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("reserved", stock.label().to_owned());
         Self::succeed()
@@ -74,7 +72,7 @@ impl Charge {
         self,
         #[service] payments: &dyn Payments,
         #[service] stock: &dyn Stock,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         if !payments.reachable() {
             return Self::fail("unreachable");
@@ -94,7 +92,7 @@ impl Ship {
         self,
         #[service] payments: &dyn Payments,
         #[service] stock: &dyn Stock,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("shipped", used(payments, stock));
         Self::succeed()
@@ -116,7 +114,7 @@ pub(super) struct Warehouse;
 impl Warehouse {
     /// The journey's stock, made once and lent to every step and attempt.
     #[provider]
-    fn stock(&self, #[journey_id] journey_id: &JourneyId) -> Result<Provided<dyn Stock>, Error> {
+    fn stock(&self, journey_id: &JourneyId) -> Result<Provided<dyn Stock>, Error> {
         Ok(provide!(Shelf {
             label: format!("stock of {journey_id}"),
         }))
@@ -137,10 +135,10 @@ impl Warehouse {
     #[provider(per_attempt, steps = ["charge"], key = "payments", name = "fresh payments")]
     fn fresh_payments(
         &self,
-        #[step_name] step: StepName,
-        #[attempt] attempt: NonZeroU32,
+        step: StepName,
+        attempt: Attempt,
         #[from_workflow] gateway: Option<String>,
-        #[reporter] reporter: HookReporter<'_>,
+        reporter: HookReporter,
     ) -> Result<Provided<dyn Payments>, Error> {
         let gateway = gateway.unwrap_or_else(|| "main".to_owned());
         chosen(&gateway, step, attempt, reporter)
@@ -156,8 +154,8 @@ impl Warehouse {
 fn chosen(
     gateway: &str,
     step: StepName,
-    attempt: NonZeroU32,
-    mut reporter: HookReporter<'_>,
+    attempt: Attempt,
+    mut reporter: HookReporter,
 ) -> Result<Provided<dyn Payments>, Error> {
     if gateway == "down" {
         return Err(Error::msg("gateway down"));
@@ -165,7 +163,7 @@ fn chosen(
     reporter.info(format!("choosing the {gateway} gateway"))?;
     Ok(provide!(Gateway {
         label: format!("{gateway} gateway for {step}, attempt {attempt}"),
-        reachable: gateway != "flaky" || attempt.get() > 1,
+        reachable: gateway != "flaky" || !attempt.is_first(),
     }))
 }
 

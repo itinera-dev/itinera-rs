@@ -54,7 +54,7 @@ impl Reporter for Recording {
     }
 
     fn report(&mut self, event: &Event) -> Result<(), Error> {
-        self.record(event.kind())
+        self.record(&event.kind().to_string())
     }
 }
 

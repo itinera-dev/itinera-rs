@@ -1,20 +1,19 @@
 //! A rescue step that requests a service, declared with the macros, against the same rescue step,
 //! providers and input adapter written for the builder, in a synchronous workflow.
 
-use std::num::NonZeroU32;
-
 use itinera::error::Error;
 use itinera::journey::{Contributor, InitialData, JourneyId};
-use itinera::policy::{HookNeeds, InputAdapter, Provider, Requested};
+use itinera::policy::{HookNeeds, Requested};
 use itinera::service::{
-    PerAttempt, PerJourney, Provided, Service, ServiceProviderDescriptor, provide,
+    PerAttempt, PerJourney, Provided, Provider, Service, ServiceProviderDescriptor, provide,
 };
 use itinera::step::{
-    DescribedStep, Input, Outcome, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved,
-    RescueStep, Step, StepName, rescue_step, step, step_name,
+    Attempt, DescribedStep, Input, Outcome, RescueFactory, RescueNeeds, RescueOutcome,
+    RescueResolved, RescueStep, Step, StepName, rescue_step, step, step_name,
 };
-use itinera::value::AnyValue;
-use itinera::workflow::{InputAdapterDescriptor, Workflow, WorkflowDescriptor, workflow};
+use itinera::workflow::{
+    InputAdapter, InputAdapterDescriptor, Supplied, Workflow, WorkflowDescriptor, workflow,
+};
 use rstest::rstest;
 
 use super::fixtures::{Journey, Orders, orders, run_created};
@@ -52,7 +51,7 @@ impl Charge {
     fn run(
         self,
         #[service] tokens: &dyn TokenService,
-        #[contributor] mut contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("checked by", tokens.label());
         match self.token {
@@ -74,7 +73,7 @@ impl Refresh {
     fn run(
         self,
         #[service] tokens: &dyn TokenService,
-        #[contributor] contributor: Contributor<'_>,
+        contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         Ok(refreshed(&self.account, tokens, contributor))
     }
@@ -83,7 +82,7 @@ impl Refresh {
 fn refreshed(
     account: &str,
     tokens: &dyn TokenService,
-    mut contributor: Contributor<'_>,
+    contributor: &mut Contributor,
 ) -> RescueOutcome {
     contributor.contribute("refreshed by", tokens.label());
     match tokens.token(account) {
@@ -103,7 +102,7 @@ fn vault(journey: &JourneyId) -> Provided<dyn TokenService> {
 }
 
 /// A vault lent to one attempt of a step, named after both.
-fn charging_vault(step: StepName, attempt: NonZeroU32) -> Provided<dyn TokenService> {
+fn charging_vault(step: StepName, attempt: Attempt) -> Provided<dyn TokenService> {
     provide!(Vault {
         label: format!("{step} vault {attempt}"),
     })
@@ -116,18 +115,15 @@ struct Vaulted;
 #[workflow]
 impl Vaulted {
     #[provider]
-    fn tokens(
-        &self,
-        #[journey_id] journey: &JourneyId,
-    ) -> Result<Provided<dyn TokenService>, Error> {
+    fn tokens(&self, journey: &JourneyId) -> Result<Provided<dyn TokenService>, Error> {
         Ok(vault(journey))
     }
 
     #[provider(per_attempt, steps = ["charge"], key = "tokens", name = "charging")]
     fn charging(
         &self,
-        #[step_name] step: StepName,
-        #[attempt] attempt: NonZeroU32,
+        step: StepName,
+        attempt: Attempt,
     ) -> Result<Provided<dyn TokenService>, Error> {
         Ok(charging_vault(step, attempt))
     }
@@ -144,7 +140,7 @@ const TOKENS: Service<dyn TokenService> = Service::new("tokens");
 struct HandRefresh<'a> {
     account: String,
     tokens: &'a dyn TokenService,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl RescueStep for HandRefresh<'_> {
@@ -251,24 +247,21 @@ struct Rerouted;
 #[workflow]
 impl Rerouted {
     #[provider]
-    fn tokens(
-        &self,
-        #[journey_id] journey: &JourneyId,
-    ) -> Result<Provided<dyn TokenService>, Error> {
+    fn tokens(&self, journey: &JourneyId) -> Result<Provided<dyn TokenService>, Error> {
         Ok(vault(journey))
     }
 
     #[provider(per_attempt, steps = ["charge_rescue"], key = "tokens", name = "refreshing")]
     fn refreshing(
         &self,
-        #[step_name] step: StepName,
-        #[attempt] attempt: NonZeroU32,
+        step: StepName,
+        attempt: Attempt,
     ) -> Result<Provided<dyn TokenService>, Error> {
         Ok(charging_vault(step, attempt))
     }
 
     #[input_adapter(steps = ["charge_rescue"])]
-    fn clients(&self, #[from_workflow] client: String) -> Result<Option<AnyValue>, Error> {
+    fn clients(&self, #[from_workflow] client: String) -> Result<Supplied, Error> {
         Self::supply(client)
     }
 
@@ -283,8 +276,8 @@ const CLIENT: Input<String> = Input::new("client");
 fn hand_clients(
     _: &Orders,
     mut got: Requested<'_, Orders, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
-    Ok(Some(AnyValue::new(got.from_workflow(&CLIENT)?)))
+) -> Result<Supplied, Error> {
+    Ok(Supplied::value(got.from_workflow(&CLIENT)?))
 }
 
 /// The initial data of a journey of the rerouted workflow: the client, whose account it charges.

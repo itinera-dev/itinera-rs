@@ -7,14 +7,14 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::{Failures, Inline, finish, introduce, run};
 use crate::error::Error;
-use crate::event::{Event, EventBody, JourneyFailure};
+use crate::event::{Event, EventBody, EventKind, JourneyFailure};
 use crate::executor::{Started, build_policies};
 use crate::instance::{InstanceBuilder, WorkflowInstance};
 use crate::journey::{Contributor, Failure, JourneyStatus};
 #[cfg(feature = "async")]
 use crate::mode::Asynchronous;
 use crate::policy::{
-    FailWorkflow, HookNeeds, Lifecycle, OnStepAbnormalTermination, OnStepFailure, OnStepRetry,
+    HookNeeds, Lifecycle, OnFailure, OnStepAbnormalTermination, OnStepFailure, OnStepRetry,
     OnStepSuccess, OnSuccess, PolicyName, Requested, StepAbnormalTermination, StepFailure,
     StepHook, StepPolicyDescriptor, StepRetry, StepSuccess,
 };
@@ -63,7 +63,7 @@ impl Reporter for Recording {
 
     fn report(&mut self, event: &Event) -> Result<(), Error> {
         self.events.lock().unwrap().push(event.clone());
-        self.fail_on(event.kind())
+        self.fail_on(&event.kind().to_string())
     }
 }
 
@@ -88,13 +88,13 @@ pub(super) struct Charging<'a> {
 
 impl Charge {
     fn inputs() -> StepNeeds {
-        StepNeeds::new().input(&AMOUNT).optional_input(&DISCOUNT)
+        StepNeeds::new().input(&AMOUNT).input(&DISCOUNT)
     }
 
     fn charging<'a, M>(&'a self, got: &mut Resolved<'a, M>) -> Result<Charging<'a>, Error> {
         Ok(Charging {
             amount: got.input(&AMOUNT)?,
-            discount: got.optional_input(&DISCOUNT)?,
+            discount: got.input(&DISCOUNT)?,
             read: &self.read,
         })
     }
@@ -133,26 +133,20 @@ struct Scripted<S> {
 
 struct ScriptedStep<'a, S> {
     script: &'a S,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     reporter: StepReporter<'a>,
 }
 
 pub(crate) fn scripted<W, S>(script: S) -> StepDescriptor<W>
 where
-    S: Fn(&mut Contributor<'_>, &mut StepReporter<'_>) -> Result<Outcome, Error>
-        + Send
-        + Sync
-        + 'static,
+    S: Fn(&mut Contributor, &mut StepReporter) -> Result<Outcome, Error> + Send + Sync + 'static,
 {
     StepDescriptor::new(CHARGE, Scripted { script })
 }
 
 impl<S> StepFactory for Scripted<S>
 where
-    S: Fn(&mut Contributor<'_>, &mut StepReporter<'_>) -> Result<Outcome, Error>
-        + Send
-        + Sync
-        + 'static,
+    S: Fn(&mut Contributor, &mut StepReporter) -> Result<Outcome, Error> + Send + Sync + 'static,
 {
     type Step<'a> = ScriptedStep<'a, S>;
 
@@ -171,10 +165,10 @@ where
 
 impl<S> Step for ScriptedStep<'_, S>
 where
-    S: Fn(&mut Contributor<'_>, &mut StepReporter<'_>) -> Result<Outcome, Error>,
+    S: Fn(&mut Contributor, &mut StepReporter) -> Result<Outcome, Error>,
 {
     fn run(mut self) -> Result<Outcome, Error> {
-        (self.script)(&mut self.contributor, &mut self.reporter)
+        (self.script)(self.contributor, &mut self.reporter)
     }
 }
 
@@ -283,7 +277,7 @@ pub(super) fn succeed() -> Result<Outcome, Error> {
     Ok(Outcome::success())
 }
 
-pub(crate) fn kinds(events: &[Event]) -> Vec<&'static str> {
+pub(crate) fn kinds(events: &[Event]) -> Vec<EventKind> {
     events.iter().map(Event::kind).collect()
 }
 
@@ -350,29 +344,26 @@ impl Answering {
 }
 
 impl OnStepSuccess<Orders> for Answering {
-    fn on_step_success(
-        &self,
-        _: Requested<'_, Orders, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
-        Ok(self.called(StepHook::OnStepSuccess).map(on_success))
+    fn on_step_success(&self, _: Requested<'_, Orders, StepSuccess>) -> Result<OnSuccess, Error> {
+        Ok(self
+            .called(StepHook::OnStepSuccess)
+            .map_or(OnSuccess::KeepDefault, on_success))
     }
 }
 
 impl OnStepFailure<Orders> for Answering {
-    fn on_step_failure(
-        &self,
-        _: Requested<'_, Orders, StepFailure>,
-    ) -> Result<Option<FailWorkflow>, Error> {
-        Ok(self.called(StepHook::OnStepFailure).and_then(failing))
+    fn on_step_failure(&self, _: Requested<'_, Orders, StepFailure>) -> Result<OnFailure, Error> {
+        Ok(self
+            .called(StepHook::OnStepFailure)
+            .map_or(OnFailure::KeepDefault, failing))
     }
 }
 
 impl OnStepRetry<Orders> for Answering {
-    fn on_step_retry(
-        &self,
-        _: Requested<'_, Orders, StepRetry>,
-    ) -> Result<Option<FailWorkflow>, Error> {
-        Ok(self.called(StepHook::OnStepRetry).and_then(failing))
+    fn on_step_retry(&self, _: Requested<'_, Orders, StepRetry>) -> Result<OnFailure, Error> {
+        Ok(self
+            .called(StepHook::OnStepRetry)
+            .map_or(OnFailure::KeepDefault, failing))
     }
 }
 
@@ -380,10 +371,10 @@ impl OnStepAbnormalTermination<Orders> for Answering {
     fn on_step_abnormal_termination(
         &self,
         _: Requested<'_, Orders, StepAbnormalTermination>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         Ok(self
             .called(StepHook::OnStepAbnormalTermination)
-            .and_then(failing))
+            .map_or(OnFailure::KeepDefault, failing))
     }
 }
 
@@ -394,10 +385,10 @@ fn on_success(lifecycle: Lifecycle) -> OnSuccess {
     }
 }
 
-fn failing(lifecycle: Lifecycle) -> Option<FailWorkflow> {
+fn failing(lifecycle: Lifecycle) -> OnFailure {
     match lifecycle {
-        Lifecycle::FailWorkflow(reason) => Some(reason.into()),
-        Lifecycle::FinishWorkflow => None,
+        Lifecycle::FailWorkflow(reason) => OnFailure::FailWorkflow(reason),
+        Lifecycle::FinishWorkflow => OnFailure::KeepDefault,
     }
 }
 
@@ -539,11 +530,8 @@ pub(super) fn charge_declined_with_a_contribution() -> StepDescriptor<Orders> {
 struct Silent;
 
 impl OnStepFailure<Orders> for Silent {
-    fn on_step_failure(
-        &self,
-        _: Requested<'_, Orders, StepFailure>,
-    ) -> Result<Option<FailWorkflow>, Error> {
-        Ok(None)
+    fn on_step_failure(&self, _: Requested<'_, Orders, StepFailure>) -> Result<OnFailure, Error> {
+        Ok(OnFailure::KeepDefault)
     }
 }
 
@@ -569,11 +557,8 @@ pub(super) fn charge_succeeding() -> StepDescriptor<Orders> {
 pub(super) struct Counted;
 
 impl OnStepRetry<Orders> for Counted {
-    fn on_step_retry(
-        &self,
-        _: Requested<'_, Orders, StepRetry>,
-    ) -> Result<Option<FailWorkflow>, Error> {
-        Ok(None)
+    fn on_step_retry(&self, _: Requested<'_, Orders, StepRetry>) -> Result<OnFailure, Error> {
+        Ok(OnFailure::KeepDefault)
     }
 }
 

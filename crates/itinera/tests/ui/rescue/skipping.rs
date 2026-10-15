@@ -24,13 +24,12 @@ impl Charge {
 struct Refresh {
     #[input]
     client: String,
-    #[reason]
     reason: Reason,
 }
 
 #[rescue_step]
 impl Refresh {
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<RescueOutcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<RescueOutcome, Error> {
         contributor.contribute("token", format!("{}-{}", self.client, self.reason.code()));
         Self::skip()
     }

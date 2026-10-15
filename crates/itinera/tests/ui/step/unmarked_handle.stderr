@@ -1,5 +1,5 @@
-error: every parameter of a step's `run` after `self` is a `#[contributor]`, a `#[reporter]` or a `#[service]`
-  --> tests/ui/step/unmarked_handle.rs:19:9
+error: every parameter of a step's `run` after `self` is a contributor, as `&mut Contributor`, a reporter, as `StepReporter`, or a `#[service]`
+  --> tests/ui/step/unmarked_handle.rs:18:9
    |
-19 |         mut contributor: Contributor<'_>,
-   |         ^^^^^^^^^^^^^^^
+18 |         receipts: &mut Vec<String>,
+   |         ^^^^^^^^

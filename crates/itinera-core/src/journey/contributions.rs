@@ -1,6 +1,6 @@
 //! A recorder for tests, which lends a contributor and keeps what is contributed through it.
 
-use super::{Contributed, Contributor, Read};
+use super::{Contributor, Read};
 use crate::value::Value;
 
 /// A recorder for tests: it lends a [`Contributor`] that a test passes to a step's `run` or to a
@@ -24,7 +24,7 @@ use crate::value::Value;
 /// }
 ///
 /// impl Charge {
-///     fn run(self, mut contributor: Contributor<'_>) -> Result<Outcome> {
+///     fn run(self, contributor: &mut Contributor) -> Result<Outcome> {
 ///         contributor.contribute("charged", self.price);
 ///         Ok(Outcome::success())
 ///     }
@@ -38,7 +38,7 @@ use crate::value::Value;
 /// ```
 #[derive(Debug, Default)]
 pub struct Contributions {
-    contributed: Contributed,
+    contributed: Contributor,
 }
 
 impl Contributions {
@@ -53,8 +53,8 @@ impl Contributions {
     /// contributions.contributor().contribute("receipt", "R-1".to_string());
     /// assert_eq!(contributions.keys().collect::<Vec<_>>(), ["receipt"]);
     /// ```
-    pub fn contributor(&mut self) -> Contributor<'_> {
-        Contributor::new(&mut self.contributed)
+    pub fn contributor(&mut self) -> &mut Contributor {
+        &mut self.contributed
     }
 
     /// Reads the value contributed under a key as a `T`: a copy of it, or what kept it from

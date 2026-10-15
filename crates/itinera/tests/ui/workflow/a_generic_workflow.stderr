@@ -1,46 +1,46 @@
 error: a generic workflow is described with the builder, not with the macros
-  --> tests/ui/workflow/a_generic_workflow.rs:88:13
+  --> tests/ui/workflow/a_generic_workflow.rs:87:13
    |
-88 | struct Shop<T> {
+87 | struct Shop<T> {
    |             ^
 
 error[E0107]: missing generics for struct `Shop`
-  --> tests/ui/workflow/a_generic_workflow.rs:97:15
+  --> tests/ui/workflow/a_generic_workflow.rs:96:15
    |
-97 | impl Till for Shop {
+96 | impl Till for Shop {
    |               ^^^^ expected 1 generic argument
    |
 note: struct defined here, with 1 generic parameter: `T`
-  --> tests/ui/workflow/a_generic_workflow.rs:88:8
+  --> tests/ui/workflow/a_generic_workflow.rs:87:8
    |
-88 | struct Shop<T> {
+87 | struct Shop<T> {
    |        ^^^^ -
 help: add missing generic argument
    |
-97 | impl Till for Shop<T> {
+96 | impl Till for Shop<T> {
    |                   +++
 
 error[E0107]: missing generics for struct `Shop`
-   --> tests/ui/workflow/a_generic_workflow.rs:104:6
+   --> tests/ui/workflow/a_generic_workflow.rs:103:6
     |
-104 | impl Shop {
+103 | impl Shop {
     |      ^^^^ expected 1 generic argument
     |
 note: struct defined here, with 1 generic parameter: `T`
-   --> tests/ui/workflow/a_generic_workflow.rs:88:8
+   --> tests/ui/workflow/a_generic_workflow.rs:87:8
     |
- 88 | struct Shop<T> {
+ 87 | struct Shop<T> {
     |        ^^^^ -
 help: add missing generic argument
     |
-104 | impl Shop<T> {
+103 | impl Shop<T> {
     |          +++
 
 error[E0599]: no associated function or constant named `builder` found for struct `Shop<T>` in the current scope
-   --> tests/ui/workflow/a_generic_workflow.rs:124:26
+   --> tests/ui/workflow/a_generic_workflow.rs:123:26
     |
- 88 | struct Shop<T> {
+ 87 | struct Shop<T> {
     | -------------- associated function or constant `builder` not found for this struct
 ...
-124 |     let instance = Shop::builder()
+123 |     let instance = Shop::builder()
     |                          ^^^^^^^ associated function or constant not found in `Shop<_>`

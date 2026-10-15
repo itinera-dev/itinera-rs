@@ -7,10 +7,9 @@ use super::{Delivery, Journey};
 use crate::error::Error;
 use crate::event::{EventBody, HookSource, JourneyAbort, Source};
 use crate::instance::WorkflowInstance;
-use crate::journey::{Abort, Contributed, Contributor, DataBag};
+use crate::journey::{Abort, Contributor, DataBag};
 use crate::policy::{
-    Answers, Call, FailWorkflow, HookKind, Lifecycle, Needs, OnSuccess, PolicyName, Request,
-    Requested,
+    Answers, Call, HookKind, Lifecycle, Needs, OnFailure, OnSuccess, PolicyName, Request, Requested,
 };
 use crate::step::Reporting;
 
@@ -21,11 +20,11 @@ pub(crate) use workflow::WorkflowPolicies;
 
 use step::Left;
 
-/// A lifecycle a policy's hook returned, which decides what happens next.
+/// A decision a policy's step hook returned, which decides what happens next.
 #[derive(Debug)]
-pub(super) struct Decided<L> {
+pub(super) struct Decided<D> {
     pub(super) policy: PolicyName,
-    pub(super) lifecycle: L,
+    pub(super) decision: D,
 }
 
 /// What a hook returned, as `hook_called` reports it.
@@ -33,15 +32,15 @@ trait Returned {
     fn lifecycle(&self) -> Option<Lifecycle>;
 }
 
-impl Returned for Option<OnSuccess> {
+impl Returned for OnSuccess {
     fn lifecycle(&self) -> Option<Lifecycle> {
-        self.clone().map(Lifecycle::from)
+        self.clone().lifecycle()
     }
 }
 
-impl Returned for Option<FailWorkflow> {
+impl Returned for OnFailure {
     fn lifecycle(&self) -> Option<Lifecycle> {
-        self.clone().map(Lifecycle::from)
+        self.clone().lifecycle()
     }
 }
 
@@ -83,10 +82,10 @@ impl<D: Delivery> Journey<D> {
             self.answer(&mut answers, &requesting, request, data_bag, left.as_ref())
                 .await?;
         }
-        let mut contributions = Contributed::default();
+        let mut contributions = Contributor::new();
         let returned = {
             let contributor = if needs.wants_contributor() {
-                Some(Contributor::new(&mut contributions))
+                Some(&mut contributions)
             } else {
                 None
             };

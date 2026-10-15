@@ -25,7 +25,7 @@ use crate::report::GlobalMetadata;
 /// struct Notify;
 ///
 /// impl Notify {
-///     fn failed(&self, order: String, mut reporter: HookReporter<'_>) -> Result<()> {
+///     fn failed(&self, order: String, mut reporter: HookReporter) -> Result<()> {
 ///         reporter.warning_with("the customer was told", order)?;
 ///         Ok(())
 ///     }

@@ -1,5 +1,5 @@
-error: every parameter of a hook after `&self` says what it requests, such as `#[from_step("receipt")]` or `#[reporter]`
+error: every parameter of a hook after `&self` is a handle, such as `&mut Contributor` or `Attempt`, or says what it requests, such as `#[from_step("receipt")]` or `#[role]`
   --> tests/ui/policy/an_unmarked_request.rs:31:23
    |
-31 |     fn checked(&self, receipt: Option<String>) -> Result<Option<OnSuccess>, Error> {
+31 |     fn checked(&self, receipt: Option<String>) -> Result<OnSuccess, Error> {
    |                       ^^^^^^^

@@ -1,5 +1,5 @@
 error: cannot find attribute `with_step` in this scope
-  --> tests/ui/workflow/with_step_above_workflow.rs:85:3
+  --> tests/ui/workflow/with_step_above_workflow.rs:84:3
    |
-85 | #[with_step(Charge, name = "charge again")]
+84 | #[with_step(Charge, name = "charge again")]
    |   ^^^^^^^^^

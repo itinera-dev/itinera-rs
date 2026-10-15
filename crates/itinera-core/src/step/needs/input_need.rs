@@ -1,6 +1,7 @@
 //! One input a step declares, and whether the step needs it.
 
-use crate::value::{AnyValue, Value};
+use crate::step::InputToken;
+use crate::value::AnyValue;
 
 /// Whether a step needs an input to be built, or may be built without it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -19,21 +20,16 @@ pub(crate) struct InputNeed {
 }
 
 impl InputNeed {
-    /// A value of type `T` under the key, without which nothing can be built.
-    pub(crate) fn required<T: Value>(key: &'static str) -> Self {
+    /// The input a token names: required for an `Input`, optional for an `OptionalInput`.
+    pub(crate) fn of<K: InputToken>(token: &K) -> Self {
         Self {
-            key,
-            requirement: Requirement::Required,
-            accepts: AnyValue::is::<T>,
-        }
-    }
-
-    /// A value of type `T` under the key, which may be absent.
-    pub(crate) fn optional<T: Value>(key: &'static str) -> Self {
-        Self {
-            key,
-            requirement: Requirement::Optional,
-            accepts: AnyValue::is::<T>,
+            key: token.key(),
+            requirement: if K::OPTIONAL {
+                Requirement::Optional
+            } else {
+                Requirement::Required
+            },
+            accepts: AnyValue::is::<K::Value>,
         }
     }
 

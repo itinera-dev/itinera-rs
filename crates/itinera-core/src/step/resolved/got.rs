@@ -12,7 +12,7 @@ pub(crate) struct Got<'a> {
     pub(super) rescued: FromRescued,
     #[debug(skip)]
     services: Vec<(&'static str, &'a Instance)>,
-    pub(super) contributor: Option<Contributor<'a>>,
+    pub(super) contributor: Option<&'a mut Contributor>,
     pub(super) reporting: Option<Reporting<'a>>,
 }
 
@@ -23,7 +23,7 @@ impl<'a> Got<'a> {
     pub(crate) fn new(
         inputs: impl IntoIterator<Item = (&'static str, Option<AnyValue>)>,
         rescued: FromRescued,
-        contributor: Option<Contributor<'a>>,
+        contributor: Option<&'a mut Contributor>,
         reporting: Option<Reporting<'a>>,
     ) -> Self {
         Self {
@@ -48,12 +48,8 @@ impl<'a> Got<'a> {
             .map(instance_of)
     }
 
-    pub(super) fn take(&mut self, key: &str) -> Option<AnyValue> {
+    pub(super) fn take(&mut self, key: &str) -> Option<Option<AnyValue>> {
         self.inputs.take(key)
-    }
-
-    pub(super) fn take_optional(&mut self, key: &str) -> Option<Option<AnyValue>> {
-        self.inputs.take_optional(key)
     }
 }
 

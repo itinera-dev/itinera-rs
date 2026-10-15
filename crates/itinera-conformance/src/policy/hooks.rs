@@ -7,7 +7,7 @@ use itinera::error::Error;
 use itinera::mode::{Asynchronous, Synchronous};
 use itinera::policy::{
     AsyncOnStepAbnormalTermination, AsyncOnStepFailure, AsyncOnStepRetry, AsyncOnStepSuccess,
-    AsyncOnWorkflowFailure, AsyncOnWorkflowSuccess, FailWorkflow, OnStepAbnormalTermination,
+    AsyncOnWorkflowFailure, AsyncOnWorkflowSuccess, OnFailure, OnStepAbnormalTermination,
     OnStepFailure, OnStepRetry, OnStepSuccess, OnSuccess, OnWorkflowFailure, OnWorkflowSuccess,
     Requested, StepAbnormalTermination, StepFailure, StepRetry, StepSuccess, WorkflowFailure,
     WorkflowSuccess,
@@ -20,7 +20,7 @@ impl OnStepSuccess<ScriptedWorkflow> for ScriptedPolicy {
     fn on_step_success(
         &self,
         got: Requested<'_, ScriptedWorkflow, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         block_on(self.run(got, Requested::<_, _, Synchronous>::reporter))
     }
 }
@@ -29,7 +29,7 @@ impl OnStepFailure<ScriptedWorkflow> for ScriptedPolicy {
     fn on_step_failure(
         &self,
         got: Requested<'_, ScriptedWorkflow, StepFailure>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         block_on(self.run(got, Requested::<_, _, Synchronous>::reporter))
     }
 }
@@ -38,7 +38,7 @@ impl OnStepRetry<ScriptedWorkflow> for ScriptedPolicy {
     fn on_step_retry(
         &self,
         got: Requested<'_, ScriptedWorkflow, StepRetry>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         block_on(self.run(got, Requested::<_, _, Synchronous>::reporter))
     }
 }
@@ -47,7 +47,7 @@ impl OnStepAbnormalTermination<ScriptedWorkflow> for ScriptedPolicy {
     fn on_step_abnormal_termination(
         &self,
         got: Requested<'_, ScriptedWorkflow, StepAbnormalTermination>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         block_on(self.run(got, Requested::<_, _, Synchronous>::reporter))
     }
 }
@@ -74,7 +74,7 @@ impl AsyncOnStepSuccess<ScriptedWorkflow> for ScriptedPolicy {
     fn on_step_success(
         &self,
         got: Requested<'_, ScriptedWorkflow, StepSuccess, Asynchronous>,
-    ) -> impl Future<Output = Result<Option<OnSuccess>, Error>> + Send {
+    ) -> impl Future<Output = Result<OnSuccess, Error>> + Send {
         self.run(got, Requested::<_, _, Asynchronous>::reporter)
     }
 }
@@ -83,7 +83,7 @@ impl AsyncOnStepFailure<ScriptedWorkflow> for ScriptedPolicy {
     fn on_step_failure(
         &self,
         got: Requested<'_, ScriptedWorkflow, StepFailure, Asynchronous>,
-    ) -> impl Future<Output = Result<Option<FailWorkflow>, Error>> + Send {
+    ) -> impl Future<Output = Result<OnFailure, Error>> + Send {
         self.run(got, Requested::<_, _, Asynchronous>::reporter)
     }
 }
@@ -92,7 +92,7 @@ impl AsyncOnStepRetry<ScriptedWorkflow> for ScriptedPolicy {
     fn on_step_retry(
         &self,
         got: Requested<'_, ScriptedWorkflow, StepRetry, Asynchronous>,
-    ) -> impl Future<Output = Result<Option<FailWorkflow>, Error>> + Send {
+    ) -> impl Future<Output = Result<OnFailure, Error>> + Send {
         self.run(got, Requested::<_, _, Asynchronous>::reporter)
     }
 }
@@ -101,7 +101,7 @@ impl AsyncOnStepAbnormalTermination<ScriptedWorkflow> for ScriptedPolicy {
     fn on_step_abnormal_termination(
         &self,
         got: Requested<'_, ScriptedWorkflow, StepAbnormalTermination, Asynchronous>,
-    ) -> impl Future<Output = Result<Option<FailWorkflow>, Error>> + Send {
+    ) -> impl Future<Output = Result<OnFailure, Error>> + Send {
         self.run(got, Requested::<_, _, Asynchronous>::reporter)
     }
 }

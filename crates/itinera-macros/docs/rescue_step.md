@@ -1,9 +1,11 @@
 Describes a rescue step from the block that holds its `run`, so that a workflow can give it to a step by its type. A rescue step has no name of its own: it runs under the name of the step it rescues followed by `_rescue`.
 
-`run` takes the rescue step by value, then the handles it uses while it runs, each marked with what it is, as a step's `run` does:
+`run` takes the rescue step by value, then the handles it uses while it runs, each recognised by its type, as a step's `run` does:
 
-- `#[contributor]` on a `Contributor<'_>`, to add data to the data bag;
-- `#[reporter]` on a `StepReporter<'_>`, or on an `AsyncStepReporter<'_>` in an asynchronous rescue step, to emit its own events.
+- a `&mut Contributor`, to add data to the data bag;
+- a `StepReporter`, or an `AsyncStepReporter<'_>` in an asynchronous rescue step, to emit its own events. An `async fn` must write that reporter's lifetime, as `AsyncStepReporter<'_>`; `StepReporter` needs none.
+
+The macro reads only the type as written, by the last segment of its path, so an alias of one of these types is not recognised.
 
 It returns `Result<RescueOutcome, Error>`. Every function of the block may use the shorthands for a rescue step's outcomes that `DescribedRescueStep` gives: `Self::succeed()` and `Self::fail("declined")`. A rescue step never skips, so there is no shorthand for it. A rescue step belongs only to steps of workflows of its own mode: an `async fn run` makes it asynchronous, which needs the `async` feature.
 
@@ -29,8 +31,8 @@ struct RefreshToken {
 impl RefreshToken {
     fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
-        #[reporter] mut reporter: StepReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: StepReporter,
     ) -> Result<RescueOutcome, Error> {
         if self.client.is_empty() {
             return Self::fail("no-client");

@@ -1,6 +1,6 @@
 use itinera::error::Error;
-use itinera::policy::{Provider, Requested};
-use itinera::service::{PerJourney, Service, ServiceProviderDescriptor};
+use itinera::policy::Requested;
+use itinera::service::{PerJourney, Provider, Service, ServiceProviderDescriptor};
 
 trait PaymentGateway: Send + Sync {}
 

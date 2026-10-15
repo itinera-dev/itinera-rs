@@ -1,7 +1,9 @@
 use itinera::error::Error;
 use itinera::mode::Asynchronous;
-use itinera::policy::{Provider, Requested};
-use itinera::service::{PerJourney, Provided, Service, ServiceProviderDescriptor, provide};
+use itinera::policy::Requested;
+use itinera::service::{
+    PerJourney, Provided, Provider, Service, ServiceProviderDescriptor, provide,
+};
 use itinera::workflow::WorkflowDescriptor;
 
 trait PaymentGateway: Send + Sync {}

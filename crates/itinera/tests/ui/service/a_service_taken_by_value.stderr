@@ -1,5 +1,5 @@
 error: a service is lent to the step, taken by shared reference, such as `&dyn PaymentGateway`
-  --> tests/ui/service/a_service_taken_by_value.rs:66:36
+  --> tests/ui/service/a_service_taken_by_value.rs:64:36
    |
-66 |     fn run(self, #[service] stock: Box<dyn StockStore>) -> Result<Outcome, Error> {
+64 |     fn run(self, #[service] stock: Box<dyn StockStore>) -> Result<Outcome, Error> {
    |                                    ^^^^^^^^^^^^^^^^^^^

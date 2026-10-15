@@ -26,7 +26,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    async fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    async fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         if let Some(token) = self.token {
             contributor.contribute("charged with", token);
             return Self::succeed();
@@ -45,7 +45,6 @@ impl Charge {
 struct Refresh {
     #[from_rescued_step("account")]
     account: Option<String>,
-    #[reason]
     reason: Option<Reason>,
 }
 
@@ -53,8 +52,8 @@ struct Refresh {
 impl Refresh {
     async fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
-        #[reporter] mut reporter: AsyncStepReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: AsyncStepReporter<'_>,
     ) -> Result<RescueOutcome, Error> {
         let Some(account) = self.account else {
             return Self::fail("no-account");
@@ -92,7 +91,7 @@ const ACCOUNT: OptionalInput<String> = OptionalInput::new("account");
 struct HandRefresh<'a> {
     account: Option<String>,
     reason: Option<Reason>,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     reporter: AsyncStepReporter<'a>,
 }
 
@@ -116,7 +115,7 @@ impl AsyncRescueFactory for RefreshFactory {
 
     fn needs(&self) -> RescueNeeds {
         RescueNeeds::new()
-            .optional_from_rescued_step(&ACCOUNT)
+            .from_rescued_step(&ACCOUNT)
             .optional_reason()
             .contributor()
             .reporter()
@@ -127,7 +126,7 @@ impl AsyncRescueFactory for RefreshFactory {
         got: &mut RescueResolved<'a, Asynchronous>,
     ) -> Result<HandRefresh<'a>, Error> {
         Ok(HandRefresh {
-            account: got.optional_from_rescued_step(&ACCOUNT)?,
+            account: got.from_rescued_step(&ACCOUNT)?,
             reason: got.optional_reason()?,
             contributor: got.contributor()?,
             reporter: got.reporter()?,

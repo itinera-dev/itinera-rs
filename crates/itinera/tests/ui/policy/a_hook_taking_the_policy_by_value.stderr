@@ -1,5 +1,5 @@
 error: a hook takes the policy as `&self`
   --> tests/ui/policy/a_hook_taking_the_policy_by_value.rs:31:5
    |
-31 |     fn checked(self, #[from_step] receipt: Option<String>) -> Result<Option<OnSuccess>, Error> {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+31 |     fn checked(self, #[from_step] receipt: Option<String>) -> Result<OnSuccess, Error> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

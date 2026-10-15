@@ -1,9 +1,11 @@
 Describes a step from the block that holds its `run`, so that a workflow can list the step by its type, under the name the workflow gives it.
 
-`run` takes the step by value, then the handles it uses while it runs, each marked with what it is:
+`run` takes the step by value, then the handles it uses while it runs, each recognised by its type:
 
-- `#[contributor]` on a `Contributor<'_>`, to add data to the data bag;
-- `#[reporter]` on a `StepReporter<'_>`, or on an `AsyncStepReporter<'_>` in an asynchronous step, to emit the step's own events.
+- a `&mut Contributor`, to add data to the data bag;
+- a `StepReporter`, or an `AsyncStepReporter<'_>` in an asynchronous step, to emit the step's own events. An `async fn` must write that reporter's lifetime, as `AsyncStepReporter<'_>`; `StepReporter` needs none.
+
+The macro reads only the type as written, by the last segment of its path, so an alias of one of these types is not recognised.
 
 It returns `Result<Outcome, Error>`. Every function of the block may use the shorthands for the step's outcomes that `DescribedStep` gives, such as `Self::succeed()`, `Self::fail("declined")`, `Self::skip()` and `Self::skip_because(...)`. A step belongs only to workflows of its own mode: an `async fn run` makes it asynchronous, which needs the `async` feature.
 
@@ -30,8 +32,8 @@ struct Charge {
 impl Charge {
     fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
-        #[reporter] mut reporter: StepReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: StepReporter,
     ) -> Result<Outcome, Error> {
         if self.amount <= 0 {
             return Self::fail("nothing-to-charge");
@@ -67,7 +69,7 @@ impl Ship {
         Ok(Self { gift_note })
     }
 
-    async fn run(self, #[reporter] mut reporter: AsyncStepReporter<'_>) -> Result<Outcome, Error> {
+    async fn run(self, mut reporter: AsyncStepReporter<'_>) -> Result<Outcome, Error> {
         match self.gift_note {
             Some(note) => reporter.info_with("gift note", note).await?,
             None => return Self::skip_because("no-gift-note"),

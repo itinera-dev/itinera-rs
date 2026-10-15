@@ -1,10 +1,7 @@
 //! What a rescue step declares it needs.
 
 use crate::service::Service;
-use crate::step::{
-    Input, InputNeed, OptionalInput, Requirement, RescueRequest, StepNeeds, StepRequest,
-};
-use crate::value::Value;
+use crate::step::{InputNeed, InputToken, Requirement, RescueRequest, StepNeeds, StepRequest};
 
 /// Everything a rescue step declares it needs, which the executor resolves before it is built:
 /// its inputs, from the input adapter attached to its name or else the data bag, what the failed
@@ -26,7 +23,7 @@ use crate::value::Value;
 ///
 /// let needs = RescueNeeds::new()
 ///     .input(&CLIENT)
-///     .optional_from_rescued_step(&ACCOUNT)
+///     .from_rescued_step(&ACCOUNT)
 ///     .reason()
 ///     .contributor();
 /// ```
@@ -49,72 +46,49 @@ impl RescueNeeds {
         Self::default()
     }
 
-    /// Declares a required input, after what is already declared. The input adapter attached to
-    /// the rescue step's name supplies it, if there is one and it returns a value; otherwise it
-    /// is read from the data bag. An adapter attached to the step it rescues is never asked.
+    /// Declares an input, after what is already declared: required for an [`Input`], optional
+    /// for an [`OptionalInput`]. The input adapter attached to the rescue step's name supplies
+    /// it, if there is one and it returns a value; otherwise it is read from the data bag. An
+    /// adapter attached to the step it rescues is never asked.
+    ///
+    /// [`Input`]: crate::step::Input
+    /// [`OptionalInput`]: crate::step::OptionalInput
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{Input, RescueNeeds};
+    /// use itinera::step::{Input, OptionalInput, RescueNeeds};
     ///
-    /// let needs = RescueNeeds::new().input(&Input::<String>::new("client"));
+    /// let needs = RescueNeeds::new()
+    ///     .input(&Input::<String>::new("client"))
+    ///     .input(&OptionalInput::<String>::new("region"));
     /// ```
-    pub fn input<T: Value>(self, input: &Input<T>) -> Self {
+    pub fn input(self, input: &impl InputToken) -> Self {
         Self {
             needs: self.needs.input(input),
         }
     }
 
-    /// Declares an optional input, after what is already declared, resolved as a required one is.
+    /// Needs data from the step it rescues: the value of the input's type its failed attempt
+    /// contributed under the input's key, which was never committed. Without it, the journey is
+    /// aborted with `required data missing` before the rescue step is built, for an [`Input`]; for
+    /// an [`OptionalInput`], the rescue step receives `None`, and `optional_input_absent` is
+    /// emitted.
+    ///
+    /// [`Input`]: crate::step::Input
+    /// [`OptionalInput`]: crate::step::OptionalInput
     ///
     /// # Examples
     ///
     /// ```
-    /// use itinera::step::{OptionalInput, RescueNeeds};
+    /// use itinera::step::{Input, OptionalInput, RescueNeeds};
     ///
-    /// let needs = RescueNeeds::new().optional_input(&OptionalInput::<String>::new("region"));
+    /// let needs = RescueNeeds::new()
+    ///     .from_rescued_step(&Input::<String>::new("account"))
+    ///     .from_rescued_step(&OptionalInput::<String>::new("note"));
     /// ```
-    pub fn optional_input<T: Value>(self, input: &OptionalInput<T>) -> Self {
-        Self {
-            needs: self.needs.optional_input(input),
-        }
-    }
-
-    /// Needs data from the step it rescues: the value of type `T` its failed attempt contributed
-    /// under the input's key, which was never committed. Without it, the journey is aborted with
-    /// `required data missing` before the rescue step is built.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::step::{Input, RescueNeeds};
-    ///
-    /// let needs = RescueNeeds::new().from_rescued_step(&Input::<String>::new("account"));
-    /// ```
-    pub fn from_rescued_step<T: Value>(self, input: &Input<T>) -> Self {
-        let need = InputNeed::required::<T>(input.key);
-        Self {
-            needs: self
-                .needs
-                .request(StepRequest::Rescued(RescueRequest::FromRescuedStep(need))),
-        }
-    }
-
-    /// May use data from the step it rescues: the value of type `T` its failed attempt
-    /// contributed under the input's key, if it did. Without it, the rescue step receives `None`,
-    /// and `optional_input_absent` is emitted.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::step::{OptionalInput, RescueNeeds};
-    ///
-    /// let needs =
-    ///     RescueNeeds::new().optional_from_rescued_step(&OptionalInput::<String>::new("account"));
-    /// ```
-    pub fn optional_from_rescued_step<T: Value>(self, input: &OptionalInput<T>) -> Self {
-        let need = InputNeed::optional::<T>(input.key);
+    pub fn from_rescued_step(self, input: &impl InputToken) -> Self {
+        let need = InputNeed::of(input);
         Self {
             needs: self
                 .needs

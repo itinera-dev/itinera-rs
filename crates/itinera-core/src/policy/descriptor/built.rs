@@ -6,8 +6,8 @@ use std::future::ready;
 use super::HookCall;
 use super::calls::{StepCalls, WorkflowCalls};
 use crate::policy::{
-    FailWorkflow, OnSuccess, Requested, StepAbnormalTermination, StepFailure, StepRetry,
-    StepSuccess, WorkflowFailure, WorkflowSuccess,
+    OnFailure, OnSuccess, Requested, StepAbnormalTermination, StepFailure, StepRetry, StepSuccess,
+    WorkflowFailure, WorkflowSuccess,
 };
 
 /// An instance of a step policy, built for one attempt, whose hooks the executor calls.
@@ -15,22 +15,19 @@ pub(crate) trait BuiltStepPolicy<W, M>: Send + Sync {
     fn on_step_success<'a>(
         &'a self,
         got: Requested<'a, W, StepSuccess, M>,
-    ) -> HookCall<'a, Option<OnSuccess>>;
+    ) -> HookCall<'a, OnSuccess>;
 
     fn on_step_failure<'a>(
         &'a self,
         got: Requested<'a, W, StepFailure, M>,
-    ) -> HookCall<'a, Option<FailWorkflow>>;
+    ) -> HookCall<'a, OnFailure>;
 
-    fn on_step_retry<'a>(
-        &'a self,
-        got: Requested<'a, W, StepRetry, M>,
-    ) -> HookCall<'a, Option<FailWorkflow>>;
+    fn on_step_retry<'a>(&'a self, got: Requested<'a, W, StepRetry, M>) -> HookCall<'a, OnFailure>;
 
     fn on_step_abnormal_termination<'a>(
         &'a self,
         got: Requested<'a, W, StepAbnormalTermination, M>,
-    ) -> HookCall<'a, Option<FailWorkflow>>;
+    ) -> HookCall<'a, OnFailure>;
 }
 
 /// A built policy, with how to call each hook it defines.
@@ -46,7 +43,7 @@ where
     fn on_step_success<'a>(
         &'a self,
         got: Requested<'a, W, StepSuccess, M>,
-    ) -> HookCall<'a, Option<OnSuccess>> {
+    ) -> HookCall<'a, OnSuccess> {
         match self.calls.success {
             Some(call) => call(&self.policy, got),
             None => nothing(),
@@ -56,17 +53,14 @@ where
     fn on_step_failure<'a>(
         &'a self,
         got: Requested<'a, W, StepFailure, M>,
-    ) -> HookCall<'a, Option<FailWorkflow>> {
+    ) -> HookCall<'a, OnFailure> {
         match self.calls.failure {
             Some(call) => call(&self.policy, got),
             None => nothing(),
         }
     }
 
-    fn on_step_retry<'a>(
-        &'a self,
-        got: Requested<'a, W, StepRetry, M>,
-    ) -> HookCall<'a, Option<FailWorkflow>> {
+    fn on_step_retry<'a>(&'a self, got: Requested<'a, W, StepRetry, M>) -> HookCall<'a, OnFailure> {
         match self.calls.retry {
             Some(call) => call(&self.policy, got),
             None => nothing(),
@@ -76,7 +70,7 @@ where
     fn on_step_abnormal_termination<'a>(
         &'a self,
         got: Requested<'a, W, StepAbnormalTermination, M>,
-    ) -> HookCall<'a, Option<FailWorkflow>> {
+    ) -> HookCall<'a, OnFailure> {
         match self.calls.abnormal_termination {
             Some(call) => call(&self.policy, got),
             None => nothing(),

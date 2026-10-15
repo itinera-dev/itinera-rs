@@ -1,12 +1,15 @@
-//! What a hook returns: the lifecycle that decides what happens next.
+//! What a step hook returns, to keep the default or to decide what happens next with a lifecycle.
+
+mod on_failure;
+mod on_success;
+
+pub use on_failure::OnFailure;
+pub use on_success::OnSuccess;
 
 use crate::step::Reason;
 
-mod returned;
-
-pub use returned::ReturnedLifecycle;
-
-/// A lifecycle a hook returned, which decides what happens next.
+/// A lifecycle a hook returned, which decides what happens next, as the `hook_called` event
+/// records it.
 ///
 /// It displays as the lifecycle is named, for example `FailWorkflow`.
 ///
@@ -21,104 +24,29 @@ pub use returned::ReturnedLifecycle;
 ///
 /// assert_eq!(Lifecycle::FinishWorkflow.to_string(), "FinishWorkflow");
 /// ```
-#[derive(Clone, Debug, derive_more::Display, derive_more::From)]
+#[derive(Clone, Debug, derive_more::Display)]
 #[non_exhaustive]
 pub enum Lifecycle {
     /// The journey succeeds at once.
     FinishWorkflow,
     /// The journey fails at once, with this reason.
     #[display("FailWorkflow")]
-    #[from(FailWorkflow)]
     FailWorkflow(Reason),
-}
-
-/// What `on step success` may return: a lifecycle that ends the journey at once.
-///
-/// Returning `None` instead goes on to the next step, or succeeds the journey after the last.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::policy::OnSuccess;
-/// use itinera::step::Reason;
-///
-/// fn ends_without_the_steps_left(returned: &OnSuccess) -> bool {
-///     matches!(returned, OnSuccess::FinishWorkflow)
-/// }
-///
-/// assert!(ends_without_the_steps_left(&OnSuccess::FinishWorkflow));
-/// assert!(!ends_without_the_steps_left(&OnSuccess::FailWorkflow(Reason::new("refused"))));
-/// ```
-#[derive(Clone, Debug, derive_more::From)]
-#[non_exhaustive]
-pub enum OnSuccess {
-    /// The journey succeeds at once, and the steps left are not run.
-    FinishWorkflow,
-    /// The journey fails at once, with this reason. The step stays succeeded.
-    #[from(FailWorkflow)]
-    FailWorkflow(Reason),
-}
-
-/// The lifecycle `on step failure`, `on step retry` and `on step abnormal termination` may
-/// return: the journey fails at once, with this reason.
-///
-/// Returning `None` instead keeps the default: the journey fails with the step's own failure
-/// after `on step failure`, and the step is tried again or given up after the two others.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::policy::FailWorkflow;
-/// use itinera::step::Reason;
-///
-/// let fail = FailWorkflow::from(Reason::new("fraud").with_message("the card is blocked"));
-/// let reason: Reason = fail.into();
-/// assert_eq!(reason.code(), "fraud");
-/// ```
-#[derive(Clone, Debug, derive_more::From, derive_more::Into)]
-pub struct FailWorkflow {
-    reason: Reason,
-}
-
-impl FailWorkflow {
-    /// The reason the journey fails with.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::policy::FailWorkflow;
-    /// use itinera::step::Reason;
-    ///
-    /// let fail = FailWorkflow::from(Reason::new("fraud"));
-    /// assert_eq!(fail.reason().code(), "fraud");
-    /// ```
-    #[must_use]
-    pub fn reason(&self) -> &Reason {
-        &self.reason
-    }
-}
-
-impl From<OnSuccess> for Lifecycle {
-    fn from(returned: OnSuccess) -> Self {
-        match returned {
-            OnSuccess::FinishWorkflow => Self::FinishWorkflow,
-            OnSuccess::FailWorkflow(reason) => Self::FailWorkflow(reason),
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
 
-    #[test]
-    fn lifecycles_display_as_the_specification_writes_them() {
-        assert_eq!(Lifecycle::FinishWorkflow.to_string(), "FinishWorkflow");
-    }
-
-    #[test]
-    fn failing_the_workflow_on_step_success_keeps_the_reason() {
-        let returned = OnSuccess::from(FailWorkflow::from(Reason::new("fraud")));
-        assert!(matches!(returned, OnSuccess::FailWorkflow(reason) if reason.code() == "fraud"));
+    #[rstest]
+    #[case::finish_workflow(Lifecycle::FinishWorkflow, "FinishWorkflow")]
+    #[case::fail_workflow(Lifecycle::FailWorkflow(Reason::new("fraud")), "FailWorkflow")]
+    fn lifecycles_display_as_the_specification_writes_them(
+        #[case] lifecycle: Lifecycle,
+        #[case] written: &str,
+    ) {
+        assert_eq!(lifecycle.to_string(), written);
     }
 }

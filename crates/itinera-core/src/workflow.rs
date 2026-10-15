@@ -28,18 +28,21 @@ pub(crate) mod fixtures;
 mod input_adapter;
 mod listing;
 mod name;
+mod role;
+mod supplied;
 mod violation;
 
 use declaration::Declaration;
-use input_adapter::attached_to;
 
 pub use builder::WorkflowBuilder;
 pub use described::Workflow;
-pub use input_adapter::InputAdapterDescriptor;
+pub use input_adapter::{InputAdapter, InputAdapterDescriptor};
 #[cfg(feature = "macros")]
 pub use itinera_macros::{role, workflow};
 pub use listing::{ListedRescue, ListedService, ListedStep};
 pub use name::{AdapterName, WorkflowName};
+pub use role::Provides;
+pub use supplied::Supplied;
 pub use violation::{Violation, ViolationKind, Violations};
 
 /// A workflow's declaration: its name, its step descriptors in order, its workflow policies, its
@@ -125,7 +128,10 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
 
     /// The input adapter attached to the step, if it has one.
     pub(crate) fn adapter(&self, step: StepName) -> Option<&InputAdapterDescriptor<W>> {
-        attached_to(&self.declaration.adapters, step)
+        self.declaration
+            .adapters
+            .iter()
+            .find(|adapter| adapter.is_attached_to(step))
     }
 
     /// The journey ID for a new instance: the workflow's generator's, or a UUID v4.

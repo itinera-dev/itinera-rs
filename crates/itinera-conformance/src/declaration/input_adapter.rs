@@ -1,11 +1,11 @@
 //! The scenario's input adapters, declared with their scripted answers.
 
 use itinera::error::Error;
-use itinera::journey::{DataBag, DataBagAccess, Read};
-use itinera::policy::{HookNeeds, InputAdapter, Requested};
+use itinera::journey::{DataBag, Read};
+use itinera::policy::{HookNeeds, Requested};
 use itinera::step::StepName;
-use itinera::value::{AnyValue, Value as Storable};
-use itinera::workflow::InputAdapterDescriptor;
+use itinera::value::Value as Storable;
+use itinera::workflow::{InputAdapter, InputAdapterDescriptor, Supplied};
 
 use super::{ScriptedWorkflow, leaked, step_name};
 use crate::model::{Adapter, Answer, ModelError, ValueType};
@@ -90,70 +90,68 @@ impl Answering {
 fn answer(
     answers: &[Answering],
     got: &mut Requested<'_, ScriptedWorkflow, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
+) -> Result<Supplied, Error> {
     let key = got.key();
     let step = got.step_name();
     answered(answers, key, step, || got.data_bag())
 }
 
 /// What the adapter answers when a test calls it alone for the input `key` of the step, with
-/// the read access a data bag of its own lends.
+/// reading a data bag of its own.
 pub(crate) fn answer_alone(
     adapter: &Adapter,
     key: &str,
     step: &str,
     bag: &DataBag,
-) -> Result<Result<Option<AnyValue>, Error>, ModelError> {
+) -> Result<Result<Supplied, Error>, ModelError> {
     let answers = adapter
         .answers
         .iter()
         .map(Answering::of)
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(answered(&answers, key, step_name(step)?, || {
-        Ok(bag.access())
-    }))
+    Ok(answered(&answers, key, step_name(step)?, || Ok(bag)))
 }
 
-/// What the adapter answers for the input `key` of the step, reading the data bag through the
-/// access `access` gives, when its answer reads it.
+/// What the adapter answers for the input `key` of the step, reading the data bag `data_bag`
+/// gives, when its answer reads it.
 fn answered<'a>(
     answers: &[Answering],
     key: &str,
     step: StepName,
-    access: impl FnOnce() -> Result<DataBagAccess<'a>, Error>,
-) -> Result<Option<AnyValue>, Error> {
+    data_bag: impl FnOnce() -> Result<&'a DataBag, Error>,
+) -> Result<Supplied, Error> {
     let answered = answers
         .iter()
         .find(|answering| answering.is_for(key))
         .map(|answering| &answering.answer);
     match answered {
-        Some(Answered::Value(value)) => Ok(Some(value.clone().erased())),
+        Some(Answered::Value(value)) => Ok(Supplied::Value(value.clone().erased())),
         Some(Answered::Fails(message)) => Err(Error::msg(message.clone())),
         Some(Answered::ReadFromDataBag(key, value_type)) => Ok(for_type(
             *value_type,
             Reading {
-                access: access()?,
+                data_bag: data_bag()?,
                 key,
             },
         )),
-        Some(Answered::StepName) => Ok(Some(AnyValue::new(step.to_string()))),
-        Some(Answered::Nothing) | None => Ok(None),
+        Some(Answered::StepName) => Ok(Supplied::value(step.to_string())),
+        Some(Answered::Nothing) | None => Ok(Supplied::FromDataBag),
     }
 }
 
-/// Reads a key through an adapter's access to the data bag, as one type.
+/// Reads a key of the data bag, as one type.
 struct Reading<'a, 'k> {
-    access: DataBagAccess<'a>,
+    data_bag: &'a DataBag,
     key: &'k str,
 }
 
 impl ForType for Reading<'_, '_> {
-    type Output = Option<AnyValue>;
+    type Output = Supplied;
 
-    fn of<T: Storable>(self) -> Option<AnyValue> {
-        match self.access.read::<T>(self.key) {
-            Read::Present(value) => Some(AnyValue::new(value)),
-            Read::Absent | Read::OtherType => None,
+    fn of<T: Storable>(self) -> Supplied {
+        match self.data_bag.read::<T>(self.key) {
+            Read::Present(value) => Supplied::value(value),
+            Read::Absent | Read::OtherType => Supplied::FromDataBag,
         }
     }
 }

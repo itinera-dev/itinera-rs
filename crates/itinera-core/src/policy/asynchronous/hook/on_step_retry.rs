@@ -4,7 +4,7 @@ use std::future::Future;
 
 use crate::error::Error;
 use crate::mode::Asynchronous;
-use crate::policy::{FailWorkflow, HookNeeds, Requested, StepRetry};
+use crate::policy::{HookNeeds, OnFailure, Requested, StepRetry};
 
 /// `on step retry` of an asynchronous workflow's policy. Everything
 /// [`OnStepRetry`](crate::policy::OnStepRetry) says applies to it.
@@ -14,7 +14,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepRetry};
 /// ```
 /// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
-/// use itinera::policy::{AsyncOnStepRetry, FailWorkflow, Requested, StepRetry};
+/// use itinera::policy::{AsyncOnStepRetry, OnFailure, Requested, StepRetry};
 ///
 /// struct Patience;
 ///
@@ -22,9 +22,9 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepRetry};
 ///     async fn on_step_retry(
 ///         &self,
 ///         got: Requested<'_, W, StepRetry, Asynchronous>,
-///     ) -> Result<Option<FailWorkflow>> {
+///     ) -> Result<OnFailure> {
 ///         println!("{} is attempted again", got.step_name());
-///         Ok(None)
+///         Ok(OnFailure::KeepDefault)
 ///     }
 /// }
 /// ```
@@ -55,17 +55,17 @@ pub trait AsyncOnStepRetry<W>: Send + Sync + 'static {
     /// ```
     /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
-    /// use itinera::policy::{AsyncOnStepRetry, FailWorkflow, Requested, StepRetry};
+    /// use itinera::policy::{AsyncOnStepRetry, OnFailure, Requested, StepRetry};
     ///
     /// async fn decide<P: AsyncOnStepRetry<()>>(
     ///     policy: &P,
     ///     got: Requested<'_, (), StepRetry, Asynchronous>,
-    /// ) -> Result<Option<FailWorkflow>> {
+    /// ) -> Result<OnFailure> {
     ///     policy.on_step_retry(got).await
     /// }
     /// ```
     fn on_step_retry(
         &self,
         got: Requested<'_, W, StepRetry, Asynchronous>,
-    ) -> impl Future<Output = Result<Option<FailWorkflow>, Error>> + Send;
+    ) -> impl Future<Output = Result<OnFailure, Error>> + Send;
 }

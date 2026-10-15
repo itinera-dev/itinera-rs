@@ -6,16 +6,12 @@ use itinera::journey::Contributor;
 use itinera::mode::{Asynchronous, Synchronous};
 use itinera::service::Service;
 use itinera::step::{
-    AsyncStepReporter, Input, OptionalInput, RescueNeeds, RescueResolved, Resolved, StepNeeds,
-    StepReporter,
+    AsyncStepReporter, InputToken, RescueNeeds, RescueResolved, Resolved, StepNeeds, StepReporter,
 };
-use itinera::value::Value as Storable;
 
 /// What declares a step's inputs and services: a step's needs or a rescue step's.
 pub(super) trait Needs: Sized {
-    fn input<T: Storable>(self, input: &Input<T>) -> Self;
-
-    fn optional_input<T: Storable>(self, input: &OptionalInput<T>) -> Self;
+    fn input(self, input: &impl InputToken) -> Self;
 
     fn service<T: ?Sized + Send + Sync + 'static>(self, service: &Service<T>) -> Self;
 }
@@ -24,12 +20,8 @@ pub(super) trait Needs: Sized {
 macro_rules! needs {
     ($needs:ident) => {
         impl Needs for $needs {
-            fn input<T: Storable>(self, input: &Input<T>) -> Self {
+            fn input(self, input: &impl InputToken) -> Self {
                 Self::input(self, input)
-            }
-
-            fn optional_input<T: Storable>(self, input: &OptionalInput<T>) -> Self {
-                Self::optional_input(self, input)
             }
 
             fn service<T: ?Sized + Send + Sync + 'static>(self, service: &Service<T>) -> Self {
@@ -48,14 +40,11 @@ pub(super) trait Builds<'a> {
     /// The step reporter of the workflow's mode.
     type Reporter;
 
-    fn input<T: Storable>(&mut self, input: &Input<T>) -> Result<T, Error>;
-
-    fn optional_input<T: Storable>(&mut self, input: &OptionalInput<T>)
-    -> Result<Option<T>, Error>;
+    fn input<K: InputToken>(&mut self, input: &K) -> Result<K::Given, Error>;
 
     fn service<T: ?Sized + 'static>(&self, service: &Service<T>) -> Result<&'a T, Error>;
 
-    fn contributor(&mut self) -> Result<Contributor<'a>, Error>;
+    fn contributor(&mut self) -> Result<&'a mut Contributor, Error>;
 
     fn reporter(&mut self) -> Result<Self::Reporter, Error>;
 }
@@ -66,22 +55,15 @@ macro_rules! builds {
         impl<'a> Builds<'a> for $resolved<'a, $mode> {
             type Reporter = $reporter<'a>;
 
-            fn input<T: Storable>(&mut self, input: &Input<T>) -> Result<T, Error> {
+            fn input<K: InputToken>(&mut self, input: &K) -> Result<K::Given, Error> {
                 Self::input(self, input)
-            }
-
-            fn optional_input<T: Storable>(
-                &mut self,
-                input: &OptionalInput<T>,
-            ) -> Result<Option<T>, Error> {
-                Self::optional_input(self, input)
             }
 
             fn service<T: ?Sized + 'static>(&self, service: &Service<T>) -> Result<&'a T, Error> {
                 Self::service(self, service)
             }
 
-            fn contributor(&mut self) -> Result<Contributor<'a>, Error> {
+            fn contributor(&mut self) -> Result<&'a mut Contributor, Error> {
                 Self::contributor(self)
             }
 

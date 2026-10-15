@@ -25,8 +25,12 @@ use crate::policy::{HookNeeds, OnSuccess, Requested, StepSuccess};
 ///     async fn on_step_success(
 ///         &self,
 ///         got: Requested<'_, W, StepSuccess, Asynchronous>,
-///     ) -> Result<Option<OnSuccess>> {
-///         Ok((got.step_name() == CHARGE).then_some(OnSuccess::FinishWorkflow))
+///     ) -> Result<OnSuccess> {
+///         Ok(if got.step_name() == CHARGE {
+///             OnSuccess::FinishWorkflow
+///         } else {
+///             OnSuccess::KeepDefault
+///         })
 ///     }
 /// }
 /// ```
@@ -62,12 +66,12 @@ pub trait AsyncOnStepSuccess<W>: Send + Sync + 'static {
     /// async fn decide<P: AsyncOnStepSuccess<()>>(
     ///     policy: &P,
     ///     got: Requested<'_, (), StepSuccess, Asynchronous>,
-    /// ) -> Result<Option<OnSuccess>> {
+    /// ) -> Result<OnSuccess> {
     ///     policy.on_step_success(got).await
     /// }
     /// ```
     fn on_step_success(
         &self,
         got: Requested<'_, W, StepSuccess, Asynchronous>,
-    ) -> impl Future<Output = Result<Option<OnSuccess>, Error>> + Send;
+    ) -> impl Future<Output = Result<OnSuccess, Error>> + Send;
 }

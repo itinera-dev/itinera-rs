@@ -22,6 +22,7 @@ mod path;
 /// # Examples
 ///
 /// ```
+/// use itinera::event::{Event, EventKind};
 /// use itinera::executor::LocalExecutor;
 /// use itinera::report::RecordingReporter;
 /// use itinera::step::{Outcome, StepDescriptor, step_name};
@@ -35,10 +36,15 @@ mod path;
 /// let recorder = RecordingReporter::default();
 /// let instance = orders.instance(Orders).reporter(recorder.clone()).create()?;
 /// LocalExecutor::new().run(instance)?;
-/// let kinds: Vec<_> = recorder.events().iter().map(|event| event.kind()).collect();
+/// let kinds: Vec<_> = recorder.events().iter().map(Event::kind).collect();
 /// assert_eq!(
 ///     kinds,
-///     ["journey_started", "attempt_started", "step_succeeded", "journey_succeeded"]
+///     [
+///         EventKind::JourneyStarted,
+///         EventKind::AttemptStarted,
+///         EventKind::StepSucceeded,
+///         EventKind::JourneySucceeded,
+///     ]
 /// );
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
@@ -190,6 +196,7 @@ impl Reporter for RecordingReporter {
 mod tests {
     use super::*;
     use crate::engine::fixtures::CHARGE;
+    use crate::event::EventKind;
     use crate::executor::LocalExecutor;
     use crate::report::fixtures::started;
     use crate::step::{Outcome, RescueOutcome, StepDescriptor};
@@ -205,7 +212,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             kept.events().iter().map(Event::kind).collect::<Vec<_>>(),
-            ["journey_started"]
+            [EventKind::JourneyStarted]
         );
         assert!(kept.global_metadata().get("tenant").is_some());
     }

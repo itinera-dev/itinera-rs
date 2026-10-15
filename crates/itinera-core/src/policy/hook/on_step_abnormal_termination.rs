@@ -1,23 +1,20 @@
 //! The synchronous `on step abnormal termination` hook.
 
 use crate::error::Error;
-use crate::policy::{FailWorkflow, HookNeeds, Requested, StepAbnormalTermination};
+use crate::policy::{HookNeeds, OnFailure, Requested, StepAbnormalTermination};
 
 /// `on step abnormal termination`, called first after an attempt that ended in an abnormal
 /// termination, before the step is retried or given up.
 ///
-/// Returning `None` keeps the step's own rule; `FailWorkflow` gives the step up and fails the
-/// journey with its reason, without calling `on step failure`. An `Err` aborts the journey with
-/// `hook failed`.
+/// Returning [`OnFailure::KeepDefault`] keeps the step's own rule; `FailWorkflow` gives the step up
+/// and fails the journey with its reason, without calling `on step failure`. An `Err` aborts the
+/// journey with `hook failed`.
 ///
 /// # Examples
 ///
 /// ```
 /// use itinera::error::Result;
-/// use itinera::policy::{
-///     FailWorkflow, OnStepAbnormalTermination, Requested, StepAbnormalTermination,
-/// };
-/// use itinera::step::Reason;
+/// use itinera::policy::{OnFailure, OnStepAbnormalTermination, Requested, StepAbnormalTermination};
 ///
 /// struct NeverRetryCrashes;
 ///
@@ -25,8 +22,8 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepAbnormalTermination}
 ///     fn on_step_abnormal_termination(
 ///         &self,
 ///         _got: Requested<'_, W, StepAbnormalTermination>,
-///     ) -> Result<Option<FailWorkflow>> {
-///         Ok(Some(FailWorkflow::from(Reason::new("crashed"))))
+///     ) -> Result<OnFailure> {
+///         Ok(OnFailure::fail_workflow("crashed"))
 ///     }
 /// }
 /// ```
@@ -57,7 +54,7 @@ pub trait OnStepAbnormalTermination<W>: Send + Sync + 'static {
     /// ```
     /// use itinera::error::Result;
     /// use itinera::policy::{
-    ///     FailWorkflow, HookNeeds, OnStepAbnormalTermination, Requested, StepAbnormalTermination,
+    ///     HookNeeds, OnFailure, OnStepAbnormalTermination, Requested, StepAbnormalTermination,
     /// };
     ///
     /// struct Log;
@@ -70,14 +67,14 @@ pub trait OnStepAbnormalTermination<W>: Send + Sync + 'static {
     ///     fn on_step_abnormal_termination(
     ///         &self,
     ///         mut got: Requested<'_, W, StepAbnormalTermination>,
-    ///     ) -> Result<Option<FailWorkflow>> {
+    ///     ) -> Result<OnFailure> {
     ///         println!("{} crashed: {}", got.step_name(), got.error()?);
-    ///         Ok(None)
+    ///         Ok(OnFailure::KeepDefault)
     ///     }
     /// }
     /// ```
     fn on_step_abnormal_termination(
         &self,
         got: Requested<'_, W, StepAbnormalTermination>,
-    ) -> Result<Option<FailWorkflow>, Error>;
+    ) -> Result<OnFailure, Error>;
 }

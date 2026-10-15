@@ -1,5 +1,5 @@
-error: `#[reason]` is requested only by `on step failure` and `on step retry`
-  --> tests/ui/policy/a_request_its_hook_may_not_make.rs:31:23
+error: the reason is requested only by `on step failure` and `on step retry`
+  --> tests/ui/policy/a_request_its_hook_may_not_make.rs:31:32
    |
-31 |     fn checked(&self, #[reason] receipt: Option<Reason>) -> Result<Option<OnSuccess>, Error> {
-   |                       ^^^^^^^^^
+31 |     fn checked(&self, receipt: Option<Reason>) -> Result<OnSuccess, Error> {
+   |                                ^^^^^^^^^^^^^^

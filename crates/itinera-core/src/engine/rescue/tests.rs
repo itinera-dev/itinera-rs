@@ -7,18 +7,17 @@ use crate::engine::fixtures::{
     travel, travel_before, travel_workflow,
 };
 use crate::error::Error;
-use crate::event::{Event, EventBody};
+use crate::event::{Event, EventBody, EventKind};
 use crate::journey::{
     Abort, Contributor, FailureCause, FailureRequester, JourneyStatus, MissingData,
 };
-use crate::policy::{InputAdapter, Requested};
+use crate::policy::Requested;
 use crate::step::{
     OptionalInput, Outcome, Reason, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved,
     RescueStep, StepDescriptor, StepName,
 };
-use crate::value::AnyValue;
-use crate::workflow::InputAdapterDescriptor;
 use crate::workflow::fixtures::{Orders, orders};
+use crate::workflow::{InputAdapter, InputAdapterDescriptor, Supplied};
 
 const RESCUE: StepName = StepName::new("charge_rescue");
 const ATTEMPT: OptionalInput<i64> = OptionalInput::new("attempt");
@@ -45,18 +44,18 @@ fn failed_step(event: &Event) -> Option<(StepName, FailureCause)> {
 }
 
 #[rstest]
-#[case::a_failure(rescued(&[declined]), "step_failed")]
+#[case::a_failure(rescued(&[declined]), EventKind::StepFailed)]
 #[case::an_abnormal_termination_the_step_would_retry(
     rescued(&[crashed]),
-    "step_abnormal_termination"
+    EventKind::StepAbnormalTermination
 )]
 #[case::an_abnormal_termination_the_step_does_not_retry(
     rescued(&[crashed]).no_retry_on_abnormal_termination(),
-    "step_abnormal_termination"
+    EventKind::StepAbnormalTermination
 )]
 fn a_failed_first_attempt_is_rescued_then_the_step_is_attempted_again(
     #[case] charge: StepDescriptor<Orders>,
-    #[case] fact: &str,
+    #[case] fact: EventKind,
 ) {
     let (status, events) = travel_charge(charge);
 
@@ -64,31 +63,31 @@ fn a_failed_first_attempt_is_rescued_then_the_step_is_attempted_again(
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
             fact,
-            "step_rescuing",
-            "attempt_started",
-            "step_succeeded",
-            "step_rescued",
-            "attempt_started",
-            "step_succeeded",
-            "contribution_committed",
-            "journey_succeeded"
+            EventKind::StepRescuing,
+            EventKind::AttemptStarted,
+            EventKind::StepSucceeded,
+            EventKind::StepRescued,
+            EventKind::AttemptStarted,
+            EventKind::StepSucceeded,
+            EventKind::ContributionCommitted,
+            EventKind::JourneySucceeded
         ]
     );
 }
 
 #[rstest]
-#[case::a_failure(&[declined as Ends, declined], "step_failed", FailureCause::Failure)]
+#[case::a_failure(&[declined as Ends, declined], EventKind::StepFailed, FailureCause::Failure)]
 #[case::an_abnormal_termination(
     &[declined as Ends, crashed],
-    "step_abnormal_termination",
+    EventKind::StepAbnormalTermination,
     FailureCause::AbnormalTermination
 )]
 fn a_step_that_fails_after_its_rescue_is_given_up_without_a_second_rescue(
     #[case] ends: &'static [Ends],
-    #[case] fact: &str,
+    #[case] fact: EventKind,
     #[case] cause: FailureCause,
 ) {
     let (_, events) = travel_charge(rescued(ends));
@@ -96,17 +95,17 @@ fn a_step_that_fails_after_its_rescue_is_given_up_without_a_second_rescue(
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_failed",
-            "step_rescuing",
-            "attempt_started",
-            "step_succeeded",
-            "step_rescued",
-            "attempt_started",
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepFailed,
+            EventKind::StepRescuing,
+            EventKind::AttemptStarted,
+            EventKind::StepSucceeded,
+            EventKind::StepRescued,
+            EventKind::AttemptStarted,
             fact,
-            "step_given_up",
-            "journey_failed"
+            EventKind::StepGivenUp,
+            EventKind::JourneyFailed
         ]
     );
     assert_eq!(
@@ -124,15 +123,15 @@ fn refresh_crashing() -> Result<RescueOutcome, Error> {
 }
 
 #[rstest]
-#[case::a_failure(refresh_failing, "step_failed", FailureCause::Failure)]
+#[case::a_failure(refresh_failing, EventKind::StepFailed, FailureCause::Failure)]
 #[case::an_abnormal_termination(
     refresh_crashing,
-    "step_abnormal_termination",
+    EventKind::StepAbnormalTermination,
     FailureCause::AbnormalTermination
 )]
 fn a_rescue_step_that_does_not_succeed_fails_the_journey_and_the_step_is_not_attempted_again(
     #[case] refresh: fn() -> Result<RescueOutcome, Error>,
-    #[case] fact: &str,
+    #[case] fact: EventKind,
     #[case] cause: FailureCause,
 ) {
     let charge = attempting(&[declined]).rescue(refresh);
@@ -142,14 +141,14 @@ fn a_rescue_step_that_does_not_succeed_fails_the_journey_and_the_step_is_not_att
     assert_eq!(
         kinds(&events),
         [
-            "journey_started",
-            "attempt_started",
-            "step_failed",
-            "step_rescuing",
-            "attempt_started",
+            EventKind::JourneyStarted,
+            EventKind::AttemptStarted,
+            EventKind::StepFailed,
+            EventKind::StepRescuing,
+            EventKind::AttemptStarted,
             fact,
-            "step_given_up",
-            "journey_failed"
+            EventKind::StepGivenUp,
+            EventKind::JourneyFailed
         ]
     );
     assert_eq!(events.last().and_then(failed_step), Some((RESCUE, cause)));
@@ -164,7 +163,7 @@ struct Refreshing<'a> {
     attempt: Option<i64>,
     reason: Option<Reason>,
     error: Option<Error>,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     seen: &'a Seen,
 }
 
@@ -173,7 +172,7 @@ impl RescueFactory for Refresh {
 
     fn needs(&self) -> RescueNeeds {
         RescueNeeds::new()
-            .optional_from_rescued_step(&ATTEMPT)
+            .from_rescued_step(&ATTEMPT)
             .optional_reason()
             .optional_error()
             .contributor()
@@ -181,7 +180,7 @@ impl RescueFactory for Refresh {
 
     fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<Refreshing<'a>, Error> {
         Ok(Refreshing {
-            attempt: got.optional_from_rescued_step(&ATTEMPT)?,
+            attempt: got.from_rescued_step(&ATTEMPT)?,
             reason: got.optional_reason()?,
             error: got.optional_error()?,
             contributor: got.contributor()?,
@@ -191,7 +190,7 @@ impl RescueFactory for Refresh {
 }
 
 impl RescueStep for Refreshing<'_> {
-    fn run(mut self) -> Result<RescueOutcome, Error> {
+    fn run(self) -> Result<RescueOutcome, Error> {
         let reason = self.reason.as_ref().map(Reason::code);
         let error = self.error.as_ref().map(ToString::to_string);
         let saw = format!("{:?}, {reason:?}, {error:?}", self.attempt);
@@ -300,17 +299,17 @@ mod asynchronous {
         assert_eq!(
             kinds(&events),
             [
-                "journey_started",
-                "attempt_started",
-                "step_failed",
-                "step_rescuing",
-                "attempt_started",
-                "step_succeeded",
-                "step_rescued",
-                "attempt_started",
-                "step_failed",
-                "step_given_up",
-                "journey_failed"
+                EventKind::JourneyStarted,
+                EventKind::AttemptStarted,
+                EventKind::StepFailed,
+                EventKind::StepRescuing,
+                EventKind::AttemptStarted,
+                EventKind::StepSucceeded,
+                EventKind::StepRescued,
+                EventKind::AttemptStarted,
+                EventKind::StepFailed,
+                EventKind::StepGivenUp,
+                EventKind::JourneyFailed
             ]
         );
     }
@@ -332,12 +331,12 @@ impl RescueFactory for ReadingToken {
     type Step<'a> = ReadToken<'a>;
 
     fn needs(&self) -> RescueNeeds {
-        RescueNeeds::new().optional_input(&TOKEN)
+        RescueNeeds::new().input(&TOKEN)
     }
 
     fn build<'a>(&'a self, got: &mut RescueResolved<'a>) -> Result<ReadToken<'a>, Error> {
         Ok(ReadToken {
-            token: got.optional_input(&TOKEN)?,
+            token: got.input(&TOKEN)?,
             seen: &self.seen,
         })
     }
@@ -351,11 +350,12 @@ impl RescueStep for ReadToken<'_> {
 }
 
 /// Supplies a token of 7, and nothing else.
-fn credentials(
-    _: &Orders,
-    got: Requested<'_, Orders, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
-    Ok((got.key() == "token").then(|| AnyValue::new(7_i64)))
+fn credentials(_: &Orders, got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied, Error> {
+    Ok(if got.key() == "token" {
+        Supplied::value(7_i64)
+    } else {
+        Supplied::FromDataBag
+    })
 }
 
 #[rstest]

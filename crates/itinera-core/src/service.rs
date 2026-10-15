@@ -13,6 +13,7 @@ mod fit;
 pub(crate) mod fixtures;
 mod implementation;
 mod provided;
+mod provider;
 mod scope;
 mod token;
 
@@ -26,6 +27,7 @@ pub(crate) use fake::{Fake, Faked};
 pub use fit::{Char, ProvidesService};
 pub use implementation::Implementation;
 pub use provided::{Provided, provide};
+pub use provider::Provider;
 pub(crate) use scope::Scope;
 pub use scope::{PerAttempt, PerJourney, ProviderScope};
 pub use token::Service;

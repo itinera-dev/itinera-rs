@@ -4,7 +4,7 @@
 #[cfg(feature = "async")]
 use super::AsyncOnWorkflowSuccess;
 use super::{
-    FailWorkflow, Needs, OnStepFailure, OnStepSuccess, OnSuccess, OnWorkflowFailure,
+    Needs, OnFailure, OnStepFailure, OnStepSuccess, OnSuccess, OnWorkflowFailure,
     OnWorkflowSuccess, Request, Requested, StepFailure, StepSuccess, WorkflowFailure,
     WorkflowSuccess,
 };
@@ -17,20 +17,14 @@ pub(super) const RECEIPT: Input<String> = Input::new("receipt");
 pub(crate) struct Quiet;
 
 impl<W: Send + Sync + 'static> OnStepSuccess<W> for Quiet {
-    fn on_step_success(
-        &self,
-        _: Requested<'_, W, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
-        Ok(None)
+    fn on_step_success(&self, _: Requested<'_, W, StepSuccess>) -> Result<OnSuccess, Error> {
+        Ok(OnSuccess::KeepDefault)
     }
 }
 
 impl<W: Send + Sync + 'static> OnStepFailure<W> for Quiet {
-    fn on_step_failure(
-        &self,
-        _: Requested<'_, W, StepFailure>,
-    ) -> Result<Option<FailWorkflow>, Error> {
-        Ok(None)
+    fn on_step_failure(&self, _: Requested<'_, W, StepFailure>) -> Result<OnFailure, Error> {
+        Ok(OnFailure::KeepDefault)
     }
 }
 

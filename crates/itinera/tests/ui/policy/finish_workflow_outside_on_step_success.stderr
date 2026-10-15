@@ -1,10 +1,10 @@
 error[E0308]: mismatched types
   --> tests/ui/policy/finish_workflow_outside_on_step_success.rs:44:9
    |
-43 |     ) -> Result<Option<FailWorkflow>, Error> {
-   |          ----------------------------------- expected `Result<Option<itinera::policy::FailWorkflow>, itinera::error::Error>` because of return type
+43 |     ) -> Result<OnFailure, Error> {
+   |          ------------------------ expected `Result<OnFailure, itinera::error::Error>` because of return type
 44 |         Self::finish_workflow()
-   |         ^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<Option<FailWorkflow>, Error>`, found `Result<Option<OnSuccess>, Error>`
+   |         ^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<OnFailure, Error>`, found `Result<OnSuccess, Error>`
    |
-   = note: expected enum `Result<Option<itinera::policy::FailWorkflow>, itinera::error::Error>`
-              found enum `Result<Option<OnSuccess>, itinera::error::Error>`
+   = note: expected enum `Result<OnFailure, itinera::error::Error>`
+              found enum `Result<OnSuccess, itinera::error::Error>`

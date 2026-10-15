@@ -16,13 +16,13 @@ use itinera::journey::Contributions;
 use itinera::policy::HookEventReporter;
 use itinera::report::RecordingReporter;
 use itinera::step::StepEventReporter;
-use itinera::value::AnyValue;
 
 pub(crate) use mistakes::{Mistake, mistakes};
 pub(crate) use script::{PlaysScripts, written};
 
 use crate::model::{Fake, Level};
 use crate::service::FakeCalls;
+use itinera::workflow::Supplied;
 
 /// What the scenario's use of test support gave.
 #[derive(Debug, Default)]
@@ -37,7 +37,7 @@ pub(crate) struct Tested {
     pub(crate) step_events: StepEventReporter,
     pub(crate) hook_events: HookEventReporter,
     /// What an input adapter called alone returned.
-    pub(crate) adapter_returned: Option<Result<Option<AnyValue>, Error>>,
+    pub(crate) adapter_returned: Option<Result<Supplied, Error>>,
 }
 
 impl Tested {

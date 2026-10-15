@@ -9,14 +9,14 @@ pub use workflow_policy::WorkflowPolicy;
 
 use crate::error::Error;
 use crate::mode::Mode;
-use crate::policy::{FailWorkflow, OnSuccess, PolicyName};
+use crate::policy::{OnSuccess, PolicyName};
 use crate::step::Reason;
 
 /// A policy type that knows its name and how it is built for a journey, so that a workflow can
 /// attach it by its type, through [`StepPolicy`] or [`WorkflowPolicy`].
 ///
 /// `#[step_policy]` and `#[workflow_policy]` implement it. Every policy type implementing it
-/// also has the shorthands for what a step hook returns, such as `Self::carry_on()` and
+/// also has the shorthands for what a step hook returns, such as `Self::keep_default()` and
 /// `Self::fail_workflow("declined")`, which those macros bring into scope in the functions of
 /// the block they are written on.
 ///
@@ -86,7 +86,8 @@ pub trait DescribedPolicy: Sized + Send + Sync + 'static {
     /// ```
     fn build() -> Result<Self, Error>;
 
-    /// A step hook makes no lifecycle decision: the journey goes on as it would without it.
+    /// A step hook keeps the default: the journey goes on as it would without it. It fits every
+    /// step hook.
     ///
     /// # Errors
     ///
@@ -96,14 +97,14 @@ pub trait DescribedPolicy: Sized + Send + Sync + 'static {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::policy::{DescribedPolicy, FailWorkflow};
+    /// use itinera::policy::{DescribedPolicy, OnFailure};
     ///
-    /// fn nothing_to_say<P: DescribedPolicy>() -> Result<Option<FailWorkflow>> {
-    ///     P::carry_on()
+    /// fn nothing_to_say<P: DescribedPolicy>() -> Result<OnFailure> {
+    ///     P::keep_default()
     /// }
     /// ```
-    fn carry_on<T>() -> Result<Option<T>, Error> {
-        Ok(None)
+    fn keep_default<T: Default>() -> Result<T, Error> {
+        Ok(T::default())
     }
 
     /// A step hook fails the workflow at once, for this reason. A text is the reason's code. It
@@ -117,18 +118,18 @@ pub trait DescribedPolicy: Sized + Send + Sync + 'static {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::policy::{DescribedPolicy, FailWorkflow, OnSuccess};
+    /// use itinera::policy::{DescribedPolicy, OnFailure, OnSuccess};
     ///
-    /// fn after_a_failure<P: DescribedPolicy>() -> Result<Option<FailWorkflow>> {
+    /// fn after_a_failure<P: DescribedPolicy>() -> Result<OnFailure> {
     ///     P::fail_workflow("fraud-suspected")
     /// }
     ///
-    /// fn after_a_success<P: DescribedPolicy>() -> Result<Option<OnSuccess>> {
+    /// fn after_a_success<P: DescribedPolicy>() -> Result<OnSuccess> {
     ///     P::fail_workflow("fraud-suspected")
     /// }
     /// ```
-    fn fail_workflow<T: From<FailWorkflow>>(reason: impl Into<Reason>) -> Result<Option<T>, Error> {
-        Ok(Some(FailWorkflow::from(reason.into()).into()))
+    fn fail_workflow<T: From<Reason>>(reason: impl Into<Reason>) -> Result<T, Error> {
+        Ok(T::from(reason.into()))
     }
 
     /// `on step success` finishes the workflow at once, skipping the steps left. It fits only
@@ -144,11 +145,11 @@ pub trait DescribedPolicy: Sized + Send + Sync + 'static {
     /// use itinera::error::Result;
     /// use itinera::policy::{DescribedPolicy, OnSuccess};
     ///
-    /// fn enough<P: DescribedPolicy>() -> Result<Option<OnSuccess>> {
+    /// fn enough<P: DescribedPolicy>() -> Result<OnSuccess> {
     ///     P::finish_workflow()
     /// }
     /// ```
-    fn finish_workflow() -> Result<Option<OnSuccess>, Error> {
-        Ok(Some(OnSuccess::FinishWorkflow))
+    fn finish_workflow() -> Result<OnSuccess, Error> {
+        Ok(OnSuccess::FinishWorkflow)
     }
 }

@@ -149,6 +149,7 @@ mod tests {
     use crate::engine::fixtures::{
         CHARGE, Data, Read, amount_as_i32, charged, instance, kinds, reads, travel, travel_workflow,
     };
+    use crate::event::EventKind;
     use crate::instance::InstanceBuilder;
     use crate::journey::JourneyStatus;
     use crate::workflow::fixtures::Orders;
@@ -164,11 +165,11 @@ mod tests {
         assert_eq!(
             kinds(&events),
             [
-                "journey_started",
-                "attempt_started",
-                "optional_input_absent",
-                "step_succeeded",
-                "journey_succeeded"
+                EventKind::JourneyStarted,
+                EventKind::AttemptStarted,
+                EventKind::OptionalInputAbsent,
+                EventKind::StepSucceeded,
+                EventKind::JourneySucceeded
             ]
         );
         let Some(EventBody::OptionalInputAbsent { key, requester }) =
@@ -196,7 +197,11 @@ mod tests {
         assert!(reads(&read).is_empty());
         assert_eq!(
             kinds(&events),
-            ["journey_started", "attempt_started", "journey_aborted"]
+            [
+                EventKind::JourneyStarted,
+                EventKind::AttemptStarted,
+                EventKind::JourneyAborted
+            ]
         );
     }
 

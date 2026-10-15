@@ -9,7 +9,7 @@ use super::{BuiltStepPolicy, Call, Factory, HookCall, Hooked, Hookless, StepPoli
 use crate::error::Error;
 use crate::mode::Synchronous;
 use crate::policy::{
-    FailWorkflow, HookNeeds, Needs, OnStepAbnormalTermination, OnStepFailure, OnStepRetry,
+    HookNeeds, Needs, OnFailure, OnStepAbnormalTermination, OnStepFailure, OnStepRetry,
     OnStepSuccess, OnSuccess, PolicyName, Requested, StepAbnormalTermination, StepFailure,
     StepHook, StepRetry, StepSuccess,
 };
@@ -42,9 +42,9 @@ use crate::policy::{
 ///     fn on_step_success(
 ///         &self,
 ///         got: Requested<'_, W, StepSuccess>,
-///     ) -> Result<Option<OnSuccess>> {
+///     ) -> Result<OnSuccess> {
 ///         println!("{} succeeded", got.step_name());
-///         Ok(None)
+///         Ok(OnSuccess::KeepDefault)
 ///     }
 /// }
 ///
@@ -132,7 +132,7 @@ impl<P, W, M, S> StepPolicyDescriptor<P, W, M, S> {
     pub(crate) fn define_success(
         self,
         needs: Needs,
-        call: Call<P, W, StepSuccess, M, Option<OnSuccess>>,
+        call: Call<P, W, StepSuccess, M, OnSuccess>,
     ) -> StepPolicyDescriptor<P, W, M> {
         let mut hooked = self.hooked();
         hooked.define(StepHook::OnStepSuccess);
@@ -144,7 +144,7 @@ impl<P, W, M, S> StepPolicyDescriptor<P, W, M, S> {
     pub(crate) fn define_failure(
         self,
         needs: Needs,
-        call: Call<P, W, StepFailure, M, Option<FailWorkflow>>,
+        call: Call<P, W, StepFailure, M, OnFailure>,
     ) -> StepPolicyDescriptor<P, W, M> {
         let mut hooked = self.hooked();
         hooked.define(StepHook::OnStepFailure);
@@ -156,7 +156,7 @@ impl<P, W, M, S> StepPolicyDescriptor<P, W, M, S> {
     pub(crate) fn define_retry(
         self,
         needs: Needs,
-        call: Call<P, W, StepRetry, M, Option<FailWorkflow>>,
+        call: Call<P, W, StepRetry, M, OnFailure>,
     ) -> StepPolicyDescriptor<P, W, M> {
         let mut hooked = self.hooked();
         hooked.define(StepHook::OnStepRetry);
@@ -168,7 +168,7 @@ impl<P, W, M, S> StepPolicyDescriptor<P, W, M, S> {
     pub(crate) fn define_abnormal_termination(
         self,
         needs: Needs,
-        call: Call<P, W, StepAbnormalTermination, M, Option<FailWorkflow>>,
+        call: Call<P, W, StepAbnormalTermination, M, OnFailure>,
     ) -> StepPolicyDescriptor<P, W, M> {
         let mut hooked = self.hooked();
         hooked.define(StepHook::OnStepAbnormalTermination);
@@ -244,8 +244,8 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     ///     fn on_step_success(
     ///         &self,
     ///         _got: Requested<'_, W, StepSuccess>,
-    ///     ) -> Result<Option<OnSuccess>> {
-    ///         Ok(Some(OnSuccess::FinishWorkflow))
+    ///     ) -> Result<OnSuccess> {
+    ///         Ok(OnSuccess::FinishWorkflow)
     ///     }
     /// }
     ///
@@ -282,10 +282,10 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     ///     fn on_step_success(
     ///         &self,
     ///         mut got: Requested<'_, W, StepSuccess>,
-    ///     ) -> Result<Option<OnSuccess>> {
+    ///     ) -> Result<OnSuccess> {
     ///         let amount = got.from_step(&Input::<i64>::new(self.key))?;
     ///         println!("{} moved {amount}", got.step_name());
-    ///         Ok(None)
+    ///         Ok(OnSuccess::KeepDefault)
     ///     }
     /// }
     ///
@@ -312,7 +312,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     /// ```
     /// use itinera::error::Result;
     /// use itinera::policy::{
-    ///     FailWorkflow, OnStepFailure, Requested, StepFailure, StepPolicyDescriptor,
+    ///     OnFailure, OnStepFailure, Requested, StepFailure, StepPolicyDescriptor,
     /// };
     ///
     /// struct Alarm;
@@ -321,8 +321,8 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     ///     fn on_step_failure(
     ///         &self,
     ///         _got: Requested<'_, W, StepFailure>,
-    ///     ) -> Result<Option<FailWorkflow>> {
-    ///         Ok(None)
+    ///     ) -> Result<OnFailure> {
+    ///         Ok(OnFailure::KeepDefault)
     ///     }
     /// }
     ///
@@ -346,7 +346,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     /// ```
     /// use itinera::error::Result;
     /// use itinera::policy::{
-    ///     FailWorkflow, HookNeeds, OnStepFailure, Requested, StepFailure, StepPolicyDescriptor,
+    ///     HookNeeds, OnFailure, OnStepFailure, Requested, StepFailure, StepPolicyDescriptor,
     /// };
     ///
     /// struct Alarm;
@@ -355,9 +355,9 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     ///     fn on_step_failure(
     ///         &self,
     ///         mut got: Requested<'_, W, StepFailure>,
-    ///     ) -> Result<Option<FailWorkflow>> {
+    ///     ) -> Result<OnFailure> {
     ///         println!("{} failed: {}", got.step_name(), got.reason()?.code());
-    ///         Ok(None)
+    ///         Ok(OnFailure::KeepDefault)
     ///     }
     /// }
     ///
@@ -382,9 +382,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::policy::{
-    ///     FailWorkflow, OnStepRetry, Requested, StepPolicyDescriptor, StepRetry,
-    /// };
+    /// use itinera::policy::{OnFailure, OnStepRetry, Requested, StepPolicyDescriptor, StepRetry};
     ///
     /// struct Patience;
     ///
@@ -392,8 +390,8 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     ///     fn on_step_retry(
     ///         &self,
     ///         _got: Requested<'_, W, StepRetry>,
-    ///     ) -> Result<Option<FailWorkflow>> {
-    ///         Ok(None)
+    ///     ) -> Result<OnFailure> {
+    ///         Ok(OnFailure::KeepDefault)
     ///     }
     /// }
     ///
@@ -417,7 +415,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     /// ```
     /// use itinera::error::Result;
     /// use itinera::policy::{
-    ///     FailWorkflow, HookNeeds, OnStepRetry, Requested, StepPolicyDescriptor, StepRetry,
+    ///     HookNeeds, OnFailure, OnStepRetry, Requested, StepPolicyDescriptor, StepRetry,
     /// };
     ///
     /// struct Patience;
@@ -426,11 +424,11 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     ///     fn on_step_retry(
     ///         &self,
     ///         mut got: Requested<'_, W, StepRetry>,
-    ///     ) -> Result<Option<FailWorkflow>> {
+    ///     ) -> Result<OnFailure> {
     ///         if let Some(reason) = got.optional_reason()? {
     ///             println!("retrying {}: {}", got.step_name(), reason.code());
     ///         }
-    ///         Ok(None)
+    ///         Ok(OnFailure::KeepDefault)
     ///     }
     /// }
     ///
@@ -453,7 +451,7 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     /// ```
     /// use itinera::error::Result;
     /// use itinera::policy::{
-    ///     FailWorkflow, OnStepAbnormalTermination, Requested, StepAbnormalTermination,
+    ///     OnFailure, OnStepAbnormalTermination, Requested, StepAbnormalTermination,
     ///     StepPolicyDescriptor,
     /// };
     ///
@@ -463,8 +461,8 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     ///     fn on_step_abnormal_termination(
     ///         &self,
     ///         _got: Requested<'_, W, StepAbnormalTermination>,
-    ///     ) -> Result<Option<FailWorkflow>> {
-    ///         Ok(None)
+    ///     ) -> Result<OnFailure> {
+    ///         Ok(OnFailure::KeepDefault)
     ///     }
     /// }
     ///
@@ -488,8 +486,8 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     /// ```
     /// use itinera::error::Result;
     /// use itinera::policy::{
-    ///     FailWorkflow, HookNeeds, OnStepAbnormalTermination, Requested,
-    ///     StepAbnormalTermination, StepPolicyDescriptor,
+    ///     HookNeeds, OnFailure, OnStepAbnormalTermination, Requested, StepAbnormalTermination,
+    ///     StepPolicyDescriptor,
     /// };
     ///
     /// struct Crashes;
@@ -498,9 +496,9 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
     ///     fn on_step_abnormal_termination(
     ///         &self,
     ///         mut got: Requested<'_, W, StepAbnormalTermination>,
-    ///     ) -> Result<Option<FailWorkflow>> {
+    ///     ) -> Result<OnFailure> {
     ///         println!("{} crashed: {}", got.step_name(), got.error()?);
-    ///         Ok(None)
+    ///         Ok(OnFailure::KeepDefault)
     ///     }
     /// }
     ///
@@ -523,28 +521,28 @@ impl<P: Send + Sync + 'static, W: 'static, S> StepPolicyDescriptor<P, W, Synchro
 fn call_on_step_success<'a, P: OnStepSuccess<W>, W>(
     policy: &'a P,
     got: Requested<'a, W, StepSuccess>,
-) -> HookCall<'a, Option<OnSuccess>> {
+) -> HookCall<'a, OnSuccess> {
     Box::pin(ready(policy.on_step_success(got)))
 }
 
 fn call_on_step_failure<'a, P: OnStepFailure<W>, W>(
     policy: &'a P,
     got: Requested<'a, W, StepFailure>,
-) -> HookCall<'a, Option<FailWorkflow>> {
+) -> HookCall<'a, OnFailure> {
     Box::pin(ready(policy.on_step_failure(got)))
 }
 
 fn call_on_step_retry<'a, P: OnStepRetry<W>, W>(
     policy: &'a P,
     got: Requested<'a, W, StepRetry>,
-) -> HookCall<'a, Option<FailWorkflow>> {
+) -> HookCall<'a, OnFailure> {
     Box::pin(ready(policy.on_step_retry(got)))
 }
 
 fn call_on_step_abnormal_termination<'a, P: OnStepAbnormalTermination<W>, W>(
     policy: &'a P,
     got: Requested<'a, W, StepAbnormalTermination>,
-) -> HookCall<'a, Option<FailWorkflow>> {
+) -> HookCall<'a, OnFailure> {
     Box::pin(ready(policy.on_step_abnormal_termination(got)))
 }
 

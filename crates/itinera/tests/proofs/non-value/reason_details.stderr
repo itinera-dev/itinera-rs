@@ -1,4 +1,4 @@
-error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/reason_details.rs:4:75: 4:77}: Value` is not satisfied
+error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/reason_details.rs:4:75: 4:77}: itinera::value::Value` is not satisfied
  --> tests/proofs/non-value/reason_details.rs:4:75
   |
 4 |     let _declined = Outcome::failure(Reason::new("declined").with_details(|| 1));
@@ -17,14 +17,14 @@ error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/reason_detai
             (T0, T1, T2, T3)
             (T0, T1, T2, T3, T4)
           and $N others
-  = note: required for `{closure@$DIR/tests/proofs/non-value/reason_details.rs:4:75: 4:77}` to implement `Value`
+  = note: required for `{closure@$DIR/tests/proofs/non-value/reason_details.rs:4:75: 4:77}` to implement `itinera::value::Value`
 note: required by a bound in `itinera::step::Reason::with_details`
  --> $WORKSPACE/crates/itinera-core/src/step/reason.rs
   |
   |     pub fn with_details<T: Value>(mut self, details: T) -> Self {
   |                            ^^^^^ required by this bound in `Reason::with_details`
 
-error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/reason_details.rs:4:75: 4:77}: Value` is not satisfied
+error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/reason_details.rs:4:75: 4:77}: itinera::value::Value` is not satisfied
  --> tests/proofs/non-value/reason_details.rs:4:75
   |
 4 |     let _declined = Outcome::failure(Reason::new("declined").with_details(|| 1));
@@ -44,7 +44,7 @@ error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/reason_detai
             (T0, T1, T2, T3)
           and $N others
   = note: required for `{closure@$DIR/tests/proofs/non-value/reason_details.rs:4:75: 4:77}` to implement `serde_core::de::DeserializeOwned`
-  = note: required for `{closure@$DIR/tests/proofs/non-value/reason_details.rs:4:75: 4:77}` to implement `Value`
+  = note: required for `{closure@$DIR/tests/proofs/non-value/reason_details.rs:4:75: 4:77}` to implement `itinera::value::Value`
 note: required by a bound in `itinera::step::Reason::with_details`
  --> $WORKSPACE/crates/itinera-core/src/step/reason.rs
   |

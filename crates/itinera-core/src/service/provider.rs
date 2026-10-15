@@ -2,8 +2,8 @@
 
 use std::marker::PhantomData;
 
-use super::{HookKind, ReportingHookKind, sealed};
-use crate::service::ProviderScope;
+use super::ProviderScope;
+use crate::policy::{HookKind, ReportingHookKind, SealedHookKind};
 use crate::step::StepAttempt;
 
 /// `service provider`, a hook of the workflow itself, of scope `S`, called while a step it
@@ -16,8 +16,8 @@ use crate::step::StepAttempt;
 /// # Examples
 ///
 /// ```
-/// use itinera::policy::{HookNeeds, Provider};
-/// use itinera::service::PerJourney;
+/// use itinera::policy::HookNeeds;
+/// use itinera::service::{PerJourney, Provider};
 /// use itinera::step::Input;
 ///
 /// const GATEWAY: Input<String> = Input::new("gateway");
@@ -31,7 +31,7 @@ pub struct Provider<S> {
     scope: PhantomData<fn() -> S>,
 }
 
-impl<S: ProviderScope> sealed::Sealed for Provider<S> {}
+impl<S: ProviderScope> SealedHookKind for Provider<S> {}
 
 impl<S: ProviderScope> HookKind for Provider<S> {
     /// The step being built, and its attempt.

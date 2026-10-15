@@ -5,14 +5,14 @@ use itinera::journey::Contributor;
 use itinera::step::{Outcome, Resolved, Step, StepFactory, StepNeeds, StepReporter};
 
 struct Charge<'a> {
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     reporter: StepReporter<'a>,
 }
 
 impl Step for Charge<'_> {
     fn run(self) -> Result<Outcome, Error> {
         let Self {
-            mut contributor,
+            contributor,
             mut reporter,
         } = self;
         thread::scope(|scope| {

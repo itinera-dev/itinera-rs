@@ -70,7 +70,7 @@ impl<H: StepHookKind> ForType for NeedingFromStep<'_, H> {
     fn of<T: Storable>(self) -> HookNeeds<H> {
         if self.data.optional {
             self.needs
-                .optional_from_step(&OptionalInput::<T>::new(self.data.key))
+                .from_step(&OptionalInput::<T>::new(self.data.key))
         } else {
             self.needs.from_step(&Input::<T>::new(self.data.key))
         }
@@ -89,7 +89,7 @@ impl<H: HookKind> ForType for NeedingFromWorkflow<'_, H> {
     fn of<T: Storable>(self) -> HookNeeds<H> {
         if self.data.optional {
             self.needs
-                .optional_from_workflow(&OptionalInput::<T>::new(self.data.key))
+                .from_workflow(&OptionalInput::<T>::new(self.data.key))
         } else {
             self.needs.from_workflow(&Input::<T>::new(self.data.key))
         }

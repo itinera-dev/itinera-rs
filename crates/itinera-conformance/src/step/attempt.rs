@@ -25,7 +25,7 @@ pub(crate) struct Attempting<'a, R> {
     pub(super) script: &'a Script,
     pub(super) end: &'a AttemptEnd,
     /// Its contributor, unless it declares none.
-    pub(super) contributor: Option<Contributor<'a>>,
+    pub(super) contributor: Option<&'a mut Contributor>,
     /// Its reporter, unless it declares none.
     #[debug(skip)]
     pub(super) reporter: Option<R>,

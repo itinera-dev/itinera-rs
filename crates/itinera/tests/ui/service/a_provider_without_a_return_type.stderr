@@ -1,5 +1,5 @@
 error: a service provider returns the instance it makes, as `Result<Provided<T>, Error>`
-  --> tests/ui/service/a_provider_without_a_return_type.rs:85:8
+  --> tests/ui/service/a_provider_without_a_return_type.rs:83:8
    |
-85 |     fn stock(&self, #[journey_id] _journey: &JourneyId) {}
+83 |     fn stock(&self, _journey: &JourneyId) {}
    |        ^^^^^

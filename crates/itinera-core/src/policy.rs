@@ -14,7 +14,6 @@ mod kind;
 mod lifecycle;
 mod needs;
 mod reporter;
-mod role;
 
 #[cfg(feature = "async")]
 pub use asynchronous::{
@@ -34,16 +33,16 @@ pub use hook::{
 };
 #[cfg(feature = "macros")]
 pub use itinera_macros::{step_policy, workflow_policy};
+pub(crate) use kind::sealed::Sealed as SealedHookKind;
 pub use kind::{
-    ErrorHookKind, FailureHookKind, HookKind, InputAdapter, PolicyHookKind, Provider,
-    ReportingHookKind, StepAbnormalTermination, StepFailure, StepHookKind, StepRetry, StepSuccess,
-    WorkflowFailure, WorkflowSuccess,
+    ErrorHookKind, FailureHookKind, HookKind, PolicyHookKind, ReportingHookKind,
+    StepAbnormalTermination, StepFailure, StepHookKind, StepRetry, StepSuccess, WorkflowFailure,
+    WorkflowSuccess,
 };
-pub use lifecycle::{FailWorkflow, Lifecycle, OnSuccess, ReturnedLifecycle};
+pub use lifecycle::{Lifecycle, OnFailure, OnSuccess};
 pub(crate) use needs::{Answers, Needs, Request};
 pub use needs::{HookNeeds, Requested};
 pub use reporter::HookReporter;
-pub use role::Provides;
 
 /// A policy's name, fixed when the program is compiled.
 ///

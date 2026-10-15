@@ -106,9 +106,9 @@ impl HookName {
     /// What the hook returns when it succeeds.
     pub(crate) fn returned(self) -> TokenStream {
         match self {
-            Self::OnStepSuccess => quote!(::core::option::Option<::itinera::policy::OnSuccess>),
+            Self::OnStepSuccess => quote!(::itinera::policy::OnSuccess),
             Self::OnStepFailure | Self::OnStepRetry | Self::OnStepAbnormalTermination => {
-                quote!(::core::option::Option<::itinera::policy::FailWorkflow>)
+                quote!(::itinera::policy::OnFailure)
             }
             Self::OnWorkflowSuccess | Self::OnWorkflowFailure => quote!(()),
         }

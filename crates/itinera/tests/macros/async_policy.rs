@@ -6,7 +6,7 @@ use itinera::journey::{Contributor, JourneyId};
 use itinera::mode::Asynchronous;
 use itinera::policy::{
     AsyncHookReporter, AsyncOnStepAbnormalTermination, AsyncOnStepFailure, AsyncOnStepRetry,
-    AsyncOnStepSuccess, AsyncOnWorkflowFailure, AsyncOnWorkflowSuccess, FailWorkflow, HookNeeds,
+    AsyncOnStepSuccess, AsyncOnWorkflowFailure, AsyncOnWorkflowSuccess, HookNeeds, OnFailure,
     OnSuccess, Requested, RetryCause, StepAbnormalTermination, StepFailure, StepHook, StepPolicy,
     StepPolicyDescriptor, StepRetry, StepSuccess, WorkflowFailure, WorkflowHook, WorkflowPolicy,
     WorkflowPolicyDescriptor, WorkflowSuccess, step_policy, workflow_policy,
@@ -32,7 +32,7 @@ impl Settle {
         Self { outcome }
     }
 
-    async fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    async fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         match self.outcome.as_str() {
             "success" => {
                 contributor.contribute("receipt", "R-1".to_owned());
@@ -55,47 +55,47 @@ impl Audit {
         &self,
         #[from_step] receipt: String,
         #[from_workflow] decision: Option<String>,
-        #[reporter] mut reporter: AsyncHookReporter<'_>,
-    ) -> Result<Option<OnSuccess>, Error> {
+        mut reporter: AsyncHookReporter<'_>,
+    ) -> Result<OnSuccess, Error> {
         reporter.info(format!("gave {receipt}")).await?;
         match decision.as_deref() {
             Some("finish") => Self::finish_workflow(),
             Some("fail") => Self::fail_workflow("refused"),
-            _ => Self::carry_on(),
+            _ => Self::keep_default(),
         }
     }
 
     #[on_step_failure]
-    async fn failed(&self, #[reason] reason: Reason) -> Result<Option<FailWorkflow>, Error> {
+    async fn failed(&self, reason: Reason) -> Result<OnFailure, Error> {
         Self::fail_workflow(format!("after-{}", reason.code()))
     }
 
     #[on_step_retry]
     async fn retried(
         &self,
-        #[cause] cause: RetryCause,
-        #[journey_id] journey_id: &JourneyId,
+        cause: RetryCause,
+        journey_id: &JourneyId,
         #[role] desk: &dyn Desk,
-        #[reporter] mut reporter: AsyncHookReporter<'_>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+        mut reporter: AsyncHookReporter<'_>,
+    ) -> Result<OnFailure, Error> {
         let desk = desk.desk();
         reporter
             .info(format!("{journey_id} retried after {cause} at the {desk}"))
             .await?;
-        Self::carry_on()
+        Self::keep_default()
     }
 
     #[on_step_abnormal_termination]
     async fn terminated(
         &self,
-        #[error] error: &Error,
+        error: &Error,
         #[from_workflow] decision: Option<String>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         match decision.as_deref() {
             Some("fail") => {
                 Self::fail_workflow(Reason::new("crashed").with_message(error.to_string()))
             }
-            _ => Self::carry_on(),
+            _ => Self::keep_default(),
         }
     }
 }
@@ -106,16 +106,13 @@ struct Notify;
 #[workflow_policy(name = "notify")]
 impl Notify {
     #[on_workflow_success]
-    async fn succeeded(
-        &self,
-        #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<(), Error> {
+    async fn succeeded(&self, contributor: &mut Contributor) -> Result<(), Error> {
         contributor.contribute("notified", true);
         Ok(())
     }
 
     #[on_workflow_failure]
-    async fn failed(&self, #[reporter] mut reporter: AsyncHookReporter<'_>) -> Result<(), Error> {
+    async fn failed(&self, mut reporter: AsyncHookReporter<'_>) -> Result<(), Error> {
         reporter.warning("the order failed").await?;
         Ok(())
     }
@@ -130,21 +127,21 @@ impl AsyncOnStepSuccess<Orders> for HandAudit {
     fn needs() -> HookNeeds<StepSuccess> {
         HookNeeds::new()
             .from_step(&RECEIPT)
-            .optional_from_workflow(&DECISION)
+            .from_workflow(&DECISION)
             .reporter()
     }
 
     async fn on_step_success(
         &self,
         mut got: Requested<'_, Orders, StepSuccess, Asynchronous>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         let receipt = got.from_step(&RECEIPT)?;
-        let decision = got.optional_from_workflow(&DECISION)?;
+        let decision = got.from_workflow(&DECISION)?;
         got.reporter()?.info(format!("gave {receipt}")).await?;
         Ok(match decision.as_deref() {
-            Some("finish") => Some(OnSuccess::FinishWorkflow),
-            Some("fail") => Some(OnSuccess::FailWorkflow(Reason::new("refused"))),
-            _ => None,
+            Some("finish") => OnSuccess::FinishWorkflow,
+            Some("fail") => OnSuccess::fail_workflow("refused"),
+            _ => OnSuccess::KeepDefault,
         })
     }
 }
@@ -157,9 +154,9 @@ impl AsyncOnStepFailure<Orders> for HandAudit {
     async fn on_step_failure(
         &self,
         mut got: Requested<'_, Orders, StepFailure, Asynchronous>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         let code = format!("after-{}", got.reason()?.code());
-        Ok(Some(FailWorkflow::from(Reason::new(code))))
+        Ok(OnFailure::fail_workflow(code))
     }
 }
 
@@ -171,31 +168,31 @@ impl AsyncOnStepRetry<Orders> for HandAudit {
     async fn on_step_retry(
         &self,
         mut got: Requested<'_, Orders, StepRetry, Asynchronous>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         let desk = got.role::<dyn Desk>().desk();
         let (cause, journey_id) = (got.cause(), got.journey_id());
         got.reporter()?
             .info(format!("{journey_id} retried after {cause} at the {desk}"))
             .await?;
-        Ok(None)
+        Ok(OnFailure::KeepDefault)
     }
 }
 
 impl AsyncOnStepAbnormalTermination<Orders> for HandAudit {
     fn needs() -> HookNeeds<StepAbnormalTermination> {
-        HookNeeds::new().error().optional_from_workflow(&DECISION)
+        HookNeeds::new().error().from_workflow(&DECISION)
     }
 
     async fn on_step_abnormal_termination(
         &self,
         mut got: Requested<'_, Orders, StepAbnormalTermination, Asynchronous>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         let error = got.error()?;
-        Ok(match got.optional_from_workflow(&DECISION)?.as_deref() {
-            Some("fail") => Some(FailWorkflow::from(
-                Reason::new("crashed").with_message(error.to_string()),
-            )),
-            _ => None,
+        Ok(match got.from_workflow(&DECISION)?.as_deref() {
+            Some("fail") => {
+                OnFailure::fail_workflow(Reason::new("crashed").with_message(error.to_string()))
+            }
+            _ => OnFailure::KeepDefault,
         })
     }
 }

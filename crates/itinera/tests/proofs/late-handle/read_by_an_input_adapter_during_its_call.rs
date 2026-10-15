@@ -1,20 +1,16 @@
 use itinera::error::Error;
 use itinera::journey::Read;
-use itinera::policy::{HookNeeds, InputAdapter, Requested};
+use itinera::policy::{HookNeeds, Requested};
 use itinera::step::step_name;
-use itinera::value::AnyValue;
-use itinera::workflow::InputAdapterDescriptor;
+use itinera::workflow::{InputAdapter, InputAdapterDescriptor, Supplied};
 
 struct Orders;
 
 impl Orders {
-    fn pricing(
-        &self,
-        mut got: Requested<'_, Self, InputAdapter>,
-    ) -> Result<Option<AnyValue>, Error> {
+    fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Supplied, Error> {
         match got.data_bag()?.read::<i64>("price") {
-            Read::Present(price) => Ok(Some(AnyValue::new(price))),
-            Read::Absent | Read::OtherType => Ok(None),
+            Read::Present(price) => Ok(Supplied::value(price)),
+            Read::Absent | Read::OtherType => Ok(Supplied::FromDataBag),
         }
     }
 }

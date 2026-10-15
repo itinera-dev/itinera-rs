@@ -273,7 +273,7 @@ impl HookReporter<'_> {
     /// use itinera::error::Interrupted;
     /// use itinera::policy::HookReporter;
     ///
-    /// fn tenant(reporter: &mut HookReporter<'_>) -> Result<(), Interrupted> {
+    /// fn tenant(reporter: &mut HookReporter) -> Result<(), Interrupted> {
     ///     reporter.set_global_metadata("tenant", "acme".to_string())
     /// }
     /// ```

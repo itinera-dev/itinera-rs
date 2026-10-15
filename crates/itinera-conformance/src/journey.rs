@@ -177,7 +177,7 @@ async fn journey<M: Declares + RunsFixtures, E: Runs<M>>(
 
 #[cfg(test)]
 mod tests {
-    use itinera::event::Event;
+    use itinera::event::{Event, EventKind};
 
     use super::*;
     use crate::journey::fixtures::{attempt, lines, ran, timed_out};
@@ -200,18 +200,18 @@ mod tests {
     fn both_executors_run_a_scripted_workflow_to_the_same_events() {
         let local = ran(Executor::Local, &["charge"], retried);
         let asynchronous = ran(Executor::AsyncLocal, &["charge"], retried);
-        let kinds: Vec<&str> = local.iter().map(Event::kind).collect();
+        let kinds: Vec<EventKind> = local.iter().map(Event::kind).collect();
         assert_eq!(
             kinds,
             [
-                "journey_started",
-                "attempt_started",
-                "step_failed",
-                "step_retrying",
-                "attempt_started",
-                "step_succeeded",
-                "contribution_committed",
-                "journey_succeeded"
+                EventKind::JourneyStarted,
+                EventKind::AttemptStarted,
+                EventKind::StepFailed,
+                EventKind::StepRetrying,
+                EventKind::AttemptStarted,
+                EventKind::StepSucceeded,
+                EventKind::ContributionCommitted,
+                EventKind::JourneySucceeded
             ]
         );
         assert_eq!(lines(&local), lines(&asynchronous));

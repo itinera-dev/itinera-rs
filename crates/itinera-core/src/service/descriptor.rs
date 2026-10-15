@@ -4,12 +4,12 @@
 use std::future;
 
 use super::{
-    AnyProvided, PerAttempt, PerJourney, Provided, ProviderName, ProviderScope, Service,
+    AnyProvided, PerAttempt, PerJourney, Provided, Provider, ProviderName, ProviderScope, Service,
     ServiceType,
 };
 use crate::error::Error;
 use crate::mode::Synchronous;
-use crate::policy::{HookCall, HookNeeds, Needs, Provider, Requested};
+use crate::policy::{HookCall, HookNeeds, Needs, Requested};
 use crate::step::StepName;
 
 mod entry;
@@ -42,8 +42,10 @@ pub(crate) use entry::{ProviderEntry, serving};
 ///
 /// ```
 /// use itinera::error::Result;
-/// use itinera::policy::{Provider, Requested};
-/// use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
+/// use itinera::policy::Requested;
+/// use itinera::service::{
+///     PerAttempt, Provided, Provider, Service, ServiceProviderDescriptor, provide,
+/// };
 /// use itinera::step::step_name;
 ///
 /// trait PaymentGateway: Send + Sync {}
@@ -63,7 +65,7 @@ pub(crate) use entry::{ProviderEntry, serving};
 ///         &self,
 ///         got: Requested<'_, Self, Provider<PerAttempt>>,
 ///     ) -> Result<Provided<dyn PaymentGateway>> {
-///         if got.attempt().get() == 1 {
+///         if got.attempt().is_first() {
 ///             Ok(provide!(Main))
 ///         } else {
 ///             Ok(provide!(Backup))
@@ -192,8 +194,10 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::policy::{HookNeeds, Provider, Requested};
-    /// use itinera::service::{PerAttempt, Provided, Service, ServiceProviderDescriptor, provide};
+    /// use itinera::policy::{HookNeeds, Requested};
+    /// use itinera::service::{
+    ///     PerAttempt, Provided, Provider, Service, ServiceProviderDescriptor, provide,
+    /// };
     /// use itinera::step::Input;
     ///
     /// trait PaymentGateway: Send + Sync {}

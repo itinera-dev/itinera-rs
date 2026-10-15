@@ -6,7 +6,7 @@ mod recorders;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use itinera::error::Error;
-use itinera::event::Event;
+use itinera::event::{Event, EventKind};
 use itinera::report::{GlobalMetadata, Reporter};
 use itinera::value::AnyValue;
 
@@ -39,7 +39,7 @@ pub(crate) struct Entry {
     pub(crate) key: String,
     pub(crate) value: AnyValue,
     /// The kind of the last event the reporter received before it, if any.
-    pub(crate) after: Option<&'static str>,
+    pub(crate) after: Option<EventKind>,
 }
 
 impl Recorder {

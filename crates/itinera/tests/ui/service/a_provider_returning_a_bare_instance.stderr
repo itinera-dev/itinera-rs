@@ -1,11 +1,11 @@
 error[E0271]: expected `__itinera_provider_stock` to return `Result<Provided<_>, Error>`, but it returns `Result<Warehouse, Error>`
-  --> tests/ui/service/a_provider_returning_a_bare_instance.rs:85:8
+  --> tests/ui/service/a_provider_returning_a_bare_instance.rs:83:8
    |
-82 | #[workflow]
+80 | #[workflow]
    | ----------- required by a bound introduced by this call
 ...
-85 |     fn stock(&self, #[journey_id] _journey: &JourneyId) -> Result<Warehouse, Error> {
-   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<Provided<_>, Error>`, found `Result<Warehouse, Error>`
+83 |     fn stock(&self, _journey: &JourneyId) -> Result<Warehouse, Error> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<Provided<_>, Error>`, found `Result<Warehouse, Error>`
    |
    = note: expected enum `Result<itinera::service::Provided<_>, itinera::error::Error>`
               found enum `Result<Warehouse, itinera::error::Error>`
