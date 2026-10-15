@@ -32,7 +32,7 @@ pub(crate) const MARKS: [&str; 7] = [
 ];
 
 /// The shorthands for what a step hook returns that `DescribedPolicy` gives.
-const SHORTHANDS: [&str; 3] = ["carry_on", "fail_workflow", "finish_workflow"];
+const SHORTHANDS: [&str; 3] = ["keep_default", "fail_workflow", "finish_workflow"];
 
 /// The generated implementations' parameter for the workflow, named so that it clashes with no
 /// type the application names.

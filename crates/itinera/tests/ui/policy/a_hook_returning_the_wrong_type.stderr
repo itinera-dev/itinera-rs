@@ -2,10 +2,10 @@ error[E0308]: mismatched types
   --> tests/ui/policy/a_hook_returning_the_wrong_type.rs:31:64
    |
 28 | #[step_policy]
-   | -------------- expected `Result<Option<OnSuccess>, itinera::error::Error>` because of return type
+   | -------------- expected `Result<OnSuccess, itinera::error::Error>` because of return type
 ...
-31 |     fn checked(&self, #[from_step] receipt: Option<String>) -> Result<Option<FailWorkflow>, Error> {
-   |                                                                ^^^^^^ expected `Result<Option<OnSuccess>, Error>`, found `Result<Option<FailWorkflow>, Error>`
+31 |     fn checked(&self, #[from_step] receipt: Option<String>) -> Result<OnFailure, Error> {
+   |                                                                ^^^^^^ expected `Result<OnSuccess, Error>`, found `Result<OnFailure, Error>`
    |
-   = note: expected enum `Result<Option<OnSuccess>, itinera::error::Error>`
-              found enum `Result<Option<itinera::policy::FailWorkflow>, itinera::error::Error>`
+   = note: expected enum `Result<OnSuccess, itinera::error::Error>`
+              found enum `Result<OnFailure, itinera::error::Error>`

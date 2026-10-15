@@ -16,16 +16,16 @@ use crate::value::{AnyValue, Value};
 /// use itinera::error::Result;
 /// use itinera::journey::Read;
 /// use itinera::policy::{InputAdapter, Requested};
-/// use itinera::value::AnyValue;
+/// use itinera::workflow::Supplied;
 ///
 /// struct Orders;
 ///
 /// impl Orders {
-///     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>> {
+///     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Supplied> {
 ///         let key = format!("price.{}", got.step_name());
 ///         match got.data_bag()?.read::<i64>(&key) {
-///             Read::Present(price) => Ok(Some(AnyValue::new(price))),
-///             Read::Absent | Read::OtherType => Ok(None),
+///             Read::Present(price) => Ok(Supplied::value(price)),
+///             Read::Absent | Read::OtherType => Ok(Supplied::FromDataBag),
 ///         }
 ///     }
 /// }

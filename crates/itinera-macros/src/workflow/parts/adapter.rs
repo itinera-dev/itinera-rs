@@ -118,10 +118,7 @@ impl Adapter {
             fn #function(
                 #workflow_value: &#workflow,
                 #pattern: ::itinera::policy::Requested<'_, #workflow, ::itinera::policy::InputAdapter>,
-            ) -> ::core::result::Result<
-                ::core::option::Option<::itinera::value::AnyValue>,
-                ::itinera::error::Error,
-            > {
+            ) -> ::core::result::Result<::itinera::workflow::Supplied, ::itinera::error::Error> {
                 #(let #arguments = #taken;)*
                 #called
             }

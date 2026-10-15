@@ -10,7 +10,7 @@ use crate::journey::{DataBag, DataBagAccess, JourneyId};
 use crate::policy::{Answers, Requested};
 use crate::step::{InputNeed, StepAttempt};
 use crate::value::AnyValue;
-use crate::workflow::InputAdapterDescriptor;
+use crate::workflow::{InputAdapterDescriptor, Supplied};
 
 /// What a step's inputs are resolved from: its input adapter, if it has one, and the journey's
 /// data.
@@ -72,7 +72,7 @@ impl<D: Delivery> Journey<D> {
             answers,
         );
         match adapter.adapt(sources.workflow, got) {
-            Ok(Some(value)) => {
+            Ok(Supplied::Value(value)) => {
                 self.emit(EventBody::InputAdapterSupplied {
                     step: attempt.clone(),
                     key: key.to_owned(),
@@ -85,7 +85,7 @@ impl<D: Delivery> Journey<D> {
                     Err(wrong_type(key, &requesting))
                 }
             }
-            Ok(None) => Ok(None),
+            Ok(Supplied::FromDataBag) => Ok(None),
             Err(error) => {
                 self.emit(EventBody::InputAdapterFailed {
                     step: attempt.clone(),

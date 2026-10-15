@@ -18,8 +18,7 @@ use itinera::step::{
     Input, OptionalInput, Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds,
     step_name,
 };
-use itinera::value::AnyValue;
-use itinera::workflow::{InputAdapterDescriptor, WorkflowDescriptor};
+use itinera::workflow::{InputAdapterDescriptor, Supplied, WorkflowDescriptor};
 
 const AMOUNT: Input<i64> = Input::new("amount");
 const CHARGED: Input<i64> = Input::new("charged");
@@ -104,14 +103,11 @@ impl OnStepSuccess<Orders> for Audit {
         HookNeeds::new().from_step(&CHARGED).contributor()
     }
 
-    fn on_step_success(
-        &self,
-        mut got: Requested<'_, Orders, StepSuccess>,
-    ) -> Result<Option<OnSuccess>> {
+    fn on_step_success(&self, mut got: Requested<'_, Orders, StepSuccess>) -> Result<OnSuccess> {
         let charged = got.from_step(&CHARGED)?;
         got.contributor()?
             .contribute("audit", format!("charged {charged}"));
-        Ok(None)
+        Ok(OnSuccess::KeepDefault)
     }
 }
 
@@ -170,10 +166,10 @@ impl Provides<dyn Messages> for Orders {
 }
 
 /// Works out the amount to charge: the price, less any discount.
-fn pricing(_: &Orders, mut got: Requested<'_, Orders, InputAdapter>) -> Result<Option<AnyValue>> {
+fn pricing(_: &Orders, mut got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied> {
     let price = got.from_workflow(&PRICE)?;
     let discount = got.optional_from_workflow(&DISCOUNT)?;
-    Ok(Some(AnyValue::new(price - discount.unwrap_or_default())))
+    Ok(Supplied::value(price - discount.unwrap_or_default()))
 }
 
 /// Lends each attempt to charge the shop's card terminal.

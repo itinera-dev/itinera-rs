@@ -1,11 +1,10 @@
 //! Input adapters: hooks of the workflow itself, which supply the inputs of the steps they are
 //! attached to.
 
-use super::AdapterName;
+use super::{AdapterName, Supplied};
 use crate::error::Error;
 use crate::policy::{HookNeeds, InputAdapter, Needs, Requested};
 use crate::step::StepName;
-use crate::value::AnyValue;
 
 /// The description of an input adapter of workflows `W`: its name, the steps it is attached to,
 /// at least one, what it needs, and its function. An input adapter is a hook of the workflow
@@ -17,8 +16,9 @@ use crate::value::AnyValue;
 /// journey ID and the data from the workflow it declared, read from the data bag, and, if it
 /// declared it, read access to the data bag.
 ///
-/// - A value is the input's value, which must have the type the step declares.
-/// - `None` means the adapter does not supply this input, which is read from the data bag.
+/// - [`Supplied::Value`] is the input's value, which must have the type the step declares.
+/// - [`Supplied::FromDataBag`] means the adapter does not supply this input, which is read from
+///   the data bag.
 /// - An error aborts the journey with `step could not be built`.
 ///
 /// [`WorkflowBuilder::input_adapter`]: super::WorkflowBuilder::input_adapter
@@ -29,16 +29,19 @@ use crate::value::AnyValue;
 /// use itinera::error::Result;
 /// use itinera::policy::{InputAdapter, Requested};
 /// use itinera::step::step_name;
-/// use itinera::value::AnyValue;
-/// use itinera::workflow::InputAdapterDescriptor;
+/// use itinera::workflow::{InputAdapterDescriptor, Supplied};
 ///
 /// struct Orders {
 ///     price: i64,
 /// }
 ///
 /// impl Orders {
-///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>> {
-///         Ok((got.key() == "amount").then(|| AnyValue::new(self.price)))
+///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Supplied> {
+///         Ok(if got.key() == "amount" {
+///             Supplied::value(self.price)
+///         } else {
+///             Supplied::FromDataBag
+///         })
 ///     }
 /// }
 ///
@@ -55,9 +58,8 @@ pub struct InputAdapterDescriptor<W> {
     adapt: Box<Adapt<W>>,
 }
 
-type Adapt<W> = dyn for<'a> Fn(&'a W, Requested<'a, W, InputAdapter>) -> Result<Option<AnyValue>, Error>
-    + Send
-    + Sync;
+type Adapt<W> =
+    dyn for<'a> Fn(&'a W, Requested<'a, W, InputAdapter>) -> Result<Supplied, Error> + Send + Sync;
 
 impl<W> InputAdapterDescriptor<W> {
     /// Describes an input adapter with its name, a step it is attached to, and its function. It
@@ -68,16 +70,16 @@ impl<W> InputAdapterDescriptor<W> {
     ///
     /// ```
     /// use itinera::step::step_name;
-    /// use itinera::workflow::InputAdapterDescriptor;
-    ///
+    /// use itinera::workflow::{InputAdapterDescriptor, Supplied};
+    ///     ///
     /// struct Orders;
-    ///
-    /// let nothing = InputAdapterDescriptor::new("nothing", step_name!("charge"), |_: &Orders, _| Ok(None));
+    ///     ///
+    /// let nothing = InputAdapterDescriptor::new("nothing", step_name!("charge"), |_: &Orders, _| Ok(Supplied::FromDataBag));
     /// ```
     pub fn new(
         name: impl Into<AdapterName>,
         step: StepName,
-        adapt: impl for<'a> Fn(&'a W, Requested<'a, W, InputAdapter>) -> Result<Option<AnyValue>, Error>
+        adapt: impl for<'a> Fn(&'a W, Requested<'a, W, InputAdapter>) -> Result<Supplied, Error>
         + Send
         + Sync
         + 'static,
@@ -99,20 +101,23 @@ impl<W> InputAdapterDescriptor<W> {
     /// use itinera::error::Result;
     /// use itinera::policy::{HookNeeds, InputAdapter, Requested};
     /// use itinera::step::{Input, step_name};
-    /// use itinera::value::AnyValue;
-    /// use itinera::workflow::InputAdapterDescriptor;
-    ///
+    /// use itinera::workflow::{InputAdapterDescriptor, Supplied};
+    ///     ///
     /// const PRICE: Input<i64> = Input::new("price");
-    ///
+    ///     ///
     /// struct Orders;
-    ///
+    ///     ///
     /// impl Orders {
-    ///     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>> {
+    ///     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Supplied> {
     ///         let price = got.from_workflow(&PRICE)?;
-    ///         Ok((got.key() == "amount").then(|| AnyValue::new(price)))
+    ///         Ok(if got.key() == "amount" {
+    ///             Supplied::value(price)
+    ///         } else {
+    ///             Supplied::FromDataBag
+    ///         })
     ///     }
     /// }
-    ///
+    ///     ///
     /// let pricing = InputAdapterDescriptor::new("pricing", step_name!("charge"), Orders::pricing)
     ///     .needing(HookNeeds::new().from_workflow(&PRICE));
     /// ```
@@ -128,11 +133,11 @@ impl<W> InputAdapterDescriptor<W> {
     ///
     /// ```
     /// use itinera::step::step_name;
-    /// use itinera::workflow::InputAdapterDescriptor;
-    ///
+    /// use itinera::workflow::{InputAdapterDescriptor, Supplied};
+    ///     ///
     /// struct Orders;
-    ///
-    /// let nothing = InputAdapterDescriptor::new("nothing", step_name!("charge"), |_: &Orders, _| Ok(None))
+    ///     ///
+    /// let nothing = InputAdapterDescriptor::new("nothing", step_name!("charge"), |_: &Orders, _| Ok(Supplied::FromDataBag))
     ///     .step(step_name!("refund"));
     /// ```
     pub fn step(mut self, step: StepName) -> Self {
@@ -148,11 +153,11 @@ impl<W> InputAdapterDescriptor<W> {
     ///
     /// ```
     /// use itinera::step::step_name;
-    /// use itinera::workflow::InputAdapterDescriptor;
-    ///
+    /// use itinera::workflow::{InputAdapterDescriptor, Supplied};
+    ///     ///
     /// struct Orders;
-    ///
-    /// let nothing = InputAdapterDescriptor::new("nothing", step_name!("charge"), |_: &Orders, _| Ok(None));
+    ///     ///
+    /// let nothing = InputAdapterDescriptor::new("nothing", step_name!("charge"), |_: &Orders, _| Ok(Supplied::FromDataBag));
     /// assert_eq!(nothing.name().to_string(), "nothing");
     /// ```
     pub fn name(&self) -> AdapterName {
@@ -180,7 +185,7 @@ impl<W> InputAdapterDescriptor<W> {
         &self,
         workflow: &'a W,
         got: Requested<'a, W, InputAdapter>,
-    ) -> Result<Option<AnyValue>, Error> {
+    ) -> Result<Supplied, Error> {
         (self.adapt)(workflow, got)
     }
 }

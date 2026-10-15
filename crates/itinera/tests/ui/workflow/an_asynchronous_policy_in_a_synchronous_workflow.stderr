@@ -1,7 +1,7 @@
 error[E0308]: mismatched types
-  --> tests/ui/workflow/an_asynchronous_policy_in_a_synchronous_workflow.rs:97:84
+  --> tests/ui/workflow/an_asynchronous_policy_in_a_synchronous_workflow.rs:96:84
    |
-97 | #[with_step(Charge, name = "charge", retry_budget = 1, policies = [Receipt, Watch, Track])]
+96 | #[with_step(Charge, name = "charge", retry_budget = 1, policies = [Receipt, Watch, Track])]
    |                                                                                    ^^^^^
    |                                                                                    |
    |                                                                                    expected `StepPolicyDescriptor<_, Shop>`, found `StepPolicyDescriptor<Track, Shop, ...>`

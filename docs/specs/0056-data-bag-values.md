@@ -10,7 +10,7 @@ Status: done in stage 5. Stage 1 added values and the type-erased value, stage 3
 - **`itinera::value::AnyValue`** holds a value whose type has been erased. It can be cloned and serialized, and read back with `downcast_ref::<T>()`, which reads nothing unless `T` is the exact type.
 - **`itinera::journey::DataBag`** maps string keys to `AnyValue`s. Only itinera fills it.
 - **`itinera::step::Input<T>`** and **`itinera::step::OptionalInput<T>`** are typed tokens for a step's inputs, where `T: Value`. A step's `needs` lists them, and its factory takes each resolved value with `Resolved::input` or `Resolved::optional_input`, already of type `T`.
-- **Input adapters** return an `Option<AnyValue>`, so what they supply is a value too.
+- **Input adapters** return a `Supplied`, whose `Supplied::Value` holds an `AnyValue`, so what they supply is a value too.
 - **`itinera::journey::Contributor::contribute`** takes a key and any `T: Value`, by value.
 
 ## How the rules are enforced

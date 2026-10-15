@@ -15,14 +15,14 @@ impl Audit {
     async fn checked(
         &self,
         #[reporter] mut reporter: AsyncHookReporter<'_>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         reporter.info("checked").await?;
-        Self::carry_on()
+        Self::keep_default()
     }
 
     #[on_step_failure]
-    fn reported(&self) -> Result<Option<itinera::policy::FailWorkflow>, Error> {
-        Self::carry_on()
+    fn reported(&self) -> Result<itinera::policy::OnFailure, Error> {
+        Self::keep_default()
     }
 }
 

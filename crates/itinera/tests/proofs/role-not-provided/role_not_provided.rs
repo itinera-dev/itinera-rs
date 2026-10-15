@@ -14,12 +14,9 @@ struct Orders;
 struct Tell;
 
 impl<W: Provides<dyn Notifier> + Send + Sync + 'static> OnStepSuccess<W> for Tell {
-    fn on_step_success(
-        &self,
-        got: Requested<'_, W, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    fn on_step_success(&self, got: Requested<'_, W, StepSuccess>) -> Result<OnSuccess, Error> {
         got.role::<dyn Notifier>().notify();
-        Ok(None)
+        Ok(OnSuccess::KeepDefault)
     }
 }
 

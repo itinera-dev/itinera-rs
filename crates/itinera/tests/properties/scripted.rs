@@ -9,12 +9,12 @@ use itinera::error::Error;
 use itinera::event::Event;
 use itinera::journey::Contributor;
 use itinera::policy::{
-    FailWorkflow, HookNeeds, OnStepAbnormalTermination, OnStepFailure, OnStepRetry, OnStepSuccess,
+    HookNeeds, OnFailure, OnStepAbnormalTermination, OnStepFailure, OnStepRetry, OnStepSuccess,
     OnSuccess, OnWorkflowFailure, OnWorkflowSuccess, PolicyHookKind, Requested,
     StepAbnormalTermination, StepFailure, StepRetry, StepSuccess, WorkflowFailure, WorkflowSuccess,
 };
 use itinera::report::Reporter;
-use itinera::step::{Outcome, Reason, Resolved, Step, StepFactory, StepNeeds, StepReporter};
+use itinera::step::{Outcome, Resolved, Step, StepFactory, StepNeeds, StepReporter};
 
 use crate::journey::{BAG_VALUE, Shop};
 use crate::plan::{Attempt, Closing, Ending, OnSuccessReturns, Returns, StepPlan};
@@ -109,7 +109,7 @@ impl OnStepSuccess<Shop> for Verdict {
     fn on_step_success(
         &self,
         mut got: Requested<'_, Shop, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         consult(&mut got)?;
         on_success(self.planned(got.attempt()).on_step_success)
     }
@@ -123,7 +123,7 @@ impl OnStepFailure<Shop> for Verdict {
     fn on_step_failure(
         &self,
         mut got: Requested<'_, Shop, StepFailure>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         consult(&mut got)?;
         decided(self.planned(got.attempt()).on_step_failure)
     }
@@ -134,10 +134,7 @@ impl OnStepRetry<Shop> for Verdict {
         consulting()
     }
 
-    fn on_step_retry(
-        &self,
-        mut got: Requested<'_, Shop, StepRetry>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    fn on_step_retry(&self, mut got: Requested<'_, Shop, StepRetry>) -> Result<OnFailure, Error> {
         consult(&mut got)?;
         decided(self.planned(got.attempt()).on_step_retry)
     }
@@ -151,7 +148,7 @@ impl OnStepAbnormalTermination<Shop> for Verdict {
     fn on_step_abnormal_termination(
         &self,
         mut got: Requested<'_, Shop, StepAbnormalTermination>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         consult(&mut got)?;
         decided(self.planned(got.attempt()).on_step_abnormal_termination)
     }
@@ -198,29 +195,25 @@ fn consult<H: PolicyHookKind>(got: &mut Requested<'_, Shop, H>) -> Result<(), Er
     Ok(())
 }
 
-fn on_success(returns: OnSuccessReturns) -> Result<Option<OnSuccess>, Error> {
+fn on_success(returns: OnSuccessReturns) -> Result<OnSuccess, Error> {
     match returns {
-        OnSuccessReturns::Nothing => Ok(None),
-        OnSuccessReturns::FinishWorkflow => Ok(Some(OnSuccess::FinishWorkflow)),
-        OnSuccessReturns::FailWorkflow => Ok(Some(OnSuccess::from(refused()))),
+        OnSuccessReturns::Nothing => Ok(OnSuccess::KeepDefault),
+        OnSuccessReturns::FinishWorkflow => Ok(OnSuccess::FinishWorkflow),
+        OnSuccessReturns::FailWorkflow => Ok(OnSuccess::fail_workflow("refused")),
         OnSuccessReturns::Error => Err(broken()),
     }
 }
 
-fn decided(returns: Returns) -> Result<Option<FailWorkflow>, Error> {
+fn decided(returns: Returns) -> Result<OnFailure, Error> {
     match returns {
-        Returns::Nothing => Ok(None),
-        Returns::FailWorkflow => Ok(Some(refused())),
+        Returns::Nothing => Ok(OnFailure::KeepDefault),
+        Returns::FailWorkflow => Ok(OnFailure::fail_workflow("refused")),
         Returns::Error => Err(broken()),
     }
 }
 
 fn closed(fails: bool) -> Result<(), Error> {
     if fails { Err(broken()) } else { Ok(()) }
-}
-
-fn refused() -> FailWorkflow {
-    FailWorkflow::from(Reason::new("refused"))
 }
 
 fn broken() -> Error {

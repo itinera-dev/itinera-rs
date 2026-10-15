@@ -1,13 +1,13 @@
 error[E0521]: borrowed data escapes outside of method
-  --> tests/proofs/late-handle/kept_by_an_input_adapter.rs:17:10
+  --> tests/proofs/late-handle/kept_by_an_input_adapter.rs:16:10
    |
-15 |     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Option<AnyValue>, Error> {
+14 |     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Supplied, Error> {
    |                       -------
    |                       |
    |                       `got` is a reference that is only valid in the method body
    |                       has type `Requested<'1, Orders, InputAdapter>`
-16 |         let access = got.data_bag()?;
-17 |         *self.kept.lock().unwrap() = Some(access);
+15 |         let access = got.data_bag()?;
+16 |         *self.kept.lock().unwrap() = Some(access);
    |          ^^^^^^^^^^^^^^^^
    |          |
    |          `got` escapes the method body here

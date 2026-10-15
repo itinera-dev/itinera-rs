@@ -1,20 +1,19 @@
 //! The synchronous `on step retry` hook.
 
 use crate::error::Error;
-use crate::policy::{FailWorkflow, HookNeeds, Requested, StepRetry};
+use crate::policy::{HookNeeds, OnFailure, Requested, StepRetry};
 
 /// `on step retry`, called when a step will be attempted again, before `step_retrying`.
 ///
-/// Returning `None` lets the step be attempted again; `FailWorkflow` gives the step up and fails
-/// the journey with its reason, without calling `on step failure`. An `Err` aborts the journey
-/// with `hook failed`.
+/// Returning [`OnFailure::KeepDefault`] lets the step be attempted again; `FailWorkflow` gives the
+/// step up and fails the journey with its reason, without calling `on step failure`. An `Err`
+/// aborts the journey with `hook failed`.
 ///
 /// # Examples
 ///
 /// ```
 /// use itinera::error::Result;
-/// use itinera::policy::{FailWorkflow, OnStepRetry, Requested, StepRetry};
-/// use itinera::step::Reason;
+/// use itinera::policy::{OnFailure, OnStepRetry, Requested, StepRetry};
 ///
 /// struct AtMostTwice;
 ///
@@ -22,9 +21,12 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepRetry};
 ///     fn on_step_retry(
 ///         &self,
 ///         got: Requested<'_, W, StepRetry>,
-///     ) -> Result<Option<FailWorkflow>> {
-///         Ok((got.attempt().get() >= 2)
-///             .then(|| FailWorkflow::from(Reason::new("too many tries"))))
+///     ) -> Result<OnFailure> {
+///         Ok(if got.attempt().get() >= 2 {
+///             OnFailure::fail_workflow("too many tries")
+///         } else {
+///             OnFailure::KeepDefault
+///         })
 ///     }
 /// }
 /// ```
@@ -54,7 +56,7 @@ pub trait OnStepRetry<W>: Send + Sync + 'static {
     ///
     /// ```
     /// use itinera::error::Result;
-    /// use itinera::policy::{FailWorkflow, OnStepRetry, Requested, StepRetry};
+    /// use itinera::policy::{OnFailure, OnStepRetry, Requested, StepRetry};
     ///
     /// struct Log;
     ///
@@ -62,14 +64,11 @@ pub trait OnStepRetry<W>: Send + Sync + 'static {
     ///     fn on_step_retry(
     ///         &self,
     ///         got: Requested<'_, W, StepRetry>,
-    ///     ) -> Result<Option<FailWorkflow>> {
+    ///     ) -> Result<OnFailure> {
     ///         println!("retrying {} after: {}", got.step_name(), got.cause());
-    ///         Ok(None)
+    ///         Ok(OnFailure::KeepDefault)
     ///     }
     /// }
     /// ```
-    fn on_step_retry(
-        &self,
-        got: Requested<'_, W, StepRetry>,
-    ) -> Result<Option<FailWorkflow>, Error>;
+    fn on_step_retry(&self, got: Requested<'_, W, StepRetry>) -> Result<OnFailure, Error>;
 }

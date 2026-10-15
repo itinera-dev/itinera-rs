@@ -45,9 +45,9 @@ impl Track {
         &self,
         #[from_step] dispatched: String,
         #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         contributor.contribute("tracking", format!("track {dispatched}"));
-        Self::carry_on()
+        Self::keep_default()
     }
 }
 

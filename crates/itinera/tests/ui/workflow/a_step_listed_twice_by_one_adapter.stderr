@@ -1,5 +1,5 @@
 error: this input adapter lists step charge already
-   --> tests/ui/workflow/a_step_listed_twice_by_one_adapter.rs:104:56
+   --> tests/ui/workflow/a_step_listed_twice_by_one_adapter.rs:103:56
     |
-104 |     #[input_adapter(steps = ["charge", "charge again", "charge"])]
+103 |     #[input_adapter(steps = ["charge", "charge again", "charge"])]
     |                                                        ^^^^^^^^

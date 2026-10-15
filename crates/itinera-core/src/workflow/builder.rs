@@ -127,13 +127,16 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     ///
     /// ```
     /// use itinera::step::{Outcome, StepDescriptor, step_name};
-    /// use itinera::workflow::{InputAdapterDescriptor, WorkflowDescriptor};
+    /// use itinera::workflow::{InputAdapterDescriptor, Supplied, WorkflowDescriptor};
     ///
     /// struct Orders;
     ///
+    /// let pricing = InputAdapterDescriptor::new("pricing", step_name!("charge"), |_, _| {
+    ///     Ok(Supplied::FromDataBag)
+    /// });
     /// let orders = WorkflowDescriptor::<Orders>::builder("orders")
     ///     .step(StepDescriptor::new(step_name!("charge"), || Ok(Outcome::success())))
-    ///     .input_adapter(InputAdapterDescriptor::new("pricing", step_name!("charge"), |_, _| Ok(None)))
+    ///     .input_adapter(pricing)
     ///     .build()?;
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
@@ -164,7 +167,9 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     /// ```
     /// use itinera::error::Result;
     /// use itinera::service::{Service, ServiceProviderDescriptor, provide};
-    /// use itinera::step::{Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds, step_name};
+    /// use itinera::step::{
+    ///     Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds, step_name,
+    /// };
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// trait StockStore: Send + Sync {

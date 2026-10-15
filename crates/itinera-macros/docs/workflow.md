@@ -17,7 +17,7 @@ Mistakes in the declaration are compile errors, including every violation the de
 
 On the workflow's own `impl` block, `#[workflow]` takes no arguments and adds the methods marked as parts of the declaration; the block is needed only when there is one. Each takes the workflow as `&self` and is synchronous:
 
-1. `#[input_adapter(steps = ["a", "b"])]` makes the method an input adapter of the listed steps, which may name a rescue step, such as `"charge_rescue"` for the rescue step of `charge`. It is named after the method unless `name = "..."` is given. Its parameters request what it reads, each marked with its attribute: `#[step_name]` with `StepName`, `#[key]` with `&str`, `#[from_workflow]` with a value's type or an `Option` of it, `#[journey_id]` with `&JourneyId`, and `#[data_bag]` with `DataBagAccess<'_>`. `#[from_workflow]` reads the key named after the parameter, or the one it names, as in `#[from_workflow("price")]`; an `Option` is a key that may be absent, unless `#[from_workflow(required)]` makes the key hold the `Option` itself. It returns `Result<Option<AnyValue>, Error>`.
+1. `#[input_adapter(steps = ["a", "b"])]` makes the method an input adapter of the listed steps, which may name a rescue step, such as `"charge_rescue"` for the rescue step of `charge`. It is named after the method unless `name = "..."` is given. Its parameters request what it reads, each marked with its attribute: `#[step_name]` with `StepName`, `#[key]` with `&str`, `#[from_workflow]` with a value's type or an `Option` of it, `#[journey_id]` with `&JourneyId`, and `#[data_bag]` with `DataBagAccess<'_>`. `#[from_workflow]` reads the key named after the parameter, or the one it names, as in `#[from_workflow("price")]`; an `Option` is a key that may be absent, unless `#[from_workflow(required)]` makes the key hold the `Option` itself. It returns `Result<Supplied, Error>`.
 2. `#[id_generator]` makes the method the workflow's ID generator. It may take the initial data as `&DataBag`, and returns `Result<String, Error>`.
 
 Every function of the block may use the shorthands for what an input adapter returns that `Workflow` gives: `Self::supply(value)` for the value it supplies, and `Self::from_data_bag()` to leave the input to the data bag.
@@ -32,8 +32,7 @@ use itinera::executor::LocalExecutor;
 use itinera::instance::WorkflowInstance;
 use itinera::journey::InitialData;
 use itinera::step::{Outcome, Step, step};
-use itinera::value::AnyValue;
-use itinera::workflow::{Workflow, workflow};
+use itinera::workflow::{Supplied, Workflow, workflow};
 
 #[derive(Step)]
 struct Charge {
@@ -62,7 +61,7 @@ struct Orders {
 #[workflow]
 impl Orders {
     #[input_adapter(steps = ["charge"])]
-    fn pricing(&self, #[from_workflow] price: i64) -> Result<Option<AnyValue>, Error> {
+    fn pricing(&self, #[from_workflow] price: i64) -> Result<Supplied, Error> {
         let discount = self.discount.unwrap_or_default();
         Self::supply(price - discount)
     }

@@ -16,9 +16,8 @@ use crate::step::{
     OptionalInput, Outcome, Reason, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved,
     RescueStep, StepDescriptor, StepName,
 };
-use crate::value::AnyValue;
-use crate::workflow::InputAdapterDescriptor;
 use crate::workflow::fixtures::{Orders, orders};
+use crate::workflow::{InputAdapterDescriptor, Supplied};
 
 const RESCUE: StepName = StepName::new("charge_rescue");
 const ATTEMPT: OptionalInput<i64> = OptionalInput::new("attempt");
@@ -351,11 +350,12 @@ impl RescueStep for ReadToken<'_> {
 }
 
 /// Supplies a token of 7, and nothing else.
-fn credentials(
-    _: &Orders,
-    got: Requested<'_, Orders, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
-    Ok((got.key() == "token").then(|| AnyValue::new(7_i64)))
+fn credentials(_: &Orders, got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied, Error> {
+    Ok(if got.key() == "token" {
+        Supplied::value(7_i64)
+    } else {
+        Supplied::FromDataBag
+    })
 }
 
 #[rstest]

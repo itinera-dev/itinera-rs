@@ -1,6 +1,6 @@
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::policy::{FailWorkflow, Provides, StepPolicy, step_policy};
+use itinera::policy::{OnFailure, Provides, StepPolicy, step_policy};
 use itinera::step::{Outcome, Reason, StepDescriptor, step_name};
 use itinera::workflow::WorkflowDescriptor;
 
@@ -28,9 +28,9 @@ struct Audit;
 #[step_policy]
 impl Audit {
     #[on_step_success]
-    fn checked(&self, #[from_step] receipt: Option<String>) -> Result<Option<FailWorkflow>, Error> {
+    fn checked(&self, #[from_step] receipt: Option<String>) -> Result<OnFailure, Error> {
         match receipt {
-            Some(_) => Self::carry_on(),
+            Some(_) => Self::keep_default(),
             None => Self::fail_workflow("no-receipt"),
         }
     }
@@ -40,7 +40,7 @@ impl Audit {
         &self,
         #[reason] reason: Reason,
         #[role] desk: &dyn Desk,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         Self::fail_workflow(format!("{}-at-{}", reason.code(), desk.desk()))
     }
 }

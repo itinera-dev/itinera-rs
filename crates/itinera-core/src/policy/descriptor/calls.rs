@@ -2,17 +2,16 @@
 
 use super::Call;
 use crate::policy::{
-    FailWorkflow, OnSuccess, StepAbnormalTermination, StepFailure, StepRetry, StepSuccess,
+    OnFailure, OnSuccess, StepAbnormalTermination, StepFailure, StepRetry, StepSuccess,
     WorkflowFailure, WorkflowSuccess,
 };
 
 /// How to call each step hook a policy defines.
 pub(super) struct StepCalls<P, W, M> {
-    pub(super) success: Option<Call<P, W, StepSuccess, M, Option<OnSuccess>>>,
-    pub(super) failure: Option<Call<P, W, StepFailure, M, Option<FailWorkflow>>>,
-    pub(super) retry: Option<Call<P, W, StepRetry, M, Option<FailWorkflow>>>,
-    pub(super) abnormal_termination:
-        Option<Call<P, W, StepAbnormalTermination, M, Option<FailWorkflow>>>,
+    pub(super) success: Option<Call<P, W, StepSuccess, M, OnSuccess>>,
+    pub(super) failure: Option<Call<P, W, StepFailure, M, OnFailure>>,
+    pub(super) retry: Option<Call<P, W, StepRetry, M, OnFailure>>,
+    pub(super) abnormal_termination: Option<Call<P, W, StepAbnormalTermination, M, OnFailure>>,
 }
 
 impl<P, W, M> Clone for StepCalls<P, W, M> {

@@ -1,17 +1,11 @@
-error[E0308]: mismatched types
-  --> tests/proofs/invalid-lifecycle/finish_workflow_on_step_failure.rs:18:17
+error[E0599]: no variant, associated function, or constant named `FinishWorkflow` found for enum `OnFailure` in the current scope
+  --> tests/proofs/invalid-lifecycle/finish_workflow_on_step_failure.rs:16:23
    |
-18 |         Ok(Some(OnSuccess::FinishWorkflow))
-   |            ---- ^^^^^^^^^^^^^^^^^^^^^^^^^ expected `FailWorkflow`, found `OnSuccess`
-   |            |
-   |            arguments to this enum variant are incorrect
+16 |         Ok(OnFailure::FinishWorkflow)
+   |                       ^^^^^^^^^^^^^^ variant, associated function, or constant not found in `OnFailure`
    |
-help: the type constructed contains `OnSuccess` due to the type of the argument passed
-  --> tests/proofs/invalid-lifecycle/finish_workflow_on_step_failure.rs:18:12
+help: there is a variant with a similar name
    |
-18 |         Ok(Some(OnSuccess::FinishWorkflow))
-   |            ^^^^^-------------------------^
-   |                 |
-   |                 this argument influences the type of `Some`
-note: tuple variant defined here
-  --> $RUST/core/src/option.rs
+16 -         Ok(OnFailure::FinishWorkflow)
+16 +         Ok(OnFailure::FailWorkflow)
+   |

@@ -13,8 +13,7 @@ use itinera::step::{
     DescribedStep, Input, Outcome, RescueFactory, RescueNeeds, RescueOutcome, RescueResolved,
     RescueStep, Step, StepName, rescue_step, step, step_name,
 };
-use itinera::value::AnyValue;
-use itinera::workflow::{InputAdapterDescriptor, Workflow, WorkflowDescriptor, workflow};
+use itinera::workflow::{InputAdapterDescriptor, Supplied, Workflow, WorkflowDescriptor, workflow};
 use rstest::rstest;
 
 use super::fixtures::{Journey, Orders, orders, run_created};
@@ -268,7 +267,7 @@ impl Rerouted {
     }
 
     #[input_adapter(steps = ["charge_rescue"])]
-    fn clients(&self, #[from_workflow] client: String) -> Result<Option<AnyValue>, Error> {
+    fn clients(&self, #[from_workflow] client: String) -> Result<Supplied, Error> {
         Self::supply(client)
     }
 
@@ -283,8 +282,8 @@ const CLIENT: Input<String> = Input::new("client");
 fn hand_clients(
     _: &Orders,
     mut got: Requested<'_, Orders, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
-    Ok(Some(AnyValue::new(got.from_workflow(&CLIENT)?)))
+) -> Result<Supplied, Error> {
+    Ok(Supplied::value(got.from_workflow(&CLIENT)?))
 }
 
 /// The initial data of a journey of the rerouted workflow: the client, whose account it charges.

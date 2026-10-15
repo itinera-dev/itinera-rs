@@ -1,5 +1,5 @@
 error: duplicate step name: charge, which an earlier `#[with_step]` line already gives
-  --> tests/ui/workflow/a_duplicate_step_name.rs:87:28
+  --> tests/ui/workflow/a_duplicate_step_name.rs:86:28
    |
-87 | #[with_step(Charge, name = "charge")]
+86 | #[with_step(Charge, name = "charge")]
    |                            ^^^^^^^^

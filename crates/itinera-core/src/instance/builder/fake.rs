@@ -34,7 +34,9 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
     /// use itinera::executor::LocalExecutor;
     /// use itinera::report::RecordingReporter;
     /// use itinera::service::{Service, ServiceProviderDescriptor, provide};
-    /// use itinera::step::{Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds, step_name};
+    /// use itinera::step::{
+    ///     Outcome, Resolved, Step, StepDescriptor, StepFactory, StepNeeds, step_name,
+    /// };
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// trait StockStore: Send + Sync {

@@ -13,8 +13,7 @@ use itinera::policy::{OnSuccess, step_policy, workflow_policy};
 use itinera::report::AsyncReporter;
 use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, Step, step};
-use itinera::value::AnyValue;
-use itinera::workflow::{role, workflow};
+use itinera::workflow::{Supplied, role, workflow};
 
 /// Takes payments, asynchronously: the service a charge is paid through.
 #[async_trait]
@@ -85,9 +84,9 @@ impl Audit {
         &self,
         #[from_step] charged: i64,
         #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<Option<OnSuccess>> {
+    ) -> Result<OnSuccess> {
         contributor.contribute("audit", format!("charged {charged}"));
-        Self::carry_on()
+        Self::keep_default()
     }
 }
 
@@ -149,7 +148,7 @@ impl Orders {
         &self,
         #[from_workflow] price: i64,
         #[from_workflow] discount: Option<i64>,
-    ) -> Result<Option<AnyValue>> {
+    ) -> Result<Supplied> {
         Self::supply(price - discount.unwrap_or_default())
     }
 

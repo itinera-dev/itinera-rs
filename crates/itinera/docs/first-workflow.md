@@ -39,9 +39,9 @@ impl Audit {
         &self,
         #[from_step] charged: i64,
         #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<Option<OnSuccess>> {
+    ) -> Result<OnSuccess> {
         contributor.contribute("audit", format!("charged {charged}"));
-        Self::carry_on()
+        Self::keep_default()
     }
 }
 

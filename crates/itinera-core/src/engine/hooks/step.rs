@@ -12,12 +12,37 @@ use crate::engine::{Delivery, Journey};
 use crate::event::HookSource;
 use crate::instance::WorkflowInstance;
 use crate::policy::{
-    BuiltStepPolicy, Call, FailWorkflow, OnSuccess, RetryCause, StepAbnormalTermination,
+    BuiltStepPolicy, Call, Lifecycle, OnFailure, OnSuccess, RetryCause, StepAbnormalTermination,
     StepFailure, StepFailureCause, StepHook, StepHookKind, StepRetry, StepSuccess,
 };
+use crate::step::Reason;
 
 /// How the engine calls one step hook of kind `H` on a built policy, which returns `R`.
 type StepHookCall<W, M, H, R> = Call<dyn BuiltStepPolicy<W, M>, W, H, M, R>;
+
+/// What a step hook returned, as the decision the engine acts on, `None` when it keeps the
+/// default.
+trait Decides: Returned {
+    type Decision;
+
+    fn decision(self) -> Option<Self::Decision>;
+}
+
+impl Decides for OnSuccess {
+    type Decision = Lifecycle;
+
+    fn decision(self) -> Option<Lifecycle> {
+        self.lifecycle()
+    }
+}
+
+impl Decides for OnFailure {
+    type Decision = Reason;
+
+    fn decision(self) -> Option<Reason> {
+        self.failing()
+    }
+}
 
 impl<D: Delivery> Journey<D> {
     /// `on step success`, after an attempt that succeeded, once its contributions are committed.
@@ -25,7 +50,7 @@ impl<D: Delivery> Journey<D> {
         &mut self,
         instance: &mut I,
         attempting: &Attempting<'_, I::Workflow, I::Mode>,
-    ) -> Result<Option<Decided<OnSuccess>>, End> {
+    ) -> Result<Option<Decided<Lifecycle>>, End> {
         self.step_hook::<I, StepSuccess, _>(
             instance,
             attempting,
@@ -44,7 +69,7 @@ impl<D: Delivery> Journey<D> {
         attempting: &Attempting<'_, I::Workflow, I::Mode>,
         failed: &Failed,
         cause: StepFailureCause,
-    ) -> Result<Option<Decided<FailWorkflow>>, End> {
+    ) -> Result<Option<Decided<Reason>>, End> {
         self.step_hook::<I, StepFailure, _>(
             instance,
             attempting,
@@ -63,7 +88,7 @@ impl<D: Delivery> Journey<D> {
         attempting: &Attempting<'_, I::Workflow, I::Mode>,
         failed: &Failed,
         cause: RetryCause,
-    ) -> Result<Option<Decided<FailWorkflow>>, End> {
+    ) -> Result<Option<Decided<Reason>>, End> {
         self.step_hook::<I, StepRetry, _>(
             instance,
             attempting,
@@ -81,7 +106,7 @@ impl<D: Delivery> Journey<D> {
         instance: &mut I,
         attempting: &Attempting<'_, I::Workflow, I::Mode>,
         failed: &Failed,
-    ) -> Result<Option<Decided<FailWorkflow>>, End> {
+    ) -> Result<Option<Decided<Reason>>, End> {
         self.step_hook::<I, StepAbnormalTermination, _>(
             instance,
             attempting,
@@ -94,18 +119,15 @@ impl<D: Delivery> Journey<D> {
     }
 
     /// Calls a step hook, if a policy attached to the step defines it.
-    async fn step_hook<I: WorkflowInstance, H: StepHookKind, L>(
+    async fn step_hook<I: WorkflowInstance, H: StepHookKind, R: Decides>(
         &mut self,
         instance: &mut I,
         attempting: &Attempting<'_, I::Workflow, I::Mode>,
         hook: StepHook,
-        call: StepHookCall<I::Workflow, I::Mode, H, Option<L>>,
+        call: StepHookCall<I::Workflow, I::Mode, H, R>,
         context: H::Context,
         failed: Option<&Failed>,
-    ) -> Result<Option<Decided<L>>, End>
-    where
-        Option<L>: Returned,
-    {
+    ) -> Result<Option<Decided<R::Decision>>, End> {
         let Some((entry, policy)) = attempting.defining(hook) else {
             return Ok(None);
         };
@@ -126,10 +148,14 @@ impl<D: Delivery> Journey<D> {
                 failed,
             }),
         };
-        match self.call_hook(instance, policy, call, called).await? {
-            Some(lifecycle) => Ok(Some(Decided {
+        match self
+            .call_hook(instance, policy, call, called)
+            .await?
+            .decision()
+        {
+            Some(decision) => Ok(Some(Decided {
                 policy: name,
-                lifecycle,
+                decision,
             })),
             None => Ok(None),
         }
@@ -145,7 +171,7 @@ mod tests {
     };
     use crate::error::Error;
     use crate::policy::{
-        FailWorkflow, HookNeeds, OnStepFailure, Requested, StepFailure, StepPolicyDescriptor,
+        HookNeeds, OnFailure, OnStepFailure, Requested, StepFailure, StepPolicyDescriptor,
     };
     use crate::step::Input;
     use crate::workflow::fixtures::{Orders, orders};
@@ -161,10 +187,10 @@ mod tests {
         fn on_step_failure(
             &self,
             mut got: Requested<'_, Orders, StepFailure>,
-        ) -> Result<Option<FailWorkflow>, Error> {
+        ) -> Result<OnFailure, Error> {
             let value = got.from_step(&Input::<String>::new(self.key))?;
             self.seen.lock().unwrap().push(value);
-            Ok(None)
+            Ok(OnFailure::KeepDefault)
         }
     }
 

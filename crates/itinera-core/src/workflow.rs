@@ -28,6 +28,7 @@ pub(crate) mod fixtures;
 mod input_adapter;
 mod listing;
 mod name;
+mod supplied;
 mod violation;
 
 use declaration::Declaration;
@@ -40,6 +41,7 @@ pub use input_adapter::InputAdapterDescriptor;
 pub use itinera_macros::{role, workflow};
 pub use listing::{ListedRescue, ListedService, ListedStep};
 pub use name::{AdapterName, WorkflowName};
+pub use supplied::Supplied;
 pub use violation::{Violation, ViolationKind, Violations};
 
 /// A workflow's declaration: its name, its step descriptors in order, its workflow policies, its

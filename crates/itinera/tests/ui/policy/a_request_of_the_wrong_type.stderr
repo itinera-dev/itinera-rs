@@ -4,7 +4,7 @@ error[E0308]: mismatched types
 41 |         #[reason] reason: String,
    |                           ^^^^^^ expected `String`, found `Reason`
 42 |         #[role] desk: &dyn Desk,
-43 |     ) -> Result<Option<FailWorkflow>, Error> {
+43 |     ) -> Result<OnFailure, Error> {
    |          ------ arguments to this function are incorrect
    |
 note: method defined here

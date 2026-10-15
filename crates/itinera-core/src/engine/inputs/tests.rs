@@ -17,11 +17,12 @@ use crate::workflow::fixtures::Orders;
 use crate::workflow::{AdapterName, InputAdapterDescriptor, WorkflowBuilder};
 
 /// Supplies an amount of 7, and nothing else.
-fn pricing(
-    _: &Orders,
-    got: Requested<'_, Orders, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
-    Ok((got.key() == "amount").then(|| AnyValue::new(7_i64)))
+fn pricing(_: &Orders, got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied, Error> {
+    Ok(if got.key() == "amount" {
+        Supplied::value(7_i64)
+    } else {
+        Supplied::FromDataBag
+    })
 }
 
 #[test]
@@ -96,7 +97,7 @@ fn an_input_adapter_that_fails_aborts_the_journey_as_its_step_could_not_be_built
 fn a_value_of_another_type_from_an_input_adapter_aborts_the_journey_with_wrong_type() {
     let read = Read::default();
     let wrong = InputAdapterDescriptor::new("pricing", CHARGE, |_: &Orders, _| {
-        Ok(Some(AnyValue::new("seven".to_string())))
+        Ok(Supplied::value("seven".to_string()))
     });
 
     let (status, events) = travel_workflow(charged(&read).input_adapter(wrong));
@@ -148,7 +149,8 @@ fn an_input_adapter_that_returned_nothing_is_not_named_in_the_abort(
     #[case] aborted: fn(&JourneyStatus) -> bool,
 ) {
     let read = Read::default();
-    let silent = InputAdapterDescriptor::new("pricing", CHARGE, |_: &Orders, _| Ok(None));
+    let silent =
+        InputAdapterDescriptor::new("pricing", CHARGE, |_: &Orders, _| Ok(Supplied::FromDataBag));
     let workflow = charged(&read).input_adapter(silent);
 
     let (status, events) = travel(data(instance(workflow)).create().unwrap());
@@ -165,13 +167,14 @@ const PRICE: Input<i64> = Input::new("price");
 const QUANTITY: OptionalInput<i64> = OptionalInput::new("quantity");
 
 /// Supplies the amount: the price from the workflow, times the quantity when there is one.
-fn priced(
-    _: &Orders,
-    mut got: Requested<'_, Orders, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
+fn priced(_: &Orders, mut got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied, Error> {
     let price = got.from_workflow(&PRICE)?;
     let amount = price * got.optional_from_workflow(&QUANTITY)?.unwrap_or(1);
-    Ok((got.key() == "amount").then(|| AnyValue::new(amount)))
+    Ok(if got.key() == "amount" {
+        Supplied::value(amount)
+    } else {
+        Supplied::FromDataBag
+    })
 }
 
 /// The charge step, adapted by `priced`.
@@ -317,14 +320,14 @@ type Names = Arc<Mutex<Vec<StepName>>>;
 /// Records the name of the step it supplies an input to, and supplies nothing.
 fn naming(
     names: &Names,
-) -> impl for<'a> Fn(&'a Orders, Requested<'a, Orders, InputAdapter>) -> Result<Option<AnyValue>, Error>
+) -> impl for<'a> Fn(&'a Orders, Requested<'a, Orders, InputAdapter>) -> Result<Supplied, Error>
 + Send
 + Sync
 + 'static {
     let names = Arc::clone(names);
     move |_, got| {
         names.lock().unwrap().push(got.step_name());
-        Ok(None)
+        Ok(Supplied::FromDataBag)
     }
 }
 
@@ -345,14 +348,11 @@ fn an_input_adapter_is_told_the_step_it_supplies_for_each_of_its_inputs() {
 }
 
 /// Supplies the amount as twice the base read through its access to the data bag.
-fn doubled(
-    _: &Orders,
-    mut got: Requested<'_, Orders, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
+fn doubled(_: &Orders, mut got: Requested<'_, Orders, InputAdapter>) -> Result<Supplied, Error> {
     let base = got.data_bag()?.read::<i64>("base");
     match (got.key(), base) {
-        ("amount", Found::Present(base)) => Ok(Some(AnyValue::new(base * 2))),
-        _ => Ok(None),
+        ("amount", Found::Present(base)) => Ok(Supplied::value(base * 2)),
+        _ => Ok(Supplied::FromDataBag),
     }
 }
 

@@ -8,7 +8,7 @@ use crate::engine::fixtures::{
 };
 use crate::journey::JourneyStatus;
 use crate::policy::{
-    FailWorkflow, HookNeeds, OnStepAbnormalTermination, PolicyName, Requested,
+    HookNeeds, OnFailure, OnStepAbnormalTermination, PolicyName, Requested,
     StepAbnormalTermination, StepPolicyDescriptor,
 };
 use crate::step::{Resolved, StepFactory, StepNeeds, StepReporter};
@@ -88,10 +88,10 @@ impl OnStepAbnormalTermination<Orders> for Drafts {
     fn on_step_abnormal_termination(
         &self,
         mut got: Requested<'_, Orders, StepAbnormalTermination>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         let draft = got.optional_from_step(&DRAFT)?;
         self.seen.lock().unwrap().push(format!("{draft:?}"));
-        Ok(None)
+        Ok(OnFailure::KeepDefault)
     }
 }
 

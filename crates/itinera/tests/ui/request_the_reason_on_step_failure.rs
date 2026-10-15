@@ -1,5 +1,5 @@
 use itinera::error::Error;
-use itinera::policy::{FailWorkflow, HookNeeds, OnStepFailure, Requested, StepFailure};
+use itinera::policy::{HookNeeds, OnFailure, OnStepFailure, Requested, StepFailure};
 
 struct Orders;
 
@@ -13,9 +13,9 @@ impl OnStepFailure<Orders> for Audit {
     fn on_step_failure(
         &self,
         mut got: Requested<'_, Orders, StepFailure>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         got.reason()?;
-        Ok(None)
+        Ok(OnFailure::KeepDefault)
     }
 }
 

@@ -4,8 +4,7 @@ use itinera::journey::Read;
 use itinera::policy::{OnSuccess, step_policy, workflow_policy};
 use itinera::report::Reporter;
 use itinera::step::{Outcome, Step, step};
-use itinera::value::AnyValue;
-use itinera::workflow::{role, workflow};
+use itinera::workflow::{Supplied, role, workflow};
 
 trait Till {
     fn till(&self) -> &'static str;
@@ -34,9 +33,9 @@ struct Receipt;
 #[step_policy]
 impl Receipt {
     #[on_step_success]
-    fn printed(&self, #[role] till: &dyn Till) -> Result<Option<OnSuccess>, Error> {
+    fn printed(&self, #[role] till: &dyn Till) -> Result<OnSuccess, Error> {
         till.till();
-        Self::carry_on()
+        Self::keep_default()
     }
 }
 
@@ -46,8 +45,8 @@ struct Watch;
 #[step_policy]
 impl Watch {
     #[on_step_failure]
-    fn failed(&self) -> Result<Option<itinera::policy::FailWorkflow>, Error> {
-        Self::carry_on()
+    fn failed(&self) -> Result<itinera::policy::OnFailure, Error> {
+        Self::keep_default()
     }
 }
 
@@ -108,7 +107,7 @@ impl Shop {
         &self,
         #[key] key: &str,
         #[data_bag] data: itinera::journey::DataBagAccess<'_>,
-    ) -> Result<Option<AnyValue>, Error> {
+    ) -> Result<Supplied, Error> {
         match data.read::<i64>(key) {
             Read::Present(amount) => Self::supply(amount + self.fee),
             _ => Self::from_data_bag(),

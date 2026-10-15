@@ -1,4 +1,4 @@
-error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/contribution.rs:11:49: 11:51}: Value` is not satisfied
+error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/contribution.rs:11:49: 11:51}: itinera::value::Value` is not satisfied
   --> tests/proofs/non-value/contribution.rs:11:49
    |
 11 |         self.contributor.contribute("callback", || 1);
@@ -17,14 +17,14 @@ error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/contribution
              (T0, T1, T2, T3)
              (T0, T1, T2, T3, T4)
            and $N others
-   = note: required for `{closure@$DIR/tests/proofs/non-value/contribution.rs:11:49: 11:51}` to implement `Value`
+   = note: required for `{closure@$DIR/tests/proofs/non-value/contribution.rs:11:49: 11:51}` to implement `itinera::value::Value`
 note: required by a bound in `Contributor::<'a>::contribute`
   --> $WORKSPACE/crates/itinera-core/src/journey/contributor.rs
    |
    |     pub fn contribute<T: Value>(&mut self, key: impl Into<String>, value: T) {
    |                          ^^^^^ required by this bound in `Contributor::<'a>::contribute`
 
-error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/contribution.rs:11:49: 11:51}: Value` is not satisfied
+error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/contribution.rs:11:49: 11:51}: itinera::value::Value` is not satisfied
   --> tests/proofs/non-value/contribution.rs:11:49
    |
 11 |         self.contributor.contribute("callback", || 1);
@@ -44,7 +44,7 @@ error[E0277]: the trait bound `{closure@$DIR/tests/proofs/non-value/contribution
              (T0, T1, T2, T3)
            and $N others
    = note: required for `{closure@$DIR/tests/proofs/non-value/contribution.rs:11:49: 11:51}` to implement `serde_core::de::DeserializeOwned`
-   = note: required for `{closure@$DIR/tests/proofs/non-value/contribution.rs:11:49: 11:51}` to implement `Value`
+   = note: required for `{closure@$DIR/tests/proofs/non-value/contribution.rs:11:49: 11:51}` to implement `itinera::value::Value`
 note: required by a bound in `Contributor::<'a>::contribute`
   --> $WORKSPACE/crates/itinera-core/src/journey/contributor.rs
    |

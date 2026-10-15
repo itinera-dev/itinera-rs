@@ -39,7 +39,7 @@ pub use kind::{
     ReportingHookKind, StepAbnormalTermination, StepFailure, StepHookKind, StepRetry, StepSuccess,
     WorkflowFailure, WorkflowSuccess,
 };
-pub use lifecycle::{FailWorkflow, Lifecycle, OnSuccess, ReturnedLifecycle};
+pub use lifecycle::{Lifecycle, OnFailure, OnSuccess};
 pub(crate) use needs::{Answers, Needs, Request};
 pub use needs::{HookNeeds, Requested};
 pub use reporter::HookReporter;

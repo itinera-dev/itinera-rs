@@ -1,7 +1,7 @@
 error[E0277]: the workflow `Orders` does not provide the role `(dyn Notifier + 'static)`
-  --> tests/proofs/role-not-provided/role_not_provided.rs:27:59
+  --> tests/proofs/role-not-provided/role_not_provided.rs:24:59
    |
-27 |     let tell = StepPolicyDescriptor::new("tell", || Tell).on_step_success();
+24 |     let tell = StepPolicyDescriptor::new("tell", || Tell).on_step_success();
    |                                                           ^^^^^^^^^^^^^^^ this workflow does not provide the role
    |
 help: the trait `Provides<(dyn Notifier + 'static)>` is not implemented for `Orders`

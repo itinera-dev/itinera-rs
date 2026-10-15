@@ -7,8 +7,7 @@ use itinera::journey::{Contributions, Contributor, DataBag, DataBagAccess, Read}
 use itinera::policy::{HookEventReporter, HookReporter, OnSuccess, step_policy};
 use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, Reason, Step, StepEventReporter, StepReporter, step};
-use itinera::value::AnyValue;
-use itinera::workflow::workflow;
+use itinera::workflow::{Supplied, workflow};
 
 /// Takes payments.
 trait PaymentGateway: Send + Sync {
@@ -61,10 +60,10 @@ impl Audit {
         #[from_step] payment: String,
         #[contributor] mut contributor: Contributor<'_>,
         #[reporter] mut reporter: HookReporter<'_>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         reporter.warning_with("audited", payment.clone())?;
         contributor.contribute("audit", format!("paid {payment}"));
-        Self::carry_on()
+        Self::keep_default()
     }
 }
 
@@ -81,7 +80,7 @@ impl Shop {
         &self,
         #[key] key: &str,
         #[data_bag] data: DataBagAccess<'_>,
-    ) -> Result<Option<AnyValue>, Error> {
+    ) -> Result<Supplied, Error> {
         match data.read::<i64>(key) {
             Read::Present(price) => Self::supply(price + self.fee),
             Read::Absent | Read::OtherType => Self::from_data_bag(),
@@ -149,7 +148,7 @@ fn a_hook_called_with_recorded_handles_leaves_its_contributions_and_events_to_re
         )
         .unwrap();
 
-    assert!(decided.is_none());
+    assert!(decided.keeps_default());
     assert_eq!(
         contributions.read::<String>("audit"),
         Read::Present("paid P-40".to_string())
@@ -165,6 +164,6 @@ fn an_input_adapter_reads_a_data_bag_a_test_builds_from_values() {
     let supplied = shop.pricing("price", data.access()).unwrap();
     let left = shop.pricing("coupon", data.access()).unwrap();
 
-    assert_eq!(supplied.unwrap().downcast_ref::<i64>(), Some(&42));
-    assert!(left.is_none());
+    assert!(matches!(supplied, Supplied::Value(value) if value.downcast_ref::<i64>() == Some(&42)));
+    assert!(matches!(left, Supplied::FromDataBag));
 }

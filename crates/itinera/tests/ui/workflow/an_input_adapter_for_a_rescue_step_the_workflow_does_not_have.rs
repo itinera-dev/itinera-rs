@@ -2,8 +2,7 @@ use itinera::error::Error;
 use itinera::executor::LocalExecutor;
 use itinera::journey::Contributor;
 use itinera::step::{Outcome, Reason, RescueOutcome, RescueStep, Step, rescue_step, step};
-use itinera::value::AnyValue;
-use itinera::workflow::workflow;
+use itinera::workflow::{Supplied, workflow};
 
 #[derive(Step)]
 struct Charge {
@@ -45,7 +44,7 @@ struct Orders;
 #[workflow]
 impl Orders {
     #[input_adapter(steps = ["charge again_rescue"])]
-    fn client(&self) -> Result<Option<AnyValue>, Error> {
+    fn client(&self) -> Result<Supplied, Error> {
         Self::supply("C-2".to_owned())
     }
 }

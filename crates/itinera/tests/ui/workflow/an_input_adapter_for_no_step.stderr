@@ -1,5 +1,5 @@
 error: an input adapter is attached to at least one step, as in `#[input_adapter(steps = ["charge"])]`
-   --> tests/ui/workflow/an_input_adapter_for_no_step.rs:104:5
+   --> tests/ui/workflow/an_input_adapter_for_no_step.rs:103:5
     |
-104 |     #[input_adapter(steps = [])]
+103 |     #[input_adapter(steps = [])]
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

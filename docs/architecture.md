@@ -401,10 +401,10 @@ flowchart TD
 ```
 
 1. A success emits `step_succeeded`, then commits the attempt's contributions to the data bag, emitting `contribution_committed` for each key, and `data_overwritten` when the key already held a value.
-2. Then the engine calls `on step success`, if one of the step's policies defines it. Returning nothing goes on to the next step. `FinishWorkflow` finishes the workflow without running the steps left. `FailWorkflow` fails the journey, with the hook's reason.
+2. Then the engine calls `on step success`, if one of the step's policies defines it. Returning `KeepDefault` goes on to the next step. `FinishWorkflow` finishes the workflow without running the steps left. `FailWorkflow` fails the journey, with the hook's reason.
 3. A skip emits `step_skipped`, then `contributions_discarded`, and goes on to the next step.
 4. A failure emits `step_failed`, with its reason, and goes to the decision.
-5. An error emits `step_abnormal_termination`, then calls `on step abnormal termination`, if defined. `FailWorkflow` gives the step up, emitting `step_given_up` with that hook as its cause, and fails the journey. Returning nothing goes to the decision.
+5. An error emits `step_abnormal_termination`, then calls `on step abnormal termination`, if defined. `FailWorkflow` gives the step up, emitting `step_given_up` with that hook as its cause, and fails the journey. Returning `KeepDefault` goes to the decision.
 
 Where it lives: `engine/outcome.rs`, and the step hooks in `engine/hooks/step.rs`.
 
@@ -439,7 +439,7 @@ flowchart TD
 2. Otherwise, a failure is retried while the retry budget allows another attempt.
 3. An abnormal termination is retried in the same way, unless the step turns off `retry on abnormal termination`; then it gives the step up, with abnormal termination, whatever the budget.
 4. When the budget allows no other attempt, the step is given up: with retries exhausted when its budget is greater than 0 and spent, and otherwise, with a budget of 0, with what ended its only attempt, failure or abnormal termination.
-5. Before a retry, the engine calls `on step retry`, if defined. `FailWorkflow` gives the step up, emitting `step_given_up` with that hook as its cause, and fails the journey. Returning nothing emits `step_retrying`, and the step is attempted again, built anew.
+5. Before a retry, the engine calls `on step retry`, if defined. `FailWorkflow` gives the step up, emitting `step_given_up` with that hook as its cause, and fails the journey. Returning `KeepDefault` emits `step_retrying`, and the step is attempted again, built anew.
 6. Giving up emits `step_given_up`, with its cause: failure, abnormal termination or retries exhausted. Then the engine calls `on step failure`, if defined.
 7. The journey fails either way: with the failure, the abnormal termination or the retries exhausted, or, when `on step failure` returns `FailWorkflow`, with the hook's reason.
 
@@ -507,10 +507,10 @@ When each hook is called, and what it may return:
 
 | Hook | Called | May return |
 |---|---|---|
-| `on step success` | after a success, once its contributions are committed | nothing, `FinishWorkflow` or `FailWorkflow` |
-| `on step retry` | before a retry | nothing or `FailWorkflow` |
-| `on step abnormal termination` | after an error, before the decision | nothing or `FailWorkflow` |
-| `on step failure` | after the step's own rule gives it up, not when another hook's `FailWorkflow` gave it up | nothing or `FailWorkflow` |
+| `on step success` | after a success, once its contributions are committed | `KeepDefault`, `FinishWorkflow` or `FailWorkflow` |
+| `on step retry` | before a retry | `KeepDefault` or `FailWorkflow` |
+| `on step abnormal termination` | after an error, before the decision | `KeepDefault` or `FailWorkflow` |
+| `on step failure` | after the step's own rule gives it up, not when another hook's `FailWorkflow` gave it up | `KeepDefault` or `FailWorkflow` |
 | `on workflow success` | after the last step, or after `FinishWorkflow` | nothing |
 | `on workflow failure` | after the journey fails | nothing |
 

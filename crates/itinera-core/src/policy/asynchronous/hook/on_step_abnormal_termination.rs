@@ -4,7 +4,7 @@ use std::future::Future;
 
 use crate::error::Error;
 use crate::mode::Asynchronous;
-use crate::policy::{FailWorkflow, HookNeeds, Requested, StepAbnormalTermination};
+use crate::policy::{HookNeeds, OnFailure, Requested, StepAbnormalTermination};
 
 /// `on step abnormal termination` of an asynchronous workflow's policy. Everything
 /// [`OnStepAbnormalTermination`](crate::policy::OnStepAbnormalTermination) says applies to it.
@@ -15,7 +15,7 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepAbnormalTermination}
 /// use itinera::error::Result;
 /// use itinera::mode::Asynchronous;
 /// use itinera::policy::{
-///     AsyncOnStepAbnormalTermination, FailWorkflow, Requested, StepAbnormalTermination,
+///     AsyncOnStepAbnormalTermination, OnFailure, Requested, StepAbnormalTermination,
 /// };
 ///
 /// struct Crashes;
@@ -24,9 +24,9 @@ use crate::policy::{FailWorkflow, HookNeeds, Requested, StepAbnormalTermination}
 ///     async fn on_step_abnormal_termination(
 ///         &self,
 ///         got: Requested<'_, W, StepAbnormalTermination, Asynchronous>,
-///     ) -> Result<Option<FailWorkflow>> {
+///     ) -> Result<OnFailure> {
 ///         println!("{} crashed", got.step_name());
-///         Ok(None)
+///         Ok(OnFailure::KeepDefault)
 ///     }
 /// }
 /// ```
@@ -58,18 +58,18 @@ pub trait AsyncOnStepAbnormalTermination<W>: Send + Sync + 'static {
     /// use itinera::error::Result;
     /// use itinera::mode::Asynchronous;
     /// use itinera::policy::{
-    ///     AsyncOnStepAbnormalTermination, FailWorkflow, Requested, StepAbnormalTermination,
+    ///     AsyncOnStepAbnormalTermination, OnFailure, Requested, StepAbnormalTermination,
     /// };
     ///
     /// async fn decide<P: AsyncOnStepAbnormalTermination<()>>(
     ///     policy: &P,
     ///     got: Requested<'_, (), StepAbnormalTermination, Asynchronous>,
-    /// ) -> Result<Option<FailWorkflow>> {
+    /// ) -> Result<OnFailure> {
     ///     policy.on_step_abnormal_termination(got).await
     /// }
     /// ```
     fn on_step_abnormal_termination(
         &self,
         got: Requested<'_, W, StepAbnormalTermination, Asynchronous>,
-    ) -> impl Future<Output = Result<Option<FailWorkflow>, Error>> + Send;
+    ) -> impl Future<Output = Result<OnFailure, Error>> + Send;
 }

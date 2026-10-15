@@ -168,10 +168,10 @@ impl OnStepSuccess<Orders> for Tenant {
     fn on_step_success(
         &self,
         mut got: Requested<'_, Orders, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         got.reporter()?
             .set_global_metadata("tenant", "acme".to_string())?;
-        Ok(None)
+        Ok(OnSuccess::KeepDefault)
     }
 }
 

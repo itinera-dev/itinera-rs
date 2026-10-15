@@ -14,7 +14,7 @@ use crate::journey::{Contributor, Failure, JourneyStatus};
 #[cfg(feature = "async")]
 use crate::mode::Asynchronous;
 use crate::policy::{
-    FailWorkflow, HookNeeds, Lifecycle, OnStepAbnormalTermination, OnStepFailure, OnStepRetry,
+    HookNeeds, Lifecycle, OnFailure, OnStepAbnormalTermination, OnStepFailure, OnStepRetry,
     OnStepSuccess, OnSuccess, PolicyName, Requested, StepAbnormalTermination, StepFailure,
     StepHook, StepPolicyDescriptor, StepRetry, StepSuccess,
 };
@@ -350,29 +350,26 @@ impl Answering {
 }
 
 impl OnStepSuccess<Orders> for Answering {
-    fn on_step_success(
-        &self,
-        _: Requested<'_, Orders, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
-        Ok(self.called(StepHook::OnStepSuccess).map(on_success))
+    fn on_step_success(&self, _: Requested<'_, Orders, StepSuccess>) -> Result<OnSuccess, Error> {
+        Ok(self
+            .called(StepHook::OnStepSuccess)
+            .map_or(OnSuccess::KeepDefault, on_success))
     }
 }
 
 impl OnStepFailure<Orders> for Answering {
-    fn on_step_failure(
-        &self,
-        _: Requested<'_, Orders, StepFailure>,
-    ) -> Result<Option<FailWorkflow>, Error> {
-        Ok(self.called(StepHook::OnStepFailure).and_then(failing))
+    fn on_step_failure(&self, _: Requested<'_, Orders, StepFailure>) -> Result<OnFailure, Error> {
+        Ok(self
+            .called(StepHook::OnStepFailure)
+            .map_or(OnFailure::KeepDefault, failing))
     }
 }
 
 impl OnStepRetry<Orders> for Answering {
-    fn on_step_retry(
-        &self,
-        _: Requested<'_, Orders, StepRetry>,
-    ) -> Result<Option<FailWorkflow>, Error> {
-        Ok(self.called(StepHook::OnStepRetry).and_then(failing))
+    fn on_step_retry(&self, _: Requested<'_, Orders, StepRetry>) -> Result<OnFailure, Error> {
+        Ok(self
+            .called(StepHook::OnStepRetry)
+            .map_or(OnFailure::KeepDefault, failing))
     }
 }
 
@@ -380,10 +377,10 @@ impl OnStepAbnormalTermination<Orders> for Answering {
     fn on_step_abnormal_termination(
         &self,
         _: Requested<'_, Orders, StepAbnormalTermination>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         Ok(self
             .called(StepHook::OnStepAbnormalTermination)
-            .and_then(failing))
+            .map_or(OnFailure::KeepDefault, failing))
     }
 }
 
@@ -394,10 +391,10 @@ fn on_success(lifecycle: Lifecycle) -> OnSuccess {
     }
 }
 
-fn failing(lifecycle: Lifecycle) -> Option<FailWorkflow> {
+fn failing(lifecycle: Lifecycle) -> OnFailure {
     match lifecycle {
-        Lifecycle::FailWorkflow(reason) => Some(reason.into()),
-        Lifecycle::FinishWorkflow => None,
+        Lifecycle::FailWorkflow(reason) => OnFailure::FailWorkflow(reason),
+        Lifecycle::FinishWorkflow => OnFailure::KeepDefault,
     }
 }
 
@@ -539,11 +536,8 @@ pub(super) fn charge_declined_with_a_contribution() -> StepDescriptor<Orders> {
 struct Silent;
 
 impl OnStepFailure<Orders> for Silent {
-    fn on_step_failure(
-        &self,
-        _: Requested<'_, Orders, StepFailure>,
-    ) -> Result<Option<FailWorkflow>, Error> {
-        Ok(None)
+    fn on_step_failure(&self, _: Requested<'_, Orders, StepFailure>) -> Result<OnFailure, Error> {
+        Ok(OnFailure::KeepDefault)
     }
 }
 
@@ -569,11 +563,8 @@ pub(super) fn charge_succeeding() -> StepDescriptor<Orders> {
 pub(super) struct Counted;
 
 impl OnStepRetry<Orders> for Counted {
-    fn on_step_retry(
-        &self,
-        _: Requested<'_, Orders, StepRetry>,
-    ) -> Result<Option<FailWorkflow>, Error> {
-        Ok(None)
+    fn on_step_retry(&self, _: Requested<'_, Orders, StepRetry>) -> Result<OnFailure, Error> {
+        Ok(OnFailure::KeepDefault)
     }
 }
 

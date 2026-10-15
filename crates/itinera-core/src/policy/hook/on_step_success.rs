@@ -8,8 +8,8 @@ use crate::policy::{HookNeeds, OnSuccess, Requested, StepSuccess};
 /// attached to, and its descriptor declares it with
 /// [`StepPolicyDescriptor::on_step_success`](crate::policy::StepPolicyDescriptor::on_step_success).
 ///
-/// Returning `None` goes on to the next step; `FinishWorkflow` or `FailWorkflow` ends the journey
-/// at once. An `Err` aborts the journey with `hook failed`.
+/// Returning [`OnSuccess::KeepDefault`] goes on to the next step; `FinishWorkflow` or
+/// `FailWorkflow` ends the journey at once. An `Err` aborts the journey with `hook failed`.
 ///
 /// # Examples
 ///
@@ -26,8 +26,12 @@ use crate::policy::{HookNeeds, OnSuccess, Requested, StepSuccess};
 ///     fn on_step_success(
 ///         &self,
 ///         got: Requested<'_, W, StepSuccess>,
-///     ) -> Result<Option<OnSuccess>> {
-///         Ok((got.step_name() == CHARGE).then_some(OnSuccess::FinishWorkflow))
+///     ) -> Result<OnSuccess> {
+///         Ok(if got.step_name() == CHARGE {
+///             OnSuccess::FinishWorkflow
+///         } else {
+///             OnSuccess::KeepDefault
+///         })
 ///     }
 /// }
 /// ```
@@ -58,7 +62,6 @@ pub trait OnStepSuccess<W>: Send + Sync + 'static {
     /// ```
     /// use itinera::error::Result;
     /// use itinera::policy::{OnStepSuccess, OnSuccess, Requested, StepSuccess};
-    /// use itinera::step::Reason;
     ///
     /// struct OnlyOnce;
     ///
@@ -66,16 +69,13 @@ pub trait OnStepSuccess<W>: Send + Sync + 'static {
     ///     fn on_step_success(
     ///         &self,
     ///         got: Requested<'_, W, StepSuccess>,
-    ///     ) -> Result<Option<OnSuccess>> {
+    ///     ) -> Result<OnSuccess> {
     ///         if got.attempt().get() > 1 {
-    ///             return Ok(Some(OnSuccess::FailWorkflow(Reason::new("not idempotent"))));
+    ///             return Ok(OnSuccess::fail_workflow("not idempotent"));
     ///         }
-    ///         Ok(None)
+    ///         Ok(OnSuccess::KeepDefault)
     ///     }
     /// }
     /// ```
-    fn on_step_success(
-        &self,
-        got: Requested<'_, W, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error>;
+    fn on_step_success(&self, got: Requested<'_, W, StepSuccess>) -> Result<OnSuccess, Error>;
 }

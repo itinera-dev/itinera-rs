@@ -12,8 +12,8 @@ use crate::event::{Event, EventBody, HookSource, JourneyAbort, RequestSource, So
 use crate::instance::WorkflowInstance;
 use crate::journey::{Abort, FailureRequester, JourneyStatus, MissingData, Requester};
 use crate::policy::{
-    FailWorkflow, HookNeeds, OnStepFailure, OnStepSuccess, OnSuccess, OnWorkflowSuccess,
-    PolicyName, Requested, StepFailure, StepHook, StepPolicyDescriptor, StepSuccess, WorkflowHook,
+    HookNeeds, OnFailure, OnStepFailure, OnStepSuccess, OnSuccess, OnWorkflowSuccess, PolicyName,
+    Requested, StepFailure, StepHook, StepPolicyDescriptor, StepSuccess, WorkflowHook,
     WorkflowPolicyDescriptor, WorkflowSuccess,
 };
 use crate::step::{OptionalInput, StepAttempt};
@@ -41,7 +41,7 @@ impl OnStepFailure<Orders> for Alarm {
     fn on_step_failure(
         &self,
         mut got: Requested<'_, Orders, StepFailure>,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         let saw = format!(
             "{} {:?} {} {:?} {} {} {} {} {} {}",
             got.from_step(&DECLINE)?,
@@ -56,7 +56,7 @@ impl OnStepFailure<Orders> for Alarm {
             got.journey_id(),
         );
         self.seen.lock().unwrap().push(saw);
-        Ok(None)
+        Ok(OnFailure::KeepDefault)
     }
 }
 
@@ -255,10 +255,10 @@ impl OnStepSuccess<Orders> for Renumber {
     fn on_step_success(
         &self,
         mut got: Requested<'_, Orders, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         got.reporter()?.info("renumbering")?;
         got.contributor()?.contribute("attempt", 10_i64);
-        Ok(None)
+        Ok(OnSuccess::KeepDefault)
     }
 }
 
@@ -334,10 +334,7 @@ fn a_reporter_failing_on_a_hooks_event_aborts_the_journey_whatever_the_hook_does
 struct Ledger;
 
 impl OnStepSuccess<Orders> for Ledger {
-    fn on_step_success(
-        &self,
-        _: Requested<'_, Orders, StepSuccess>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    fn on_step_success(&self, _: Requested<'_, Orders, StepSuccess>) -> Result<OnSuccess, Error> {
         Err(Error::msg("the ledger is closed"))
     }
 }
@@ -383,9 +380,9 @@ mod asynchronous {
         async fn on_step_success(
             &self,
             mut got: Requested<'_, Orders, StepSuccess, Asynchronous>,
-        ) -> Result<Option<OnSuccess>, Error> {
+        ) -> Result<OnSuccess, Error> {
             got.reporter()?.info("charged").await?;
-            Ok(Some(OnSuccess::FinishWorkflow))
+            Ok(OnSuccess::FinishWorkflow)
         }
     }
 

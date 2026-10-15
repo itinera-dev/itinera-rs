@@ -26,14 +26,14 @@ impl Provides<dyn Desk> for Orders {
 struct Audit;
 
 trait Checks {
-    fn checked(&self, receipt: Option<String>) -> Result<Option<OnSuccess>, Error>;
+    fn checked(&self, receipt: Option<String>) -> Result<OnSuccess, Error>;
 }
 
 #[step_policy]
 impl Checks for Audit {
-    fn checked(&self, receipt: Option<String>) -> Result<Option<OnSuccess>, Error> {
+    fn checked(&self, receipt: Option<String>) -> Result<OnSuccess, Error> {
         match receipt {
-            Some(_) => Self::carry_on(),
+            Some(_) => Self::keep_default(),
             None => Self::finish_workflow(),
         }
     }

@@ -1,5 +1,5 @@
 error: `#[role]` goes on a workflow's implementation of a role, such as `impl Notifier for Orders`
-  --> tests/ui/workflow/a_role_on_the_workflows_own_block.rs:96:6
+  --> tests/ui/workflow/a_role_on_the_workflows_own_block.rs:95:6
    |
-96 | impl Shop {
+95 | impl Shop {
    |      ^^^^

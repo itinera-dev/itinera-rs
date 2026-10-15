@@ -4,8 +4,8 @@ use itinera::error::Error;
 use itinera::journey::{DataBag, DataBagAccess, Read};
 use itinera::policy::{HookNeeds, InputAdapter, Requested};
 use itinera::step::StepName;
-use itinera::value::{AnyValue, Value as Storable};
-use itinera::workflow::InputAdapterDescriptor;
+use itinera::value::Value as Storable;
+use itinera::workflow::{InputAdapterDescriptor, Supplied};
 
 use super::{ScriptedWorkflow, leaked, step_name};
 use crate::model::{Adapter, Answer, ModelError, ValueType};
@@ -90,7 +90,7 @@ impl Answering {
 fn answer(
     answers: &[Answering],
     got: &mut Requested<'_, ScriptedWorkflow, InputAdapter>,
-) -> Result<Option<AnyValue>, Error> {
+) -> Result<Supplied, Error> {
     let key = got.key();
     let step = got.step_name();
     answered(answers, key, step, || got.data_bag())
@@ -103,7 +103,7 @@ pub(crate) fn answer_alone(
     key: &str,
     step: &str,
     bag: &DataBag,
-) -> Result<Result<Option<AnyValue>, Error>, ModelError> {
+) -> Result<Result<Supplied, Error>, ModelError> {
     let answers = adapter
         .answers
         .iter()
@@ -121,13 +121,13 @@ fn answered<'a>(
     key: &str,
     step: StepName,
     access: impl FnOnce() -> Result<DataBagAccess<'a>, Error>,
-) -> Result<Option<AnyValue>, Error> {
+) -> Result<Supplied, Error> {
     let answered = answers
         .iter()
         .find(|answering| answering.is_for(key))
         .map(|answering| &answering.answer);
     match answered {
-        Some(Answered::Value(value)) => Ok(Some(value.clone().erased())),
+        Some(Answered::Value(value)) => Ok(Supplied::Value(value.clone().erased())),
         Some(Answered::Fails(message)) => Err(Error::msg(message.clone())),
         Some(Answered::ReadFromDataBag(key, value_type)) => Ok(for_type(
             *value_type,
@@ -136,8 +136,8 @@ fn answered<'a>(
                 key,
             },
         )),
-        Some(Answered::StepName) => Ok(Some(AnyValue::new(step.to_string()))),
-        Some(Answered::Nothing) | None => Ok(None),
+        Some(Answered::StepName) => Ok(Supplied::value(step.to_string())),
+        Some(Answered::Nothing) | None => Ok(Supplied::FromDataBag),
     }
 }
 
@@ -148,12 +148,12 @@ struct Reading<'a, 'k> {
 }
 
 impl ForType for Reading<'_, '_> {
-    type Output = Option<AnyValue>;
+    type Output = Supplied;
 
-    fn of<T: Storable>(self) -> Option<AnyValue> {
+    fn of<T: Storable>(self) -> Supplied {
         match self.access.read::<T>(self.key) {
-            Read::Present(value) => Some(AnyValue::new(value)),
-            Read::Absent | Read::OtherType => None,
+            Read::Present(value) => Supplied::value(value),
+            Read::Absent | Read::OtherType => Supplied::FromDataBag,
         }
     }
 }

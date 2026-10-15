@@ -6,8 +6,7 @@ use itinera::instance::{Instance, InstanceError};
 use itinera::journey::{Contributor, DataBag, InitialData, JourneyId};
 use itinera::policy::{OnSuccess, step_policy, workflow_policy};
 use itinera::step::{Outcome, Reason, RescueOutcome, RescueStep, Step, rescue_step, step};
-use itinera::value::AnyValue;
-use itinera::workflow::{role, workflow};
+use itinera::workflow::{Supplied, role, workflow};
 
 /// Charges the amount an input adapter supplies.
 #[derive(Step)]
@@ -81,9 +80,9 @@ impl Audit {
         &self,
         #[from_step] charged: i64,
         #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<Option<OnSuccess>, Error> {
+    ) -> Result<OnSuccess, Error> {
         contributor.contribute("audited", format!("charged {charged}"));
-        Self::carry_on()
+        Self::keep_default()
     }
 }
 
@@ -139,7 +138,7 @@ impl Payment {
         &self,
         #[from_workflow] price: Option<i64>,
         #[from_workflow] discount: Option<i64>,
-    ) -> Result<Option<AnyValue>, Error> {
+    ) -> Result<Supplied, Error> {
         match price {
             Some(price) => Self::supply(less(price, discount)),
             None => Self::from_data_bag(),

@@ -4,12 +4,12 @@ Each hook is a method marked with its name, taking `&self`, then the parameters 
 
 | Marker | Returns |
 | --- | --- |
-| `#[on_step_success]` | `Result<Option<OnSuccess>, Error>` |
-| `#[on_step_failure]` | `Result<Option<FailWorkflow>, Error>` |
-| `#[on_step_retry]` | `Result<Option<FailWorkflow>, Error>` |
-| `#[on_step_abnormal_termination]` | `Result<Option<FailWorkflow>, Error>` |
+| `#[on_step_success]` | `Result<OnSuccess, Error>` |
+| `#[on_step_failure]` | `Result<OnFailure, Error>` |
+| `#[on_step_retry]` | `Result<OnFailure, Error>` |
+| `#[on_step_abnormal_termination]` | `Result<OnFailure, Error>` |
 
-The method's own name is free. A block defines at least one hook, and each at most once. An `async fn` hook makes the policy asynchronous: it needs the `async` feature, every hook of the block is then asynchronous, and the policy is attached only to an asynchronous workflow's steps. Every function of the block may use the shorthands for what a hook returns, which `DescribedPolicy` gives: `Self::carry_on()`, `Self::fail_workflow("fraud")`, and, on step success only, `Self::finish_workflow()`.
+The method's own name is free. A block defines at least one hook, and each at most once. An `async fn` hook makes the policy asynchronous: it needs the `async` feature, every hook of the block is then asynchronous, and the policy is attached only to an asynchronous workflow's steps. Every function of the block may use the shorthands for what a hook returns, which `DescribedPolicy` gives: `Self::keep_default()`, `Self::fail_workflow("fraud")`, and, on step success only, `Self::finish_workflow()`.
 
 Each parameter after `&self` carries one attribute saying what it requests:
 
@@ -38,7 +38,7 @@ The attribute implements `DescribedPolicy`, `StepPolicy` for every workflow prov
 ```
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::policy::{FailWorkflow, OnSuccess, Provides, StepPolicy, step_policy};
+use itinera::policy::{OnFailure, OnSuccess, Provides, StepPolicy, step_policy};
 use itinera::step::{Outcome, Reason, StepDescriptor, step_name};
 use itinera::workflow::WorkflowDescriptor;
 
@@ -64,9 +64,9 @@ struct Audit;
 #[step_policy(name = "audit")]
 impl Audit {
     #[on_step_success]
-    fn checked(&self, #[from_step] receipt: Option<String>) -> Result<Option<OnSuccess>, Error> {
+    fn checked(&self, #[from_step] receipt: Option<String>) -> Result<OnSuccess, Error> {
         match receipt {
-            Some(_) => Self::carry_on(),
+            Some(_) => Self::keep_default(),
             None => Self::fail_workflow("no-receipt"),
         }
     }
@@ -76,9 +76,9 @@ impl Audit {
         &self,
         #[reason] reason: Reason,
         #[role] notifier: &dyn Notifier,
-    ) -> Result<Option<FailWorkflow>, Error> {
+    ) -> Result<OnFailure, Error> {
         notifier.notify(reason.code());
-        Self::carry_on()
+        Self::keep_default()
     }
 }
 

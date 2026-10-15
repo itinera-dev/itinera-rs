@@ -52,8 +52,8 @@ impl<F: StepFactory> Attempts for Synchronously<F> {
 ///     fn on_step_success(
 ///         &self,
 ///         _got: Requested<'_, W, StepSuccess>,
-///     ) -> Result<Option<OnSuccess>> {
-///         Ok(None)
+///     ) -> Result<OnSuccess> {
+///         Ok(OnSuccess::KeepDefault)
 ///     }
 /// }
 ///
@@ -234,7 +234,7 @@ impl<W, M> StepDescriptor<W, M> {
     /// ```
     /// use itinera::error::Result;
     /// use itinera::policy::{
-    ///     FailWorkflow, OnStepFailure, OnStepSuccess, OnSuccess, Requested, StepFailure,
+    ///     OnFailure, OnStepFailure, OnStepSuccess, OnSuccess, Requested, StepFailure,
     ///     StepPolicyDescriptor, StepSuccess,
     /// };
     /// use itinera::step::{Outcome, StepDescriptor, step_name};
@@ -245,8 +245,8 @@ impl<W, M> StepDescriptor<W, M> {
     ///     fn on_step_success(
     ///         &self,
     ///         _got: Requested<'_, W, StepSuccess>,
-    ///     ) -> Result<Option<OnSuccess>> {
-    ///         Ok(None)
+    ///     ) -> Result<OnSuccess> {
+    ///         Ok(OnSuccess::KeepDefault)
     ///     }
     /// }
     ///
@@ -256,8 +256,8 @@ impl<W, M> StepDescriptor<W, M> {
     ///     fn on_step_failure(
     ///         &self,
     ///         _got: Requested<'_, W, StepFailure>,
-    ///     ) -> Result<Option<FailWorkflow>> {
-    ///         Ok(None)
+    ///     ) -> Result<OnFailure> {
+    ///         Ok(OnFailure::KeepDefault)
     ///     }
     /// }
     ///
