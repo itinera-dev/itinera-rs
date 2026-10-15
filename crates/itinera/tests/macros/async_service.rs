@@ -52,7 +52,7 @@ fn dispatched(
     parcel: &str,
     courier: &dyn Courier,
     labeller: &dyn Labeller,
-    mut contributor: Contributor<'_>,
+    contributor: &mut Contributor,
 ) -> Outcome {
     match courier.dispatch(parcel) {
         Some(dispatch) => {
@@ -100,7 +100,7 @@ impl Dispatch {
         self,
         #[service] courier: &dyn Courier,
         #[service] labeller: &dyn Labeller,
-        #[contributor] contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         Ok(dispatched(&self.parcel, courier, labeller, contributor))
     }
@@ -143,7 +143,7 @@ struct HandDispatch<'a> {
     parcel: String,
     courier: &'a dyn Courier,
     labeller: &'a dyn Labeller,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl AsyncStep for HandDispatch<'_> {

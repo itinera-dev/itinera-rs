@@ -55,7 +55,7 @@ impl Reserve {
     fn run(
         self,
         #[service] stock: &dyn Stock,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("reserved", stock.label().to_owned());
         Self::succeed()
@@ -72,7 +72,7 @@ impl Charge {
         self,
         #[service] payments: &dyn Payments,
         #[service] stock: &dyn Stock,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         if !payments.reachable() {
             return Self::fail("unreachable");
@@ -92,7 +92,7 @@ impl Ship {
         self,
         #[service] payments: &dyn Payments,
         #[service] stock: &dyn Stock,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("shipped", used(payments, stock));
         Self::succeed()

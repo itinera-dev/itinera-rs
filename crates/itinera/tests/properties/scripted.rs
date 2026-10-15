@@ -46,7 +46,7 @@ impl Scripted {
 /// planned.
 pub(crate) struct ScriptedStep<'a> {
     ending: Ending,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     reporter: StepReporter<'a>,
 }
 

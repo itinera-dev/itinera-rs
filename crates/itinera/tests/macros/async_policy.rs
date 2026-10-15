@@ -32,7 +32,7 @@ impl Settle {
         Self { outcome }
     }
 
-    async fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    async fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
         match self.outcome.as_str() {
             "success" => {
                 contributor.contribute("receipt", "R-1".to_owned());
@@ -106,10 +106,7 @@ struct Notify;
 #[workflow_policy(name = "notify")]
 impl Notify {
     #[on_workflow_success]
-    async fn succeeded(
-        &self,
-        #[contributor] mut contributor: Contributor<'_>,
-    ) -> Result<(), Error> {
+    async fn succeeded(&self, #[contributor] contributor: &mut Contributor) -> Result<(), Error> {
         contributor.contribute("notified", true);
         Ok(())
     }

@@ -59,7 +59,7 @@ impl Charge {
         self,
         #[service] payments: &dyn PaymentGateway,
         #[service] stock: &dyn StockStore,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         if !stock.reserve() {
             return Self::fail("out-of-stock");

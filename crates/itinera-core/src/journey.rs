@@ -5,7 +5,6 @@ use std::sync::Arc;
 use crate::step::Reason;
 
 mod abort;
-mod access;
 #[cfg(any(test, feature = "testing"))]
 mod contributions;
 mod contributor;
@@ -15,22 +14,23 @@ mod failure;
 mod fixtures;
 mod initial_data;
 mod output;
+mod read;
 mod result;
 #[cfg(any(test, feature = "testing"))]
 mod scripted_run;
 
 pub use abort::{Abort, FailureRequester, MetadataSetter, MissingData, Requester};
-pub use access::{DataBagAccess, Read};
 #[cfg(any(test, feature = "testing"))]
 pub use contributions::Contributions;
+pub(crate) use contributor::Contribution;
 pub use contributor::Contributor;
-pub(crate) use contributor::{Contributed, Contribution};
 pub use data_bag::DataBag;
 pub use failure::Failure;
 pub use initial_data::InitialData;
 #[cfg(feature = "macros")]
 pub use itinera_macros::{InitialData, Output};
 pub use output::{Output, OutputError};
+pub use read::Read;
 pub use result::{JourneyResult, JourneyStatus, StatusKind};
 #[cfg(any(test, feature = "testing"))]
 pub use scripted_run::{AttemptRecord, ScriptedRun, StepRecord};

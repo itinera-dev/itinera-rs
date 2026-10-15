@@ -27,16 +27,16 @@ impl ScriptedPolicy {
         executor: Executor,
     ) -> Result<(), Error> {
         let actions = self.scripts.alone(hook)?;
-        let mut contributor = contributions.contributor();
+        let contributor = contributions.contributor();
         match executor {
             Executor::Local => {
                 let mut reporter = events.reporter();
-                self.acting_alone(hook, actions, roles, &mut contributor, &mut reporter)
+                self.acting_alone(hook, actions, roles, contributor, &mut reporter)
                     .await
             }
             Executor::AsyncLocal => {
                 let mut reporter = events.async_reporter();
-                self.acting_alone(hook, actions, roles, &mut contributor, &mut reporter)
+                self.acting_alone(hook, actions, roles, contributor, &mut reporter)
                     .await
             }
         }
@@ -49,7 +49,7 @@ impl ScriptedPolicy {
         hook: Hook,
         actions: &[Action],
         roles: &dyn Roles,
-        contributor: &mut Contributor<'_>,
+        contributor: &mut Contributor,
         reporter: &mut R,
     ) -> Result<(), Error> {
         for action in actions {

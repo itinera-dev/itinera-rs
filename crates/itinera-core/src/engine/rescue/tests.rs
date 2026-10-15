@@ -163,7 +163,7 @@ struct Refreshing<'a> {
     attempt: Option<i64>,
     reason: Option<Reason>,
     error: Option<Error>,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     seen: &'a Seen,
 }
 
@@ -190,7 +190,7 @@ impl RescueFactory for Refresh {
 }
 
 impl RescueStep for Refreshing<'_> {
-    fn run(mut self) -> Result<RescueOutcome, Error> {
+    fn run(self) -> Result<RescueOutcome, Error> {
         let reason = self.reason.as_ref().map(Reason::code);
         let error = self.error.as_ref().map(ToString::to_string);
         let saw = format!("{:?}, {reason:?}, {error:?}", self.attempt);

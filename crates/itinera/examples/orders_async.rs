@@ -49,7 +49,7 @@ impl Charge {
     async fn run(
         self,
         #[service] payments: &dyn PaymentGateway,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome> {
         if self.amount <= 0 {
             return Self::fail("declined");
@@ -81,7 +81,7 @@ impl Audit {
     async fn audited(
         &self,
         #[from_step] charged: i64,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<OnSuccess> {
         contributor.contribute("audit", format!("charged {charged}"));
         Self::keep_default()

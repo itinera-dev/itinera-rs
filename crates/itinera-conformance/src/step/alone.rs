@@ -40,7 +40,7 @@ impl Scripted {
     }
 
     /// The step's first attempt, with these handles, carrying on after an interrupted call.
-    fn alone<'a, R>(&'a self, contributor: Contributor<'a>, reporter: R) -> Attempting<'a, R> {
+    fn alone<'a, R>(&'a self, contributor: &'a mut Contributor, reporter: R) -> Attempting<'a, R> {
         Attempting {
             step: &self.name,
             attempt: NonZeroU32::MIN,

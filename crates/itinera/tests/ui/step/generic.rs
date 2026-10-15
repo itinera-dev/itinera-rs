@@ -18,7 +18,7 @@ impl<T: itinera::value::Value> Charge<T> {
 
     fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
         #[reporter] mut reporter: StepReporter<'_>,
     ) -> Result<Outcome, Error> {
         reporter.info("charging")?;

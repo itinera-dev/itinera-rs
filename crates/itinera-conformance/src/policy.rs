@@ -72,10 +72,10 @@ impl ScriptedPolicy {
             received,
         });
         let roles = got.role::<dyn Roles>();
-        let mut contributor = got.contributor()?;
+        let contributor = got.contributor()?;
         let mut reporter = reporter(&mut got)?;
         for action in &script.actions {
-            self.perform(action, roles, &mut contributor, &mut reporter)
+            self.perform(action, roles, contributor, &mut reporter)
                 .await?;
         }
         script.returns.clone().map_err(Error::msg)
@@ -85,7 +85,7 @@ impl ScriptedPolicy {
         &self,
         action: &Action,
         roles: &dyn Roles,
-        contributor: &mut Contributor<'_>,
+        contributor: &mut Contributor,
         reporter: &mut R,
     ) -> Result<(), Error> {
         match action {

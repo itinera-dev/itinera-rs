@@ -24,7 +24,7 @@ Each parameter after `&self` carries one attribute saying what it requests:
 | `#[error]` | `&Error` or `Option<&Error>` | on step failure, on step retry, on step abnormal termination |
 | `#[journey_id]` | `&JourneyId` | all |
 | `#[role]` | `&dyn R`, a role of the workflow | all |
-| `#[contributor]` | `Contributor<'_>` | all |
+| `#[contributor]` | `&mut Contributor` | all |
 | `#[reporter]` | `HookReporter<'_>`, or `AsyncHookReporter<'_>` in an asynchronous hook | all |
 
 A key is the parameter's name unless the attribute names it. As with a step's inputs, an `Option` type makes a request optional, and `required`, as in `#[from_step("note", required)]`, makes the key required though its value is itself an `Option`. Requests resolve in the order of the parameters. A role requested makes the policy one that only a workflow providing that role, with `Provides`, can attach. An asynchronous hook holds its parameters across its awaits, so a role it requests is `Sync`, as a role trait declared `trait Notifier: Sync` is.

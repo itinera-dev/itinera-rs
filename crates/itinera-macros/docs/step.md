@@ -2,7 +2,7 @@ Describes a step from the block that holds its `run`, so that a workflow can lis
 
 `run` takes the step by value, then the handles it uses while it runs, each marked with what it is:
 
-- `#[contributor]` on a `Contributor<'_>`, to add data to the data bag;
+- `#[contributor]` on a `&mut Contributor`, to add data to the data bag;
 - `#[reporter]` on a `StepReporter<'_>`, or on an `AsyncStepReporter<'_>` in an asynchronous step, to emit the step's own events.
 
 It returns `Result<Outcome, Error>`. Every function of the block may use the shorthands for the step's outcomes that `DescribedStep` gives, such as `Self::succeed()`, `Self::fail("declined")`, `Self::skip()` and `Self::skip_because(...)`. A step belongs only to workflows of its own mode: an `async fn run` makes it asynchronous, which needs the `async` feature.
@@ -30,7 +30,7 @@ struct Charge {
 impl Charge {
     fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
         #[reporter] mut reporter: StepReporter<'_>,
     ) -> Result<Outcome, Error> {
         if self.amount <= 0 {

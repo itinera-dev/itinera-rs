@@ -148,7 +148,7 @@ impl Handle {
     /// The type of the attempt's field holding the handle.
     fn ty(self, asynchronous: bool) -> TokenStream {
         match (self, asynchronous) {
-            (Self::Contributor, _) => quote!(::itinera::journey::Contributor<'a>),
+            (Self::Contributor, _) => quote!(&'a mut ::itinera::journey::Contributor),
             (Self::Reporter, false) => quote!(::itinera::step::StepReporter<'a>),
             (Self::Reporter, true) => quote!(::itinera::step::AsyncStepReporter<'a>),
         }

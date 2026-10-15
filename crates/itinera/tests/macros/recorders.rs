@@ -3,7 +3,7 @@
 
 use itinera::error::Error;
 use itinera::event::Level;
-use itinera::journey::{Contributions, Contributor, DataBag, DataBagAccess, Read};
+use itinera::journey::{Contributions, Contributor, DataBag, Read};
 use itinera::policy::{HookEventReporter, HookReporter, OnSuccess, step_policy};
 use itinera::service::{Provided, provide};
 use itinera::step::{Outcome, Reason, Step, StepEventReporter, StepReporter, step};
@@ -36,7 +36,7 @@ impl Charge {
     fn run(
         self,
         #[service] payments: &dyn PaymentGateway,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
         #[reporter] mut reporter: StepReporter<'_>,
     ) -> Result<Outcome, Error> {
         reporter.info_with("charging", self.price)?;
@@ -58,7 +58,7 @@ impl Audit {
     fn audited(
         &self,
         #[from_step] payment: String,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
         #[reporter] mut reporter: HookReporter<'_>,
     ) -> Result<OnSuccess, Error> {
         reporter.warning_with("audited", payment.clone())?;
@@ -76,11 +76,7 @@ struct Shop {
 #[workflow]
 impl Shop {
     #[input_adapter(steps = ["charge"])]
-    fn pricing(
-        &self,
-        #[key] key: &str,
-        #[data_bag] data: DataBagAccess<'_>,
-    ) -> Result<Supplied, Error> {
+    fn pricing(&self, #[key] key: &str, #[data_bag] data: &DataBag) -> Result<Supplied, Error> {
         match data.read::<i64>(key) {
             Read::Present(price) => Self::supply(price + self.fee),
             Read::Absent | Read::OtherType => Self::from_data_bag(),
@@ -161,8 +157,8 @@ fn an_input_adapter_reads_a_data_bag_a_test_builds_from_values() {
     let data = DataBag::default().with("price", 40_i64);
     let shop = Shop { fee: 2 };
 
-    let supplied = shop.pricing("price", data.access()).unwrap();
-    let left = shop.pricing("coupon", data.access()).unwrap();
+    let supplied = shop.pricing("price", &data).unwrap();
+    let left = shop.pricing("coupon", &data).unwrap();
 
     assert!(matches!(supplied, Supplied::Value(value) if value.downcast_ref::<i64>() == Some(&42)));
     assert!(matches!(left, Supplied::FromDataBag));

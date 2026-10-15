@@ -1,7 +1,7 @@
 //! The scenario's input adapters, declared with their scripted answers.
 
 use itinera::error::Error;
-use itinera::journey::{DataBag, DataBagAccess, Read};
+use itinera::journey::{DataBag, Read};
 use itinera::policy::{HookNeeds, InputAdapter, Requested};
 use itinera::step::StepName;
 use itinera::value::Value as Storable;
@@ -109,9 +109,7 @@ pub(crate) fn answer_alone(
         .iter()
         .map(Answering::of)
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(answered(&answers, key, step_name(step)?, || {
-        Ok(bag.access())
-    }))
+    Ok(answered(&answers, key, step_name(step)?, || Ok(bag)))
 }
 
 /// What the adapter answers for the input `key` of the step, reading the data bag through the
@@ -120,7 +118,7 @@ fn answered<'a>(
     answers: &[Answering],
     key: &str,
     step: StepName,
-    access: impl FnOnce() -> Result<DataBagAccess<'a>, Error>,
+    access: impl FnOnce() -> Result<&'a DataBag, Error>,
 ) -> Result<Supplied, Error> {
     let answered = answers
         .iter()
@@ -143,7 +141,7 @@ fn answered<'a>(
 
 /// Reads a key through an adapter's access to the data bag, as one type.
 struct Reading<'a, 'k> {
-    access: DataBagAccess<'a>,
+    access: &'a DataBag,
     key: &'k str,
 }
 

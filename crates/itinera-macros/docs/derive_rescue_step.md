@@ -30,7 +30,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
         if self.token.is_some() {
             return Self::succeed();
         }
@@ -51,7 +51,7 @@ struct RefreshToken {
 
 #[rescue_step]
 impl RefreshToken {
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<RescueOutcome, Error> {
+    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<RescueOutcome, Error> {
         if self.error.is_some() {
             return Self::fail("charge-crashed");
         }

@@ -46,7 +46,7 @@ impl Refresh {
         self,
         #[service] tokens: &dyn TokenService,
         #[service("tokens")] spare: &dyn TokenService,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         spare.token(&self.account);
         contributor.contribute("token", tokens.token(&self.account));

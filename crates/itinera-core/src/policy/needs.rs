@@ -1,7 +1,7 @@
 //! What a hook declares it needs, and what it receives when it is called.
 
 use crate::error::Error;
-use crate::journey::{Contributor, DataBagAccess};
+use crate::journey::{Contributor, DataBag};
 use crate::step::{InputNeed, Reason, Reporting, Requirement, Slots};
 
 mod hook_needs;
@@ -80,8 +80,8 @@ pub(crate) struct Answers<'a> {
     pub(crate) reason: Option<Option<Reason>>,
     /// The error, if declared: present or absent.
     pub(crate) error: Option<Option<&'a Error>>,
-    pub(crate) data_bag: Option<DataBagAccess<'a>>,
-    pub(crate) contributor: Option<Contributor<'a>>,
+    pub(crate) data_bag: Option<&'a DataBag>,
+    pub(crate) contributor: Option<&'a mut Contributor>,
     pub(crate) reporting: Option<Reporting<'a>>,
 }
 

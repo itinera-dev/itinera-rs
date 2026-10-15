@@ -61,7 +61,7 @@ fn charged(
     amount: i64,
     gateway: &dyn PaymentGateway,
     stock: &dyn StockStore,
-    mut contributor: Contributor<'_>,
+    contributor: &mut Contributor,
 ) -> Outcome {
     match (gateway.charge(amount), stock.reserve(amount)) {
         (Some(receipt), Some(reservation)) => {
@@ -73,7 +73,7 @@ fn charged(
     }
 }
 
-fn shipped(stock: &dyn StockStore, mut contributor: Contributor<'_>) -> Outcome {
+fn shipped(stock: &dyn StockStore, contributor: &mut Contributor) -> Outcome {
     contributor.contribute("shipped", stock.reserve(1));
     Outcome::success()
 }
@@ -123,7 +123,7 @@ impl Charge {
         self,
         #[service("payments")] gateway: &dyn PaymentGateway,
         #[service] stock: &dyn StockStore,
-        #[contributor] contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         Ok(charged(self.amount, gateway, stock, contributor))
     }
@@ -137,7 +137,7 @@ impl Ship {
     fn run(
         self,
         #[service] stock: &dyn StockStore,
-        #[contributor] contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         Ok(shipped(stock, contributor))
     }
@@ -188,7 +188,7 @@ struct HandCharge<'a> {
     amount: i64,
     gateway: &'a dyn PaymentGateway,
     stock: &'a dyn StockStore,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl Step for HandCharge<'_> {
@@ -228,7 +228,7 @@ impl StepFactory for ChargeFactory {
 
 struct HandShip<'a> {
     stock: &'a dyn StockStore,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl Step for HandShip<'_> {

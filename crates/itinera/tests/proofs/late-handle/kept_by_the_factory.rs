@@ -5,7 +5,7 @@ use itinera::journey::Contributor;
 use itinera::step::{Outcome, Resolved, Step, StepFactory, StepNeeds, StepReporter};
 
 struct Charge {
-    kept: Mutex<Option<(Contributor<'static>, StepReporter<'static>)>>,
+    kept: Mutex<Option<(&'static mut Contributor, StepReporter<'static>)>>,
 }
 
 impl StepFactory for Charge {

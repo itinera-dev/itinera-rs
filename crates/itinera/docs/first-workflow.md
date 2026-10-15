@@ -20,7 +20,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome> {
+    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome> {
         if self.price <= 0 {
             return Self::fail("nothing-to-charge");
         }
@@ -38,7 +38,7 @@ impl Audit {
     fn audited(
         &self,
         #[from_step] charged: i64,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<OnSuccess> {
         contributor.contribute("audit", format!("charged {charged}"));
         Self::keep_default()

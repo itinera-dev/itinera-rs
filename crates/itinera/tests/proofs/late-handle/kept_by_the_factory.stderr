@@ -12,6 +12,6 @@ error[E0521]: borrowed data escapes outside of method
    |          `self` escapes the method body here
    |          argument requires that `'a` must outlive `'static`
    |
-   = note: requirement occurs because of the type `std::sync::Mutex<Option<(Contributor<'_>, StepReporter<'_>)>>`, which makes the generic argument `Option<(Contributor<'_>, StepReporter<'_>)>` invariant
+   = note: requirement occurs because of the type `std::sync::Mutex<Option<(&mut Contributor, StepReporter<'_>)>>`, which makes the generic argument `Option<(&mut Contributor, StepReporter<'_>)>` invariant
    = note: the struct `std::sync::Mutex<T>` is invariant over the parameter `T`
    = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance

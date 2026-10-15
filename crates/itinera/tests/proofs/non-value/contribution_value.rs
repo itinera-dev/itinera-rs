@@ -3,11 +3,11 @@ use itinera::journey::Contributor;
 use itinera::step::{Outcome, Resolved, Step, StepFactory, StepNeeds};
 
 struct Charge<'a> {
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl Step for Charge<'_> {
-    fn run(mut self) -> Result<Outcome, Error> {
+    fn run(self) -> Result<Outcome, Error> {
         self.contributor.contribute("callback", 1_i64);
         Ok(Outcome::success())
     }

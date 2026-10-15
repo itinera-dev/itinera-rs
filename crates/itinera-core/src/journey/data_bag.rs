@@ -66,23 +66,6 @@ impl DataBag {
         self
     }
 
-    /// Lends read access to the data bag, for a test to pass to an input adapter. It is
-    /// available with the `testing` feature.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::journey::{DataBag, Read};
-    ///
-    /// let data = DataBag::default().with("quantity", 3_i64);
-    /// assert_eq!(data.access().read::<i64>("quantity"), Read::Present(3));
-    /// ```
-    #[cfg(any(test, feature = "testing"))]
-    #[must_use]
-    pub fn access(&self) -> super::DataBagAccess<'_> {
-        super::DataBagAccess::new(self)
-    }
-
     /// The value under a key, if there is one.
     ///
     /// # Examples
@@ -117,8 +100,21 @@ impl DataBag {
         self.values.keys().map(String::as_str)
     }
 
-    /// What the data bag holds under a key, read as a value of this type.
-    pub(crate) fn read<T: Value>(&self, key: &str) -> Read<T> {
+    /// Reads the value under a key as a `T`: a copy of it, or what kept it from being one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use itinera::journey::{DataBag, Read};
+    ///
+    /// fn quantity(data: &DataBag) -> i64 {
+    ///     match data.read("quantity") {
+    ///         Read::Present(quantity) => quantity,
+    ///         Read::Absent | Read::OtherType => 1,
+    ///     }
+    /// }
+    /// ```
+    pub fn read<T: Value>(&self, key: &str) -> Read<T> {
         Read::of(self.get(key))
     }
 

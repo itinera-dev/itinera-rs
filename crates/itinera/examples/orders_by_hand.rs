@@ -51,11 +51,11 @@ impl PaymentGateway for Terminal {
 struct Charge<'a> {
     amount: i64,
     payments: &'a dyn PaymentGateway,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl Step for Charge<'_> {
-    fn run(mut self) -> Result<Outcome> {
+    fn run(self) -> Result<Outcome> {
         if self.amount <= 0 {
             return Ok(Outcome::failure("declined"));
         }

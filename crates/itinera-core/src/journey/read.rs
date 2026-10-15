@@ -1,66 +1,8 @@
-//! An input adapter's read access to the data bag.
+//! What reading a value under a key finds.
 
-use super::DataBag;
 use crate::value::{AnyValue, Value};
 
-/// Read access to the data bag, which an input adapter declares and takes for one call. It
-/// shows everything committed before the attempt being built, and lives no longer than that
-/// call, so an adapter cannot keep it for a later one. It offers no way to write.
-///
-/// A read is the adapter's own business: it emits no event and aborts nothing, whatever it
-/// finds.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::error::Result;
-/// use itinera::journey::Read;
-/// use itinera::policy::{InputAdapter, Requested};
-/// use itinera::workflow::Supplied;
-///
-/// struct Orders;
-///
-/// impl Orders {
-///     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Supplied> {
-///         let key = format!("price.{}", got.step_name());
-///         match got.data_bag()?.read::<i64>(&key) {
-///             Read::Present(price) => Ok(Supplied::value(price)),
-///             Read::Absent | Read::OtherType => Ok(Supplied::FromDataBag),
-///         }
-///     }
-/// }
-/// ```
-#[derive(Clone, Copy, Debug)]
-pub struct DataBagAccess<'a> {
-    data_bag: &'a DataBag,
-}
-
-impl<'a> DataBagAccess<'a> {
-    pub(crate) fn new(data_bag: &'a DataBag) -> Self {
-        Self { data_bag }
-    }
-
-    /// Reads the value under a key as a `T`: the adapter's own copy of it, or what kept it from
-    /// being one.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use itinera::journey::{DataBagAccess, Read};
-    ///
-    /// fn quantity(access: DataBagAccess<'_>) -> i64 {
-    ///     match access.read("quantity") {
-    ///         Read::Present(quantity) => quantity,
-    ///         Read::Absent | Read::OtherType => 1,
-    ///     }
-    /// }
-    /// ```
-    pub fn read<T: Value>(&self, key: &str) -> Read<T> {
-        self.data_bag.read(key)
-    }
-}
-
-/// What a read through a [`DataBagAccess`] found under a key.
+/// What reading a value of a type under a key found, in the data bag or in what was contributed.
 ///
 /// # Examples
 ///

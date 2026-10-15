@@ -27,7 +27,7 @@ struct Label;
 impl Label {
     async fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         contributor.contribute("label", "L-1".to_owned());
         Self::succeed()

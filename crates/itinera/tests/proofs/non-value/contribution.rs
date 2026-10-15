@@ -3,7 +3,7 @@ use itinera::journey::Contributor;
 use itinera::step::{Outcome, Resolved, Step, StepFactory, StepNeeds};
 
 struct Charge<'a> {
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl Step for Charge<'_> {

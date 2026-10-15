@@ -17,7 +17,7 @@ struct Charge {
 impl Charge {
     async fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
         #[reporter] mut reporter: AsyncStepReporter<'_>,
     ) -> Result<Outcome, Error> {
         reporter.info_with("charging", self.price).await?;

@@ -35,7 +35,7 @@ impl Charge {
     fn run(
         self,
         #[service("payments")] gateway: &dyn PaymentGateway,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("receipt", gateway.charge(self.amount));
         Self::succeed()

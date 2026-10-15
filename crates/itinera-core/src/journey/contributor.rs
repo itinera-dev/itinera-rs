@@ -3,7 +3,8 @@ use crate::value::{AnyValue, Value};
 /// A step's or hook's means of contributing data to the journey: values under keys, which are not
 /// declared in advance.
 ///
-/// It is made for one attempt and borrows it, so it cannot outlive it. Each value is captured when
+/// itinera keeps one for each attempt and lends it as `&mut Contributor`, so a step or hook cannot
+/// keep it beyond the attempt. Each value is captured when
 /// it is contributed, and a key contributed twice in one attempt keeps its last value. A step's
 /// contributions reach the data bag only when its attempt succeeds, in the order their keys were
 /// first contributed.
@@ -16,11 +17,11 @@ use crate::value::{AnyValue, Value};
 /// use itinera::step::{Outcome, Resolved, Step, StepFactory, StepNeeds};
 ///
 /// struct Receipt<'a> {
-///     contributor: Contributor<'a>,
+///     contributor: &'a mut Contributor,
 /// }
 ///
 /// impl Step for Receipt<'_> {
-///     fn run(mut self) -> Result<Outcome> {
+///     fn run(self) -> Result<Outcome> {
 ///         self.contributor.contribute("receipt", "R-1".to_string());
 ///         Ok(Outcome::success())
 ///     }
@@ -42,16 +43,12 @@ use crate::value::{AnyValue, Value};
 ///     }
 /// }
 /// ```
-#[derive(Debug)]
-pub struct Contributor<'a> {
-    contributions: &'a mut Contributed,
+#[derive(Clone, Debug, Default)]
+pub struct Contributor {
+    contributions: Vec<Contribution>,
 }
 
-impl<'a> Contributor<'a> {
-    pub(crate) fn new(contributions: &'a mut Contributed) -> Self {
-        Self { contributions }
-    }
-
+impl Contributor {
     /// Contributes a value under a key, replacing what this attempt contributed under it before.
     ///
     /// # Examples
@@ -59,24 +56,19 @@ impl<'a> Contributor<'a> {
     /// ```
     /// use itinera::journey::Contributor;
     ///
-    /// fn issue_receipt(contributor: &mut Contributor<'_>) {
+    /// fn issue_receipt(contributor: &mut Contributor) {
     ///     contributor.contribute("receipt", "R-1".to_string());
     /// }
     /// ```
     pub fn contribute<T: Value>(&mut self, key: impl Into<String>, value: T) {
-        self.contributions.add(key.into(), AnyValue::new(value));
+        self.add(key.into(), AnyValue::new(value));
     }
-}
 
-/// What one attempt contributed: each key with its last value, in the order the keys were first
-/// contributed.
-#[derive(Clone, Debug, Default, derive_more::IntoIterator)]
-#[into_iterator(owned, ref)]
-pub(crate) struct Contributed {
-    contributions: Vec<Contribution>,
-}
+    /// Each key with its last value, in the order the keys were first contributed.
+    pub(crate) fn iter(&self) -> std::slice::Iter<'_, Contribution> {
+        self.contributions.iter()
+    }
 
-impl Contributed {
     /// The value contributed under the key, if any.
     pub(crate) fn get(&self, key: &str) -> Option<&AnyValue> {
         self.contributions
@@ -125,8 +117,12 @@ impl Contribution {
 mod tests {
     use super::*;
 
-    fn keys_and_numbers(contributions: Contributed) -> Vec<(String, i64)> {
-        contributions.into_iter().map(key_and_number).collect()
+    fn keys_and_numbers(contributions: Contributor) -> Vec<(String, i64)> {
+        contributions
+            .contributions
+            .into_iter()
+            .map(key_and_number)
+            .collect()
     }
 
     fn key_and_number(contribution: Contribution) -> (String, i64) {
@@ -136,30 +132,28 @@ mod tests {
 
     #[test]
     fn a_key_contributed_twice_keeps_its_last_value_in_its_first_place() {
-        let mut contributions = Contributed::default();
-        let mut contributor = Contributor::new(&mut contributions);
+        let mut contributor = Contributor::default();
 
         contributor.contribute("amount", 1_i64);
         contributor.contribute("fee", 2_i64);
         contributor.contribute("amount", 3_i64);
 
-        assert_eq!(contributions.keys().collect::<Vec<_>>(), ["amount", "fee"]);
+        assert_eq!(contributor.keys().collect::<Vec<_>>(), ["amount", "fee"]);
         assert_eq!(
-            keys_and_numbers(contributions),
+            keys_and_numbers(contributor),
             [("amount".to_string(), 3), ("fee".to_string(), 2)]
         );
     }
 
     #[test]
     fn a_value_is_captured_when_it_is_contributed() {
-        let mut contributions = Contributed::default();
-        let mut contributor = Contributor::new(&mut contributions);
+        let mut contributor = Contributor::default();
         let mut tags = vec!["new".to_string()];
 
         contributor.contribute("tags", tags.clone());
         tags.push("late".to_string());
 
-        let contribution = contributions.into_iter().next().unwrap();
+        let contribution = contributor.contributions.into_iter().next().unwrap();
         assert_eq!(
             contribution.value.downcast_ref::<Vec<String>>(),
             Some(&vec!["new".to_string()])

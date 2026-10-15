@@ -2,7 +2,7 @@ Describes a rescue step from the block that holds its `run`, so that a workflow 
 
 `run` takes the rescue step by value, then the handles it uses while it runs, each marked with what it is, as a step's `run` does:
 
-- `#[contributor]` on a `Contributor<'_>`, to add data to the data bag;
+- `#[contributor]` on a `&mut Contributor`, to add data to the data bag;
 - `#[reporter]` on a `StepReporter<'_>`, or on an `AsyncStepReporter<'_>` in an asynchronous rescue step, to emit its own events.
 
 It returns `Result<RescueOutcome, Error>`. Every function of the block may use the shorthands for a rescue step's outcomes that `DescribedRescueStep` gives: `Self::succeed()` and `Self::fail("declined")`. A rescue step never skips, so there is no shorthand for it. A rescue step belongs only to steps of workflows of its own mode: an `async fn run` makes it asynchronous, which needs the `async` feature.
@@ -29,7 +29,7 @@ struct RefreshToken {
 impl RefreshToken {
     fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
         #[reporter] mut reporter: StepReporter<'_>,
     ) -> Result<RescueOutcome, Error> {
         if self.client.is_empty() {

@@ -16,9 +16,9 @@ struct Charge {
 impl Charge {
     fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
         #[reporter] mut reporter: StepReporter<'_>,
-        #[contributor] _again: Contributor<'_>,
+        #[contributor] _again: &mut Contributor,
     ) -> Result<Outcome, Error> {
         reporter.info("charging")?;
         contributor.contribute("total", self.amount);

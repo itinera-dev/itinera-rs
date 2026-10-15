@@ -18,7 +18,7 @@ use crate::plan::{Closing, Ending};
 /// One attempt of a scripted step in an asynchronous workflow.
 pub(crate) struct AsyncScriptedStep<'a> {
     ending: Ending,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     reporter: AsyncStepReporter<'a>,
 }
 

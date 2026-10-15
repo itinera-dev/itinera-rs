@@ -53,7 +53,7 @@ impl Pack {
     async fn run(
         self,
         #[service] labels: &dyn Labels,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("packed", labels.label(&self.parcel));
         Self::succeed()
@@ -73,7 +73,7 @@ impl Dispatch {
         self,
         #[service] courier: &dyn Courier,
         #[service] labels: &dyn Labels,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         let Some(carried) = courier.carry(&self.parcel) else {
             return Self::fail("unreachable");

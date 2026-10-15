@@ -26,7 +26,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    async fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    async fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
         if let Some(token) = self.token {
             contributor.contribute("charged with", token);
             return Self::succeed();
@@ -53,7 +53,7 @@ struct Refresh {
 impl Refresh {
     async fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
         #[reporter] mut reporter: AsyncStepReporter<'_>,
     ) -> Result<RescueOutcome, Error> {
         let Some(account) = self.account else {
@@ -92,7 +92,7 @@ const ACCOUNT: OptionalInput<String> = OptionalInput::new("account");
 struct HandRefresh<'a> {
     account: Option<String>,
     reason: Option<Reason>,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     reporter: AsyncStepReporter<'a>,
 }
 

@@ -30,7 +30,7 @@ struct Refresh {
 
 #[rescue_step]
 impl Refresh {
-    fn token(&self, mut contributor: Contributor<'_>) -> Result<RescueOutcome, Error> {
+    fn token(&self, contributor: &mut Contributor) -> Result<RescueOutcome, Error> {
         contributor.contribute("token", format!("{}-{}", self.client, self.reason.code()));
         Self::succeed()
     }

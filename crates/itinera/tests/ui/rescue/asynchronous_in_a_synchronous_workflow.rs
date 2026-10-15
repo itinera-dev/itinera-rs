@@ -32,7 +32,7 @@ struct Refresh {
 impl Refresh {
     async fn run(
         self,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         contributor.contribute("token", format!("{}-{}", self.client, self.reason.code()));
         Self::succeed()

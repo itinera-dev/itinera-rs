@@ -14,7 +14,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(self, #[reporter] mut reporter: Contributor<'_>) -> Result<Outcome, Error> {
+    fn run(self, #[reporter] reporter: &mut Contributor) -> Result<Outcome, Error> {
         reporter.contribute("total", self.amount);
         Self::succeed()
     }

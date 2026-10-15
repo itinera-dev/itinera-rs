@@ -3,7 +3,7 @@ error: a step's `run` takes the step by value, as `self`
    |
 17 | /     fn run(
 18 | |         &self,
-19 | |         #[contributor] mut contributor: Contributor<'_>,
+19 | |         #[contributor] contributor: &mut Contributor,
 20 | |         #[reporter] mut reporter: StepReporter<'_>,
 21 | |     ) -> Result<Outcome, Error> {
    | |_______________________________^

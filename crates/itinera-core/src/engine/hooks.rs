@@ -7,7 +7,7 @@ use super::{Delivery, Journey};
 use crate::error::Error;
 use crate::event::{EventBody, HookSource, JourneyAbort, Source};
 use crate::instance::WorkflowInstance;
-use crate::journey::{Abort, Contributed, Contributor, DataBag};
+use crate::journey::{Abort, Contributor, DataBag};
 use crate::policy::{
     Answers, Call, HookKind, Lifecycle, Needs, OnFailure, OnSuccess, PolicyName, Request, Requested,
 };
@@ -82,10 +82,10 @@ impl<D: Delivery> Journey<D> {
             self.answer(&mut answers, &requesting, request, data_bag, left.as_ref())
                 .await?;
         }
-        let mut contributions = Contributed::default();
+        let mut contributions = Contributor::default();
         let returned = {
             let contributor = if needs.wants_contributor() {
-                Some(Contributor::new(&mut contributions))
+                Some(&mut contributions)
             } else {
                 None
             };

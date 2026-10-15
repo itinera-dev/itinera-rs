@@ -268,11 +268,11 @@ impl<'a, M> RescueResolved<'a, M> {
     /// use itinera::journey::Contributor;
     /// use itinera::step::RescueResolved;
     ///
-    /// fn contributor<'a>(got: &mut RescueResolved<'a>) -> Result<Contributor<'a>> {
+    /// fn contributor<'a>(got: &mut RescueResolved<'a>) -> Result<&'a mut Contributor> {
     ///     got.contributor()
     /// }
     /// ```
-    pub fn contributor(&mut self) -> Result<Contributor<'a>, Error> {
+    pub fn contributor(&mut self) -> Result<&'a mut Contributor, Error> {
         self.resolved.contributor()
     }
 

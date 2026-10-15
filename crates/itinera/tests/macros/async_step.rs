@@ -30,7 +30,7 @@ struct Charge {
 impl Charge {
     async fn run(
         mut self,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
         #[reporter] mut reporter: AsyncStepReporter<'_>,
     ) -> Result<Outcome, Error> {
         if self.amount <= 0 {
@@ -75,7 +75,7 @@ const GIFT_NOTE: Input<Option<String>> = Input::new("gift_note");
 struct HandCharge<'a> {
     amount: i64,
     discount: Option<String>,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
     reporter: AsyncStepReporter<'a>,
 }
 

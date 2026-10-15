@@ -6,7 +6,7 @@ use super::end::End;
 use super::request::{Requesting, wrong_type};
 use super::{Delivery, Journey};
 use crate::event::EventBody;
-use crate::journey::{DataBag, DataBagAccess, JourneyId};
+use crate::journey::{DataBag, JourneyId};
 use crate::policy::{Answers, Requested};
 use crate::step::{InputNeed, StepAttempt};
 use crate::value::AnyValue;
@@ -63,7 +63,7 @@ impl<D: Delivery> Journey<D> {
                 .await?;
         }
         if needs.wants_data_bag() {
-            answers.data_bag = Some(DataBagAccess::new(data_bag));
+            answers.data_bag = Some(data_bag);
         }
         let got = Requested::new(
             sources.workflow,

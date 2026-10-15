@@ -55,7 +55,7 @@ impl Refresh {
     fn run(
         self,
         #[service] tokens: &dyn Safe,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         contributor.contribute("token", tokens.token(&self.account));
         Self::succeed()

@@ -34,7 +34,7 @@ impl Settle {
         Self { outcome }
     }
 
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
         match self.outcome.as_str() {
             "success" => {
                 contributor.contribute("receipt", "R-1".to_owned());
@@ -77,7 +77,7 @@ impl Audit {
         #[reason] reason: Option<Reason>,
         #[cause] cause: StepFailureCause,
         #[error] error: Option<&Error>,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<OnFailure, Error> {
         let code = reason.as_ref().map(Reason::code);
         let error = error.map(ToString::to_string);
@@ -132,7 +132,7 @@ impl Notify {
     fn succeeded(
         &self,
         #[from_workflow] receipt: Option<String>,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<(), Error> {
         contributor.contribute("notified", format!("{} {receipt:?}", self.channel));
         Ok(())

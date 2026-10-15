@@ -51,7 +51,7 @@ pub use step::StepScripting;
 /// use itinera::workflow::WorkflowDescriptor;
 ///
 /// # struct Charge<'a> {
-/// #     contributor: itinera::journey::Contributor<'a>,
+/// #     contributor: &'a mut itinera::journey::Contributor,
 /// #     reporter: itinera::step::StepReporter<'a>,
 /// # }
 /// # impl itinera::step::Step for Charge<'_> {

@@ -6,7 +6,7 @@ use itinera::error::Error;
 use itinera::event::Event;
 use itinera::executor::LocalExecutor;
 use itinera::instance::WorkflowInstance;
-use itinera::journey::{Contributor, DataBag, DataBagAccess, InitialData, JourneyId, Read};
+use itinera::journey::{Contributor, DataBag, InitialData, JourneyId, Read};
 use itinera::policy::{
     HookNeeds, InputAdapter, OnFailure, OnSuccess, Provides, Requested, StepPolicy, WorkflowPolicy,
     step_policy, workflow_policy,
@@ -35,7 +35,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
         match self.amount {
             amount if amount < 0 => Err(Error::msg("the till cannot charge a negative amount")),
             0 => Self::fail("nothing-to-charge"),
@@ -67,7 +67,7 @@ impl Receipt {
         &self,
         #[from_step] charged: i64,
         #[role] till: &dyn Till,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<OnSuccess, Error> {
         contributor.contribute("receipt", format!("{charged} at the {}", till.till()));
         Self::keep_default()
@@ -91,7 +91,7 @@ struct Close;
 #[workflow_policy(name = "close")]
 impl Close {
     #[on_workflow_success]
-    fn closed(&self, #[contributor] mut contributor: Contributor<'_>) -> Result<(), Error> {
+    fn closed(&self, #[contributor] contributor: &mut Contributor) -> Result<(), Error> {
         contributor.contribute("closed", true);
         Ok(())
     }
@@ -103,7 +103,7 @@ struct Alarm;
 #[workflow_policy(name = "alarm")]
 impl Alarm {
     #[on_workflow_failure]
-    fn raised(&self, #[contributor] mut contributor: Contributor<'_>) -> Result<(), Error> {
+    fn raised(&self, #[contributor] contributor: &mut Contributor) -> Result<(), Error> {
         contributor.contribute("alarm", true);
         Ok(())
     }
@@ -162,7 +162,7 @@ impl Shop {
         #[from_workflow] price: Option<i64>,
         #[step_name] step: StepName,
         #[journey_id] journey: &JourneyId,
-        #[data_bag] data: DataBagAccess<'_>,
+        #[data_bag] data: &DataBag,
     ) -> Result<Supplied, Error> {
         priced(self.fee, key, price, step, journey, &data)
     }
@@ -180,7 +180,7 @@ fn priced(
     price: Option<i64>,
     step: StepName,
     journey: &JourneyId,
-    data: &DataBagAccess<'_>,
+    data: &&DataBag,
 ) -> Result<Supplied, Error> {
     if step != step_name!("charge") || key != "amount" {
         return Err(Error::msg(format!("{journey} asked for {key} of {step}")));

@@ -116,11 +116,11 @@ impl<'a, M> Resolved<'a, M> {
     /// use itinera::journey::Contributor;
     /// use itinera::step::Resolved;
     ///
-    /// fn contributor<'a>(got: &mut Resolved<'a>) -> Result<Contributor<'a>> {
+    /// fn contributor<'a>(got: &mut Resolved<'a>) -> Result<&'a mut Contributor> {
     ///     got.contributor()
     /// }
     /// ```
-    pub fn contributor(&mut self) -> Result<Contributor<'a>, Error> {
+    pub fn contributor(&mut self) -> Result<&'a mut Contributor, Error> {
         self.got
             .contributor
             .take()

@@ -28,7 +28,7 @@ fn charge_with_amount(read: &Read) -> InstanceBuilder<Orders> {
 
 /// What the charge step does when it runs for real: it contributes `ran`.
 fn contributes_for_real(
-    contributor: &mut Contributor<'_>,
+    contributor: &mut Contributor,
     _: &mut StepReporter<'_>,
 ) -> Result<Outcome, Error> {
     contributor.contribute("ran", true);

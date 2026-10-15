@@ -32,7 +32,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(mut self, #[contributor] mut contributor: Contributor<'_>) -> Result<Outcome, Error> {
+    fn run(mut self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
         if self.code.is_none() {
             self.fees.push(2);
         }

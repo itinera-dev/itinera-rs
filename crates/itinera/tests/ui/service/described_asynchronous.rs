@@ -44,7 +44,7 @@ impl Charge {
         self,
         #[service] payments: &dyn PaymentGateway,
         #[service] stock: &dyn StockStore,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         stock.reserve();
         contributor.contribute("receipt", payments.charge(self.amount));
@@ -76,7 +76,7 @@ impl Restock {
     async fn run(
         self,
         #[service] stock: &dyn StockStore,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         contributor.contribute("restocked", stock.reserve());
         Self::succeed()

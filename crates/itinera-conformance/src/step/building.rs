@@ -55,7 +55,7 @@ pub(super) trait Builds<'a> {
 
     fn service<T: ?Sized + 'static>(&self, service: &Service<T>) -> Result<&'a T, Error>;
 
-    fn contributor(&mut self) -> Result<Contributor<'a>, Error>;
+    fn contributor(&mut self) -> Result<&'a mut Contributor, Error>;
 
     fn reporter(&mut self) -> Result<Self::Reporter, Error>;
 }
@@ -81,7 +81,7 @@ macro_rules! builds {
                 Self::service(self, service)
             }
 
-            fn contributor(&mut self) -> Result<Contributor<'a>, Error> {
+            fn contributor(&mut self) -> Result<&'a mut Contributor, Error> {
                 Self::contributor(self)
             }
 

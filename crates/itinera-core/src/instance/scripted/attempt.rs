@@ -27,7 +27,7 @@ pub use state::{Acting, Named, Opened};
 /// use itinera::workflow::WorkflowDescriptor;
 ///
 /// # struct Charge<'a> {
-/// #     contributor: itinera::journey::Contributor<'a>,
+/// #     contributor: &'a mut itinera::journey::Contributor,
 /// #     reporter: itinera::step::StepReporter<'a>,
 /// # }
 /// # impl itinera::step::Step for Charge<'_> {
@@ -105,7 +105,7 @@ impl<I: WorkflowInstance, M, S> AttemptScripting<I, M, S> {
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// # struct Charge<'a> {
-    /// #     contributor: itinera::journey::Contributor<'a>,
+    /// #     contributor: &'a mut itinera::journey::Contributor,
     /// #     reporter: itinera::step::StepReporter<'a>,
     /// # }
     /// # impl itinera::step::Step for Charge<'_> {
@@ -178,7 +178,7 @@ impl<I: WorkflowInstance, M, S> AttemptScripting<I, M, S> {
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// # struct Charge<'a> {
-    /// #     contributor: itinera::journey::Contributor<'a>,
+    /// #     contributor: &'a mut itinera::journey::Contributor,
     /// #     reporter: itinera::step::StepReporter<'a>,
     /// # }
     /// # impl itinera::step::Step for Charge<'_> {
@@ -255,7 +255,7 @@ impl<I: WorkflowInstance, M, S> AttemptScripting<I, M, S> {
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// # struct Charge<'a> {
-    /// #     contributor: itinera::journey::Contributor<'a>,
+    /// #     contributor: &'a mut itinera::journey::Contributor,
     /// #     reporter: itinera::step::StepReporter<'a>,
     /// # }
     /// # impl itinera::step::Step for Charge<'_> {
@@ -331,7 +331,7 @@ impl<I: WorkflowInstance, M, S> AttemptScripting<I, M, S> {
     /// use itinera::workflow::WorkflowDescriptor;
     ///
     /// # struct Charge<'a> {
-    /// #     contributor: itinera::journey::Contributor<'a>,
+    /// #     contributor: &'a mut itinera::journey::Contributor,
     /// #     reporter: itinera::step::StepReporter<'a>,
     /// # }
     /// # impl itinera::step::Step for Charge<'_> {

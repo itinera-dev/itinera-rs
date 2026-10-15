@@ -1,13 +1,13 @@
 use std::sync::Mutex;
 
 use itinera::error::Error;
-use itinera::journey::{DataBagAccess, Read};
+use itinera::journey::{DataBag, Read};
 use itinera::policy::{HookNeeds, InputAdapter, Requested};
 use itinera::step::step_name;
 use itinera::workflow::{InputAdapterDescriptor, Supplied};
 
 struct Orders {
-    kept: Mutex<Option<DataBagAccess<'static>>>,
+    kept: Mutex<Option<&'static DataBag>>,
 }
 
 impl Orders {

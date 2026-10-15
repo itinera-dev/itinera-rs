@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use super::Answers;
 use crate::error::Error;
-use crate::journey::{Contributor, DataBagAccess, JourneyId};
+use crate::journey::{Contributor, DataBag, JourneyId};
 use crate::mode::Synchronous;
 use crate::policy::Provider;
 use crate::policy::{
@@ -571,7 +571,7 @@ impl<'a, W, H: PolicyHookKind, M> Requested<'a, W, H, M> {
     ///     }
     /// }
     /// ```
-    pub fn contributor(&mut self) -> Result<Contributor<'a>, Error> {
+    pub fn contributor(&mut self) -> Result<&'a mut Contributor, Error> {
         self.answers
             .contributor
             .take()
@@ -698,7 +698,8 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
         key
     }
 
-    /// Takes the read access to the data bag the adapter declared, valid for this call only.
+    /// Takes the data bag the adapter declared, as it stood before the attempt being built, lent for
+    /// this call only.
     ///
     /// # Errors
     ///
@@ -725,7 +726,7 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     ///     }
     /// }
     /// ```
-    pub fn data_bag(&mut self) -> Result<DataBagAccess<'a>, Error> {
+    pub fn data_bag(&mut self) -> Result<&'a DataBag, Error> {
         self.answers.data_bag.take().ok_or_else(undeclared_data_bag)
     }
 }

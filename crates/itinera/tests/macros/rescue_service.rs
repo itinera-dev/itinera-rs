@@ -49,7 +49,7 @@ impl Charge {
     fn run(
         self,
         #[service] tokens: &dyn TokenService,
-        #[contributor] mut contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("checked by", tokens.label());
         match self.token {
@@ -71,7 +71,7 @@ impl Refresh {
     fn run(
         self,
         #[service] tokens: &dyn TokenService,
-        #[contributor] contributor: Contributor<'_>,
+        #[contributor] contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         Ok(refreshed(&self.account, tokens, contributor))
     }
@@ -80,7 +80,7 @@ impl Refresh {
 fn refreshed(
     account: &str,
     tokens: &dyn TokenService,
-    mut contributor: Contributor<'_>,
+    contributor: &mut Contributor,
 ) -> RescueOutcome {
     contributor.contribute("refreshed by", tokens.label());
     match tokens.token(account) {
@@ -141,7 +141,7 @@ const TOKENS: Service<dyn TokenService> = Service::new("tokens");
 struct HandRefresh<'a> {
     account: String,
     tokens: &'a dyn TokenService,
-    contributor: Contributor<'a>,
+    contributor: &'a mut Contributor,
 }
 
 impl RescueStep for HandRefresh<'_> {

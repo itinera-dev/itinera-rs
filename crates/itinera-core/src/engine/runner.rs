@@ -3,7 +3,7 @@
 
 use super::Emitting;
 use crate::error::Error;
-use crate::journey::{Contributed, Contributor};
+use crate::journey::Contributor;
 use crate::service::Instance;
 use crate::step::{Attempts, FromRescued, Got, Outcome, Reporting, StepAttempt, StepNeeds};
 use crate::value::AnyValue;
@@ -22,7 +22,7 @@ pub(crate) struct Attempt<'a> {
     pub(crate) factory: &'a dyn Attempts,
     pub(crate) needs: &'a StepNeeds,
     pub(crate) building: Building<'a>,
-    pub(crate) contributions: &'a mut Contributed,
+    pub(crate) contributions: &'a mut Contributor,
     pub(crate) emitting: &'a mut dyn Emitting,
 }
 
@@ -58,11 +58,11 @@ impl Runner for Steps {
 pub(crate) fn lend<'a>(
     needs: &StepNeeds,
     building: Building<'a>,
-    contributions: &'a mut Contributed,
+    contributions: &'a mut Contributor,
     emitting: &'a mut dyn Emitting,
 ) -> Got<'a> {
     let contributor = if needs.wants_contributor() {
-        Some(Contributor::new(contributions))
+        Some(contributions)
     } else {
         None
     };
