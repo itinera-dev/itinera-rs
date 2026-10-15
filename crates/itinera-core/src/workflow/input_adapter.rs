@@ -71,9 +71,9 @@ impl<W> InputAdapterDescriptor<W> {
     /// ```
     /// use itinera::step::step_name;
     /// use itinera::workflow::{InputAdapterDescriptor, Supplied};
-    ///     ///
+    ///
     /// struct Orders;
-    ///     ///
+    ///
     /// let nothing = InputAdapterDescriptor::new("nothing", step_name!("charge"), |_: &Orders, _| Ok(Supplied::FromDataBag));
     /// ```
     pub fn new(
@@ -102,11 +102,11 @@ impl<W> InputAdapterDescriptor<W> {
     /// use itinera::policy::{HookNeeds, InputAdapter, Requested};
     /// use itinera::step::{Input, step_name};
     /// use itinera::workflow::{InputAdapterDescriptor, Supplied};
-    ///     ///
+    ///
     /// const PRICE: Input<i64> = Input::new("price");
-    ///     ///
+    ///
     /// struct Orders;
-    ///     ///
+    ///
     /// impl Orders {
     ///     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Supplied> {
     ///         let price = got.from_workflow(&PRICE)?;
@@ -117,7 +117,7 @@ impl<W> InputAdapterDescriptor<W> {
     ///         })
     ///     }
     /// }
-    ///     ///
+    ///
     /// let pricing = InputAdapterDescriptor::new("pricing", step_name!("charge"), Orders::pricing)
     ///     .needing(HookNeeds::new().from_workflow(&PRICE));
     /// ```
@@ -134,9 +134,9 @@ impl<W> InputAdapterDescriptor<W> {
     /// ```
     /// use itinera::step::step_name;
     /// use itinera::workflow::{InputAdapterDescriptor, Supplied};
-    ///     ///
+    ///
     /// struct Orders;
-    ///     ///
+    ///
     /// let nothing = InputAdapterDescriptor::new("nothing", step_name!("charge"), |_: &Orders, _| Ok(Supplied::FromDataBag))
     ///     .step(step_name!("refund"));
     /// ```
@@ -154,9 +154,9 @@ impl<W> InputAdapterDescriptor<W> {
     /// ```
     /// use itinera::step::step_name;
     /// use itinera::workflow::{InputAdapterDescriptor, Supplied};
-    ///     ///
+    ///
     /// struct Orders;
-    ///     ///
+    ///
     /// let nothing = InputAdapterDescriptor::new("nothing", step_name!("charge"), |_: &Orders, _| Ok(Supplied::FromDataBag));
     /// assert_eq!(nothing.name().to_string(), "nothing");
     /// ```

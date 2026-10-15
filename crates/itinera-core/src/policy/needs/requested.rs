@@ -656,9 +656,9 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     /// use itinera::error::Result;
     /// use itinera::policy::{InputAdapter, Requested};
     /// use itinera::workflow::Supplied;
-    ///     ///
+    ///
     /// struct Orders;
-    ///     ///
+    ///
     /// impl Orders {
     ///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Supplied> {
     ///         println!("building {}", got.step_name());
@@ -679,11 +679,11 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     /// use itinera::error::Result;
     /// use itinera::policy::{InputAdapter, Requested};
     /// use itinera::workflow::Supplied;
-    ///     ///
+    ///
     /// struct Orders {
     ///     price: i64,
     /// }
-    ///     ///
+    ///
     /// impl Orders {
     ///     fn pricing(&self, got: Requested<'_, Self, InputAdapter>) -> Result<Supplied> {
     ///         Ok(if got.key() == "amount" {
@@ -712,11 +712,11 @@ impl<'a, W> Requested<'a, W, InputAdapter> {
     /// use itinera::journey::Read;
     /// use itinera::policy::{InputAdapter, Requested};
     /// use itinera::workflow::Supplied;
-    ///     ///
+    ///
     /// struct Orders {
     ///     price: i64,
     /// }
-    ///     ///
+    ///
     /// impl Orders {
     ///     fn pricing(&self, mut got: Requested<'_, Self, InputAdapter>) -> Result<Supplied> {
     ///         match got.data_bag()?.read::<i64>("quantity") {
