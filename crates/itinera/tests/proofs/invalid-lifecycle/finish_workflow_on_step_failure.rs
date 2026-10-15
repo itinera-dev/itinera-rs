@@ -3,7 +3,7 @@ use itinera::executor::LocalExecutor;
 use itinera::policy::{
     FailWorkflow, OnStepFailure, OnSuccess, Requested, StepFailure, StepPolicyDescriptor,
 };
-use itinera::step::{Outcome, Reason, StepDescriptor, step_name};
+use itinera::step::{Outcome, StepDescriptor, step_name};
 use itinera::workflow::WorkflowDescriptor;
 
 struct Orders;

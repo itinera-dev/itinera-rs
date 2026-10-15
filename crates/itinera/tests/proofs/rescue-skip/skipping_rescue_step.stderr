@@ -12,5 +12,5 @@ note: if you're trying to build a new `RescueOutcome` consider using one of the 
    |     pub fn success() -> Self {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-   |     pub fn failure(reason: Reason) -> Self {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |     pub fn failure(reason: impl Into<Reason>) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

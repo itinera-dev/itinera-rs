@@ -1,5 +1,5 @@
 use itinera::executor::LocalExecutor;
-use itinera::step::{Outcome, Reason, RescueOutcome, StepDescriptor, step_name};
+use itinera::step::{Outcome, RescueOutcome, StepDescriptor, step_name};
 use itinera::workflow::WorkflowDescriptor;
 
 struct Orders;
