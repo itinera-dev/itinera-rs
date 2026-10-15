@@ -11,7 +11,7 @@ Claude never pushes a tag and never publishes to crates.io. The maintainer pushe
 
 ## The release pull request
 
-One pull request, titled "Release <version>" with one commit of the same name, sets the version and writes its changelog section. It names its issue as AGENTS.md says, normally `Refs #7`.
+One pull request, titled "Release <version>" with a release commit of the same name, sets the version and writes its changelog section. It names its issue as AGENTS.md says, normally `Refs #7`.
 
 1. Branch from the latest `main`.
 2. After `git fetch --tags`, list what changed since the last release with `git log v<last version>..origin/main`, and read each commit's message.
@@ -19,7 +19,7 @@ One pull request, titled "Release <version>" with one commit of the same name, s
    - in `Cargo.toml`, the workspace version and the `version` of the `itinera-core` and `itinera-macros` path dependencies;
    - in `Cargo.lock`, with `cargo update --workspace`;
    - in the status paragraph of `README.md`.
-4. Check that the commit to be tagged will meet every condition of the release gate in docs/contributing.md "Releasing". In particular, `conformance.json` must list every tier 1 proposal of the cases it pins. If it does not, stop and tell the maintainer, since the tag would be refused.
+4. Check that `conformance.json` lists every tier 1 proposal of the cases it pins, which the release gate in docs/contributing.md "Releasing" requires. If it does not, stop and tell the maintainer, since the tag would be refused.
 5. Write the version's section at the top of `CHANGELOG.md`, in the form of the sections below it:
    - a heading `## [<version>]`, and its link at the bottom of the file, to `releases/tag/v<version>`;
    - one paragraph naming which release it is, whether it breaks code written for the last one, the specification version, the tier, the capabilities, the conformance cases of `conformance.json` and the minimum supported Rust version, and saying "What a journey does is unchanged" when that is so;
@@ -30,7 +30,7 @@ One pull request, titled "Release <version>" with one commit of the same name, s
    - nothing about how the documentation spells something the language already allowed, such as a lifetime the language lets code leave out;
    - CI and release changes only when they change what is published or how it is published, such as docs.rs features or the release workflow.
 7. Move `book.json` as "The book" in docs/contributing.md says. `git ls-remote https://github.com/itinera-dev/book refs/heads/next` gives `next`'s head.
-8. Run the checks of AGENTS.md "Running the checks", and have the change reviewed as the `review-change` skill says. Ask the reviewer to check every changelog entry against the code at both versions.
+8. Check the change against every condition of the release gate. Run the checks of AGENTS.md "Running the checks", and have the change reviewed as the `review-change` skill says. Ask the reviewer to check every changelog entry against the code at both versions.
 9. Open the pull request, in a cloud session with the REST form the `stack` skill gives, and report it as AGENTS.md "Working with the maintainer" says.
 
 ## After the merge
