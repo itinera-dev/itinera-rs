@@ -9,6 +9,7 @@
 mod block;
 mod datum;
 mod described;
+mod handle;
 mod journey;
 mod local;
 mod marker;
@@ -59,7 +60,7 @@ pub fn derive_step(input: TokenStream) -> TokenStream {
 }
 
 #[doc = include_str!("../docs/derive_rescue_step.md")]
-#[proc_macro_derive(RescueStep, attributes(input, from_rescued_step, reason, error))]
+#[proc_macro_derive(RescueStep, attributes(input, from_rescued_step))]
 pub fn derive_rescue_step(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     step::expand_rescue_derive(input).into()

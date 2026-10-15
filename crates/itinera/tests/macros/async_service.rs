@@ -100,7 +100,7 @@ impl Dispatch {
         self,
         #[service] courier: &dyn Courier,
         #[service] labeller: &dyn Labeller,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         Ok(dispatched(&self.parcel, courier, labeller, contributor))
     }
@@ -120,8 +120,8 @@ impl Parcels {
     #[provider(per_attempt)]
     async fn courier(
         &self,
-        #[attempt] attempt: Attempt,
-        #[reporter] reporter: AsyncHookReporter<'_>,
+        attempt: Attempt,
+        reporter: AsyncHookReporter<'_>,
     ) -> Result<Provided<dyn Courier>, Error> {
         courier(attempt, reporter).await
     }

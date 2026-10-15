@@ -24,7 +24,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         if let Some(token) = self.token {
             contributor.contribute("charged with", token);
             return Self::succeed();
@@ -46,9 +46,7 @@ struct Refresh {
     outcome: String,
     #[from_rescued_step("account")]
     account: Option<String>,
-    #[reason]
     reason: Option<Reason>,
-    #[error]
     error: Option<Error>,
 }
 
@@ -56,8 +54,8 @@ struct Refresh {
 impl Refresh {
     fn run(
         self,
-        #[contributor] contributor: &mut Contributor,
-        #[reporter] mut reporter: StepReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: StepReporter<'_>,
     ) -> Result<RescueOutcome, Error> {
         reporter.info_with("rescuing", cause(self.reason.as_ref(), self.error.as_ref()))?;
         if self.outcome == "busy" {
@@ -77,7 +75,6 @@ impl Refresh {
 /// neither, aborts the journey.
 #[derive(RescueStep)]
 struct Insist {
-    #[reason]
     reason: Reason,
     #[from_rescued_step]
     account: String,
@@ -85,7 +82,7 @@ struct Insist {
 
 #[rescue_step]
 impl Insist {
-    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<RescueOutcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<RescueOutcome, Error> {
         let token = format!("{}-{}", self.account, self.reason.code());
         contributor.contribute("token", token);
         Self::succeed()

@@ -1,6 +1,5 @@
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::journey::Contributor;
 use itinera::step::{DescribedStep, Outcome, Step, StepReporter, step, step_name};
 use itinera::workflow::WorkflowDescriptor;
 
@@ -16,11 +15,11 @@ struct Charge {
 impl Charge {
     fn run(
         self,
-        contributor: &mut Contributor,
-        #[reporter] mut reporter: StepReporter<'_>,
+        receipts: &mut Vec<String>,
+        mut reporter: StepReporter<'_>,
     ) -> Result<Outcome, Error> {
         reporter.info("charging")?;
-        contributor.contribute("total", self.amount);
+        receipts.push(self.amount.to_string());
         Self::succeed()
     }
 }

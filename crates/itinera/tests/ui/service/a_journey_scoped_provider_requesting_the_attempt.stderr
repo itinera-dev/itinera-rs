@@ -1,5 +1,5 @@
-error: `#[attempt]` is requested only by a provider of attempt scope, marked `#[provider(per_attempt)]`: one of journey scope serves whichever step needs its service first
-  --> tests/ui/service/a_journey_scoped_provider_requesting_the_attempt.rs:83:21
+error: the attempt is requested only by a provider of attempt scope, marked `#[provider(per_attempt)]`: one of journey scope serves whichever step needs its service first
+  --> tests/ui/service/a_journey_scoped_provider_requesting_the_attempt.rs:83:31
    |
-83 |     fn stock(&self, #[attempt] _attempt: Attempt) -> Result<Provided<dyn StockStore>, Error> {
-   |                     ^^^^^^^^^^
+83 |     fn stock(&self, _attempt: Attempt) -> Result<Provided<dyn StockStore>, Error> {
+   |                               ^^^^^^^

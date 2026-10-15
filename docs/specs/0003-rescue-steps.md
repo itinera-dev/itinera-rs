@@ -22,8 +22,8 @@ What chapter 7 says about services, which a rescue step may request and which ar
 
 ## Macros
 
-- **`#[derive(RescueStep)]`** on a struct with named fields, or none: each field is an `#[input]` or `#[from_rescued_step]`, keyed by the field's name unless written, as in `#[from_rescued_step("account")]`, a `#[reason]` or an `#[error]`. An `Option` field is an optional request; `required` on an `Option` field keys a value that is itself an `Option`. `#[reason]` and `#[error]` take no arguments.
-- **`#[rescue_step]`** on the rescue step's own `impl` block, holding `run(self, ...)`, which takes `#[contributor]` and `#[reporter]` as a step's `run` does, and `#[service]`, as tech spec 0095 describes, and returns `Result<RescueOutcome, Error>`; `async fn run` makes it asynchronous. The block may write `Self::succeed()` and `Self::fail(reason)`. The attribute takes no arguments, since a rescue step has no name of its own.
+- **`#[derive(RescueStep)]`** on a struct with named fields, or none: each field is an `#[input]` or `#[from_rescued_step]`, keyed by the field's name unless written, as in `#[from_rescued_step("account")]`, or, with no mark, a `Reason` or an `Error`, recognised by its type. An `Option` field is an optional request; `required` on an `Option` field keys a value that is itself an `Option`.
+- **`#[rescue_step]`** on the rescue step's own `impl` block, holding `run(self, ...)`, which takes `&mut Contributor` and a reporter as a step's `run` does, recognised by their types, and `#[service]`, as tech spec 0095 describes, and returns `Result<RescueOutcome, Error>`; `async fn run` makes it asynchronous. The block may write `Self::succeed()` and `Self::fail(reason)`. The attribute takes no arguments, since a rescue step has no name of its own.
 - **`rescue = R`** on `#[with_step(...)]` gives the step the rescue step `R`, through `rescued_by::<R>()`.
 
 ## How the rules are enforced

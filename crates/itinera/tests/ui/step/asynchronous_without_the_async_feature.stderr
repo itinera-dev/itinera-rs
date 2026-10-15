@@ -1,5 +1,5 @@
 error: an asynchronous step needs the `async` feature of `itinera`
   --> tests/ui/step/asynchronous_without_the_async_feature.rs:17:5
    |
-17 |     async fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
+17 |     async fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
    |     ^^^^^

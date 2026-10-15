@@ -1,5 +1,5 @@
-error: every field of a rescue step deriving `RescueStep` is an `#[input]`, a `#[from_rescued_step]`, a `#[reason]` or an `#[error]`
-  --> tests/ui/rescue/unmarked_field.rs:29:5
+error: every field of a rescue step deriving `RescueStep` is an `#[input]`, a `#[from_rescued_step]`, the reason, as `Reason` or `Option<Reason>`, or the error, as `Error` or `Option<Error>`
+  --> tests/ui/rescue/unmarked_field.rs:28:5
    |
-29 |     attempts: u32,
+28 |     attempts: u32,
    |     ^^^^^^^^^^^^^

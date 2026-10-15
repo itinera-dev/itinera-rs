@@ -1,10 +1,10 @@
 error[E0599]: `Refresh` is not an iterator
-  --> tests/ui/rescue/skipping.rs:35:15
+  --> tests/ui/rescue/skipping.rs:34:15
    |
 24 | struct Refresh {
    | -------------- associated function or constant `skip` not found for this struct because it doesn't satisfy `Refresh: Iterator`
 ...
-35 |         Self::skip()
+34 |         Self::skip()
    |               ^^^^ `Refresh` is not an iterator
    |
    = note: the following trait bounds were not satisfied:

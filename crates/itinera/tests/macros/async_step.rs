@@ -30,8 +30,8 @@ struct Charge {
 impl Charge {
     async fn run(
         mut self,
-        #[contributor] contributor: &mut Contributor,
-        #[reporter] mut reporter: AsyncStepReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: AsyncStepReporter<'_>,
     ) -> Result<Outcome, Error> {
         if self.amount <= 0 {
             return Self::fail("nothing-to-charge");
@@ -59,7 +59,7 @@ impl Ship {
         Ok(Self { gift_note })
     }
 
-    async fn run(self, #[reporter] mut reporter: AsyncStepReporter<'_>) -> Result<Outcome, Error> {
+    async fn run(self, mut reporter: AsyncStepReporter<'_>) -> Result<Outcome, Error> {
         match self.gift_note {
             Some(note) => reporter.info_with("gift note", note).await?,
             None => return Self::skip_because("no-gift-note"),

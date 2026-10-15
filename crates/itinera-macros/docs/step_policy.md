@@ -11,21 +11,28 @@ Each hook is a method marked with its name, taking `&self`, then the parameters 
 
 The method's own name is free. A block defines at least one hook, and each at most once. An `async fn` hook makes the policy asynchronous: it needs the `async` feature, every hook of the block is then asynchronous, and the policy is attached only to an asynchronous workflow's steps. Every function of the block may use the shorthands for what a hook returns, which `DescribedPolicy` gives: `Self::keep_default()`, `Self::fail_workflow("fraud")`, and, on step success only, `Self::finish_workflow()`.
 
-Each parameter after `&self` carries one attribute saying what it requests:
+Each parameter after `&self` requests one thing. Data and roles carry an attribute saying what they request:
 
 | Attribute | Parameter type | Hooks |
 | --- | --- | --- |
 | `#[from_step]` or `#[from_step("key")]` | `T` or `Option<T>`, `T` a value | all |
 | `#[from_workflow]` or `#[from_workflow("key")]` | `T` or `Option<T>`, `T` a value | all |
-| `#[step_name]` | `StepName` | all |
-| `#[attempt]` | `Attempt` | all |
-| `#[reason]` | `Reason` or `Option<Reason>` | on step failure, on step retry |
-| `#[cause]` | `StepFailureCause` on step failure, `RetryCause` on step retry | on step failure, on step retry |
-| `#[error]` | `&Error` or `Option<&Error>` | on step failure, on step retry, on step abnormal termination |
-| `#[journey_id]` | `&JourneyId` | all |
 | `#[role]` | `&dyn R`, a role of the workflow | all |
-| `#[contributor]` | `&mut Contributor` | all |
-| `#[reporter]` | `HookReporter<'_>`, or `AsyncHookReporter<'_>` in an asynchronous hook | all |
+
+Every other parameter is a handle, recognised by its type alone:
+
+| Handle | Parameter type | Hooks |
+| --- | --- | --- |
+| the step's name | `StepName` | all |
+| the attempt | `Attempt` | all |
+| the reason | `Reason` or `Option<Reason>` | on step failure, on step retry |
+| the cause | `StepFailureCause` on step failure, `RetryCause` on step retry | on step failure, on step retry |
+| the error | `&Error` or `Option<&Error>` | on step failure, on step retry, on step abnormal termination |
+| the journey ID | `&JourneyId` | all |
+| a contributor | `&mut Contributor` | all |
+| a reporter | `HookReporter<'_>`, or `AsyncHookReporter<'_>` in an asynchronous hook | all |
+
+The macro reads only the type as written, by the last segment of its path, so an alias of one of these types is not recognised.
 
 A key is the parameter's name unless the attribute names it. As with a step's inputs, an `Option` type makes a request optional, and `required`, as in `#[from_step("note", required)]`, makes the key required though its value is itself an `Option`. Requests resolve in the order of the parameters. A role requested makes the policy one that only a workflow providing that role, with `Provides`, can attach. An asynchronous hook holds its parameters across its awaits, so a role it requests is `Sync`, as a role trait declared `trait Notifier: Sync` is.
 
@@ -74,7 +81,7 @@ impl Audit {
     #[on_step_failure]
     fn reported(
         &self,
-        #[reason] reason: Reason,
+        reason: Reason,
         #[role] notifier: &dyn Notifier,
     ) -> Result<OnFailure, Error> {
         notifier.notify(reason.code());

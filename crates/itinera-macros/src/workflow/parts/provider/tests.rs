@@ -61,16 +61,16 @@ fn a_provider_is_named_and_keyed_after_its_method_unless_its_settings_say_otherw
     "a service provider returns the instance it makes, as `Result<Provided<T>, Error>`"
 )]
 #[case::of_journey_scope_requesting_the_attempt(
-    "#[provider] fn stock(&self, #[attempt] attempt: Attempt) -> Result<Provided<dyn StockStore>, Error> {}",
-    "`#[attempt]` is requested only by a provider of attempt scope, marked `#[provider(per_attempt)]`: one of journey scope serves whichever step needs its service first"
+    "#[provider] fn stock(&self, attempt: Attempt) -> Result<Provided<dyn StockStore>, Error> {}",
+    "the attempt is requested only by a provider of attempt scope, marked `#[provider(per_attempt)]`: one of journey scope serves whichever step needs its service first"
 )]
 #[case::of_journey_scope_requesting_the_step_name(
-    "#[provider] fn stock(&self, #[step_name] step: StepName) -> Result<Provided<dyn StockStore>, Error> {}",
-    "`#[step_name]` is requested only by a provider of attempt scope, marked `#[provider(per_attempt)]`: one of journey scope serves whichever step needs its service first"
+    "#[provider] fn stock(&self, step: StepName) -> Result<Provided<dyn StockStore>, Error> {}",
+    "the step's name is requested only by a provider of attempt scope, marked `#[provider(per_attempt)]`: one of journey scope serves whichever step needs its service first"
 )]
 #[case::with_an_unmarked_parameter(
     "#[provider] fn stock(&self, gateway: String) -> Result<Provided<dyn StockStore>, Error> {}",
-    r#"every parameter of a service provider after `&self` says what it requests, such as `#[journey_id]` or `#[from_workflow("gateway")]`"#
+    r#"every parameter of a service provider after `&self` is the journey ID, as `&JourneyId`, a reporter, as `HookReporter<'_>`, or, for a provider of attempt scope, the step's name or the attempt, as `StepName` or `Attempt`, or says what it requests, such as `#[from_workflow("gateway")]`"#
 )]
 fn a_provider_is_refused_when_its_method_or_settings_cannot_describe_one(
     #[case] method: &str,
@@ -83,8 +83,8 @@ fn a_provider_is_refused_when_its_method_or_settings_cannot_describe_one(
 #[test]
 fn a_provider_requesting_what_its_scope_allows_declares_its_needs_in_order() {
     let provider = provider(
-        "#[provider(per_attempt)] fn payments(&self, #[attempt] attempt: Attempt, \
-         #[from_workflow] gateway: Option<String>, #[reporter] reporter: HookReporter<'_>) \
+        "#[provider(per_attempt)] fn payments(&self, attempt: Attempt, \
+         #[from_workflow] gateway: Option<String>, reporter: HookReporter<'_>) \
          -> Result<Provided<dyn PaymentGateway>, Error> {}",
     );
     let workflow: Type = syn::parse_str("Orders").unwrap();

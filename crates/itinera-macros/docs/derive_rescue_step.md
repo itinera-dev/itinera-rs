@@ -1,11 +1,13 @@
 Builds a rescue step from its fields, each time it runs: every field is one of its requests, resolved in the order the fields are written.
 
-Each field carries one of these attributes:
+Each field is one of these, the first two marked with their attribute and the others recognised by their type:
 
 - `#[input]` or `#[input("key")]`: an input, whose key is the field's name or the one given, as for a step. The input adapter attached to the rescue step's name, such as `steps = ["charge_rescue"]`, supplies it if it returns a value; otherwise it is read from the data bag. An adapter attached to the step it rescues is never asked.
 - `#[from_rescued_step]` or `#[from_rescued_step("key")]`: data the failed attempt of the step it rescues contributed under the key. That data was never committed to the data bag.
-- `#[reason]`: the reason of the failure that ended the attempt, on a field of type `Reason`.
-- `#[error]`: the error that ended the attempt abnormally, handed over by value, on a field of type `Error`.
+- A `Reason`: the reason of the failure that ended the attempt.
+- An `Error`: the error that ended the attempt abnormally, handed over by value.
+
+The macro reads only the type as written, by the last segment of its path, so an alias of `Reason` or `Error` is not recognised, and an unmarked field of another type whose path ends in `Reason` or `Error`, such as `std::io::Error`, is taken as that request and fails to compile.
 
 The field's type says whether a request is optional. A field of type `Option<T>` is an optional request: `None` when there is nothing to receive, such as no reason after an abnormal termination. A field of any other type is a required request, and when there is nothing to receive the journey aborts with `required data missing`, naming the rescue step. `#[input(required)]` and `#[from_rescued_step(required)]`, on a field of an `Option` type, request a key that must be present, though its value is itself an `Option`. The macro reads only the tokens written, so an alias of `Option` is a required request.
 
@@ -30,7 +32,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         if self.token.is_some() {
             return Self::succeed();
         }
@@ -43,15 +45,13 @@ impl Charge {
 struct RefreshToken {
     #[from_rescued_step]
     account: String,
-    #[reason]
     reason: Option<Reason>,
-    #[error]
     error: Option<Error>,
 }
 
 #[rescue_step]
 impl RefreshToken {
-    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<RescueOutcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<RescueOutcome, Error> {
         if self.error.is_some() {
             return Self::fail("charge-crashed");
         }

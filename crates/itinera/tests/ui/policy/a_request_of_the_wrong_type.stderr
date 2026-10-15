@@ -1,8 +1,8 @@
 error[E0308]: mismatched types
-  --> tests/ui/policy/a_request_of_the_wrong_type.rs:41:27
+  --> tests/ui/policy/a_request_of_the_wrong_type.rs:41:16
    |
-41 |         #[reason] reason: String,
-   |                           ^^^^^^ expected `String`, found `Reason`
+41 |         cause: RetryCause,
+   |                ^^^^^^^^^^ expected `RetryCause`, found `StepFailureCause`
 42 |         #[role] desk: &dyn Desk,
 43 |     ) -> Result<OnFailure, Error> {
    |          ------ arguments to this function are incorrect
@@ -13,5 +13,5 @@ note: method defined here
 39 |     fn reported(
    |        ^^^^^^^^
 40 |         &self,
-41 |         #[reason] reason: String,
-   |                   --------------
+41 |         cause: RetryCause,
+   |         -----------------

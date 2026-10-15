@@ -1,0 +1,5 @@
+error: the data bag is requested only by an input adapter
+  --> tests/ui/policy/the_data_bag_in_a_hook.rs:32:29
+   |
+32 |     fn checked(&self, data: &DataBag) -> Result<OnSuccess, Error> {
+   |                             ^^^^^^^^

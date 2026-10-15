@@ -14,7 +14,7 @@ impl Audit {
     #[on_step_success]
     async fn checked(
         &self,
-        #[reporter] mut reporter: AsyncHookReporter<'_>,
+        mut reporter: AsyncHookReporter<'_>,
     ) -> Result<OnSuccess, Error> {
         reporter.info("checked").await?;
         Self::keep_default()

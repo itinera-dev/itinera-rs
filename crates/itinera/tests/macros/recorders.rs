@@ -36,8 +36,8 @@ impl Charge {
     fn run(
         self,
         #[service] payments: &dyn PaymentGateway,
-        #[contributor] contributor: &mut Contributor,
-        #[reporter] mut reporter: StepReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: StepReporter<'_>,
     ) -> Result<Outcome, Error> {
         reporter.info_with("charging", self.price)?;
         let Some(payment) = payments.take(self.price) else {
@@ -58,8 +58,8 @@ impl Audit {
     fn audited(
         &self,
         #[from_step] payment: String,
-        #[contributor] contributor: &mut Contributor,
-        #[reporter] mut reporter: HookReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: HookReporter<'_>,
     ) -> Result<OnSuccess, Error> {
         reporter.warning_with("audited", payment.clone())?;
         contributor.contribute("audit", format!("paid {payment}"));
@@ -76,7 +76,7 @@ struct Shop {
 #[workflow]
 impl Shop {
     #[input_adapter(steps = ["charge"])]
-    fn pricing(&self, #[key] key: &str, #[data_bag] data: &DataBag) -> Result<Supplied, Error> {
+    fn pricing(&self, #[key] key: &str, data: &DataBag) -> Result<Supplied, Error> {
         match data.read::<i64>(key) {
             Read::Present(price) => Self::supply(price + self.fee),
             Read::Absent | Read::OtherType => Self::from_data_bag(),

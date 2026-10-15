@@ -24,7 +24,6 @@ impl Charge {
 struct Refresh {
     #[input]
     client: String,
-    #[reason]
     reason: Reason,
 }
 

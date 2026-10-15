@@ -49,7 +49,7 @@ impl Charge {
     fn run(
         self,
         #[service] tokens: &dyn TokenService,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("checked by", tokens.label());
         match self.token {
@@ -71,7 +71,7 @@ impl Refresh {
     fn run(
         self,
         #[service] tokens: &dyn TokenService,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         Ok(refreshed(&self.account, tokens, contributor))
     }
@@ -113,18 +113,15 @@ struct Vaulted;
 #[workflow]
 impl Vaulted {
     #[provider]
-    fn tokens(
-        &self,
-        #[journey_id] journey: &JourneyId,
-    ) -> Result<Provided<dyn TokenService>, Error> {
+    fn tokens(&self, journey: &JourneyId) -> Result<Provided<dyn TokenService>, Error> {
         Ok(vault(journey))
     }
 
     #[provider(per_attempt, steps = ["charge"], key = "tokens", name = "charging")]
     fn charging(
         &self,
-        #[step_name] step: StepName,
-        #[attempt] attempt: Attempt,
+        step: StepName,
+        attempt: Attempt,
     ) -> Result<Provided<dyn TokenService>, Error> {
         Ok(charging_vault(step, attempt))
     }
@@ -248,18 +245,15 @@ struct Rerouted;
 #[workflow]
 impl Rerouted {
     #[provider]
-    fn tokens(
-        &self,
-        #[journey_id] journey: &JourneyId,
-    ) -> Result<Provided<dyn TokenService>, Error> {
+    fn tokens(&self, journey: &JourneyId) -> Result<Provided<dyn TokenService>, Error> {
         Ok(vault(journey))
     }
 
     #[provider(per_attempt, steps = ["charge_rescue"], key = "tokens", name = "refreshing")]
     fn refreshing(
         &self,
-        #[step_name] step: StepName,
-        #[attempt] attempt: Attempt,
+        step: StepName,
+        attempt: Attempt,
     ) -> Result<Provided<dyn TokenService>, Error> {
         Ok(charging_vault(step, attempt))
     }

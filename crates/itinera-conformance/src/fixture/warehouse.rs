@@ -55,7 +55,7 @@ impl Reserve {
     fn run(
         self,
         #[service] stock: &dyn Stock,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("reserved", stock.label().to_owned());
         Self::succeed()
@@ -72,7 +72,7 @@ impl Charge {
         self,
         #[service] payments: &dyn Payments,
         #[service] stock: &dyn Stock,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         if !payments.reachable() {
             return Self::fail("unreachable");
@@ -92,7 +92,7 @@ impl Ship {
         self,
         #[service] payments: &dyn Payments,
         #[service] stock: &dyn Stock,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("shipped", used(payments, stock));
         Self::succeed()
@@ -114,7 +114,7 @@ pub(super) struct Warehouse;
 impl Warehouse {
     /// The journey's stock, made once and lent to every step and attempt.
     #[provider]
-    fn stock(&self, #[journey_id] journey_id: &JourneyId) -> Result<Provided<dyn Stock>, Error> {
+    fn stock(&self, journey_id: &JourneyId) -> Result<Provided<dyn Stock>, Error> {
         Ok(provide!(Shelf {
             label: format!("stock of {journey_id}"),
         }))
@@ -135,10 +135,10 @@ impl Warehouse {
     #[provider(per_attempt, steps = ["charge"], key = "payments", name = "fresh payments")]
     fn fresh_payments(
         &self,
-        #[step_name] step: StepName,
-        #[attempt] attempt: Attempt,
+        step: StepName,
+        attempt: Attempt,
         #[from_workflow] gateway: Option<String>,
-        #[reporter] reporter: HookReporter<'_>,
+        reporter: HookReporter<'_>,
     ) -> Result<Provided<dyn Payments>, Error> {
         let gateway = gateway.unwrap_or_else(|| "main".to_owned());
         chosen(&gateway, step, attempt, reporter)

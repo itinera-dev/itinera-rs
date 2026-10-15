@@ -123,7 +123,7 @@ impl Charge {
         self,
         #[service("payments")] gateway: &dyn PaymentGateway,
         #[service] stock: &dyn StockStore,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         Ok(charged(self.amount, gateway, stock, contributor))
     }
@@ -137,7 +137,7 @@ impl Ship {
     fn run(
         self,
         #[service] stock: &dyn StockStore,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         Ok(shipped(stock, contributor))
     }
@@ -153,17 +153,17 @@ struct Shop {
 #[workflow]
 impl Shop {
     #[provider]
-    fn stock(&self, #[journey_id] journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
+    fn stock(&self, journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
         Ok(stocked(journey))
     }
 
     #[provider(per_attempt, steps = ["charge"], key = "payments", name = "charging")]
     fn payments(
         &self,
-        #[step_name] step: StepName,
-        #[attempt] attempt: Attempt,
+        step: StepName,
+        attempt: Attempt,
         #[from_workflow] currency: Option<String>,
-        #[reporter] reporter: HookReporter<'_>,
+        reporter: HookReporter<'_>,
     ) -> Result<Provided<dyn PaymentGateway>, Error> {
         gateway(self.gateway, step, attempt, currency, reporter)
     }
@@ -413,12 +413,12 @@ struct Depot;
 #[workflow]
 impl Depot {
     #[provider]
-    fn stock(&self, #[journey_id] journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
+    fn stock(&self, journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
         Ok(stocked(journey))
     }
 
     #[provider(key = "stock", steps = ["restock"])]
-    fn shelf(&self, #[journey_id] journey: &JourneyId) -> Result<Provided<Warehouse>, Error> {
+    fn shelf(&self, journey: &JourneyId) -> Result<Provided<Warehouse>, Error> {
         Ok(provide!(Warehouse {
             journey: journey.to_string(),
         }))

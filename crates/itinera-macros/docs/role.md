@@ -27,7 +27,7 @@ impl Receipt {
     fn printed(
         &self,
         #[role] till: &dyn Till,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<OnSuccess, Error> {
         contributor.contribute("receipt", format!("printed at the {}", till.till()));
         Self::keep_default()

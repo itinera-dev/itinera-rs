@@ -58,7 +58,7 @@ impl Charge {
         self,
         #[service("payments")] gateway: &dyn Till,
         #[service] stock: &dyn StockStore,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         stock.reserve();
         contributor.contribute("receipt", gateway.charge(self.amount));
@@ -90,17 +90,17 @@ struct Orders {
 #[workflow]
 impl Orders {
     #[provider]
-    fn stock(&self, #[journey_id] _journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
+    fn stock(&self, _journey: &JourneyId) -> Result<Provided<dyn StockStore>, Error> {
         Ok(provide!(Warehouse))
     }
 
     #[provider(per_attempt, steps = ["charge"], key = "payments", name = "charging")]
     fn payments(
         &self,
-        #[step_name] step: StepName,
-        #[attempt] attempt: Attempt,
+        step: StepName,
+        attempt: Attempt,
         #[from_workflow] currency: Option<String>,
-        #[reporter] mut reporter: HookReporter<'_>,
+        mut reporter: HookReporter<'_>,
     ) -> Result<Provided<dyn PaymentGateway>, Error> {
         reporter.info(format!("{step} attempt {attempt}"))?;
         let currency = currency.unwrap_or_default();

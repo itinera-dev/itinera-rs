@@ -44,7 +44,7 @@ impl Charge {
         self,
         #[service] payments: &dyn PaymentGateway,
         #[service] stock: &dyn StockStore,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         stock.reserve();
         contributor.contribute("receipt", payments.charge(self.amount));
@@ -76,7 +76,7 @@ impl Restock {
     async fn run(
         self,
         #[service] stock: &dyn StockStore,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         contributor.contribute("restocked", stock.reserve());
         Self::succeed()
@@ -100,8 +100,8 @@ impl Orders {
     #[provider(per_attempt)]
     async fn payments(
         &self,
-        #[attempt] attempt: Attempt,
-        #[reporter] mut reporter: AsyncHookReporter<'_>,
+        attempt: Attempt,
+        mut reporter: AsyncHookReporter<'_>,
     ) -> Result<Provided<dyn PaymentGateway>, Error> {
         reporter.info(format!("attempt {attempt}")).await?;
         Ok(provide!(Gateway(self.gateway.to_owned())))

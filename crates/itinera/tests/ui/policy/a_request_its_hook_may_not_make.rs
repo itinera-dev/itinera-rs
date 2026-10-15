@@ -28,7 +28,7 @@ struct Audit;
 #[step_policy]
 impl Audit {
     #[on_step_success]
-    fn checked(&self, #[reason] receipt: Option<Reason>) -> Result<OnSuccess, Error> {
+    fn checked(&self, receipt: Option<Reason>) -> Result<OnSuccess, Error> {
         match receipt {
             Some(_) => Self::keep_default(),
             None => Self::finish_workflow(),
@@ -38,7 +38,7 @@ impl Audit {
     #[on_step_failure]
     fn reported(
         &self,
-        #[reason] reason: Reason,
+        reason: Reason,
         #[role] desk: &dyn Desk,
     ) -> Result<OnFailure, Error> {
         Self::fail_workflow(format!("{}-at-{}", reason.code(), desk.desk()))

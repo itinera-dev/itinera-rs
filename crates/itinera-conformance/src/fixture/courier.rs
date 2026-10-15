@@ -53,7 +53,7 @@ impl Pack {
     async fn run(
         self,
         #[service] labels: &dyn Labels,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         contributor.contribute("packed", labels.label(&self.parcel));
         Self::succeed()
@@ -73,7 +73,7 @@ impl Dispatch {
         self,
         #[service] courier: &dyn Courier,
         #[service] labels: &dyn Labels,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<Outcome, Error> {
         let Some(carried) = courier.carry(&self.parcel) else {
             return Self::fail("unreachable");
@@ -93,7 +93,7 @@ pub(super) struct Couriers;
 impl Couriers {
     /// The journey's labels, made once and lent to every step and attempt.
     #[provider]
-    fn labels(&self, #[journey_id] journey_id: &JourneyId) -> Result<Provided<dyn Labels>, Error> {
+    fn labels(&self, journey_id: &JourneyId) -> Result<Provided<dyn Labels>, Error> {
         Ok(provide!(Printer {
             journey_id: journey_id.to_string(),
         }))
@@ -105,9 +105,9 @@ impl Couriers {
     #[provider(per_attempt, steps = ["dispatch"])]
     async fn courier(
         &self,
-        #[attempt] attempt: Attempt,
+        attempt: Attempt,
         #[from_workflow] company: String,
-        #[reporter] reporter: AsyncHookReporter<'_>,
+        reporter: AsyncHookReporter<'_>,
     ) -> Result<Provided<dyn Courier>, Error> {
         sent(&company, attempt, reporter).await
     }

@@ -24,7 +24,7 @@ use crate::block;
 use crate::described;
 
 /// The attributes that mark the parameters of `run` and `new`.
-const MARKS: [&str; 4] = ["input", "contributor", "reporter", "service"];
+const MARKS: [&str; 2] = ["input", "service"];
 
 /// The shorthands for a step's outcomes that `DescribedStep` gives.
 const SHORTHANDS: [&str; 4] = ["succeed", "fail", "skip", "skip_because"];

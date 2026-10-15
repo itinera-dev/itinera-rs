@@ -29,8 +29,8 @@ struct Charge {
 impl Charge {
     fn run(
         mut self,
-        #[contributor] contributor: &mut Contributor,
-        #[reporter] mut reporter: StepReporter<'_>,
+        contributor: &mut Contributor,
+        mut reporter: StepReporter<'_>,
     ) -> Result<Outcome, Error> {
         if self.amount <= 0 {
             return Self::fail("nothing-to-charge");
@@ -58,7 +58,7 @@ impl Ship {
         Ok(Self { gift_note })
     }
 
-    fn run(self, #[reporter] mut reporter: StepReporter<'_>) -> Result<Outcome, Error> {
+    fn run(self, mut reporter: StepReporter<'_>) -> Result<Outcome, Error> {
         match self.gift_note {
             Some(note) => reporter.info_with("gift note", note)?,
             None => return Self::skip_because("no-gift-note"),

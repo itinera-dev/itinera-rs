@@ -160,7 +160,7 @@ mod step {
     }
 
     #[test]
-    fn a_handle_has_the_type_its_mark_names() -> Result<(), Box<dyn Error>> {
+    fn a_steps_run_takes_a_steps_reporter() -> Result<(), Box<dyn Error>> {
         fails_to_compile("tests/ui/step/a_handle_of_the_wrong_type.rs");
         described::main()
     }
@@ -212,12 +212,6 @@ mod rescue {
     #[test]
     fn every_field_of_a_derived_rescue_step_is_a_request() -> Result<(), Box<dyn Error>> {
         fails_to_compile("tests/ui/rescue/unmarked_field.rs");
-        described::main()
-    }
-
-    #[test]
-    fn the_reason_and_the_error_are_requested_without_a_key() -> Result<(), Box<dyn Error>> {
-        fails_to_compile("tests/ui/rescue/a_reason_with_a_key.rs");
         described::main()
     }
 
@@ -299,6 +293,18 @@ mod policy {
     }
 
     #[test]
+    fn a_hook_takes_what_its_hook_is_given_as_its_own_type() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/policy/a_request_of_the_wrong_type.rs");
+        described::main()
+    }
+
+    #[test]
+    fn only_an_input_adapter_takes_the_data_bag() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/policy/the_data_bag_in_a_hook.rs");
+        described::main()
+    }
+
+    #[test]
     fn a_policy_is_attached_only_to_a_workflow_providing_its_roles() -> Result<(), Box<dyn Error>> {
         fails_to_compile("tests/ui/policy/a_role_the_workflow_does_not_provide.rs");
         described::main()
@@ -347,12 +353,6 @@ mod policy {
     fn a_policys_hooks_are_all_synchronous_or_all_asynchronous() -> Result<(), Box<dyn Error>> {
         fails_to_compile("tests/ui/policy/synchronous_and_asynchronous_hooks.rs");
         asynchronous::main()
-    }
-
-    #[test]
-    fn a_request_has_the_type_its_attribute_names() -> Result<(), Box<dyn Error>> {
-        fails_to_compile("tests/ui/policy/a_request_of_the_wrong_type.rs");
-        described::main()
     }
 
     #[test]
@@ -584,6 +584,12 @@ mod workflow {
     #[test]
     fn an_input_adapter_is_attached_to_at_least_one_step() -> Result<(), Box<dyn Error>> {
         fails_to_compile("tests/ui/workflow/an_input_adapter_for_no_step.rs");
+        described::main()
+    }
+
+    #[test]
+    fn an_input_adapter_takes_no_contributor() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/workflow/a_contributor_in_an_input_adapter.rs");
         described::main()
     }
 

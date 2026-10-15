@@ -38,7 +38,7 @@ impl Audit {
     #[on_step_failure]
     fn reported(
         &self,
-        #[reason] reason: Reason,
+        reason: Reason,
         #[role] desk: Box<dyn Desk>,
     ) -> Result<OnFailure, Error> {
         Self::fail_workflow(format!("{}-at-{}", reason.code(), desk.desk()))

@@ -1,4 +1,4 @@
-error: this attribute is one too many: each item carries one of them
+error: this attribute is one too many: each parameter carries at most one of them
   --> tests/ui/policy/a_parameter_marked_twice.rs:31:36
    |
 31 |     fn checked(&self, #[from_step] #[from_workflow] receipt: Option<String>) -> Result<OnSuccess, Error> {

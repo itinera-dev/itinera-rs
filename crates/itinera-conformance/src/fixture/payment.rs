@@ -17,7 +17,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         if self.amount <= 0 {
             return Self::fail("declined");
         }
@@ -37,7 +37,7 @@ struct Ship {
 
 #[step]
 impl Ship {
-    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         if self.fragile == Some(true) && self.packed.is_none() {
             return Self::fail("unpacked");
         }
@@ -51,13 +51,12 @@ impl Ship {
 struct Pack {
     #[input]
     order: String,
-    #[reason]
     reason: Reason,
 }
 
 #[rescue_step]
 impl Pack {
-    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<RescueOutcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<RescueOutcome, Error> {
         let packing = format!(
             "order {} packed, since it was {}",
             self.order,
@@ -79,7 +78,7 @@ impl Audit {
     fn audited(
         &self,
         #[from_step] charged: i64,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<OnSuccess, Error> {
         contributor.contribute("audited", format!("charged {charged}"));
         Self::keep_default()
@@ -100,10 +99,10 @@ impl Receipt {
     #[on_workflow_success]
     fn paid(
         &self,
-        #[journey_id] journey_id: &JourneyId,
+        journey_id: &JourneyId,
         #[from_workflow] charged: i64,
         #[role] shop: &dyn Shop,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<(), Error> {
         let receipt = format!("{journey_id} paid {charged} at the {} shop", shop.shop());
         contributor.contribute("receipt", receipt);
@@ -111,7 +110,7 @@ impl Receipt {
     }
 
     #[on_workflow_failure]
-    fn declined(&self, #[contributor] contributor: &mut Contributor) -> Result<(), Error> {
+    fn declined(&self, contributor: &mut Contributor) -> Result<(), Error> {
         contributor.contribute("receipt", "declined".to_owned());
         Ok(())
     }

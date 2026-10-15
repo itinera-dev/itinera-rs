@@ -13,7 +13,7 @@ struct Charge {
 
 #[step]
 impl Charge {
-    async fn run(self, #[reporter] mut reporter: AsyncStepReporter<'_>) -> Result<Outcome, Error> {
+    async fn run(self, mut reporter: AsyncStepReporter<'_>) -> Result<Outcome, Error> {
         reporter.info_with("charging", self.amount).await?;
         Self::succeed()
     }

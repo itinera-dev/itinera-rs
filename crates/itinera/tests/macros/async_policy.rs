@@ -32,7 +32,7 @@ impl Settle {
         Self { outcome }
     }
 
-    async fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
+    async fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         match self.outcome.as_str() {
             "success" => {
                 contributor.contribute("receipt", "R-1".to_owned());
@@ -55,7 +55,7 @@ impl Audit {
         &self,
         #[from_step] receipt: String,
         #[from_workflow] decision: Option<String>,
-        #[reporter] mut reporter: AsyncHookReporter<'_>,
+        mut reporter: AsyncHookReporter<'_>,
     ) -> Result<OnSuccess, Error> {
         reporter.info(format!("gave {receipt}")).await?;
         match decision.as_deref() {
@@ -66,17 +66,17 @@ impl Audit {
     }
 
     #[on_step_failure]
-    async fn failed(&self, #[reason] reason: Reason) -> Result<OnFailure, Error> {
+    async fn failed(&self, reason: Reason) -> Result<OnFailure, Error> {
         Self::fail_workflow(format!("after-{}", reason.code()))
     }
 
     #[on_step_retry]
     async fn retried(
         &self,
-        #[cause] cause: RetryCause,
-        #[journey_id] journey_id: &JourneyId,
+        cause: RetryCause,
+        journey_id: &JourneyId,
         #[role] desk: &dyn Desk,
-        #[reporter] mut reporter: AsyncHookReporter<'_>,
+        mut reporter: AsyncHookReporter<'_>,
     ) -> Result<OnFailure, Error> {
         let desk = desk.desk();
         reporter
@@ -88,7 +88,7 @@ impl Audit {
     #[on_step_abnormal_termination]
     async fn terminated(
         &self,
-        #[error] error: &Error,
+        error: &Error,
         #[from_workflow] decision: Option<String>,
     ) -> Result<OnFailure, Error> {
         match decision.as_deref() {
@@ -106,13 +106,13 @@ struct Notify;
 #[workflow_policy(name = "notify")]
 impl Notify {
     #[on_workflow_success]
-    async fn succeeded(&self, #[contributor] contributor: &mut Contributor) -> Result<(), Error> {
+    async fn succeeded(&self, contributor: &mut Contributor) -> Result<(), Error> {
         contributor.contribute("notified", true);
         Ok(())
     }
 
     #[on_workflow_failure]
-    async fn failed(&self, #[reporter] mut reporter: AsyncHookReporter<'_>) -> Result<(), Error> {
+    async fn failed(&self, mut reporter: AsyncHookReporter<'_>) -> Result<(), Error> {
         reporter.warning("the order failed").await?;
         Ok(())
     }

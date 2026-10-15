@@ -46,7 +46,7 @@ impl Refresh {
         self,
         #[service] tokens: &dyn TokenService,
         #[service("tokens")] spare: &dyn TokenService,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         spare.token(&self.account);
         contributor.contribute("token", tokens.token(&self.account));
@@ -61,12 +61,12 @@ struct Orders;
 #[workflow]
 impl Orders {
     #[provider]
-    fn tokens(&self, #[journey_id] journey: &JourneyId) -> Result<Provided<dyn TokenService>, Error> {
+    fn tokens(&self, journey: &JourneyId) -> Result<Provided<dyn TokenService>, Error> {
         Ok(provide!(Vault(format!("the vault of {journey}"))))
     }
 
     #[provider(per_attempt, steps = ["charge"], key = "tokens", name = "charging")]
-    fn charging(&self, #[attempt] attempt: Attempt) -> Result<Provided<dyn TokenService>, Error> {
+    fn charging(&self, attempt: Attempt) -> Result<Provided<dyn TokenService>, Error> {
         Ok(provide!(Vault(format!("the vault of attempt {attempt}"))))
     }
 }

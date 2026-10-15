@@ -34,7 +34,7 @@ impl Settle {
         Self { outcome }
     }
 
-    fn run(self, #[contributor] contributor: &mut Contributor) -> Result<Outcome, Error> {
+    fn run(self, contributor: &mut Contributor) -> Result<Outcome, Error> {
         match self.outcome.as_str() {
             "success" => {
                 contributor.contribute("receipt", "R-1".to_owned());
@@ -58,9 +58,9 @@ impl Audit {
         &self,
         #[from_step] receipt: String,
         #[from_workflow] decision: Option<String>,
-        #[step_name] step: StepName,
-        #[attempt] attempt: Attempt,
-        #[reporter] mut reporter: HookReporter<'_>,
+        step: StepName,
+        attempt: Attempt,
+        mut reporter: HookReporter<'_>,
     ) -> Result<OnSuccess, Error> {
         reporter.info(format!("{step} attempt {attempt} gave {receipt}"))?;
         match decision.as_deref() {
@@ -74,10 +74,10 @@ impl Audit {
     #[on_step_failure]
     fn failed(
         &self,
-        #[reason] reason: Option<Reason>,
-        #[cause] cause: StepFailureCause,
-        #[error] error: Option<&Error>,
-        #[contributor] contributor: &mut Contributor,
+        reason: Option<Reason>,
+        cause: StepFailureCause,
+        error: Option<&Error>,
+        contributor: &mut Contributor,
     ) -> Result<OnFailure, Error> {
         let code = reason.as_ref().map(Reason::code);
         let error = error.map(ToString::to_string);
@@ -88,11 +88,11 @@ impl Audit {
     #[on_step_retry]
     fn retried(
         &self,
-        #[cause] cause: RetryCause,
-        #[reason] reason: Reason,
-        #[journey_id] journey_id: &JourneyId,
+        cause: RetryCause,
+        reason: Reason,
+        journey_id: &JourneyId,
         #[role] desk: &dyn Desk,
-        #[reporter] mut reporter: HookReporter<'_>,
+        mut reporter: HookReporter<'_>,
     ) -> Result<OnFailure, Error> {
         let code = reason.code();
         let desk = desk.desk();
@@ -105,7 +105,7 @@ impl Audit {
     #[on_step_abnormal_termination]
     fn terminated(
         &self,
-        #[error] error: &Error,
+        error: &Error,
         #[from_workflow("decision")] decision: Option<String>,
     ) -> Result<OnFailure, Error> {
         match decision.as_deref() {
@@ -132,18 +132,14 @@ impl Notify {
     fn succeeded(
         &self,
         #[from_workflow] receipt: Option<String>,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<(), Error> {
         contributor.contribute("notified", format!("{} {receipt:?}", self.channel));
         Ok(())
     }
 
     #[on_workflow_failure]
-    fn failed(
-        &self,
-        #[role] desk: &dyn Desk,
-        #[reporter] mut reporter: HookReporter<'_>,
-    ) -> Result<(), Error> {
+    fn failed(&self, #[role] desk: &dyn Desk, mut reporter: HookReporter<'_>) -> Result<(), Error> {
         reporter.warning(format!("{} told the {}", self.channel, desk.desk()))?;
         Ok(())
     }

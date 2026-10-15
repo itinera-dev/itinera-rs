@@ -6,14 +6,14 @@ use syn::spanned::Spanned as _;
 use syn::{Ident, PatType};
 
 use super::MARKS;
+use crate::handle::Handle as Recognised;
 use crate::marker;
 use crate::step::service::Service;
 
-/// A parameter of `run`: what it takes, where its mark is, and where its type is.
+/// A parameter of `run`: what it takes, and where its type is.
 pub(super) struct Parameter {
     taken: Taken,
-    pub(super) mark: Span,
-    ty: Span,
+    pub(super) ty: Span,
 }
 
 /// What a parameter of `run` takes.
@@ -31,25 +31,26 @@ enum Handle {
 
 /// Reads what the parameter of the `run` of this kind of step takes, and removes its attribute.
 pub(super) fn parameter(parameter: &mut PatType, noun: &str) -> syn::Result<Parameter> {
-    let mark = marker::single(
+    let mark = marker::at_most_one(
         marker::take(&mut parameter.attrs, &MARKS),
-        &parameter.pat,
-        &format!(
-            "every parameter of a {noun}'s `run` after `self` is a `#[contributor]`, a \
-             `#[reporter]` or a `#[service]`"
-        ),
+        "this attribute is one too many: each parameter carries at most one of them",
     )?;
-    let taken = match marker::name(&mark).as_str() {
-        "service" => Taken::Service(Box::new(Service::read(&mark, parameter)?)),
-        "contributor" => Taken::Handle(Handle::Contributor),
-        _ => Taken::Handle(Handle::Reporter),
+    let taken = match (mark, Recognised::of(&parameter.ty)) {
+        (Some(mark), _) => Taken::Service(Box::new(Service::read(&mark, parameter)?)),
+        (None, Some(Recognised::Contributor)) => Taken::Handle(Handle::Contributor),
+        (None, Some(Recognised::Reporter)) => Taken::Handle(Handle::Reporter),
+        (None, _) => {
+            return Err(syn::Error::new_spanned(
+                &parameter.pat,
+                format!(
+                    "every parameter of a {noun}'s `run` after `self` is a contributor, as \
+                     `&mut Contributor`, a reporter, as `StepReporter<'_>`, or a `#[service]`"
+                ),
+            ));
+        }
     };
-    if let Taken::Handle(_) = taken {
-        mark.meta.require_path_only()?;
-    }
     Ok(Parameter {
         taken,
-        mark: mark.span(),
         ty: parameter.ty.span(),
     })
 }

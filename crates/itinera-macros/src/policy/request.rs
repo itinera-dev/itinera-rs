@@ -1,27 +1,16 @@
-//! What a hook's parameter requests, which its attribute says.
+//! What a hook's parameter requests, which its attribute says, or its type for a handle.
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Ident, Pat, PatType, Type};
+use syn::{Attribute, Ident, Pat, PatType, Type};
 
 use super::hook::HookName;
-use crate::datum::{Arguments, Datum, option_of};
+use crate::datum::{Arguments, Datum};
+use crate::handle::Handle;
 use crate::marker;
 
-/// The attributes that mark a hook's parameters.
-pub(super) const MARKS: [&str; 11] = [
-    "from_step",
-    "from_workflow",
-    "step_name",
-    "attempt",
-    "reason",
-    "cause",
-    "error",
-    "journey_id",
-    "role",
-    "contributor",
-    "reporter",
-];
+/// The attributes that mark a hook's parameters, which are not handles.
+pub(super) const MARKS: [&str; 3] = ["from_step", "from_workflow", "role"];
 
 /// What one parameter of a hook requests.
 pub(super) enum Request {
@@ -61,52 +50,98 @@ const ERROR_HOOKS: [HookName; 3] = [
 impl Request {
     /// Reads what the parameter requests, and removes its attribute.
     pub(super) fn read(parameter: &mut PatType, hook: HookName) -> syn::Result<Self> {
-        let mark = marker::single(
+        let mark = marker::at_most_one(
             marker::take(&mut parameter.attrs, &MARKS),
-            &parameter.pat,
-            "every parameter of a hook after `&self` says what it requests, such as \
-             `#[from_step(\"receipt\")]` or `#[reporter]`",
+            "this attribute is one too many: each parameter carries at most one of them",
         )?;
-        let name = marker::name(&mark);
-        let allowed: &[HookName] = match name.as_str() {
-            "from_step" | "step_name" | "attempt" => &STEP_HOOKS,
-            "reason" | "cause" => &FAILURE_HOOKS,
-            "error" => &ERROR_HOOKS,
-            _ => &[],
+        let ty = &*parameter.ty;
+        let request = match mark {
+            Some(mark) => Self::marked(&mark, &parameter.pat, ty)?,
+            None => Self::handle(parameter)?,
         };
+        let allowed = request.allowed();
         if !allowed.is_empty() && !allowed.contains(&hook) {
             return Err(syn::Error::new_spanned(
-                &mark,
+                ty,
                 format!(
-                    "`#[{name}]` is requested only by {}",
+                    "{} is requested only by {}",
+                    request.spoken(),
                     HookName::spoken_list(allowed)
                 ),
             ));
         }
-        let ty = &*parameter.ty;
-        let request = match name.as_str() {
-            "from_step" => Self::FromStep(Arguments::of(&mark)?.datum(named(&parameter.pat), ty)?),
-            "from_workflow" => {
-                Self::FromWorkflow(Arguments::of(&mark)?.datum(named(&parameter.pat), ty)?)
-            }
-            "reason" => Self::Reason {
-                optional: option_of(ty).is_some(),
-            },
-            "error" => Self::Error {
-                optional: option_of(ty).is_some(),
-            },
-            "role" => Self::Role(referent(ty)?.clone()),
-            "step_name" => Self::StepName,
-            "attempt" => Self::Attempt,
-            "cause" => Self::Cause,
-            "journey_id" => Self::JourneyId,
-            "contributor" => Self::Contributor,
-            _ => Self::Reporter,
-        };
-        if !matches!(request, Self::FromStep(_) | Self::FromWorkflow(_)) {
-            mark.meta.require_path_only()?;
-        }
         Ok(request)
+    }
+
+    /// What a parameter carrying this attribute requests.
+    fn marked(mark: &Attribute, pattern: &Pat, ty: &Type) -> syn::Result<Self> {
+        match marker::name(mark).as_str() {
+            "from_step" => Ok(Self::FromStep(
+                Arguments::of(mark)?.datum(named(pattern), ty)?,
+            )),
+            "from_workflow" => Ok(Self::FromWorkflow(
+                Arguments::of(mark)?.datum(named(pattern), ty)?,
+            )),
+            _ => {
+                mark.meta.require_path_only()?;
+                Ok(Self::Role(referent(ty)?.clone()))
+            }
+        }
+    }
+
+    /// The handle an unmarked parameter takes, as its type says.
+    fn handle(parameter: &PatType) -> syn::Result<Self> {
+        match Handle::of(&parameter.ty) {
+            Some(Handle::Contributor) => Ok(Self::Contributor),
+            Some(Handle::Reporter) => Ok(Self::Reporter),
+            Some(Handle::JourneyId) => Ok(Self::JourneyId),
+            Some(Handle::StepName) => Ok(Self::StepName),
+            Some(Handle::Attempt) => Ok(Self::Attempt),
+            Some(Handle::Reason { optional }) => Ok(Self::Reason { optional }),
+            Some(Handle::Error { optional }) => Ok(Self::Error { optional }),
+            Some(Handle::Cause) => Ok(Self::Cause),
+            Some(Handle::DataBag) => Err(syn::Error::new_spanned(
+                &parameter.ty,
+                "the data bag is requested only by an input adapter",
+            )),
+            None => Err(syn::Error::new_spanned(
+                &parameter.pat,
+                "every parameter of a hook after `&self` is a handle, such as `&mut Contributor` \
+                 or `Attempt`, or says what it requests, such as `#[from_step(\"receipt\")]` or \
+                 `#[role]`",
+            )),
+        }
+    }
+
+    /// The hooks that may make the request, or none when every hook may.
+    fn allowed(&self) -> &'static [HookName] {
+        match self {
+            Self::FromStep(_) | Self::StepName | Self::Attempt => &STEP_HOOKS,
+            Self::Reason { .. } | Self::Cause => &FAILURE_HOOKS,
+            Self::Error { .. } => &ERROR_HOOKS,
+            Self::FromWorkflow(_)
+            | Self::JourneyId
+            | Self::Role(_)
+            | Self::Contributor
+            | Self::Reporter => &[],
+        }
+    }
+
+    /// What the request is called where an error names it.
+    fn spoken(&self) -> &'static str {
+        match self {
+            Self::FromStep(_) => "`#[from_step]`",
+            Self::FromWorkflow(_) => "`#[from_workflow]`",
+            Self::StepName => "the step's name",
+            Self::Attempt => "the attempt",
+            Self::Reason { .. } => "the reason",
+            Self::Cause => "the cause",
+            Self::Error { .. } => "the error",
+            Self::JourneyId => "the journey ID",
+            Self::Role(_) => "a role",
+            Self::Contributor => "a contributor",
+            Self::Reporter => "a reporter",
+        }
     }
 
     /// The call that declares the request on the hook's needs, if it is one the needs declare.

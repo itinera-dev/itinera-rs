@@ -38,7 +38,7 @@ impl Audit {
     #[on_step_failure]
     fn reported(
         &self,
-        #[reason] _reason: Reason,
+        _reason: Reason,
         #[role] _desk: &dyn Desk,
     ) -> Result<OnFailure, Error> {
         Self::finish_workflow()

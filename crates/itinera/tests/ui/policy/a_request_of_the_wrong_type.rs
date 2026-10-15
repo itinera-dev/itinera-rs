@@ -1,6 +1,6 @@
 use itinera::error::Error;
 use itinera::executor::LocalExecutor;
-use itinera::policy::{OnFailure, OnSuccess, Provides, StepPolicy, step_policy};
+use itinera::policy::{OnFailure, OnSuccess, Provides, RetryCause, StepPolicy, step_policy};
 use itinera::step::{Outcome, StepDescriptor, step_name};
 use itinera::workflow::WorkflowDescriptor;
 
@@ -38,10 +38,10 @@ impl Audit {
     #[on_step_failure]
     fn reported(
         &self,
-        #[reason] reason: String,
+        cause: RetryCause,
         #[role] desk: &dyn Desk,
     ) -> Result<OnFailure, Error> {
-        Self::fail_workflow(format!("{}-at-{}", reason, desk.desk()))
+        Self::fail_workflow(format!("{cause}-at-{}", desk.desk()))
     }
 }
 

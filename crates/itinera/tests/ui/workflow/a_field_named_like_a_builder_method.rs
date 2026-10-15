@@ -106,7 +106,7 @@ impl Shop {
     fn pricing(
         &self,
         #[key] key: &str,
-        #[data_bag] data: &itinera::journey::DataBag,
+        data: &itinera::journey::DataBag,
     ) -> Result<Supplied, Error> {
         match data.read::<i64>(key) {
             Read::Present(amount) => Self::supply(amount + self.fee),

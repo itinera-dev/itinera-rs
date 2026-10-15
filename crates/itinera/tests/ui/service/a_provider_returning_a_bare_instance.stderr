@@ -4,8 +4,8 @@ error[E0271]: expected `__itinera_provider_stock` to return `Result<Provided<_>,
 80 | #[workflow]
    | ----------- required by a bound introduced by this call
 ...
-83 |     fn stock(&self, #[journey_id] _journey: &JourneyId) -> Result<Warehouse, Error> {
-   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<Provided<_>, Error>`, found `Result<Warehouse, Error>`
+83 |     fn stock(&self, _journey: &JourneyId) -> Result<Warehouse, Error> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<Provided<_>, Error>`, found `Result<Warehouse, Error>`
    |
    = note: expected enum `Result<itinera::service::Provided<_>, itinera::error::Error>`
               found enum `Result<Warehouse, itinera::error::Error>`

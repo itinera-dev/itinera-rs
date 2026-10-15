@@ -24,7 +24,6 @@ impl Charge {
 struct Refresh {
     #[input]
     client: String,
-    #[reason]
     reason: Reason,
 }
 
@@ -32,7 +31,7 @@ struct Refresh {
 impl Refresh {
     async fn run(
         self,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<RescueOutcome, Error> {
         contributor.contribute("token", format!("{}-{}", self.client, self.reason.code()));
         Self::succeed()

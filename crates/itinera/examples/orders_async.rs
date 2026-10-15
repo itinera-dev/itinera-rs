@@ -49,7 +49,7 @@ impl Charge {
     async fn run(
         self,
         #[service] payments: &dyn PaymentGateway,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<Outcome> {
         if self.amount <= 0 {
             return Self::fail("declined");
@@ -81,7 +81,7 @@ impl Audit {
     async fn audited(
         &self,
         #[from_step] charged: i64,
-        #[contributor] contributor: &mut Contributor,
+        contributor: &mut Contributor,
     ) -> Result<OnSuccess> {
         contributor.contribute("audit", format!("charged {charged}"));
         Self::keep_default()
@@ -103,7 +103,7 @@ impl Notify {
     #[on_workflow_success]
     async fn paid(
         &self,
-        #[journey_id] journey_id: &JourneyId,
+        journey_id: &JourneyId,
         #[from_workflow] charged: i64,
         #[from_workflow] payment: String,
         #[role] messages: &dyn Messages,
@@ -152,7 +152,7 @@ impl Orders {
 
     /// Lends each attempt to charge the shop's card terminal.
     #[provider(per_attempt, steps = ["charge"])]
-    async fn payments(&self, #[attempt] attempt: Attempt) -> Result<Provided<dyn PaymentGateway>> {
+    async fn payments(&self, attempt: Attempt) -> Result<Provided<dyn PaymentGateway>> {
         Ok(provide!(Terminal {
             shop: self.shop,
             attempt,
