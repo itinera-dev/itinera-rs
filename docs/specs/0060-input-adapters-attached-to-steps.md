@@ -11,6 +11,7 @@ Status: done in stage 7. Stage 4 declared input adapters attached to steps, with
 - **What an adapter may request**: the step's name, with `Requested::step_name()`, the key being resolved, with `Requested::key()`, the journey ID, with `Requested::journey_id()`, and data from the workflow, which it declares with `HookNeeds::from_workflow` and takes with `Requested::from_workflow`, with an `Input` or an `OptionalInput`. `HookNeeds<InputAdapter>` offers nothing else, and its `Requested` offers no role, contributor or reporter.
 - **Read access to the data bag**, declared with `HookNeeds::data_bag()` and taken with `Requested::data_bag()`, comes from proposal 0091, which amends this one; its tech spec is [0091](0091-adapters-read-the-data-bag.md).
 - **Attaching an adapter to a rescue step**, by its name, comes from proposal 0098, which amends this one; its tech spec is [0098](0098-rescue-step-adapters-and-providers.md).
+- **`duplicate adapter name`**, and a step named twice in one adapter's list, come from proposal 0116, which amends this one; its tech spec is [0116](0116-duplicate-adapter-names.md).
 - **The listing** gives each step's input adapter as `ListedStep::adapter`, an `Option<AdapterName>`.
 
 ## How the rules are enforced
@@ -20,7 +21,7 @@ Status: done in stage 7. Stage 4 declared input adapters attached to steps, with
 | An input adapter is declared on the workflow and attached to one or more of its steps | types: `InputAdapterDescriptor::new` takes its first step, and only `WorkflowBuilder::input_adapter` adds it to a workflow |
 | A step has at most one input adapter | `build()` refuses `step adapted twice` |
 | An adapter attached to a step that does not exist is refused | `build()` refuses `input adapter for unknown step`; since 0098, the name of a step's rescue step counts as a step's |
-| Every adapter has a name, unique among the workflow's adapters | types: its constructor takes the name; `WorkflowBuilder::input_adapter` panics on a name the workflow already uses, since that is a mistake in a declaration, before any journey |
+| Every adapter has a name, unique among the workflow's adapters | types: its constructor takes the name; since 0116, `build()` refuses two adapters with one name, `duplicate adapter name` |
 | For each input of an adapted step, in order, the adapter is called | the engine, while it resolves the step's inputs |
 | A value is used, and `input_adapter_supplied` names the adapter; a value of another type than the step declared aborts with `wrong type`, naming the adapter | the engine checks the value's exact type against the step's token |
 | Nothing means "not mine": the input is resolved from the data bag as if the step had no adapter, and the abort, if any, does not name the adapter | the engine falls back to the data bag, with the step as the requester |
@@ -35,7 +36,7 @@ Status: done in stage 7. Stage 4 declared input adapters attached to steps, with
 ## Tests
 
 - Unit tests in `itinera-core/src/engine.rs`: `an_input_adapter_supplies_an_input_before_the_data_bag_is_read`; `an_input_adapter_that_fails_aborts_the_journey_as_its_step_could_not_be_built`; `a_value_of_another_type_from_an_input_adapter_aborts_the_journey_with_wrong_type`; `an_input_adapter_that_returned_nothing_is_not_named_in_the_abort`; `an_input_adapter_receives_the_data_from_the_workflow_it_requests`; `an_input_adapters_absent_optional_data_is_reported_before_what_it_supplied`; `an_input_adapters_required_data_from_the_workflow_aborts_the_journey_before_it_runs`; `an_input_adapter_is_told_the_step_it_supplies_for_each_of_its_inputs`. The tests of its read access to the data bag belong to the tech spec of [0091](0091-adapters-read-the-data-bag.md).
-- Unit tests in `itinera-core/src/workflow/violation/admission/adapters.rs`: the cases `two_adapters_on_one_step` and `an_adapter_on_a_step_the_workflow_does_not_have` of `a_workflow_adapting_steps_wrongly_is_refused_with_its_violation`; and in `itinera-core/src/workflow/builder.rs`, `two_input_adapters_with_one_name_cannot_be_declared`.
+- Unit tests in `itinera-core/src/workflow/violation/admission/adapters.rs`: the cases `two_adapters_on_one_step` and `an_adapter_on_a_step_the_workflow_does_not_have` of `a_workflow_whose_input_adapters_are_declared_wrongly_is_refused_with_its_violation`. Its case of two adapters with one name belongs to the tech spec of [0116](0116-duplicate-adapter-names.md).
 - Unit tests in `itinera-core/src/workflow/listing.rs`: `a_workflow_is_listed_in_order_without_running_anything`.
 - A proof in `itinera/tests/proofs.rs`, `an_input_adapter_cannot_supply_a_non_value`, belongs to the tech spec of [0056](0056-data-bag-values.md).
 

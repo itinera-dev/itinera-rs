@@ -63,14 +63,23 @@ pub enum Violation {
         /// The policies that define it, in the order they are attached.
         policies: Vec<PolicyName>,
     },
-    /// Two or more input adapters are attached to one step.
+    /// Two or more input adapters are attached to one step, or one adapter is attached to it more
+    /// than once.
     #[display("step adapted twice: {step}")]
     #[non_exhaustive]
     StepAdaptedTwice {
         /// The step they are attached to.
         step: StepName,
-        /// The adapters, in the order they were declared.
+        /// The adapter of each attachment, in the order they were declared, so an adapter
+        /// attached to the step twice is named twice.
         adapters: Vec<AdapterName>,
+    },
+    /// Two or more input adapters have this name.
+    #[display("duplicate adapter name: {adapter}")]
+    #[non_exhaustive]
+    DuplicateAdapterName {
+        /// The name the adapters share.
+        adapter: AdapterName,
     },
     /// An input adapter is attached to a step the workflow does not have.
     #[display("input adapter for unknown step: {adapter} on {step}")]
@@ -99,7 +108,8 @@ pub enum Violation {
         /// The key it requests more than once.
         key: &'static str,
     },
-    /// Two or more providers of one service are attached to the same step, or to no step.
+    /// Two or more providers of one service are attached to the same step, or to no step, or one
+    /// provider is attached to the same step more than once.
     #[display("service provided twice: {key}{}", for_step(step))]
     #[non_exhaustive]
     ServiceProvidedTwice {
@@ -107,7 +117,8 @@ pub enum Violation {
         key: &'static str,
         /// The step they are all attached to, or `None` when none of them is attached to a step.
         step: Option<StepName>,
-        /// The providers, in the order they were declared.
+        /// The provider of each attachment, in the order they were declared, so a provider
+        /// attached to the step twice is named twice.
         providers: Vec<ProviderName>,
     },
     /// Two or more service providers have this name.
@@ -159,6 +170,7 @@ impl Violation {
                 ViolationKind::HookDefinedTwice
             }
             Self::StepAdaptedTwice { .. } => ViolationKind::StepAdaptedTwice,
+            Self::DuplicateAdapterName { .. } => ViolationKind::DuplicateAdapterName,
             Self::InputAdapterForUnknownStep { .. } => ViolationKind::InputAdapterForUnknownStep,
             Self::ServiceNotProvided { .. } => ViolationKind::ServiceNotProvided,
             Self::ServiceRequestedTwice { .. } => ViolationKind::ServiceRequestedTwice,

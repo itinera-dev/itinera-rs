@@ -29,16 +29,16 @@ Status: done in stage 4. Stage 3 added the workflow descriptor with its name, it
 | An executor does not depend on how a workflow, its descriptor or its instance was produced | types: executors take any `WorkflowInstance` |
 | The listing reads the descriptor without running anything | `listing()` reads only the declaration |
 | A step's name is non-empty | `StepName::new` panics; `step_name!` makes it a compile error |
-| An input adapter's name is unique among the workflow's adapters | `WorkflowBuilder::input_adapter` panics; the macros declare adapters as methods, whose names are unique |
-| `duplicate step name`, `hook defined twice`, `step adapted twice` and `input adapter for unknown step`, all reported together | `build()` |
+| An input adapter's name is unique among the workflow's adapters | `build()` refuses `duplicate adapter name`, since 0116; the macros refuse it as the program compiles |
+| `duplicate step name`, `hook defined twice`, `step adapted twice`, `duplicate adapter name` and `input adapter for unknown step`, all reported together | `build()` |
 | A policy defines hooks of one kind only, and at least one; an input adapter is attached to at least one step | types: a policy descriptor offers only the hooks of its kind, and only a `Hooked` one, which has named a hook, can be attached; an input adapter's constructor takes its first step |
 
 ## Tests
 
-- The unit tests of `itinera-core/src/workflow/violation.rs` refuse each violation, report every violation together, build a well-formed workflow, and refuse a second adapter with a used name.
+- The unit tests of `itinera-core/src/workflow/violation.rs` refuse each violation, report every violation together, and build a well-formed workflow.
 - The unit tests of `itinera-core/src/workflow.rs` list a workflow without running anything, and those of `itinera-core/src/step.rs` refuse an empty step name.
 - The unit tests of `itinera-core/src/engine.rs` run steps in the order they were added.
-- The conformance runner defines "When the workflow is admitted", "When the workflow is listed", "Then the listing is", "Then admission is refused with the violations" and "Then no step ran". Its fixture `tests/cases/admission/` checks them, and its unit tests refuse an empty step name and a second input adapter with a used name as errors in the case.
+- The conformance runner defines "When the workflow is admitted", "When the workflow is listed", "Then the listing is", "Then admission is refused with the violations" and "Then no step ran". Its fixture `tests/cases/admission/` checks them, and its unit tests refuse an empty step name as an error in the case.
 
 ## Done when
 

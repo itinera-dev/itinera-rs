@@ -14,7 +14,7 @@ pub(super) fn refuse_names_given_twice(adapters: &[&Adapter]) -> syn::Result<()>
         Some(adapter) => Err(syn::Error::new_spanned(
             adapter.name(),
             format!(
-                "another input adapter of the workflow is named `{}`",
+                "duplicate adapter name: {}, which another input adapter of the workflow has",
                 adapter.name().value()
             ),
         )),
@@ -54,7 +54,10 @@ fn adapted_before(
         .take(index)
         .find(|attachment| adapts(attachment, step))?;
     let message = if first.shares_name_with(adapter) {
-        format!("this input adapter lists step {} already", step.value())
+        format!(
+            "step adapted twice: {}, which this input adapter lists already",
+            step.value()
+        )
     } else {
         format!(
             "step adapted twice: {}, by `{}` and `{}`",

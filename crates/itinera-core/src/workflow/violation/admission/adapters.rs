@@ -1,8 +1,21 @@
 //! Admission's checks on the input adapters a workflow attaches to its steps.
 
-use super::{grouped, is_known, is_unknown, more_than_once};
+use super::{counted, grouped, is_known, is_unknown, more_than_once, repeated};
 use crate::step::{StepDescriptor, StepName};
 use crate::workflow::{AdapterName, InputAdapterDescriptor, Violation};
+
+pub(super) fn duplicate_adapter_names<W>(
+    adapters: &[InputAdapterDescriptor<W>],
+) -> impl Iterator<Item = Violation> {
+    counted(adapters.iter().map(InputAdapterDescriptor::name))
+        .into_iter()
+        .filter(repeated)
+        .map(duplicate_adapter_name)
+}
+
+fn duplicate_adapter_name((adapter, _): (AdapterName, usize)) -> Violation {
+    Violation::DuplicateAdapterName { adapter }
+}
 
 pub(super) fn adapters_for_unknown_steps<'a, M, W>(
     steps: &'a [StepDescriptor<W, M>],
@@ -85,6 +98,23 @@ mod tests {
             adapters: vec![AdapterName::from("pricing"), AdapterName::from("discounts")],
         },
     )]
+    #[case::one_adapter_on_one_step_twice(
+        orders()
+            .step(step("charge"))
+            .input_adapter(adapter("pricing", "charge").step(StepName::new("charge"))),
+        Violation::StepAdaptedTwice {
+            step: StepName::new("charge"),
+            adapters: vec![AdapterName::from("pricing"), AdapterName::from("pricing")],
+        },
+    )]
+    #[case::two_adapters_with_one_name(
+        orders()
+            .step(step("charge"))
+            .step(step("refund"))
+            .input_adapter(adapter("pricing", "charge"))
+            .input_adapter(adapter("pricing", "refund")),
+        Violation::DuplicateAdapterName { adapter: AdapterName::from("pricing") },
+    )]
     #[case::an_adapter_on_a_step_the_workflow_does_not_have(
         orders()
             .step(step("charge"))
@@ -104,6 +134,17 @@ mod tests {
             adapters: vec![AdapterName::from("credentials"), AdapterName::from("accounts")],
         },
     )]
+    #[case::one_adapter_on_one_rescue_step_twice(
+        orders()
+            .step(rescued_charge())
+            .input_adapter(
+                adapter("credentials", "charge_rescue").step(StepName::new("charge_rescue")),
+            ),
+        Violation::StepAdaptedTwice {
+            step: StepName::new("charge_rescue"),
+            adapters: vec![AdapterName::from("credentials"), AdapterName::from("credentials")],
+        },
+    )]
     #[case::an_adapter_on_the_rescue_step_of_a_step_without_one(
         orders()
             .step(step("charge"))
@@ -113,7 +154,7 @@ mod tests {
             step: StepName::new("charge_rescue"),
         },
     )]
-    fn a_workflow_adapting_steps_wrongly_is_refused_with_its_violation(
+    fn a_workflow_whose_input_adapters_are_declared_wrongly_is_refused_with_its_violation(
         #[case] builder: WorkflowBuilder<Orders>,
         #[case] violation: Violation,
     ) {

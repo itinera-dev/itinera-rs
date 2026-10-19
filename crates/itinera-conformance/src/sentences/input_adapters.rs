@@ -12,9 +12,6 @@ fn the_workflow_declares_the_input_adapter(
     adapter: String,
     steps: Names,
 ) -> Result<(), ModelError> {
-    if world.model.adapter_mut(&adapter).is_ok() {
-        return Err(ModelError::AdapterDeclaredTwice(adapter));
-    }
     world.model.workflow_mut()?.adapters.push(Adapter {
         name: adapter,
         steps: steps.into(),
@@ -125,7 +122,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_second_input_adapter_with_a_used_name_is_a_case_error() {
+    fn a_second_input_adapter_with_a_used_name_declares_another_adapter() {
         let mut world = World::default();
         world
             .model
@@ -134,12 +131,8 @@ mod tests {
         let steps = || Names::from(vec!["charge".to_owned()]);
         the_workflow_declares_the_input_adapter(&mut world, "pricing".to_owned(), steps()).unwrap();
 
-        let declared =
-            the_workflow_declares_the_input_adapter(&mut world, "pricing".to_owned(), steps());
+        the_workflow_declares_the_input_adapter(&mut world, "pricing".to_owned(), steps()).unwrap();
 
-        assert_eq!(
-            declared,
-            Err(ModelError::AdapterDeclaredTwice("pricing".to_owned()))
-        );
+        assert_eq!(world.model.workflow().unwrap().adapters.len(), 2);
     }
 }
