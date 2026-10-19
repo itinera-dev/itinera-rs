@@ -1,4 +1,4 @@
-error: another input adapter of the workflow is named `pricing`
+error: duplicate adapter name: pricing, which another input adapter of the workflow has
    --> tests/ui/workflow/an_input_adapter_named_like_another.rs:115:54
     |
 115 |     #[input_adapter(steps = ["charge again"], name = "pricing")]
