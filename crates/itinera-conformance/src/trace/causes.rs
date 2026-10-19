@@ -1,6 +1,8 @@
 //! The columns that say why: a reason, the abort of a journey, or its failure.
 
-use itinera::event::{FailureRequester, JourneyAbort, JourneyFailure, MissingData, Source};
+use itinera::event::{
+    FailureRequester, JourneyAbort, JourneyFailure, MissingData, Source, Supplier,
+};
 use itinera::journey::LastFailure;
 use itinera::report::GlobalMetadata;
 use itinera::step::Reason;
@@ -47,9 +49,9 @@ impl Line {
         }
         match abort {
             JourneyAbort::StepCouldNotBeBuilt {
-                provider: Some(provider),
+                supplier: Some(supplier),
                 ..
-            } => self.set("provider", provider),
+            } => self.supplier(supplier),
             JourneyAbort::PolicyCouldNotBeBuilt { policy, .. } => self.set("policy", policy),
             JourneyAbort::RequiredDataMissing { missing, .. } => match missing {
                 MissingData::Key { key, requester, .. } => {
@@ -72,6 +74,18 @@ impl Line {
                     self.hook(hook);
                 }
             }
+            _ => {}
+        }
+    }
+
+    /// The input adapter or the service provider that failed while a step was built.
+    fn supplier(&mut self, supplier: &Supplier) {
+        match supplier {
+            Supplier::Adapter { adapter, key, .. } => {
+                self.set("adapter", adapter);
+                self.set("key", key);
+            }
+            Supplier::Provider { provider, .. } => self.set("provider", provider),
             _ => {}
         }
     }

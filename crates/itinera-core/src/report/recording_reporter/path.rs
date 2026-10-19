@@ -222,7 +222,7 @@ mod tests {
         EventBody::JourneyAborted {
             abort: JourneyAbort::StepCouldNotBeBuilt {
                 step: StepName::new("charge"),
-                provider: None,
+                supplier: None,
                 error: "no gateway".to_string(),
             },
         },

@@ -8,7 +8,7 @@ use crate::engine::fixtures::{
     travel_with_amount, travel_workflow,
 };
 use crate::error::Error;
-use crate::event::{self, Event, EventKind, JourneyAbort, RequestSource};
+use crate::event::{self, Event, EventKind, JourneyAbort, RequestSource, Supplier};
 use crate::instance::InstanceBuilder;
 use crate::journey::{Abort, JourneyStatus, MissingData, Read as Found, Requester};
 use crate::policy::HookNeeds;
@@ -91,6 +91,15 @@ fn an_input_adapter_that_fails_aborts_the_journey_as_its_step_could_not_be_built
             EventKind::JourneyAborted
         ]
     );
+    assert!(matches!(
+        events.last().map(|event| &event.body),
+        Some(EventBody::JourneyAborted {
+            abort: JourneyAbort::StepCouldNotBeBuilt {
+                supplier: Some(Supplier::Adapter { adapter, key }),
+                ..
+            }
+        }) if *adapter == AdapterName::from("pricing") && key == "amount"
+    ));
 }
 
 #[test]

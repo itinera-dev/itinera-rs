@@ -5,17 +5,18 @@ use super::*;
 use crate::engine::fixtures::{
     CHARGE, failing_on, instance, kinds, timed_out, travel, travel_before, travel_workflow,
 };
-use crate::event::{Event, EventKind};
-use crate::journey::{DataBag, JourneyStatus, MissingData, Requester};
+use crate::event::{Event, EventKind, JourneyAbort, Supplier};
+use crate::journey::{Abort, DataBag, JourneyStatus, MissingData, Requester};
 use crate::policy::{HookNeeds, Requested};
 use crate::service::fixtures::{
     Given, Label, Labeller, Made, PAYMENTS, STOCK, given, implementations, labelled, made,
     per_attempt, per_journey, requesting,
 };
 use crate::service::{
-    Implementation, PerAttempt, PerJourney, Provided, Provider, ServiceProviderDescriptor, provide,
+    Implementation, PerAttempt, PerJourney, Provided, Provider, ProviderName,
+    ServiceProviderDescriptor, provide,
 };
-use crate::step::{Input, OptionalInput};
+use crate::step::{Input, OptionalInput, StepName};
 use crate::workflow::WorkflowBuilder;
 use crate::workflow::fixtures::{Orders, orders};
 
@@ -359,7 +360,10 @@ fn a_provider_that_fails_aborts_the_journey_as_its_step_could_not_be_built() {
     assert!(matches!(
         events.last().map(|event| &event.body),
         Some(EventBody::JourneyAborted {
-            abort: JourneyAbort::StepCouldNotBeBuilt { provider: Some(provider), .. }
+            abort: JourneyAbort::StepCouldNotBeBuilt {
+                supplier: Some(Supplier::Provider { provider }),
+                ..
+            }
         }) if *provider == ProviderName::from("payments")
     ));
 }
