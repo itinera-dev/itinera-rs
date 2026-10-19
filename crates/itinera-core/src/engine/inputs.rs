@@ -5,7 +5,7 @@ use super::attempt::could_not_build;
 use super::end::End;
 use super::request::{Requesting, wrong_type};
 use super::{Delivery, Journey};
-use crate::event::EventBody;
+use crate::event::{EventBody, Supplier};
 use crate::journey::{DataBag, JourneyId};
 use crate::policy::{Answers, Requested};
 use crate::step::{InputNeed, StepAttempt};
@@ -93,7 +93,11 @@ impl<D: Delivery> Journey<D> {
                     adapter: name,
                 })
                 .await?;
-                Err(could_not_build(attempt.step, error))
+                let supplier = Supplier::Adapter {
+                    adapter: name,
+                    key: key.to_owned(),
+                };
+                Err(could_not_build(attempt.step, Some(supplier), error))
             }
         }
     }

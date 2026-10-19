@@ -8,7 +8,7 @@ use super::inputs::Sources;
 use super::runner::{Attempt, Building};
 use super::{Delivery, Journey, LeftForRescue, Next};
 use crate::error::Error;
-use crate::event::{EventBody, JourneyAbort};
+use crate::event::{EventBody, JourneyAbort, Supplier};
 use crate::instance::WorkflowInstance;
 use crate::journey::{Abort, Contributor};
 use crate::policy::{BuiltStepPolicy, StepHook, StepPolicyEntry};
@@ -111,7 +111,7 @@ impl<D: Delivery> Journey<D> {
         runner
             .run(attempt)
             .await
-            .map_err(|error| could_not_build(name, error))
+            .map_err(|error| could_not_build(name, None, error))
     }
 }
 
@@ -142,10 +142,12 @@ fn kept(ran: &Result<Outcome, Error>, contributed: Contributor) -> Contributor {
     }
 }
 
-pub(super) fn could_not_build(step: StepName, error: Error) -> End {
+/// The abort for a step that could not be built, naming the input adapter or the service provider
+/// that failed, when one did.
+pub(super) fn could_not_build(step: StepName, supplier: Option<Supplier>, error: Error) -> End {
     let reported = JourneyAbort::StepCouldNotBeBuilt {
         step,
-        provider: None,
+        supplier,
         error: error.to_string(),
     };
     End::aborted(Abort::StepCouldNotBeBuilt(error), reported)

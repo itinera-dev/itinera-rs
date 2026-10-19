@@ -19,7 +19,7 @@ mod requester;
 mod source;
 mod timestamp;
 
-pub use abort::{JourneyAbort, MissingData};
+pub use abort::{JourneyAbort, MissingData, Supplier};
 pub use body::EventBody;
 pub use decision::{DecidingHook, GiveUpCause, GiveUpHook, RescueCause};
 #[cfg(any(test, feature = "testing"))]

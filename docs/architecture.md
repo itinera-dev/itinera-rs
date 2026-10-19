@@ -351,7 +351,7 @@ flowchart TD
 1. For an input of a step or rescue step that has an input adapter, the engine calls the adapter first, with what the adapter itself requested.
 2. An adapter that has a value emits `input_adapter_supplied`, and the value is checked against the step's declared type.
 3. An adapter that says "not mine" leaves the key to be read as if there were no adapter.
-4. An adapter that fails emits `input_adapter_failed`, and the journey aborts with `step could not be built`.
+4. An adapter that fails emits `input_adapter_failed`, and the journey aborts with `step could not be built`, naming the adapter and the key.
 5. Otherwise the key is read where the request points: the data bag for an input or data from the workflow, the attempt's contributions for data from the step, or the rescued step's contributions for a rescue step.
 6. A value of the declared type is handed over. Any other type aborts the journey with `wrong type`, including `i32` where `i64` was declared.
 7. A missing value aborts the journey with `required data missing` when the request is required. When it is optional, the engine emits `optional_input_absent` and hands over `None`.
