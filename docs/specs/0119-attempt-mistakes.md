@@ -31,4 +31,9 @@ No public item is added or removed. What changes is when the script's choices of
 
 ## Excluded scenarios
 
-Once proposal 119 is listed, the scenarios tagged `@attempt-negative` and `@attempt-fraction`, which choose attempt -1 and attempt 1.5, are excluded, each with a compile-fail proof in `crates/itinera/tests/proofs.rs` that `on_attempt` takes neither.
+Once proposal 119 is listed, these scenarios in `0108-test-support/script-checks.feature` are excluded, each proven impossible to express by a test in `crates/itinera/tests/proofs.rs` with a program that fails to compile, since `on_attempt` takes a `u32`, and the twin choosing attempt 1, in `attempt-negative/attempt_counted_from_one.rs`, that compiles and runs:
+
+| Scenario | Tag | Proof |
+|---|---|---|
+| "A script that describes a negative attempt stops the test" | `@attempt-negative` | `a_script_cannot_describe_a_negative_attempt` |
+| "A script that describes a fraction of an attempt stops the test" | `@attempt-fraction` | `a_script_cannot_describe_a_fraction_of_an_attempt` |
