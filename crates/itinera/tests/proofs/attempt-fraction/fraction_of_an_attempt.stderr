@@ -1,0 +1,13 @@
+error[E0308]: mismatched types
+  --> tests/proofs/attempt-fraction/fraction_of_an_attempt.rs:15:21
+   |
+15 |         .on_attempt(1.5)
+   |          ---------- ^^^ expected `u32`, found floating-point number
+   |          |
+   |          arguments to this method are incorrect
+   |
+note: method defined here
+  --> $WORKSPACE/crates/itinera-core/src/instance/scripted/attempt.rs
+   |
+   |     pub fn on_attempt(self, attempt: u32) -> AttemptScripting<I, M, Opened> {
+   |            ^^^^^^^^^^

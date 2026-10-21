@@ -10,6 +10,8 @@ mod asynchronous_provider_async_workflow;
 #[cfg(feature = "async")]
 #[path = "proofs/mode-not-accepted/asynchronous_step_async_executor.rs"]
 mod asynchronous_step_async_executor;
+#[path = "proofs/attempt-negative/attempt_counted_from_one.rs"]
+mod attempt_counted_from_one;
 #[path = "proofs/journey-scope-request/attempt_scoped_provider_asks_for_the_attempt.rs"]
 mod attempt_scoped_provider_asks_for_the_attempt;
 #[path = "proofs/non-value/contribution_value.rs"]
@@ -168,4 +170,16 @@ fn a_providers_event_cannot_carry_a_non_value() {
 fn a_synchronous_workflow_cannot_have_an_asynchronous_provider() {
     fails_to_compile("tests/proofs/mode-not-accepted/asynchronous_provider.rs");
     asynchronous_provider_async_workflow::main();
+}
+
+#[test]
+fn a_script_cannot_describe_a_negative_attempt() -> Result<(), Box<dyn Error>> {
+    fails_to_compile("tests/proofs/attempt-negative/negative_attempt.rs");
+    attempt_counted_from_one::main()
+}
+
+#[test]
+fn a_script_cannot_describe_a_fraction_of_an_attempt() -> Result<(), Box<dyn Error>> {
+    fails_to_compile("tests/proofs/attempt-fraction/fraction_of_an_attempt.rs");
+    attempt_counted_from_one::main()
 }
