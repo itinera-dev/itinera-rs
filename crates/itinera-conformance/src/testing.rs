@@ -7,7 +7,7 @@ mod script;
 use std::any::Any;
 use std::collections::BTreeMap;
 use std::future::Future;
-use std::panic::AssertUnwindSafe;
+use std::panic::{self, AssertUnwindSafe};
 
 use futures::FutureExt as _;
 use itinera::error::Error;
@@ -17,7 +17,7 @@ use itinera::policy::HookEventReporter;
 use itinera::report::RecordingReporter;
 use itinera::step::StepEventReporter;
 
-pub(crate) use mistakes::{Mistake, mistakes};
+pub(crate) use mistakes::{Mistake, MistakeName, mistakes};
 pub(crate) use script::{PlaysScripts, written};
 
 use crate::model::{Fake, Level};
@@ -70,6 +70,11 @@ pub(crate) fn event_level(level: Level) -> EventLevel {
 /// as Rust reports a misuse in a declaration. Gives what it returned, or what the panic said.
 pub(crate) async fn unless_stopped<T>(run: impl Future<Output = T>) -> Result<T, String> {
     AssertUnwindSafe(run).catch_unwind().await.map_err(said)
+}
+
+/// Reads what test support may stop, as [`unless_stopped`] runs it.
+pub(crate) fn unless_stopped_reading<T>(read: impl FnOnce() -> T) -> Result<T, String> {
+    panic::catch_unwind(AssertUnwindSafe(read)).map_err(said)
 }
 
 /// What a panic said.
