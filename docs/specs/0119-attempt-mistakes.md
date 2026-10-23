@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0119](https://github.com/itinera-dev/spec/blob/main/proposals/0119-attempt-mistakes.md), implemented in [#178](https://github.com/itinera-dev/itinera-rs/issues/178). It amends [0108](0108-test-support.md). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: in progress, until proposal 119 is listed in `conformance.json`.
+Status: done.
 
 ## API
 
@@ -31,9 +31,11 @@ No public item is added or removed. What changes is when the script's choices of
 
 ## Excluded scenarios
 
-Once proposal 119 is listed, these scenarios in `0108-test-support/script-checks.feature` are excluded, each proven impossible to express by a test in `crates/itinera/tests/proofs.rs` with a program that fails to compile, since `on_attempt` takes a `u32`, and the twin choosing attempt 1, in `attempt-negative/attempt_counted_from_one.rs`, that compiles and runs:
+These scenarios in `0108-test-support/script-checks.feature` are excluded, each proven impossible to express by a test in `crates/itinera/tests/proofs.rs` with a program that fails to compile, since `on_attempt` takes a `u32`, and the twin choosing attempt 1, in `attempt-negative/attempt_counted_from_one.rs`, that compiles and runs:
 
 | Scenario | Tag | Proof |
 |---|---|---|
 | "A script that describes a negative attempt stops the test" | `@attempt-negative` | `a_script_cannot_describe_a_negative_attempt` |
 | "A script that describes a fraction of an attempt stops the test" | `@attempt-fraction` | `a_script_cannot_describe_a_fraction_of_an_attempt` |
+
+The two scenarios tagged `@attempt-zero` describe what Rust can express, since a `u32` holds 0, so they run: `on_attempt(0)` panics, which the runner reads as `no such attempt`, and `StepRecord::attempt(0)` returns `None`.
