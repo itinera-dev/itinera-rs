@@ -71,8 +71,6 @@ pub(crate) enum ModelError {
     NoHooks(String),
     #[error("input adapter \"{0}\" is attached to no step")]
     AdapterWithoutSteps(String),
-    #[error("an input adapter \"{0}\" is already declared")]
-    AdapterDeclaredTwice(String),
     #[error("the hook \"{0}\" cannot request {1}")]
     RequestNotAllowed(Hook, String),
     #[error("\"{0}\" is not a rescue step")]

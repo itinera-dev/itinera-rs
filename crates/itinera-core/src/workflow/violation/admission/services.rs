@@ -132,7 +132,7 @@ mod tests {
     use super::*;
     use crate::service::fixtures::{Made, PAYMENTS, STOCK, per_attempt};
     use crate::workflow::WorkflowBuilder;
-    use crate::workflow::fixtures::Orders;
+    use crate::workflow::fixtures::{Orders, adapter};
     use fixtures::{charge_requesting_nothing, charging, payments, rescued_charge, violations};
 
     #[rstest]
@@ -154,6 +154,30 @@ mod tests {
             key: "payments",
             step: Some(StepName::new("charge")),
             providers: vec![ProviderName::from("payments"), ProviderName::from("backup")],
+        },
+    )]
+    #[case::one_provider_attached_to_one_step_twice(
+        charging().provider(
+            payments("payments")
+                .step(StepName::new("charge"))
+                .step(StepName::new("charge")),
+        ),
+        Violation::ServiceProvidedTwice {
+            key: "payments",
+            step: Some(StepName::new("charge")),
+            providers: vec![ProviderName::from("payments"), ProviderName::from("payments")],
+        },
+    )]
+    #[case::one_provider_attached_to_one_rescue_step_twice(
+        rescued_charge(&[], &[&PAYMENTS]).provider(
+            payments("main")
+                .step(StepName::new("charge_rescue"))
+                .step(StepName::new("charge_rescue")),
+        ),
+        Violation::ServiceProvidedTwice {
+            key: "payments",
+            step: Some(StepName::new("charge_rescue")),
+            providers: vec![ProviderName::from("main"), ProviderName::from("main")],
         },
     )]
     #[case::two_providers_with_one_name(
@@ -193,6 +217,14 @@ mod tests {
         #[case] violation: Violation,
     ) {
         assert_eq!(violations(builder), [violation]);
+    }
+
+    #[test]
+    fn an_input_adapter_and_a_service_provider_may_share_a_name() {
+        let builder = charging()
+            .provider(payments("pricing"))
+            .input_adapter(adapter("pricing", "charge"));
+        assert!(builder.build().is_ok());
     }
 
     #[test]

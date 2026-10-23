@@ -131,7 +131,8 @@ impl<W> InputAdapterDescriptor<W> {
     }
 
     /// Attaches the adapter to another step, or to a rescue step by its name, such as
-    /// `charge_rescue`. A step it is already attached to is not added again.
+    /// `charge_rescue`. Attached to a step twice, the adapter adapts it twice, so the workflow is
+    /// refused with [`Violation::StepAdaptedTwice`](crate::workflow::Violation::StepAdaptedTwice).
     ///
     /// # Examples
     ///
@@ -145,9 +146,7 @@ impl<W> InputAdapterDescriptor<W> {
     ///     .step(step_name!("refund"));
     /// ```
     pub fn step(mut self, step: StepName) -> Self {
-        if !self.steps.contains(&step) {
-            self.steps.push(step);
-        }
+        self.steps.push(step);
         self
     }
 
@@ -174,10 +173,6 @@ impl<W> InputAdapterDescriptor<W> {
 
     pub(crate) fn needs(&self) -> &Needs {
         &self.needs
-    }
-
-    pub(super) fn is_named(&self, name: AdapterName) -> bool {
-        self.name == name
     }
 
     pub(super) fn is_attached_to(&self, step: StepName) -> bool {
