@@ -116,12 +116,8 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
         self
     }
 
-    /// Declares an input adapter of the workflow.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the workflow already has an input adapter with the same name, since adapter
-    /// names are unique within a workflow.
+    /// Declares an input adapter of the workflow. Two adapters with the same name make
+    /// [`build`](Self::build) refuse the workflow with the violation `duplicate adapter name`.
     ///
     /// # Examples
     ///
@@ -140,22 +136,7 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     ///     .build()?;
     /// # Ok::<(), itinera::workflow::Violations>(())
     /// ```
-    #[expect(
-        clippy::panic,
-        reason = "two adapters with one name are a mistake in a declaration, before any journey"
-    )]
     pub fn input_adapter(mut self, adapter: InputAdapterDescriptor<W>) -> Self {
-        if self
-            .declaration
-            .adapters
-            .iter()
-            .any(|known| known.is_named(adapter.name))
-        {
-            panic!(
-                "the workflow already has an input adapter named \"{}\"",
-                adapter.name
-            );
-        }
         self.declaration.adapters.push(adapter);
         self
     }
@@ -337,17 +318,4 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
 
 fn made<R: Reporter + Default, M: Mode>() -> M::Reporter {
     report::held::<M>(R::default())
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::workflow::fixtures::{adapter, orders};
-
-    #[test]
-    #[should_panic(expected = "the workflow already has an input adapter named \"pricing\"")]
-    fn two_input_adapters_with_one_name_cannot_be_declared() {
-        let _ = orders()
-            .input_adapter(adapter("pricing", "charge"))
-            .input_adapter(adapter("pricing", "ship"));
-    }
 }

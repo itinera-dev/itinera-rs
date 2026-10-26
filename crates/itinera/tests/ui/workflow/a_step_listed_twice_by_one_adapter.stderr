@@ -1,4 +1,4 @@
-error: this input adapter lists step charge already
+error: step adapted twice: charge, which this input adapter lists already
    --> tests/ui/workflow/a_step_listed_twice_by_one_adapter.rs:103:56
     |
 103 |     #[input_adapter(steps = ["charge", "charge again", "charge"])]
