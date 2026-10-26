@@ -10,6 +10,7 @@ use serde_json::Value;
 use super::found;
 use crate::model::{ModelError, json};
 use crate::sentences::{Unmet, holds, journey, refused};
+use crate::testing::{Mistake, MistakeName, mistakes, unless_stopped_reading};
 use crate::value::{ForType, Typed, for_type};
 use crate::world::World;
 
@@ -72,6 +73,55 @@ fn the_attempt_in_the_record_read(
         format_args!("attempt {attempt} of step \"{step_name}\" to read \"{key}\" = {expected}"),
         format_args!("{found:?}"),
     )
+}
+
+#[then(
+    regex = r#"^reading the scripted run's record of step "([^"]*)" stops the test as the mistake "([^"]*)"$"#
+)]
+fn reading_the_record_stops_the_test(
+    world: &mut World,
+    step_name: String,
+    mistake: String,
+) -> Result<(), Unmet> {
+    let expected = vec![Mistake::of_step(
+        mistake.parse::<MistakeName>()?,
+        &step_name,
+    )];
+    let run = record(world)?;
+    let stopped = unless_stopped_reading(|| run.step(&step_name))
+        .err()
+        .ok_or_else(|| not_stopped_reading(&step_name))?;
+    let named = mistakes(&stopped);
+    holds(
+        named.as_ref() == Some(&expected),
+        format_args!("reading the record to stop the test, naming {expected:?}"),
+        format_args!("{named:?}, from \"{stopped}\""),
+    )
+}
+
+#[then(
+    regex = r#"^reading attempt (\d+) of step "([^"]*)" in the scripted run's record reads nothing$"#
+)]
+fn reading_the_attempt_in_the_record_reads_nothing(
+    world: &mut World,
+    attempt: u32,
+    step_name: String,
+) -> Result<(), Unmet> {
+    let found = record(world)?
+        .step(&step_name)
+        .attempt(attempt)
+        .map(AttemptRecord::number);
+    holds(
+        found.is_none(),
+        format_args!("attempt {attempt} of step \"{step_name}\" to read nothing"),
+        format_args!("{found:?}"),
+    )
+}
+
+fn not_stopped_reading(step: &str) -> Unmet {
+    Unmet::Expected(format!(
+        "reading the record of \"{step}\" to stop the test; it did not"
+    ))
 }
 
 fn unrecorded(attempt: u32, step: &str) -> Unmet {

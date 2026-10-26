@@ -33,16 +33,21 @@ fn share_a_name(one: &&Provider, other: &&Provider) -> bool {
 /// Refuses a provider that lists a step twice.
 pub(super) fn refuse_steps_listed_twice(providers: &[&Provider]) -> syn::Result<()> {
     match providers.iter().find_map(step_listed_twice) {
-        Some(step) => Err(syn::Error::new_spanned(
-            step,
-            format!("this service provider lists step {} already", step.value()),
-        )),
+        Some(error) => Err(error),
         None => Ok(()),
     }
 }
 
-fn step_listed_twice<'a>(provider: &&'a Provider) -> Option<&'a LitStr> {
-    repeated(provider.steps(), same_step)
+fn step_listed_twice(provider: &&Provider) -> Option<syn::Error> {
+    let step = repeated(provider.steps(), same_step)?;
+    Some(syn::Error::new_spanned(
+        step,
+        format!(
+            "service provided twice: {} for {}, which this service provider lists already",
+            provider.key().value(),
+            step.value()
+        ),
+    ))
 }
 
 fn same_step(one: &LitStr, other: &LitStr) -> bool {

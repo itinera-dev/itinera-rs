@@ -229,8 +229,9 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
     }
 
     /// Attaches the provider to a step, or to a rescue step by its name, such as `charge_rescue`,
-    /// which it then serves instead of a provider of the same service attached to no step. A step
-    /// it is already attached to is not added again.
+    /// which it then serves instead of a provider of the same service attached to no step.
+    /// Attached to a step twice, the provider provides its service to it twice, so the workflow is
+    /// refused with [`Violation::ServiceProvidedTwice`](crate::workflow::Violation::ServiceProvidedTwice).
     ///
     /// # Examples
     ///
@@ -255,9 +256,7 @@ impl<W, S: ProviderScope, M> ServiceProviderDescriptor<W, S, M> {
     /// .step(step_name!("ship"));
     /// ```
     pub fn step(mut self, step: StepName) -> Self {
-        if !self.steps.contains(&step) {
-            self.steps.push(step);
-        }
+        self.steps.push(step);
         self
     }
 

@@ -24,9 +24,12 @@ pub enum ViolationKind {
     /// A step has both a rescue step and a retry budget.
     #[display("rescued step retried")]
     RescuedStepRetried,
-    /// Two input adapters are attached to the same step.
+    /// Two input adapters are attached to the same step, or one adapter is attached to it twice.
     #[display("step adapted twice")]
     StepAdaptedTwice,
+    /// Two input adapters have the same name.
+    #[display("duplicate adapter name")]
+    DuplicateAdapterName,
     /// An input adapter is attached to a step the workflow does not have.
     #[display("input adapter for unknown step")]
     InputAdapterForUnknownStep,
@@ -36,7 +39,8 @@ pub enum ViolationKind {
     /// A step requests one service twice.
     #[display("service requested twice")]
     ServiceRequestedTwice,
-    /// Two providers of one service are attached to the same step, or to no step.
+    /// Two providers of one service are attached to the same step, or to no step, or one provider
+    /// is attached to the same step twice.
     #[display("service provided twice")]
     ServiceProvidedTwice,
     /// Two service providers have the same name.
@@ -61,6 +65,7 @@ mod tests {
     #[case::duplicate_step_name(ViolationKind::DuplicateStepName, "duplicate step name")]
     #[case::rescued_step_retried(ViolationKind::RescuedStepRetried, "rescued step retried")]
     #[case::step_adapted_twice(ViolationKind::StepAdaptedTwice, "step adapted twice")]
+    #[case::duplicate_adapter_name(ViolationKind::DuplicateAdapterName, "duplicate adapter name")]
     #[case::input_adapter_for_unknown_step(
         ViolationKind::InputAdapterForUnknownStep,
         "input adapter for unknown step"

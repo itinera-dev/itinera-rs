@@ -11,7 +11,7 @@ mod adapters;
 mod services;
 mod tally;
 
-use adapters::{adapters_for_unknown_steps, steps_adapted_twice};
+use adapters::{adapters_for_unknown_steps, duplicate_adapter_names, steps_adapted_twice};
 
 /// Checks a workflow's declaration, and returns every violation found.
 pub(in crate::workflow) fn check<W, M: Mode>(
@@ -23,6 +23,7 @@ pub(in crate::workflow) fn check<W, M: Mode>(
         .chain(rescued_steps_retried(steps))
         .chain(steps.iter().flat_map(step_hooks_defined_twice))
         .chain(workflow_hooks_defined_twice(&declaration.policies))
+        .chain(duplicate_adapter_names(adapters))
         .chain(adapters_for_unknown_steps(steps, adapters))
         .chain(steps_adapted_twice(steps, adapters))
         .chain(services::violations(steps, &declaration.providers))
@@ -254,11 +255,7 @@ mod tests {
             .step(step("Charge").policy(audit()))
             .policy(notify())
             .policy(WorkflowPolicyDescriptor::new("close", || Quiet).on_workflow_success())
-            .input_adapter(
-                adapter("pricing", "charge")
-                    .step(StepName::new("Charge"))
-                    .step(StepName::new("charge")),
-            );
+            .input_adapter(adapter("pricing", "charge").step(StepName::new("Charge")));
         assert!(builder.build().is_ok());
     }
 }

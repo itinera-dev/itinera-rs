@@ -7,12 +7,11 @@ use super::inputs::Sources;
 use super::request::Requesting;
 use super::{Delivery, Journey};
 use crate::error::Error;
-use crate::event::{EventBody, HookSource, JourneyAbort};
-use crate::journey::Abort;
+use crate::event::{EventBody, HookSource, Supplier};
 use crate::mode::Mode;
 use crate::policy::Answers;
-use crate::service::{Instance, ProviderEntry, ProviderName, Scope};
-use crate::step::{Reporting, StepAttempt, StepDescriptor, StepName};
+use crate::service::{Instance, ProviderEntry, Scope};
+use crate::step::{Reporting, StepAttempt, StepDescriptor};
 use crate::workflow::WorkflowDescriptor;
 
 mod kept;
@@ -53,13 +52,13 @@ impl<D: Delivery> Journey<D> {
         for need in step.needs().services() {
             let key = need.key();
             let Some(provider) = descriptor.provider(name, key) else {
-                return Err(could_not_build(name, unserved(key)));
+                return Err(could_not_build(name, None, unserved(key)));
             };
             let supplied = match provider.scope() {
                 Scope::Attempt => Supplied::Made(self.call(sources, provider, attempt).await?),
                 Scope::Journey => {
                     let Some(slot) = kept.slot(provider.name()) else {
-                        return Err(could_not_build(name, unserved(key)));
+                        return Err(could_not_build(name, None, unserved(key)));
                     };
                     match slot.get() {
                         Some(instance) => Supplied::Kept(instance),
@@ -130,7 +129,8 @@ impl<D: Delivery> Journey<D> {
                     provider: name,
                 })
                 .await?;
-                Err(provider_failed(attempt.step, name, error))
+                let supplier = Supplier::Provider { provider: name };
+                Err(could_not_build(attempt.step, Some(supplier), error))
             }
         }
     }
@@ -146,16 +146,6 @@ fn lent<'p>((key, supplied): &'p (&'static str, Supplied<'_>)) -> (&'static str,
 /// The error for a service no provider serves, which admission rules out.
 fn unserved(key: &str) -> Error {
     Error::msg(format!("no service provider serves the service \"{key}\""))
-}
-
-/// The abort for a provider that failed, naming it.
-fn provider_failed(step: StepName, provider: ProviderName, error: Error) -> End {
-    let reported = JourneyAbort::StepCouldNotBeBuilt {
-        step,
-        provider: Some(provider),
-        error: error.to_string(),
-    };
-    End::aborted(Abort::StepCouldNotBeBuilt(error), reported)
 }
 
 #[cfg(test)]

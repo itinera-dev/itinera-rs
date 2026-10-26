@@ -576,7 +576,8 @@ impl<I: WorkflowInstance, M> AttemptScripting<I, M, Named> {
     ///
     /// # Panics
     ///
-    /// When `attempt` is not 1, since a step's attempts are scripted from 1 without gaps.
+    /// When the step cannot have the attempt `attempt`, which is 0 or more than it can have, and
+    /// otherwise when it is not 1, since a step's attempts are scripted from 1 without gaps.
     ///
     /// # Examples
     ///

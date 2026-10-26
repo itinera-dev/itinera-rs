@@ -1,4 +1,4 @@
-error: this service provider lists step charge already
+error: service provided twice: payments for charge, which this service provider lists already
   --> tests/ui/service/a_provider_listing_a_step_twice.rs:87:48
    |
 87 |     #[provider(per_attempt, steps = ["charge", "charge"], key = "payments", name = "charging")]

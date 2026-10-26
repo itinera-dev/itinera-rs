@@ -36,7 +36,8 @@ The specification lets an implementation make some rules impossible to express r
 - a service provider of journey scope requesting the step being built or the attempt, or a service provider returning nothing instead of an instance or an error;
 - something that is not a value entering the data bag, event data, a reason's details or global metadata;
 - a contributor or reporter used after its attempt or hook has ended, or an input adapter's access to the data bag used after its call;
-- an input adapter writing to the data bag through its access.
+- an input adapter writing to the data bag through its access;
+- a test's script choosing a negative attempt or a fraction of one.
 
 ## How it works
 
