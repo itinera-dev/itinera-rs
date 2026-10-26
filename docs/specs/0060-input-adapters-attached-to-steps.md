@@ -12,6 +12,7 @@ Status: done in stage 7. Stage 4 declared input adapters attached to steps, with
 - **Read access to the data bag**, declared with `HookNeeds::data_bag()` and taken with `Requested::data_bag()`, comes from proposal 0091, which amends this one; its tech spec is [0091](0091-adapters-read-the-data-bag.md).
 - **Attaching an adapter to a rescue step**, by its name, comes from proposal 0098, which amends this one; its tech spec is [0098](0098-rescue-step-adapters-and-providers.md).
 - **The listing** gives each step's input adapter as `ListedStep::adapter`, an `Option<AdapterName>`.
+- **`itinera::event::Supplier`** names what failed while a step was built: `Supplier::Adapter`, with the adapter and the key it was resolving, or, since 0095, `Supplier::Provider`. `JourneyAbort::StepCouldNotBeBuilt` holds it as `supplier`, which is `None` when the step's constructor failed or no provider serves one of its services.
 
 ## How the rules are enforced
 
@@ -24,7 +25,7 @@ Status: done in stage 7. Stage 4 declared input adapters attached to steps, with
 | For each input of an adapted step, in order, the adapter is called | the engine, while it resolves the step's inputs |
 | A value is used, and `input_adapter_supplied` names the adapter; a value of another type than the step declared aborts with `wrong type`, naming the adapter | the engine checks the value's exact type against the step's token |
 | Nothing means "not mine": the input is resolved from the data bag as if the step had no adapter, and the abort, if any, does not name the adapter | the engine falls back to the data bag, with the step as the requester |
-| An adapter that fails emits `input_adapter_failed`, naming it, and aborts with `step could not be built` | the engine |
+| An adapter that fails emits `input_adapter_failed`, naming it, and aborts with `step could not be built`, naming the adapter and the key | the engine, with `Supplier::Adapter` in `JourneyAbort::StepCouldNotBeBuilt` |
 | An adapter receives only what it declares: the step's name, the key, data from the workflow, the journey ID and, since 0091, read access to the data bag | types: `HookNeeds<InputAdapter>` declares only data from the workflow and read access to the data bag, and `Requested<'_, W, InputAdapter>` offers only those five |
 | An adapter requests no role, and receives no contributor and no means to emit events | types: `InputAdapter` is not a `PolicyHookKind`, so `role`, `contributor` and `reporter` do not exist for it |
 | Its data from the workflow is read from the data bag, never through an adapter: a required value not found aborts with `required data missing`, a wrong type with `wrong type`, and an optional value not found is absent and emits `optional_input_absent`, each naming the step, the adapter and the key | the engine resolves the adapter's requests before each call, with `Requester::Adapter` and `RequestSource::Adapter` |

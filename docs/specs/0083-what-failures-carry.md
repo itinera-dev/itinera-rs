@@ -13,7 +13,7 @@ Status: done in stage 7. Stage 1 shaped the events, stage 3 the result and refus
   - `FailWorkflow` holds the `DecidingHook` and the `Reason` it gave.
 - `JourneyFailure::cause()` gives the plain `FailureCause`.
 - **`journey_aborted`** is `EventBody::JourneyAborted`, holding a `JourneyAbort` with one variant per abort reason, each holding exactly what that reason carries:
-  - `StepCouldNotBeBuilt`, `HookFailed` and `ReporterFailed` hold the error's message, and the step's name where there is one;
+  - `StepCouldNotBeBuilt` holds the step's name, the error's message and, when an input adapter or a service provider failed, the `Supplier` that did; `HookFailed` and `ReporterFailed` hold the error's message, and the step's name where there is one;
   - `PolicyCouldNotBeBuilt` holds the step's name, the policy and the error's message;
   - `RequiredDataMissing` holds a `MissingData`: a key and its `Requester`, or a step hook's request for the failure's reason or the error, which have no key;
   - `WrongType` holds the key and the `Requester`;

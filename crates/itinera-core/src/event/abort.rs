@@ -3,12 +3,13 @@
 use super::{Requester, Source};
 use crate::journey::AbortReason;
 use crate::policy::PolicyName;
-use crate::service::ProviderName;
 use crate::step::StepName;
 
 mod missing_data;
+mod supplier;
 
 pub use missing_data::MissingData;
+pub use supplier::Supplier;
 
 /// Why a journey was aborted, with exactly what that reason carries: the step during which it
 /// happened, when there was one, its details, and the message of the error when failing custom
@@ -35,8 +36,8 @@ pub enum JourneyAbort {
     StepCouldNotBeBuilt {
         /// The step's name.
         step: StepName,
-        /// The service provider that failed, when one did.
-        provider: Option<ProviderName>,
+        /// The input adapter or the service provider that failed, when one did.
+        supplier: Option<Supplier>,
         /// The error's message.
         error: String,
     },
