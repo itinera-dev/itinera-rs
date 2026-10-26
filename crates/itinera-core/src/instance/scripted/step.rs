@@ -1,8 +1,5 @@
 //! Scripting a step: choosing which of its attempts the next phrases describe.
 
-use std::cmp::Ordering;
-use std::num::NonZeroU32;
-
 use super::attempt::{Named, Opened};
 use super::slot::Slot;
 use super::target::Target;
@@ -63,10 +60,10 @@ impl<I: WorkflowInstance, M> StepScripting<I, M> {
     ///
     /// # Panics
     ///
-    /// When `attempt` is not the attempt after the last one scripted, when the step's remaining
-    /// attempts are scripted already, or when the step cannot have that many attempts: one for
-    /// a rescue step, two for a step with a rescue step, and otherwise one more than its retry
-    /// budget.
+    /// When the step cannot have the attempt `attempt`, which is 0 or more than it can have: one
+    /// for a rescue step, two for a step with a rescue step, and otherwise one more than its
+    /// retry budget. Otherwise when the attempt is scripted already, by number, with every
+    /// attempt or with the remaining attempts, or is not the attempt after the last one scripted.
     ///
     /// # Examples
     ///
@@ -103,30 +100,26 @@ impl<I: WorkflowInstance, M> StepScripting<I, M> {
     pub fn on_attempt(self, attempt: u32) -> AttemptScripting<I, M, Opened> {
         let target = self.target();
         let next = target.script.numbered().saturating_add(1);
-        if target.script.covers_the_rest() {
+        if attempt == 0 {
             panic!(
-                "the remaining attempts of {} are scripted already",
+                "{} has no attempt 0; attempts are numbered from 1",
                 target.name
             );
         }
-        let Some(number) = NonZeroU32::new(attempt) else {
-            panic!("attempts are numbered from 1");
-        };
-        match attempt.cmp(&next) {
-            Ordering::Less => panic!("attempt {attempt} of {} is scripted already", target.name),
-            Ordering::Greater => {
-                panic!(
-                    "attempt {next} of {} is missing before attempt {attempt}",
-                    target.name
-                )
-            }
-            Ordering::Equal => {}
-        }
-        if number > target.most_attempts() {
+        if attempt > target.most_attempts().get() {
             panic!(
                 "{} has no attempt {attempt}; it can have at most {}",
                 target.name,
                 target.most_attempts()
+            );
+        }
+        if target.script.covers_the_rest() || attempt < next {
+            panic!("attempt {attempt} of {} is scripted already", target.name);
+        }
+        if attempt > next {
+            panic!(
+                "attempt {next} of {} is missing before attempt {attempt}",
+                target.name
             );
         }
         AttemptScripting::new(self, Slot::Next)
@@ -136,7 +129,7 @@ impl<I: WorkflowInstance, M> StepScripting<I, M> {
     ///
     /// # Panics
     ///
-    /// When some of its attempts are scripted already.
+    /// When some of its attempts are scripted already, which attempt 1 always is then.
     ///
     /// # Examples
     ///
@@ -174,9 +167,12 @@ impl<I: WorkflowInstance, M> StepScripting<I, M> {
     )]
     pub fn on_every_attempt(self) -> AttemptScripting<I, M, Opened> {
         let target = self.target();
-        if target.script.numbered() > 0 || target.script.covers_the_rest() {
+        if target.script.covers_the_rest() {
+            panic!("attempt 1 of {} is scripted already", target.name);
+        }
+        if target.script.numbered() > 0 {
             panic!(
-                "some attempts of {} are scripted already; on_remaining_attempts() covers the rest",
+                "attempt 1 of {} is scripted already; on_remaining_attempts() covers the rest",
                 target.name
             );
         }
@@ -187,8 +183,8 @@ impl<I: WorkflowInstance, M> StepScripting<I, M> {
     ///
     /// # Panics
     ///
-    /// When the remaining attempts are scripted already, or the step cannot have an attempt after
-    /// the last numbered one.
+    /// When the step cannot have an attempt after the last numbered one, or otherwise when the
+    /// remaining attempts are scripted already.
     ///
     /// # Examples
     ///
@@ -224,15 +220,16 @@ impl<I: WorkflowInstance, M> StepScripting<I, M> {
     )]
     pub fn on_remaining_attempts(self) -> AttemptScripting<I, M, Opened> {
         let target = self.target();
-        let numbered = target.script.numbered();
-        if target.script.covers_the_rest() {
+        let next = target.script.numbered().saturating_add(1);
+        if next > target.most_attempts().get() {
             panic!(
-                "the remaining attempts of {} are scripted already",
-                target.name
+                "{} has no attempt {next}; it can have at most {}",
+                target.name,
+                target.most_attempts()
             );
         }
-        if numbered >= target.most_attempts().get() {
-            panic!("{} has no attempt after attempt {numbered}", target.name);
+        if target.script.covers_the_rest() {
+            panic!("attempt {next} of {} is scripted already", target.name);
         }
         AttemptScripting::new(self, Slot::Remaining)
     }
@@ -418,8 +415,13 @@ mod tests {
         scripted.step("charge").will_fail("timeout")
     }
 
+    /// The step `charge`, with attempt 1 and the remaining attempts scripted.
+    fn with_the_rest_scripted(scripted: Orderly) -> OrderlyStep {
+        charge(scripted).on_remaining_attempts().will_succeed()
+    }
+
     #[test]
-    #[should_panic(expected = "attempts are numbered from 1")]
+    #[should_panic(expected = "charge has no attempt 0; attempts are numbered from 1")]
     fn attempts_are_numbered_from_1() {
         charge(retried(3)).on_attempt(0);
     }
@@ -443,24 +445,51 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "the remaining attempts of charge are scripted already")]
+    #[should_panic(expected = "charge has no attempt 3; it can have at most 2")]
+    fn an_attempt_the_step_cannot_have_is_named_before_a_gap() {
+        charge(retried(1)).on_attempt(3);
+    }
+
+    #[test]
+    #[should_panic(expected = "charge has no attempt 5; it can have at most 2")]
+    fn an_attempt_the_step_cannot_have_is_named_before_one_scripted_already() {
+        with_the_rest_scripted(retried(1)).on_attempt(5);
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt 3 of charge is scripted already")]
+    fn an_attempt_scripted_already_is_named_before_a_gap() {
+        with_the_rest_scripted(retried(3)).on_attempt(3);
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt 2 of charge is scripted already")]
     fn no_attempt_can_be_numbered_after_the_remaining_ones_are_scripted() {
-        charge(retried(3))
-            .on_remaining_attempts()
-            .will_succeed()
-            .on_attempt(2);
+        with_the_rest_scripted(retried(3)).on_attempt(2);
     }
 
     #[test]
     #[should_panic(
-        expected = "some attempts of charge are scripted already; on_remaining_attempts() covers the rest"
+        expected = "attempt 1 of charge is scripted already; on_remaining_attempts() covers the rest"
     )]
     fn every_attempt_cannot_be_scripted_after_a_numbered_one() {
         charge(retried(3)).on_every_attempt();
     }
 
     #[test]
-    #[should_panic(expected = "charge has no attempt after attempt 1")]
+    #[should_panic(expected = "attempt 1 of charge is scripted already")]
+    fn every_attempt_cannot_be_scripted_after_the_remaining_ones() {
+        with_the_rest_scripted(retried(3)).on_every_attempt();
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt 2 of charge is scripted already")]
+    fn the_remaining_attempts_cannot_be_scripted_twice() {
+        with_the_rest_scripted(retried(3)).on_remaining_attempts();
+    }
+
+    #[test]
+    #[should_panic(expected = "charge has no attempt 2; it can have at most 1")]
     fn the_remaining_attempts_cannot_be_scripted_when_none_remain() {
         charge(retried(0)).on_remaining_attempts();
     }
