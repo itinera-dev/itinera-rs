@@ -461,7 +461,7 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
 
 ### 19. Releasing the crates
 
-- **Crates**: `itinera-core`, `itinera-macros` and `itinera`, with one workspace version, published together by `cargo publish --workspace`.
+- **Crates**: `itinera-core`, `itinera-macros` and `itinera`, with one workspace version, published together by the `publish-crates` action of itinera-dev/actions.
 - **Versions are independent of the specification's.** The first release is `0.1.0-beta.1`. The README and the crate documentation say what each release implements: "specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.N`".
 - **The path to 0.1.0**:
   1. while the specification is in release candidates, Rust releases betas, `0.1.0-beta.N`, pinning the latest cases candidate, since a beta says it is not yet meant for production and may still gain features;
@@ -470,7 +470,7 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
 - **A release is requested by a maintainer pushing a tag `v*` on `main`**; a repository ruleset restricts those tags to maintainers. The release workflow runs four jobs:
   1. **gate**: the `release-gate` action checks that the tag matches the workspace version, that the commit is on `main`, that `CHANGELOG.md` has notes for the version, and that `conformance.json` lists every proposal of the tier claimed, taken from the `@proposal-NNNN` tags of the cases at the pinned version;
   2. **CI**: every check of `ci.yml`, called as a reusable workflow on the tagged commit, since its run on `main` after a merge blocks nothing; its conformance job produces the report;
-  3. **publish**: in the `crates-io` environment, which only tags `v*` may use, `rust-lang/crates-io-auth-action` obtains a short-lived token through crates.io's trusted publishing, and `cargo publish --workspace --locked` publishes the crates;
+  3. **publish**: in the `crates-io` environment, which only tags `v*` may use, the `publish-crates` action of itinera-dev/actions obtains a short-lived token through crates.io's trusted publishing, and publishes with `cargo publish --locked` every crate whose version crates.io does not have yet;
   4. **release**: the `create-release` action creates the GitHub release with the notes of the version's section of `CHANGELOG.md`, a pre-release for a version with a pre-release part, such as `0.1.0-beta.1`, with the conformance report attached.
 - **The first release was published by hand.** crates.io configures trusted publishing only for crates that already exist, and PROCESS.md leaves such registry exceptions to each language. Ours: `0.1.0-beta.1` was published from its tagged commit with `cargo publish --workspace` by a maintainer logged in with `cargo login`, once its GitHub release existed. Trusted publishing was then configured for the three crates, trusting `release.yml` in the `crates-io` environment, and every later release is published by the workflow's publish job. A `cargo publish --workspace --dry-run` at the commit to be tagged, before the tag is pushed, catches a failure before the workflow starts. Nothing was published before the first release: crate names were not reserved with placeholder packages.
 - **`CHANGELOG.md`** is updated in the pull request that bumps the version, and the release notes come from it.
