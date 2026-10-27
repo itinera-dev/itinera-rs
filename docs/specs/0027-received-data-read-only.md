@@ -1,6 +1,6 @@
 # 0027: Data a step or hook receives is read-only
 
-Tech spec for [proposal 0027](https://github.com/itinera-dev/spec/blob/main/proposals/0027-received-data-read-only.md), implemented in [#16](https://github.com/itinera-dev/itinera-rs/issues/16). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
+Tech spec for [proposal 0027](https://github.com/itinera-dev/spec/blob/main/proposals/0027-received-data-read-only.md), implemented in [#16](https://github.com/itinera-dev/itinera-rs/issues/16). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposal [0121](0121-read-only-copies.md) amends it, and its tech spec says why the clone each receiver gets is a copy that cannot fail.
 
 Status: done in stage 7. Stage 5 gave each step its own copy of its inputs, and captured contributions when they are made. Stage 7 did the same for hooks and input adapters.
 

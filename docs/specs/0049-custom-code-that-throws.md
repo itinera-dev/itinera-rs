@@ -1,6 +1,6 @@
 # 0049: Custom code that throws
 
-Tech spec for [proposal 0049](https://github.com/itinera-dev/spec/blob/main/proposals/0049-custom-code-that-throws.md), implemented in [#21](https://github.com/itinera-dev/itinera-rs/issues/21). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposals 0054, 0058, 0061 and 0081 amend it: in Rust, throwing is returning an `Err`, a panic is never caught, the abort reasons are `hook failed` and `reporter failed`, building a policy joins the calls into custom code, the journey ID generator runs when the instance is created, and the event a reporter failed on stops there.
+Tech spec for [proposal 0049](https://github.com/itinera-dev/spec/blob/main/proposals/0049-custom-code-that-throws.md), implemented in [#21](https://github.com/itinera-dev/itinera-rs/issues/21). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposals 0054, 0058, 0061, 0081 and [0121](0121-read-only-copies.md) amend it: in Rust, throwing is returning an `Err`, a panic is never caught, the abort reasons are `hook failed` and `reporter failed`, building a policy joins the calls into custom code, the journey ID generator runs when the instance is created, the event a reporter failed on stops there, and a value's `Clone` is custom code that cannot fail.
 
 Status: done in stage 7. Stage 3 added the executors, with their refusals and the reporters' guards; stage 5 the steps' constructors, input adapters and abnormal terminations; stage 7 the hooks, the role operations they call and the policies' factories.
 
@@ -27,7 +27,7 @@ Status: done in stage 7. Stage 3 added the executors, with their refusals and th
 | Nothing custom code returns escapes `run` | types: `run` returns `Result<JourneyResult, Refusal>`, and every error inside the journey becomes its result |
 | A panic is not a throw (proposal 0054) | itinera never catches a panic: it reaches whoever called `run` |
 
-The list is exhaustive: these are the only places where itinera calls code it did not write. The documentation of `Reporter` says that a reporter should handle its own trouble and return `Ok`, since an error aborts the journey.
+The list is exhaustive: these are the only places where itinera calls code it did not write. Since proposal 0121, a value's `Clone`, which itinera calls to copy a value, is custom code too; it cannot fail recoverably, as the tech spec of [0121](0121-read-only-copies.md) says. The documentation of `Reporter` says that a reporter should handle its own trouble and return `Ok`, since an error aborts the journey.
 
 ## Tests
 

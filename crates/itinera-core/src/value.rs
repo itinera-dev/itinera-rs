@@ -14,6 +14,8 @@ use serde::de::DeserializeOwned;
 ///
 /// Whoever receives a value gets its own clone. A type whose `Clone` shares mutable state, such as
 /// `Arc<Mutex<_>>`, lets one receiver change what another sees, and should not be used as a value.
+/// A value's `Clone` is how every receiver gets its copy, so it should copy the content as it is:
+/// a receiver gets whatever it makes, and a clone that panics stops the journey as any panic does.
 ///
 /// # Examples
 ///
