@@ -457,7 +457,7 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
   | `unstable` | off | API of proposals not listed in `conformance.json` yet, or not accepted by the specification; empty for now |
 
   The engine is asynchronous internally whatever the features; without `async`, nothing asynchronous is public.
-- **Documentation**: rustdoc on every public item, published by docs.rs; a crate-level overview in `itinera` with a first complete workflow, linking once to the specification repository and to the Rust book and the Itinera site for learners; runnable examples in `crates/itinera/examples/` (a synchronous workflow, the same on the asynchronous executor, and one built without macros); a README with a "Learning it" section linking the same book and site, and stating the crates, the tier and capabilities claimed, the rules made impossible, and how to run the conformance runner; `homepage` in the crates' metadata names the site.
+- **Documentation**: rustdoc on every public item, published by docs.rs; a crate-level overview in `itinera`, which is the repository's README, written for the people who use the crate, so that GitHub, crates.io and docs.rs show one text: a quick start with a first complete workflow, compiled and run as a doctest, the parts of a workflow, links to the specification repository, the Rust book, the API reference and the Itinera site, the status, the features and the rules made impossible; runnable examples in `crates/itinera/examples/` (a synchronous workflow, the same on the asynchronous executor, and one built without macros); the contributor guide says how to run the conformance runner; `homepage` in the crates' metadata names the site.
 
 ## Release
 
