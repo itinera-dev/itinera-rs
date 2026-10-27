@@ -3,7 +3,7 @@
 //! Its behaviour is defined by the [Itinera specification](https://github.com/itinera-dev/spec),
 //! whose vocabulary this crate uses. This release implements tier 1 of specification 0.1.0,
 //! with the capabilities `sync`, `async` and `testing`, and passes its conformance cases
-//! `v0.1.0-rc.15`.
+//! `v0.1.0-rc.16`.
 //!
 //! To learn Itinera step by step, read
 //! [the Itinera book for Rust](https://itinera-dev.org/book/rust/), where every example compiles

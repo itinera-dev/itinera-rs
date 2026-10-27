@@ -2,6 +2,26 @@
 
 Every release of the crates `itinera`, `itinera-core` and `itinera-macros`, which share one version. Each release says the version of the [Itinera specification](https://github.com/itinera-dev/spec) it implements, the tier, the capabilities claimed and the [conformance cases](https://github.com/itinera-dev/conformance) it passes; its conformance report is attached to its GitHub release. Before 1.0, a breaking change raises the minor version and a fix the patch version.
 
+## [0.1.0-beta.4]
+
+The fourth beta, which breaks code written for `0.1.0-beta.3`: specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.16`. It implements proposal 0116, on two input adapters with one name and on an input adapter or service provider attached to one step twice, and proposal 0119, on mistakes in choosing a scripted run's attempts. It does not claim the capability `value-conversions`, which holds every case of proposal 0113, since itinera keeps a value as it is and reads it back by its exact type, calling no conversion. The minimum supported Rust version is 1.85.
+
+### Added
+
+- `event::Supplier`, the input adapter, with the key it was resolving, or the service provider that failed while a step was built.
+- `workflow::Violation::DuplicateAdapterName` and `workflow::ViolationKind::DuplicateAdapterName`: `workflow::WorkflowBuilder::build` reports two input adapters with the same name instead of `workflow::WorkflowBuilder::input_adapter` panicking.
+
+### Changed
+
+- `event::JourneyAbort::StepCouldNotBeBuilt` replaces its `provider` field with `supplier`, an `Option<event::Supplier>`, which holds `Supplier::Provider` where `provider` held a service provider's name.
+- `workflow::InputAdapterDescriptor::step` and `service::ServiceProviderDescriptor::step` no longer ignore a step they are already attached to; `workflow::WorkflowBuilder::build` reports `workflow::Violation::StepAdaptedTwice` or `workflow::Violation::ServiceProvidedTwice`, naming the adapter or provider once per attachment.
+- The compile errors of `#[workflow]` for two input adapters of one name, and for an adapter or provider listing a step twice, name the violations `duplicate adapter name`, `step adapted twice` and `service provided twice`.
+
+### Fixed
+
+- `journey_aborted` names the input adapter that failed and the key of the input it was resolving, in `event::JourneyAbort::StepCouldNotBeBuilt`.
+- With the `testing` feature, `instance::StepScripting::on_attempt` names an attempt the step can never have, such as attempt 0 or one past what it can have, before an attempt scripted already or a gap, and every panic of `instance::StepScripting` in choosing attempts names the step and the attempt.
+
 ## [0.1.0-beta.3]
 
 The third beta, which makes the API friendlier and breaks code written for `0.1.0-beta.2`: specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.15`. What a journey does is unchanged. The minimum supported Rust version is 1.85.
@@ -57,6 +77,7 @@ The first beta: specification 0.1.0, tier 1, capabilities `sync`, `async` and `t
 - With the `macros` feature, on by default, attributes and derives that declare steps, rescue steps, policies, workflows with their service providers, roles and journey data as syntax over the builder. A workflow declared with `#[workflow]` takes its mode from its steps and refuses steps of both modes, and `#[service]` takes a service only as a trait object, such as `&dyn PaymentGateway`, refusing a concrete type.
 - Compile errors, instead of checks while a journey runs, for the rules the specification lets an implementation make impossible to express: a lifecycle a hook may not return, a role the workflow does not provide, an asynchronous part on the synchronous executor or an asynchronous service provider in a synchronous workflow, a rescue step that skips, a service provider of journey scope requesting the step being built or the attempt, a service provider returning nothing, a non-value entering the data bag, event data, a reason's details or global metadata, handles used after their attempt or call, and an input adapter writing to the data bag.
 
+[0.1.0-beta.4]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.4
 [0.1.0-beta.3]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.3
 [0.1.0-beta.2]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.1

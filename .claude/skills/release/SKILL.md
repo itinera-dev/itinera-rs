@@ -18,8 +18,8 @@ One pull request, titled "Release <version>" with a release commit `chore(releas
 3. Raise the version:
    - in `Cargo.toml`, the workspace version and the `version` of the `itinera-core` and `itinera-macros` path dependencies;
    - in `Cargo.lock`, with `cargo update --workspace`;
-   - in the status paragraph of `README.md`.
-4. Check that `conformance.json` lists every tier 1 proposal of the cases it pins, which the release gate in docs/contributing.md "Releasing" requires. If it does not, stop and tell the maintainer, since the tag would be refused.
+   - in the status paragraph of `README.md`, and the cases it passes there and in the crate documentation of `crates/itinera/src/lib.rs`.
+4. Check that `conformance.json` lists every tier 1 proposal of the cases it pins, except one whose every case needs a capability it does not claim, which the release gate in docs/contributing.md "Releasing" requires. If it does not, stop and tell the maintainer, since the tag would be refused.
 5. Write the version's section at the top of `CHANGELOG.md`, above the last release's, in the form of the sections below it:
    - `git cliff --unreleased --tag v<version> --strip all` prints the heading `## [<version>]` and the entries that commits since the last release carry as trailers, under `### Added`, `### Changed`, `### Fixed` and `### Removed`, each only when it has entries; `docs/contributing.md` "Commit messages and the changelog" says how;
    - after the heading, one paragraph naming which release it is, whether it breaks code written for the last one, the specification version, the tier, the capabilities, the conformance cases of `conformance.json` and the minimum supported Rust version, and saying "What a journey does is unchanged" when that is so;
