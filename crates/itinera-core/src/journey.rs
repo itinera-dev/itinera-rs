@@ -1,7 +1,5 @@
 //! Journeys, each one execution of a workflow: their identity, their data, and how they end.
 
-use std::sync::Arc;
-
 use crate::step::Reason;
 
 mod abort;
@@ -13,6 +11,7 @@ mod failure;
 #[cfg(test)]
 mod fixtures;
 mod initial_data;
+mod journey_id;
 mod output;
 mod read;
 mod result;
@@ -29,41 +28,12 @@ pub use failure::Failure;
 pub use initial_data::InitialData;
 #[cfg(feature = "macros")]
 pub use itinera_macros::{InitialData, Output};
+pub use journey_id::{EmptyJourneyId, JourneyId};
 pub use output::{Output, OutputError};
 pub use read::Read;
 pub use result::{JourneyResult, JourneyStatus, StatusKind};
 #[cfg(any(test, feature = "testing"))]
 pub use scripted_run::{AttemptRecord, ScriptedRun, StepRecord};
-
-/// The identifier of one journey, unique to it. It is made when the journey's instance is
-/// created, and cheap to clone.
-///
-/// # Examples
-///
-/// ```
-/// use itinera::journey::JourneyId;
-///
-/// let id = JourneyId::from("order-42");
-/// let text: &str = id.as_ref();
-/// assert_eq!(text, "order-42");
-/// assert_eq!(id.to_string(), "order-42");
-/// assert_eq!(JourneyId::from(String::from("order-42")), id);
-/// ```
-#[derive(
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    derive_more::Display,
-    derive_more::From,
-    derive_more::AsRef,
-)]
-#[from(forward)]
-#[as_ref(forward)]
-pub struct JourneyId(Arc<str>);
 
 /// Why a journey failed.
 ///

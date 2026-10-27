@@ -184,7 +184,7 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
     ///
     /// # Errors
     ///
-    /// [`InstanceError`] when the generator fails.
+    /// [`InstanceError`] when the generator fails, or produces an empty journey ID.
     ///
     /// # Examples
     ///
@@ -210,9 +210,7 @@ impl<W: Send + Sync + 'static, M: Mode> InstanceBuilder<W, M> {
             global_metadata,
             reporters: made_for_it,
         } = self;
-        let journey_id = descriptor
-            .journey_id(&workflow, &data)
-            .map_err(InstanceError::JourneyId)?;
+        let journey_id = descriptor.journey_id(&workflow, &data)?;
         let mut reporters = descriptor.reporters();
         reporters.extend(made_for_it);
         Ok(Instance {

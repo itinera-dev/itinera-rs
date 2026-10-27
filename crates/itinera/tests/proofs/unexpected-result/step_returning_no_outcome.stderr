@@ -1,0 +1,17 @@
+error[E0271]: expected `{closure@step_returning_no_outcome.rs:8:60}` to return `Result<Outcome, Error>`, but it returns `Result<(), _>`
+ --> tests/proofs/unexpected-result/step_returning_no_outcome.rs:8:63
+  |
+8 |     let charge = StepDescriptor::new(step_name!("charge"), || Ok(()));
+  |                  -------------------                       -- ^^^^^^ expected `Result<Outcome, Error>`, found `Result<(), _>`
+  |                  |                                         |
+  |                  |                                         this closure
+  |                  required by a bound introduced by this call
+  |
+  = note: expected enum `Result<Outcome, itinera::error::Error>`
+             found enum `Result<(), _>`
+  = note: required for `{closure@$DIR/tests/proofs/unexpected-result/step_returning_no_outcome.rs:8:60: 8:62}` to implement `StepFactory`
+note: required by a bound in `StepDescriptor::<W>::new`
+ --> $WORKSPACE/crates/itinera-core/src/step/descriptor.rs
+  |
+  |     pub fn new(name: StepName, factory: impl StepFactory) -> Self {
+  |                                              ^^^^^^^^^^^ required by this bound in `StepDescriptor::<W>::new`

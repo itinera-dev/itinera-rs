@@ -2,6 +2,7 @@
 
 mod happened;
 mod roles;
+mod workflow_hooks;
 
 use cucumber::given;
 

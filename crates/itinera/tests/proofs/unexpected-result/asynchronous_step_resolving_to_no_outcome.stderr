@@ -1,0 +1,17 @@
+error[E0271]: expected `{async closure body@$DIR/tests/proofs/unexpected-result/asynchronous_step_resolving_to_no_outcome.rs:12:22: 12:28}` to be a future that resolves to `Result<Outcome, Error>`, but it resolves to `Result<(), _>`
+  --> tests/proofs/unexpected-result/asynchronous_step_resolving_to_no_outcome.rs:12:13
+   |
+10 |         .step(StepDescriptor::new_async(
+   |               ------------------------- required by a bound introduced by this call
+11 |             step_name!("charge"),
+12 |             async || Ok(()),
+   |             ^^^^^^^^^^^^^^^ expected `Result<Outcome, Error>`, found `Result<(), _>`
+   |
+   = note: expected enum `Result<Outcome, itinera::error::Error>`
+              found enum `Result<(), _>`
+   = note: required for `{async closure@$DIR/tests/proofs/unexpected-result/asynchronous_step_resolving_to_no_outcome.rs:12:13: 12:21}` to implement `AsyncStepFactory`
+note: required by a bound in `step::asynchronous::<impl StepDescriptor<W, Asynchronous>>::new_async`
+  --> $WORKSPACE/crates/itinera-core/src/step/asynchronous.rs
+   |
+   |     pub fn new_async(name: StepName, factory: impl AsyncStepFactory) -> Self {
+   |                                                    ^^^^^^^^^^^^^^^^ required by this bound in `step::asynchronous::<impl StepDescriptor<W, Asynchronous>>::new_async`

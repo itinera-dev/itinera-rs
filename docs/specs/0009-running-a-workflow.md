@@ -1,6 +1,6 @@
 # 0009: Running a workflow
 
-Tech spec for [proposal 0009](https://github.com/itinera-dev/spec/blob/main/proposals/0009-running-a-workflow.md), implemented in [#11](https://github.com/itinera-dev/itinera-rs/issues/11). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposal [0106](0106-retry-budget-alone.md) amends it, and its tech spec covers what is retried.
+Tech spec for [proposal 0009](https://github.com/itinera-dev/spec/blob/main/proposals/0009-running-a-workflow.md), implemented in [#11](https://github.com/itinera-dev/itinera-rs/issues/11). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposal [0106](0106-retry-budget-alone.md) amends it, and its tech spec covers what is retried. Proposal [0122](0122-unexpected-results.md) amends it too: a journey ID is a string that is not empty.
 
 Status: done in stage 7. Stage 3 ran the steps in order; stage 5 built each step for its attempt and acted on its outcome. Stage 6 added the scan with its attempts, retries and decisions, and the hook points around the decisions. Stage 7 calls the policies' hooks there, whose lifecycles override the default.
 

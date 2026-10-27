@@ -1,0 +1,21 @@
+error[E0277]: the trait bound `Option<Charge>: itinera::step::Step` is not satisfied
+  --> tests/proofs/unexpected-result/step_factory_building_no_step.rs:19:21
+   |
+19 |     type Step<'a> = Option<Charge>;
+   |                     ^^^^^^^^^^^^^^ the trait `itinera::step::Step` is not implemented for `Option<Charge>`
+   |
+help: the following other types implement trait `itinera::step::Step`
+  --> tests/proofs/unexpected-result/step_factory_building_no_step.rs:10:1
+   |
+10 | impl Step for Charge {
+   | ^^^^^^^^^^^^^^^^^^^^ `Charge`
+   |
+  ::: $WORKSPACE/crates/itinera-core/src/step.rs
+   |
+   | impl<F: Fn() -> Result<Outcome, Error>> Step for &F {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `&F`
+note: required by a bound in `itinera::step::StepFactory::Step`
+  --> $WORKSPACE/crates/itinera-core/src/step/factory.rs
+   |
+   |     type Step<'a>: Step;
+   |                    ^^^^ required by this bound in `StepFactory::Step`

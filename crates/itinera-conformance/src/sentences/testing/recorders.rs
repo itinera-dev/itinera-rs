@@ -14,7 +14,7 @@ use serde_json::Value;
 use super::{as_json, entry, found};
 use crate::model::{json, rows};
 use crate::sentences::{Unmet, holds};
-use crate::value::{ForType, Typed, for_type};
+use crate::value::{ForType, Typed};
 use crate::world::World;
 use itinera::workflow::Supplied;
 
@@ -47,7 +47,7 @@ fn key_of((key, _): &(String, Value)) -> &str {
 /// Holds when the recorder holds the value under its key, read as the value's type.
 fn holds_entry(contributions: &Contributions, (key, value): &(String, Value)) -> Result<(), Unmet> {
     let reading = Contribution { contributions, key };
-    let found = for_type(Typed::of(value)?.value_type(), reading)?;
+    let found = Typed::of(value)?.for_its_type(reading)?;
     holds(
         found.as_ref() == Some(value),
         format_args!("the contributions recorder to hold \"{key}\" = {value}"),

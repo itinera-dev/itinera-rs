@@ -81,4 +81,8 @@ pub(crate) enum ModelError {
     ProviderRequestNotAllowed(String, String),
     #[error("the hook \"{0}\" cannot return {1}")]
     LifecycleNotAllowed(Hook, Lifecycle),
+    #[error("the hook \"{0}\" is a step hook, whose result is read")]
+    ResultOfStepHook(Hook),
+    #[error("the hook \"{0}\" is asynchronous, so only the asynchronous executor runs it")]
+    AsynchronousHook(Hook),
 }

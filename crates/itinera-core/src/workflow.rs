@@ -7,7 +7,7 @@ use std::sync::Arc;
 use uuid::Builder;
 
 use crate::error::Error;
-use crate::instance::InstanceBuilder;
+use crate::instance::{InstanceBuilder, InstanceError};
 use crate::journey::{DataBag, JourneyId};
 use crate::mode::{Mode, Synchronous};
 use crate::policy::WorkflowPolicyEntry;
@@ -135,11 +135,18 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowDescriptor<W, M> {
     }
 
     /// The journey ID for a new instance: the workflow's generator's, or a UUID v4.
-    pub(crate) fn journey_id(&self, workflow: &W, data: &DataBag) -> Result<JourneyId, Error> {
-        match &self.declaration.id_generator {
-            Some(generate) => generate(workflow, data).map(JourneyId::from),
+    pub(crate) fn journey_id(
+        &self,
+        workflow: &W,
+        data: &DataBag,
+    ) -> Result<JourneyId, InstanceError> {
+        let text = match &self.declaration.id_generator {
+            Some(generate) => generate(workflow, data),
             None => random_id(),
-        }
+        };
+        Ok(JourneyId::try_from(
+            text.map_err(InstanceError::JourneyId)?,
+        )?)
     }
 
     /// The workflow's listed reporters, made for one journey, in the order they were listed.
@@ -195,9 +202,8 @@ impl<W, M: Mode> Clone for WorkflowDescriptor<W, M> {
 }
 
 /// A UUID v4, from the system's random source, which may fail.
-fn random_id() -> Result<JourneyId, Error> {
+fn random_id() -> Result<String, Error> {
     let mut bytes = [0; 16];
     getrandom::fill(&mut bytes)?;
-    let uuid = Builder::from_random_bytes(bytes).into_uuid();
-    Ok(JourneyId::from(uuid.to_string()))
+    Ok(Builder::from_random_bytes(bytes).into_uuid().to_string())
 }

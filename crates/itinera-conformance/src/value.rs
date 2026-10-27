@@ -10,9 +10,11 @@ use crate::model::{ModelError, ValueType};
 
 /// A value of one of the vocabulary's types, held as the Rust type that type maps to: `string`
 /// as `String`, `integer` as `i64`, `number` as `f64`, `boolean` as `bool`, `list` as a vector
-/// of JSON values and `object` as a JSON map.
+/// of JSON values and `object` as a JSON map; or the value null, which has no type of the
+/// vocabulary, as the unit `()`, which serializes as null.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Typed {
+    Null,
     String(String),
     Integer(i64),
     Number(f64),
@@ -73,7 +75,7 @@ pub(crate) fn for_type<K: ForType>(value_type: ValueType, dependent: K) -> K::Ou
 
 impl Typed {
     /// The value written as JSON, with the type of the vocabulary its JSON form has: a number
-    /// written without a fraction or an exponent is an `integer`.
+    /// written without a fraction or an exponent is an `integer`. Null has no type.
     pub(crate) fn of(value: &Value) -> Result<Self, ModelError> {
         Ok(match value {
             Value::String(text) => Self::String(text.clone()),
@@ -88,25 +90,27 @@ impl Typed {
             Value::Bool(boolean) => Self::Boolean(*boolean),
             Value::Array(list) => Self::List(list.clone()),
             Value::Object(object) => Self::Object(object.clone()),
-            Value::Null => return Err(ModelError::Untyped(value.to_string())),
+            Value::Null => Self::Null,
         })
     }
 
-    /// The type of the vocabulary the value has.
-    pub(crate) fn value_type(&self) -> ValueType {
+    /// Gives what depends on a type the Rust type the value is held as.
+    pub(crate) fn for_its_type<K: ForType>(&self, dependent: K) -> K::Output {
         match self {
-            Self::String(_) => ValueType::String,
-            Self::Integer(_) => ValueType::Integer,
-            Self::Number(_) => ValueType::Number,
-            Self::Boolean(_) => ValueType::Boolean,
-            Self::List(_) => ValueType::List,
-            Self::Object(_) => ValueType::Object,
+            Self::Null => dependent.of::<()>(),
+            Self::String(_) => dependent.of::<String>(),
+            Self::Integer(_) => dependent.of::<i64>(),
+            Self::Number(_) => dependent.of::<f64>(),
+            Self::Boolean(_) => dependent.of::<bool>(),
+            Self::List(_) => dependent.of::<Vec<Value>>(),
+            Self::Object(_) => dependent.of::<Map<String, Value>>(),
         }
     }
 
     /// Gives the value, as its own Rust type, to what takes it.
     pub(crate) fn given_to<K: Takes>(self, taker: K) -> K::Output {
         match self {
+            Self::Null => taker.take(()),
             Self::String(value) => taker.take(value),
             Self::Integer(value) => taker.take(value),
             Self::Number(value) => taker.take(value),
@@ -151,6 +155,7 @@ mod tests {
     #[case::a_boolean(json!(true), is::<bool>)]
     #[case::a_list(json!([1, "a"]), is::<Vec<Value>>)]
     #[case::an_object(json!({"ms": 1200}), is::<Map<String, Value>>)]
+    #[case::null_as_the_unit(json!(null), is::<()>)]
     fn a_value_is_given_as_the_rust_type_of_the_type_its_json_form_has(
         #[case] value: Value,
         #[case] typed: fn(&AnyValue) -> bool,
@@ -186,11 +191,17 @@ mod tests {
         assert!(for_type(value_type, IsOf { value: &erased }));
     }
 
-    #[test]
-    fn null_has_no_type_of_the_vocabulary() {
-        assert_eq!(
-            Typed::of(&Value::Null),
-            Err(ModelError::Untyped("null".to_owned()))
-        );
+    #[rstest]
+    #[case::string(json!("R-1"))]
+    #[case::integer(json!(42))]
+    #[case::number(json!(4.5))]
+    #[case::boolean(json!(true))]
+    #[case::list(json!([1, "a"]))]
+    #[case::object(json!({"ms": 1200}))]
+    #[case::null(json!(null))]
+    fn a_value_is_read_as_the_rust_type_it_is_held_as(#[case] value: Value) {
+        let typed = Typed::of(&value).unwrap();
+        let erased = typed.clone().erased();
+        assert!(typed.for_its_type(IsOf { value: &erased }));
     }
 }

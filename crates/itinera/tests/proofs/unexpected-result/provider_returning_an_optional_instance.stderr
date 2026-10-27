@@ -1,0 +1,18 @@
+error[E0271]: expected `payments` to return `Result<Provided<dyn PaymentGateway>, Error>`, but it returns `Result<Option<Provided<dyn PaymentGateway>>, Error>`
+  --> tests/proofs/unexpected-result/provider_returning_an_optional_instance.rs:27:59
+   |
+27 |     ServiceProviderDescriptor::new("payments", &PAYMENTS, Orders::payments);
+   |     ------------------------------                        ^^^^^^^^^^^^^^^^ expected `Result<Provided<...>, ...>`, found `Result<Option<Provided<...>>, ...>`
+   |     |
+   |     required by a bound introduced by this call
+   |
+   = note: expected enum `Result<Provided<dyn PaymentGateway>, itinera::error::Error>`
+              found enum `Result<Option<Provided<(dyn PaymentGateway + 'static)>>, itinera::error::Error>`
+note: required by a bound in `ServiceProviderDescriptor::<W, PerJourney>::new`
+  --> $WORKSPACE/crates/itinera-core/src/service/descriptor.rs
+   |
+   |     pub fn new<T: ?Sized + Send + Sync + 'static>(
+   |            --- required by a bound in this associated function
+...
+   |         ) -> Result<Provided<T>, Error>
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ServiceProviderDescriptor::<W, PerJourney>::new`

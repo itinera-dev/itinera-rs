@@ -1,6 +1,6 @@
 # 0061: The workflow instance carries its journey ID and its reporters
 
-Tech spec for [proposal 0061](https://github.com/itinera-dev/spec/blob/main/proposals/0061-instance-carries-journey-id-and-reporters.md), implemented in [#28](https://github.com/itinera-dev/itinera-rs/issues/28). Proposal [0102](0102-global-metadata.md) amends it: reporters receive the journey ID as global metadata, from the executor. The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
+Tech spec for [proposal 0061](https://github.com/itinera-dev/spec/blob/main/proposals/0061-instance-carries-journey-id-and-reporters.md), implemented in [#28](https://github.com/itinera-dev/itinera-rs/issues/28). Proposal [0102](0102-global-metadata.md) amends it: reporters receive the journey ID as global metadata, from the executor. Proposal [0122](0122-unexpected-results.md) amends it through 0009: a journey ID is a string that is not empty, and its tech spec covers how. The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
 Status: done in stage 6. Stage 3 added the instance, its journey ID and its reporters, and the executors that use them; stage 6 lists the proposal, once the conformance runner runs workflows.
 
@@ -8,9 +8,9 @@ Status: done in stage 6. Stage 3 added the instance, its journey ID and its repo
 
 - **`itinera::instance::WorkflowInstance`** is what executors run. It gives the descriptor, the workflow's own value, the `journey_id`, the reporters through `take_reporters`, and the data bag.
 - **`itinera::instance::Instance<W, M>`** is the instance itinera makes, with `WorkflowDescriptor::instance(workflow)`, then `.data(key, value)` for the initial data, then `.create()`.
-- **The journey ID generator** is given with `WorkflowBuilder::id_generator`, a closure from the workflow's own value and the initial data to `Result<String, Error>`. Without one, the ID is a UUID v4, built by the `uuid` crate from random bytes that `getrandom` reads; a random source that fails is an `InstanceError`, never a panic.
+- **The journey ID generator** is given with `WorkflowBuilder::id_generator`, a closure from the workflow's own value and the initial data to `Result<String, Error>`. `create()` makes the `JourneyId` from that string with `JourneyId::try_from`, which refuses an empty one. Without one, the ID is a UUID v4, built by the `uuid` crate from random bytes that `getrandom` reads; a random source that fails is an `InstanceError`, never a panic.
 - **Reporters** are listed by type with `WorkflowBuilder::reporter::<R>()`, where `R: Reporter + Default`, or with `async_reporter::<R>()`, where `R: AsyncReporter + Default`, and every instance makes its own. A reporter made for one instance is added with `InstanceBuilder::reporter(r)` or `async_reporter(r)`. Every reporter receives the journey ID as global metadata, under `journey_id`, through `set_global_metadata`, before any event (see [0102](0102-global-metadata.md)).
-- **`itinera::instance::InstanceError`** is what `create()` returns when the generator fails: `JourneyId(Error)`.
+- **`itinera::instance::InstanceError`** is what `create()` returns when the generator fails, `JourneyId(Error)`, or produces an empty journey ID, `EmptyJourneyId(EmptyJourneyId)`.
 
 ## How the rules are enforced
 

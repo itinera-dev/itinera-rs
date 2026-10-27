@@ -244,8 +244,8 @@ impl<W: Send + Sync + 'static, M: Mode> WorkflowBuilder<W, M> {
     }
 
     /// Gives the workflow its own way to produce journey IDs, from the workflow's own value and
-    /// the initial data. Without one, a journey ID is a UUID v4. An error makes creating the
-    /// instance fail.
+    /// the initial data. Without one, a journey ID is a UUID v4. An error, or an empty journey
+    /// ID, makes creating the instance fail.
     ///
     /// # Examples
     ///

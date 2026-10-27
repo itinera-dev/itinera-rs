@@ -125,7 +125,8 @@ The specification lets an implementation make some rules impossible to express r
 - something that is not a value entering the data bag, event data, a reason's details or global metadata;
 - a contributor or reporter used after its attempt or hook has ended, or an input adapter's access to the data bag used after its call;
 - an input adapter writing to the data bag through its access;
-- a test's script choosing a negative attempt or a fraction of one.
+- a test's script choosing a negative attempt or a fraction of one;
+- custom code returning something its call cannot return, such as a step that returns no outcome, a hook that returns something that is not a lifecycle, or an ID generator that returns something that is not a string.
 
 ## Contributing
 

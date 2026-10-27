@@ -11,7 +11,7 @@ pub(crate) fn event(sequence: u64, body: EventBody) -> Event {
     Event {
         sequence: NonZeroU64::new(sequence).unwrap(),
         timestamp: Timestamp::from(UNIX_EPOCH + Duration::from_millis(1_700_000_000_123)),
-        journey_id: JourneyId::from("order-42"),
+        journey_id: JourneyId::try_from("order-42").unwrap(),
         workflow: WorkflowName::from("orders"),
         body,
     }
