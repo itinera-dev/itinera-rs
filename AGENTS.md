@@ -72,6 +72,7 @@ Each of these is a required CI check, and every one must pass before pushing:
 - `cargo +1.85 check --workspace --exclude itinera-conformance`
 - `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`
 - `cargo deny check`
+- `cargo publish --workspace --dry-run --allow-dirty`
 
 These required CI checks build `itinera` and `itinera-core` once for each combination of their features:
 
@@ -84,7 +85,7 @@ They take several minutes, so before pushing they are run only when a change add
 
 The `commit messages` check is required as well. Before pushing, run it on the commits not pushed yet, as docs/contributing.md "Commit messages and the changelog" says, since a pushed commit that has a layer of a stack above it cannot be reworded without rebasing that layer.
 
-`cargo xtask check` runs the first list, in this order, and stops at the first that fails. `cargo xtask check --feature-combinations` runs the second list after it. The `cargo hack` checks need [cargo-hack](https://github.com/taiki-e/cargo-hack) installed, as `cargo deny check` needs cargo-deny. A test in the `xtask` crate keeps its lists the same as these.
+`cargo xtask check` runs the first list, in this order, and stops at the first that fails. `cargo xtask check --feature-combinations` runs the second list after it. The `cargo hack` checks need [cargo-hack](https://github.com/taiki-e/cargo-hack) installed, as `cargo deny check` needs cargo-deny, and the publish dry run needs to reach the crates.io index. A test in the `xtask` crate keeps its lists the same as these.
 
 ## Running the conformance runner
 

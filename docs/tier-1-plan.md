@@ -357,6 +357,7 @@ Each job runs one command, as the organisation's rules require. All are required
 | documentation | `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings` |
 | documentation in every feature combination | `cargo hack doc -p itinera -p itinera-core --feature-powerset --exclude-features default --no-deps`, with `RUSTDOCFLAGS=-D warnings` |
 | dependencies | `cargo deny check`, with the `cargo-deny` binary that `taiki-e/install-action` installs |
+| package | `cargo publish --workspace --dry-run --allow-dirty`, which packages the published crates and builds each one from its package alone, uploading nothing |
 | conformance, from stage 0 | `itinera-dev/actions/run-conformance@v1`, with `command: cargo run -p itinera-conformance --release`, after checking out and restoring the Rust cache |
 | pull request rules | `pr-has-issue` and `no-cross-repo-closing` |
 | weekly, not blocking | the tests on Rust beta, with `TRYBUILD=overwrite` so that the compile-fail tests accept beta's wording of compile errors |
