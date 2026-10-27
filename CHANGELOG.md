@@ -2,6 +2,20 @@
 
 Every release of the crates `itinera`, `itinera-core` and `itinera-macros`, which share one version. Each release says the version of the [Itinera specification](https://github.com/itinera-dev/spec) it implements, the tier, the capabilities claimed and the [conformance cases](https://github.com/itinera-dev/conformance) it passes; its conformance report is attached to its GitHub release. Before 1.0, a breaking change raises the minor version and a fix the patch version.
 
+## [0.1.0-beta.6]
+
+The sixth beta, which breaks code written for `0.1.0-beta.5`: specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.18`. It implements proposal 0121, on copies that keep received data read-only, which itinera makes by cloning, and proposal 0122, on custom code that returns something its call cannot return, which Rust's types rule out, and on journey IDs, which are strings that are not empty. What a journey does is unchanged; only creating an instance whose ID generator produces an empty string now fails. The minimum supported Rust version is 1.85.
+
+### Added
+
+- `journey::EmptyJourneyId`, the error that making a journey ID from an empty string returns.
+- `instance::InstanceError::EmptyJourneyId`, which `instance::InstanceBuilder::create` returns when the workflow's ID generator produces an empty journey ID.
+- `journey::JourneyId::into_inner`, which gives a journey ID's text back as an `Arc<str>`, and `AsRef<Arc<str>>` on `journey::JourneyId`.
+
+### Changed
+
+- `journey::JourneyId` is a string that is not empty: it is made with `JourneyId::try_from`, from a `&str`, a `String` or an `Arc<str>`, or with `JourneyId::try_new`, from an `Arc<str>`, each refusing an empty string with `journey::EmptyJourneyId`, instead of `JourneyId::from`, which is gone.
+
 ## [0.1.0-beta.5]
 
 The fifth beta, which breaks no code written for `0.1.0-beta.4`: specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.16`. What a journey does is unchanged. It gives the crate a page written for the people who use it, and its version is that of the first release of itinera-ts, which is checked against the same cases, `v0.1.0-rc.16`. The minimum supported Rust version is 1.85.
@@ -85,6 +99,7 @@ The first beta: specification 0.1.0, tier 1, capabilities `sync`, `async` and `t
 - With the `macros` feature, on by default, attributes and derives that declare steps, rescue steps, policies, workflows with their service providers, roles and journey data as syntax over the builder. A workflow declared with `#[workflow]` takes its mode from its steps and refuses steps of both modes, and `#[service]` takes a service only as a trait object, such as `&dyn PaymentGateway`, refusing a concrete type.
 - Compile errors, instead of checks while a journey runs, for the rules the specification lets an implementation make impossible to express: a lifecycle a hook may not return, a role the workflow does not provide, an asynchronous part on the synchronous executor or an asynchronous service provider in a synchronous workflow, a rescue step that skips, a service provider of journey scope requesting the step being built or the attempt, a service provider returning nothing, a non-value entering the data bag, event data, a reason's details or global metadata, handles used after their attempt or call, and an input adapter writing to the data bag.
 
+[0.1.0-beta.6]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.6
 [0.1.0-beta.5]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.5
 [0.1.0-beta.4]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.4
 [0.1.0-beta.3]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.3
