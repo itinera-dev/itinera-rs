@@ -11,7 +11,7 @@ use super::found;
 use crate::model::{ModelError, json};
 use crate::sentences::{Unmet, holds, journey, refused};
 use crate::testing::{Mistake, MistakeName, mistakes, unless_stopped_reading};
-use crate::value::{ForType, Typed, for_type};
+use crate::value::{ForType, Typed};
 use crate::world::World;
 
 #[then(
@@ -67,7 +67,7 @@ fn the_attempt_in_the_record_read(
         .attempt(attempt)
         .ok_or_else(|| unrecorded(attempt, &step_name))?;
     let reading = Input { record, key: &key };
-    let found = for_type(Typed::of(&expected)?.value_type(), reading)?;
+    let found = Typed::of(&expected)?.for_its_type(reading)?;
     holds(
         found.as_ref() == Some(&expected),
         format_args!("attempt {attempt} of step \"{step_name}\" to read \"{key}\" = {expected}"),

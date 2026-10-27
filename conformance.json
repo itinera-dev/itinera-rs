@@ -1,6 +1,6 @@
 {
   "cases": "v0.1.0-rc.18",
-  "proposals": [2, 3, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85, 91, 95, 98, 102, 104, 106, 108, 116, 119, 121],
+  "proposals": [2, 3, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85, 91, 95, 98, 102, 104, 106, 108, 116, 119, 121, 122],
   "capabilities": ["sync", "async", "testing"],
   "impossible": {
     "attempt-negative": [
@@ -128,6 +128,65 @@
         "feature": "cases/tier-1/0060-input-adapters-attached-to-steps/data-bag-access.feature",
         "scenario": "An adapter that writes through its access leaves the data bag unchanged",
         "proof": { "test": "an_adapter_cannot_write_through_its_access_to_the_data_bag", "file": "crates/itinera/tests/proofs.rs" }
+      }
+    ],
+    "unexpected-result": [
+      {
+        "feature": "cases/tier-1/0054-how-custom-code-fails/unexpected-results.feature",
+        "scenario": "A step that returns no outcome aborts the journey and is not retried",
+        "proof": { "test": "a_step_must_return_an_outcome", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0054-how-custom-code-fails/unexpected-results.feature",
+        "scenario": "A rescue step that returns no outcome aborts the journey",
+        "proof": { "test": "a_rescue_step_must_return_an_outcome", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0054-how-custom-code-fails/unexpected-results.feature",
+        "scenario": "A step hook that returns something that is not a lifecycle aborts the journey",
+        "proof": { "test": "a_step_hook_cannot_return_something_that_is_not_a_lifecycle", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0054-how-custom-code-fails/unexpected-results.feature",
+        "scenario": "A step hook that returns a null-like value does not keep the default",
+        "proof": { "test": "a_step_hook_must_say_keep_default", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0054-how-custom-code-fails/unexpected-results.feature",
+        "scenario": "An input adapter that returns no result aborts the journey",
+        "proof": { "test": "an_input_adapter_must_return_what_it_supplies", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0054-how-custom-code-fails/unexpected-results.feature",
+        "scenario": "A service provider that returns a null-like value aborts the journey",
+        "proof": { "test": "a_provider_cannot_return_an_optional_instance", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0054-how-custom-code-fails/unexpected-results.feature",
+        "scenario": "A step whose construction returns no step aborts the journey",
+        "proof": { "test": "a_step_factory_must_build_a_step", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0054-how-custom-code-fails/unexpected-results.feature",
+        "scenario": "A step policy whose construction returns no policy aborts the journey",
+        "proof": { "test": "a_step_policy_must_build_a_policy", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0054-how-custom-code-fails/unexpected-results.feature",
+        "scenario": "A workflow policy whose construction returns no policy refuses run",
+        "proof": { "test": "a_workflow_policy_must_build_a_policy", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0054-how-custom-code-fails/unexpected-results.feature",
+        "scenario": "An asynchronous step that resolves to no outcome aborts the journey",
+        "proof": { "test": "an_asynchronous_step_must_resolve_to_an_outcome", "file": "crates/itinera/tests/proofs.rs" }
+      }
+    ],
+    "non-string-journey-id": [
+      {
+        "feature": "cases/tier-1/0061-instance-carries-journey-id-and-reporters/journey-id-values.feature",
+        "scenario": "An ID generator that returns something that is not a string fails the instance",
+        "proof": { "test": "an_id_generator_must_return_a_string", "file": "crates/itinera/tests/proofs.rs" }
       }
     ]
   }

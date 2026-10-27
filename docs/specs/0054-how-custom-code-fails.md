@@ -1,6 +1,6 @@
 # 0054: How custom code fails
 
-Tech spec for [proposal 0054](https://github.com/itinera-dev/spec/blob/main/proposals/0054-how-custom-code-fails.md), implemented in [#22](https://github.com/itinera-dev/itinera-rs/issues/22). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposal [0102](0102-global-metadata.md) amends it, and its tech spec covers the abort `reserved metadata key` and a reporter that fails on global metadata.
+Tech spec for [proposal 0054](https://github.com/itinera-dev/spec/blob/main/proposals/0054-how-custom-code-fails.md), implemented in [#22](https://github.com/itinera-dev/itinera-rs/issues/22). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposal [0102](0102-global-metadata.md) amends it, and its tech spec covers the abort `reserved metadata key` and a reporter that fails on global metadata. Proposal [0122](0122-unexpected-results.md) amends it too, and its tech spec gives the shape of every call into custom code, and why none can return an unexpected result.
 
 Status: done in stage 7. Stage 1 added the error type, and stages 3 to 7 the executors, steps, hooks and roles that return it. The proofs of the rules made impossible to express landed with their features: those of values and late handles in stage 5, of modes in stage 6, and of lifecycles and roles in stage 7.
 

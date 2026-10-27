@@ -1,5 +1,7 @@
 //! What cucumber keeps for one scenario while its sentences run.
 
+use itinera::instance::InstanceError;
+
 use crate::declaration::Admission;
 use crate::executor::Executor;
 use crate::fixture::Fixture;
@@ -26,6 +28,8 @@ pub(crate) struct World {
     pub(crate) witness: Witness,
     /// What building the scenario's workflow gave, once it was admitted or listed.
     pub(crate) admission: Option<Admission>,
+    /// Why creating the scenario's workflow instance failed, if it did.
+    pub(crate) instance_failed: Option<InstanceError>,
     /// The journeys the scenario ran, in order.
     pub(crate) journeys: Vec<Journey>,
     /// What the scenario's use of test support gave.

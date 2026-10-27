@@ -34,7 +34,8 @@ pub(super) enum Reporters {
 }
 
 /// Declares and builds the workflow, then creates a new instance of it, unless the workflow is
-/// refused, or test support stops the test while the instance is made.
+/// refused, creating the instance fails, or test support stops the test while the instance is
+/// made.
 pub(super) async fn created<M: Declares>(
     world: &mut World,
     reporters: Reporters,
@@ -84,14 +85,20 @@ pub(super) async fn created<M: Declares>(
             .initial_global_metadata
             .iter()
             .try_fold(instance, with_global_metadata)?;
-        Ok::<_, Unrunnable>(instance.create()?)
+        Ok::<_, Unrunnable>(instance.create())
     })
     .await;
     match made {
-        Ok(instance) => Ok(Some(Created {
-            instance: instance?,
-            reporters: names.iter().cloned().zip(recorders).collect(),
-        })),
+        Ok(made) => match made? {
+            Ok(instance) => Ok(Some(Created {
+                instance,
+                reporters: names.iter().cloned().zip(recorders).collect(),
+            })),
+            Err(failed) => {
+                world.instance_failed = Some(failed);
+                Ok(None)
+            }
+        },
         Err(stopped) => {
             world.tested.stopped = Some(stopped);
             Ok(None)

@@ -1,7 +1,8 @@
 //! Journey IDs.
 
-use cucumber::given;
+use cucumber::{given, then};
 
+use super::{Unmet, holds};
 use crate::model::{IdGenerator, ModelError};
 use crate::world::World;
 
@@ -18,4 +19,13 @@ fn the_id_generator_returns(world: &mut World, id: String) -> Result<(), ModelEr
 fn generates(world: &mut World, generator: IdGenerator) -> Result<(), ModelError> {
     world.model.workflow_mut()?.id_generator = generator;
     Ok(())
+}
+
+#[then(expr = "creating the workflow instance failed")]
+fn creating_the_workflow_instance_failed(world: &mut World) -> Result<(), Unmet> {
+    holds(
+        world.instance_failed.is_some(),
+        "creating the workflow instance to fail",
+        "an instance created",
+    )
 }
