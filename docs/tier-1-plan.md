@@ -357,6 +357,7 @@ Each job runs one command, as the organisation's rules require. All are required
 | documentation | `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings` |
 | documentation in every feature combination | `cargo hack doc -p itinera -p itinera-core --feature-powerset --exclude-features default --no-deps`, with `RUSTDOCFLAGS=-D warnings` |
 | dependencies | `cargo deny check`, with the `cargo-deny` binary that `taiki-e/install-action` installs |
+| package | `cargo publish --workspace --dry-run --allow-dirty`, which packages the published crates and builds each one from its package alone, uploading nothing |
 | conformance, from stage 0 | `itinera-dev/actions/run-conformance@v1`, with `command: cargo run -p itinera-conformance --release`, after checking out and restoring the Rust cache |
 | pull request rules | `pr-has-issue` and `no-cross-repo-closing` |
 | weekly, not blocking | the tests on Rust beta, with `TRYBUILD=overwrite` so that the compile-fail tests accept beta's wording of compile errors |
@@ -457,7 +458,7 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
   | `unstable` | off | API of proposals not listed in `conformance.json` yet, or not accepted by the specification; empty for now |
 
   The engine is asynchronous internally whatever the features; without `async`, nothing asynchronous is public.
-- **Documentation**: rustdoc on every public item, published by docs.rs; a crate-level overview in `itinera` with a first complete workflow, linking once to the specification repository and to the Rust book and the Itinera site for learners; runnable examples in `crates/itinera/examples/` (a synchronous workflow, the same on the asynchronous executor, and one built without macros); a README with a "Learning it" section linking the same book and site, and stating the crates, the tier and capabilities claimed, the rules made impossible, and how to run the conformance runner; `homepage` in the crates' metadata names the site.
+- **Documentation**: rustdoc on every public item, published by docs.rs; a crate-level overview in `itinera`, which is the repository's README, written for the people who use the crate, so that GitHub, crates.io and docs.rs show one text: a quick start with a first complete workflow, compiled and run as a doctest, the parts of a workflow, links to the specification repository, the Rust book, the API reference and the Itinera site, the status, the features and the rules made impossible; runnable examples in `crates/itinera/examples/` (a synchronous workflow, the same on the asynchronous executor, and one built without macros); the contributor guide says how to run the conformance runner; `homepage` in the crates' metadata names the site.
 
 ## Release
 

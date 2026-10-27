@@ -39,6 +39,7 @@ The toolchain is pinned in `rust-toolchain.toml`, and the minimum supported Rust
 - `cargo +1.85 check --workspace --exclude itinera-conformance`
 - `cargo doc --workspace --no-deps`, with `RUSTDOCFLAGS=-D warnings`
 - `cargo deny check`
+- `cargo publish --workspace --dry-run --allow-dirty`, which packages the published crates and builds each one from its package alone, uploading nothing
 
 These are also required, and build `itinera` and `itinera-core` once for each combination of their features:
 
@@ -49,15 +50,21 @@ These are also required, and build `itinera` and `itinera-core` once for each co
 
 They take several minutes, so before pushing they are run only when a change adds, moves or removes a feature gate, changes code under one, names an item under one, in code or in a documentation link, or changes a crate's features or dependencies. CI runs them on every pull request.
 
-`cargo xtask check` runs the first list, in this order, and stops at the first that fails. `cargo xtask check --feature-combinations` runs the second list after it. The `cargo hack` checks need [cargo-hack](https://github.com/taiki-e/cargo-hack), and `cargo deny check` needs cargo-deny.
+`cargo xtask check` runs the first list, in this order, and stops at the first that fails. `cargo xtask check --feature-combinations` runs the second list after it. The `cargo hack` checks need [cargo-hack](https://github.com/taiki-e/cargo-hack), and `cargo deny check` needs cargo-deny. The publish dry run needs to reach the crates.io index.
 
 The conformance runner turns on `async`, `macros` and `testing` for every crate built with it, so the `cargo hack` checks build only `itinera` and `itinera-core`. The tests leave out `unstable`, which the tests with every feature on cover, and `itinera`'s tests always use `testing`, as an application's tests do.
 
-## Conformance in CI
+## Conformance
 
 `conformance.json` pins the conformance cases, lists the proposals implemented and the capabilities claimed, and maps each scenario excluded as impossible to express to the test that proves it. A proposal is listed only by the pull request that completes it.
 
 In CI, the `run-conformance` action of [itinera-dev/actions](https://github.com/itinera-dev/actions) reads `conformance.json`, checks the excluded scenarios, runs the scenarios whose proposals are all listed, and writes the report. While no proposal is listed, it checks the manifest without starting the runner.
+
+To run the cases yourself, check out [itinera-dev/conformance](https://github.com/itinera-dev/conformance) at the tag pinned in `conformance.json`, then run `cargo run -p itinera-conformance --release` from this repository with:
+
+- `ITINERA_CONFORMANCE_CASES` set to that checkout's `cases` directory;
+- `ITINERA_CONFORMANCE_TAGS` set to a Cucumber tag expression selecting the scenarios to run;
+- `ITINERA_CONFORMANCE_REPORT` set to the file the Cucumber JSON report is written to.
 
 ## Commit messages and the changelog
 

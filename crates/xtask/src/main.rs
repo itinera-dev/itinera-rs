@@ -16,7 +16,7 @@ const WORKSPACE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../..");
 
 /// The checks CI requires that build the workspace once, in the order `cargo xtask check` runs
 /// them.
-static CHECKS: [Check; 6] = [
+static CHECKS: [Check; 7] = [
     Check::cargo(&["fmt", "--all", "--check"]),
     Check::cargo(&[
         "clippy",
@@ -40,6 +40,7 @@ static CHECKS: [Check; 6] = [
         arguments: &["doc", "--workspace", "--no-deps"],
     },
     Check::cargo(&["deny", "check"]),
+    Check::cargo(&["publish", "--workspace", "--dry-run", "--allow-dirty"]),
 ];
 
 /// The checks CI requires that build `itinera` and `itinera-core` once for each combination of

@@ -1,29 +1,117 @@
-# itinera-rs
+# itinera
 
-The Rust implementation of [Itinera](https://github.com/itinera-dev/spec), a workflow framework that keeps business rules separate from flow control.
+Itinera is a workflow framework that keeps business rules separate from flow control. Each business rule lives in a step, and flow control, such as ending a journey early when a step fails, lives in policies. A workflow puts them together, with how many times each step may be retried, and an executor runs a workflow instance of it, one journey per instance.
 
-## Learning it
+`itinera` is the Rust implementation of the [Itinera specification](https://github.com/itinera-dev/spec), whose vocabulary it uses.
 
-[The Itinera book for Rust](https://itinera-dev.org/book/rust/) teaches Itinera from a first workflow onwards, and every example in it compiles and runs. [The Itinera site](https://itinera-dev.org/) explains why Itinera exists. The crate's documentation on [docs.rs](https://docs.rs/itinera) is the reference for each item.
+## Quick start
+
+Add the crate:
+
+```sh
+cargo add itinera
+```
+
+Then a first workflow: one step, which charges an order's price, with a step policy that audits each charge. The order is given as the journey's initial data, and the receipt is read from its output.
+
+```rust
+use itinera::error::Result;
+use itinera::executor::LocalExecutor;
+use itinera::journey::{Contributor, InitialData, Output};
+use itinera::policy::{OnSuccess, step_policy};
+use itinera::step::{Outcome, Step, step};
+use itinera::workflow::workflow;
+
+#[derive(Step)]
+struct Charge {
+    #[input]
+    price: i64,
+}
+
+#[step]
+impl Charge {
+    fn run(self, contributor: &mut Contributor) -> Result<Outcome> {
+        if self.price <= 0 {
+            return Self::fail("nothing-to-charge");
+        }
+        contributor.contribute("charged", self.price);
+        Self::succeed()
+    }
+}
+
+#[derive(Default)]
+struct Audit;
+
+#[step_policy(name = "audit")]
+impl Audit {
+    #[on_step_success]
+    fn audited(
+        &self,
+        #[from_step] charged: i64,
+        contributor: &mut Contributor,
+    ) -> Result<OnSuccess> {
+        contributor.contribute("audit", format!("charged {charged}"));
+        Self::keep_default()
+    }
+}
+
+#[workflow(name = "orders")]
+#[with_step(Charge, name = "charge", retry_budget = 2, policies = [Audit])]
+struct Orders;
+
+#[derive(InitialData)]
+struct NewOrder {
+    price: i64,
+}
+
+#[derive(Output)]
+struct Receipt {
+    charged: i64,
+    audit: String,
+}
+
+fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    let instance = Orders::builder()
+        .initial_data(NewOrder { price: 40 })
+        .create()?;
+    let receipt: Receipt = LocalExecutor::new().run(instance)?.output()?;
+    println!("{} ({})", receipt.charged, receipt.audit);
+    Ok(())
+}
+```
+
+It prints `40 (charged 40)`. The crate's [examples](https://github.com/itinera-dev/itinera-rs/tree/main/crates/itinera/examples) go further: `orders` adds a second step, a payment service and its provider, a workflow policy using a role, an input adapter, an ID generator and a reporter; `orders_async`, which needs the `async` feature, runs the same workflow on the asynchronous executor; and `orders_by_hand` declares it with the builder alone, without macros.
+
+## The parts of a workflow
+
+- A **step** holds one business rule. It declares the data it needs, which the workflow supplies, runs once per attempt, and reports an outcome: success, failure or skipped. Only an attempt that succeeds commits what the step contributed. A step may have a **rescue step**, which runs when the step fails or terminates abnormally and, once it succeeds, lets the step run again. See [`step`](https://docs.rs/itinera/latest/itinera/step/).
+- A **workflow** lists its steps in the order they run, with their retry budgets and step policies, its workflow policies, its input adapters, its service providers, the roles it provides, its ID generator and its reporters. It is declared once, before any journey, and a declaration that breaks a rule of the specification is refused. See [`workflow`](https://docs.rs/itinera/latest/itinera/workflow/).
+- A **step policy** holds flow control for the steps it is attached to. Its hooks, `on step success`, `on step failure`, `on step retry` and `on step abnormal termination`, are called in response to a step's outcome, and may end the journey early. See [`policy`](https://docs.rs/itinera/latest/itinera/policy/).
+- A **workflow policy** holds flow control for the whole journey. Its hooks, `on workflow success` and `on workflow failure`, are called when the journey ends. Any hook may use a role, an interface of operations the workflow provides, such as sending a notification. See [`policy`](https://docs.rs/itinera/latest/itinera/policy/).
+- Everything that happens in a journey is an **event**, which the journey's reporters receive, together with the journey's **global metadata**: entries of a key and a value, apart from the data bag, starting with the journey ID. See [`event`](https://docs.rs/itinera/latest/itinera/event/) and [`report`](https://docs.rs/itinera/latest/itinera/report/).
+- A **service** is an object of operations a step uses to do its business, such as a payment gateway. The step requests it by key, and a service provider of the workflow makes it, for the journey or for each attempt. See [`service`](https://docs.rs/itinera/latest/itinera/service/).
+- A **workflow instance** is created for each journey, with its initial data, its reporters and any initial global metadata, and an **executor** runs it to a **result**: the journey succeeded, failed or was aborted. See [`instance`](https://docs.rs/itinera/latest/itinera/instance/), [`executor`](https://docs.rs/itinera/latest/itinera/executor/) and [`journey`](https://docs.rs/itinera/latest/itinera/journey/).
+
+## Learning more
+
+- [The Itinera book for Rust](https://itinera-dev.org/book/rust/) teaches Itinera from a first workflow onwards, and every example in it compiles and runs.
+- [The API reference](https://docs.rs/itinera/latest/itinera/), on docs.rs, documents each module and item, with an example.
+- [The Itinera site](https://itinera-dev.org/) explains why Itinera exists.
 
 ## Status
 
-`0.1.0-beta.4` implements tier 1 of specification 0.1.0, with the capabilities `sync`, `async` and `testing`, and passes the conformance cases `v0.1.0-rc.16`. It is a beta, not yet meant for production: until `0.1.0`, features may be added and its API may still change. [CHANGELOG.md](https://github.com/itinera-dev/itinera-rs/blob/main/CHANGELOG.md) says what each release implements.
+`0.1.0-beta.4` implements tier 1 of specification 0.1.0, with the capabilities `sync`, `async` and `testing`, and passes the conformance cases `v0.1.0-rc.16`. It is a beta, not yet meant for production: until `0.1.0`, features may be added and its API may still change. The [changelog](https://github.com/itinera-dev/itinera-rs/blob/main/CHANGELOG.md) says what each release implements, and each [GitHub release](https://github.com/itinera-dev/itinera-rs/releases) carries the report of the conformance cases it passes. The minimum supported Rust version is 1.85.
 
-## Using it
-
-Applications depend on one crate, `itinera`. Its features are:
+## Features
 
 | Feature | Default | Adds |
 |---|---|---|
-| `macros` | on | The macros for declaring steps, rescue steps, policies, workflows and roles, which are syntax over the builder |
-| `async` | off | The asynchronous executor, and asynchronous steps, rescue steps, hooks, service providers, reporters and dispatchers, with the `async_trait` attribute for services and roles whose methods are asynchronous |
-| `testing` | off | Test support: `RecordingReporter`, which keeps every event of a journey, and the latest value of each entry of its global metadata, for a test to read, fake service providers, scripted runs, and recorders that lend a step, a hook or an input adapter its handles outside a journey; enable it under `[dev-dependencies]` |
+| `macros` | on | The attributes and derives that declare steps, rescue steps, policies, workflows, roles and journey data. They expand to builder calls and implementations of public traits, which an application can write by hand |
+| `async` | off | The asynchronous executor, and asynchronous steps, rescue steps, hooks, service providers, reporters and dispatchers, with `mode::async_trait` for services and roles whose methods are asynchronous |
+| `testing` | off | Test support: `report::RecordingReporter`, which keeps every event of a journey, and the latest value of each entry of its global metadata, for a test to read; fakes in place of service providers; scripted runs; and recorders that lend a step, a hook or an input adapter its handles outside a journey. Enable it under `[dev-dependencies]` |
 | `unstable` | off | API the specification has not settled yet, which may change or go; empty for now |
 
-`itinera` brings in `itinera-core`, which holds the implementation, and, with `macros` or `async`, `itinera-macros`. Neither needs to be added directly. The minimum supported Rust version is 1.85.
-
-The crate's documentation opens with a first complete workflow. [crates/itinera/examples](https://github.com/itinera-dev/itinera-rs/tree/main/crates/itinera/examples) holds three runnable ones: `orders`, a synchronous workflow declared with the macros; `orders_async`, the same on the asynchronous executor, which needs the `async` feature; and `orders_by_hand`, the same declared with the builder alone. Each charges through a payment service. Run one with `cargo run -p itinera --example orders`.
+`itinera` brings in `itinera-core`, which holds the implementation, and, with `macros` or `async`, `itinera-macros`. Neither needs to be added directly.
 
 ## Rules made impossible to express
 
@@ -39,27 +127,11 @@ The specification lets an implementation make some rules impossible to express r
 - an input adapter writing to the data bag through its access;
 - a test's script choosing a negative attempt or a fraction of one.
 
-## How it works
-
-[docs/architecture.md](https://github.com/itinera-dev/itinera-rs/blob/main/docs/architecture.md) draws how itinera-rs is put together and how it runs a journey: the crates and the macros, the executor loop, how each step is built and run, how its inputs and services reach it, what follows each outcome, and where policies, hooks, events and reporters come in.
-
-## Conformance
-
-Each release states the specification version, tier, capabilities and conformance cases it implements, and carries the report of those cases as a release asset.
-
-To run the cases yourself, check out [itinera-dev/conformance](https://github.com/itinera-dev/conformance) at the tag pinned in [conformance.json](https://github.com/itinera-dev/itinera-rs/blob/main/conformance.json), then run `cargo run -p itinera-conformance --release` from this repository with:
-
-- `ITINERA_CONFORMANCE_CASES` set to that checkout's `cases` directory;
-- `ITINERA_CONFORMANCE_TAGS` set to a Cucumber tag expression selecting the scenarios to run;
-- `ITINERA_CONFORMANCE_REPORT` set to the file the Cucumber JSON report is written to.
-
 ## Contributing
 
-See the [contributor guide](https://github.com/itinera-dev/itinera-rs/blob/main/docs/contributing.md) for how work arrives here, how to build and test, and the plan being implemented, and the [organisation's contributing guide](https://github.com/itinera-dev/.github/blob/main/CONTRIBUTING.md) for the rules every itinera-dev repository follows.
+The [contributor guide](https://github.com/itinera-dev/itinera-rs/blob/main/docs/contributing.md) says how work arrives here, how itinera-rs is put together, how to build and test it and how to run the conformance cases. Itinera is built with AI under the terms of [A manifesto for software engineering with AI](https://marlon-sousa.com/blog/manifesto/); see [how Itinera is built](https://github.com/itinera-dev/.github/blob/main/CONTRIBUTING.md#how-itinera-is-built).
 
-Built with AI under the terms of [A manifesto for software engineering with AI](https://marlon-sousa.com/blog/manifesto/); see [how Itinera is built](https://github.com/itinera-dev/.github/blob/main/CONTRIBUTING.md#how-itinera-is-built).
-
-## License
+## Licence
 
 Licensed under either of
 
