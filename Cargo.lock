@@ -623,7 +623,7 @@ dependencies = [
 
 [[package]]
 name = "itinera"
-version = "0.1.0-beta.4"
+version = "0.1.0-beta.5"
 dependencies = [
  "derive_more",
  "futures",
@@ -636,7 +636,7 @@ dependencies = [
 
 [[package]]
 name = "itinera-conformance"
-version = "0.1.0-beta.4"
+version = "0.1.0-beta.5"
 dependencies = [
  "cucumber",
  "derive_more",
@@ -651,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "itinera-core"
-version = "0.1.0-beta.4"
+version = "0.1.0-beta.5"
 dependencies = [
  "async-trait",
  "derive_more",
@@ -669,7 +669,7 @@ dependencies = [
 
 [[package]]
 name = "itinera-macros"
-version = "0.1.0-beta.4"
+version = "0.1.0-beta.5"
 dependencies = [
  "derive_more",
  "futures",
@@ -1446,7 +1446,7 @@ checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
 
 [[package]]
 name = "xtask"
-version = "0.1.0-beta.4"
+version = "0.1.0-beta.5"
 dependencies = [
  "rstest",
  "thiserror",
