@@ -2,6 +2,8 @@
 
 use std::sync::Arc;
 
+use nutype::nutype;
+
 /// The identifier of one journey, unique to it: a string that is not empty. It is made when the
 /// journey's instance is created, and cheap to clone.
 ///
@@ -18,21 +20,17 @@ use std::sync::Arc;
 /// assert!(JourneyId::try_from("").is_err());
 /// # Ok::<(), itinera::journey::EmptyJourneyId>(())
 /// ```
-#[derive(
-    Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, derive_more::Display, derive_more::AsRef,
+#[nutype(
+    validate(with = not_empty, error = EmptyJourneyId),
+    derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Display, AsRef, TryFrom)
 )]
-#[as_ref(forward)]
-pub struct JourneyId {
-    text: Arc<str>,
-}
+pub struct JourneyId(Arc<str>);
 
-impl JourneyId {
-    fn of(text: Arc<str>) -> Result<Self, EmptyJourneyId> {
-        if text.is_empty() {
-            Err(EmptyJourneyId)
-        } else {
-            Ok(Self { text })
-        }
+fn not_empty(text: &Arc<str>) -> Result<(), EmptyJourneyId> {
+    if text.is_empty() {
+        Err(EmptyJourneyId)
+    } else {
+        Ok(())
     }
 }
 
@@ -40,7 +38,7 @@ impl TryFrom<&str> for JourneyId {
     type Error = EmptyJourneyId;
 
     fn try_from(text: &str) -> Result<Self, EmptyJourneyId> {
-        Self::of(text.into())
+        Self::try_new(text.into())
     }
 }
 
@@ -48,7 +46,7 @@ impl TryFrom<String> for JourneyId {
     type Error = EmptyJourneyId;
 
     fn try_from(text: String) -> Result<Self, EmptyJourneyId> {
-        Self::of(text.into())
+        Self::try_new(text.into())
     }
 }
 

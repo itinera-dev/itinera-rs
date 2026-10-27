@@ -155,7 +155,7 @@ mod tests {
              descriptor: WorkflowDescriptor { declaration: Declaration { \
              name: WorkflowName(\"orders\"), steps: [], policies: [], adapters: [], \
              providers: [], reporters: 1, id_generator: true }, fakes: {} }, \
-             journey_id: JourneyId { text: \"order-7\" }, reporters: 1, \
+             journey_id: JourneyId(\"order-7\"), reporters: 1, \
              data: DataBag { values: {\"amount\": AnyValue(\"i64\")} }, \
              global_metadata: GlobalMetadata { entries: [] }, .. }"
         );

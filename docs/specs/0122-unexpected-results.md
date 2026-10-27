@@ -6,7 +6,7 @@ Status: done.
 
 ## API
 
-- **`itinera::journey::JourneyId`** is a string that is not empty. It is made with `JourneyId::try_from`, from a `&str` or a `String`, which refuses an empty string with `itinera::journey::EmptyJourneyId`; it no longer converts from any string with `From`. So no empty journey ID can exist.
+- **`itinera::journey::JourneyId`** is a string that is not empty. It is made with `JourneyId::try_from`, from a `&str` or a `String`, or with `JourneyId::try_new`, from an `Arc<str>`, each of which refuses an empty string with `itinera::journey::EmptyJourneyId`; it no longer converts from any string with `From`. So no empty journey ID can exist. The type is declared with the `nutype` crate, which runs the check in `try_new` and derives the rest, around an `Arc<str>`, so that a clone shares its text. `nutype` stays at 0.6, the last release that builds on Rust 1.85.
 - **`itinera::instance::InstanceError::EmptyJourneyId`** is what `create()` returns when the workflow's ID generator produces an empty string. The generator still returns `Result<String, Error>`. There is no journey and no event.
 - **No other public item changes.** Every call into custom code already has the shape the proposal asks for, and none can return an unexpected result, so `AbortReason` gains no `unexpected result`: no journey could ever be aborted with it, and chapter 3, 3.8 point 1 says the rules about it do not apply to a language that rules it out.
 

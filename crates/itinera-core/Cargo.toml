@@ -24,6 +24,7 @@ erased-serde.workspace = true
 derive_more = { workspace = true, features = ["into_iterator"] }
 getrandom.workspace = true
 itinera-macros = { workspace = true, optional = true }
+nutype.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 

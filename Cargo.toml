@@ -24,6 +24,7 @@ cucumber = { version = "0.23", default-features = false, features = ["macros", "
 futures = { version = "0.3", default-features = false, features = ["std"] }
 tokio = { version = "1", default-features = false, features = ["rt"] }
 thiserror = { version = "2", default-features = false, features = ["std"] }
+nutype = { version = "0.6", default-features = false, features = ["std"] }
 getrandom = { version = "0.4", default-features = false, features = ["std"] }
 uuid = { version = "1", default-features = false }
 rstest = { version = "0.27", default-features = false }
