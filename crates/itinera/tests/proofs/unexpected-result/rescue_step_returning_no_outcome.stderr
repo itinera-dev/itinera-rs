@@ -1,0 +1,17 @@
+error[E0271]: expected `{closure@rescue_step_returning_no_outcome.rs:9:17}` to return `Result<RescueOutcome, Error>`, but it returns `Result<(), _>`
+ --> tests/proofs/unexpected-result/rescue_step_returning_no_outcome.rs:9:20
+  |
+9 |         .rescue(|| Ok(()));
+  |          ------ -- ^^^^^^ expected `Result<RescueOutcome, Error>`, found `Result<(), _>`
+  |          |      |
+  |          |      this closure
+  |          required by a bound introduced by this call
+  |
+  = note: expected enum `Result<RescueOutcome, itinera::error::Error>`
+             found enum `Result<(), _>`
+  = note: required for `{closure@$DIR/tests/proofs/unexpected-result/rescue_step_returning_no_outcome.rs:9:17: 9:19}` to implement `RescueFactory`
+note: required by a bound in `StepDescriptor::<W>::rescue`
+ --> $WORKSPACE/crates/itinera-core/src/step/descriptor.rs
+  |
+  |     pub fn rescue(self, factory: impl RescueFactory) -> Self {
+  |                                       ^^^^^^^^^^^^^ required by this bound in `StepDescriptor::<W>::rescue`

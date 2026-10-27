@@ -1,0 +1,21 @@
+error[E0308]: mismatched types
+ --> tests/proofs/non-string-journey-id/id_generator_returning_a_number.rs:7:42
+  |
+7 |         .id_generator(|_: &Orders, _| Ok(7_i64))
+  |                                       -- ^^^^^ expected `String`, found `i64`
+  |                                       |
+  |                                       arguments to this enum variant are incorrect
+  |
+help: the type constructed contains `i64` due to the type of the argument passed
+ --> tests/proofs/non-string-journey-id/id_generator_returning_a_number.rs:7:39
+  |
+7 |         .id_generator(|_: &Orders, _| Ok(7_i64))
+  |                                       ^^^-----^
+  |                                          |
+  |                                          this argument influences the type of `Ok`
+note: tuple variant defined here
+ --> $RUST/core/src/result.rs
+help: try using a conversion method
+  |
+7 |         .id_generator(|_: &Orders, _| Ok(7_i64.to_string()))
+  |                                               ++++++++++++

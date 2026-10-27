@@ -1,0 +1,19 @@
+error[E0308]: mismatched types
+ --> tests/proofs/unexpected-result/input_adapter_returning_no_result.rs:8:12
+  |
+8 |         Ok(None::<Supplied>)
+  |         -- ^^^^^^^^^^^^^^^^ expected `Supplied`, found `Option<Supplied>`
+  |         |
+  |         arguments to this enum variant are incorrect
+  |
+  = note: expected enum `Supplied`
+             found enum `Option<Supplied>`
+help: the type constructed contains `Option<Supplied>` due to the type of the argument passed
+ --> tests/proofs/unexpected-result/input_adapter_returning_no_result.rs:8:9
+  |
+8 |         Ok(None::<Supplied>)
+  |         ^^^----------------^
+  |            |
+  |            this argument influences the type of `Ok`
+note: tuple variant defined here
+ --> $RUST/core/src/result.rs

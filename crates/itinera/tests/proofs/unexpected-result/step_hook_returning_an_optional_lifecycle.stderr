@@ -1,0 +1,13 @@
+error[E0053]: method `on_step_failure` has an incompatible type for trait
+  --> tests/proofs/unexpected-result/step_hook_returning_an_optional_lifecycle.rs:15:10
+   |
+15 |     ) -> Result<Option<OnFailure>, Error> {
+   |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `OnFailure`, found `Option<OnFailure>`
+   |
+   = note: expected signature `fn(&Settle, Requested<'_, Orders, StepFailure>) -> Result<OnFailure, itinera::error::Error>`
+              found signature `fn(&Settle, Requested<'_, Orders, StepFailure>) -> Result<Option<OnFailure>, itinera::error::Error>`
+help: change the output type to match the trait
+   |
+15 -     ) -> Result<Option<OnFailure>, Error> {
+15 +     ) -> Result<OnFailure, itinera::error::Error> {
+   |
