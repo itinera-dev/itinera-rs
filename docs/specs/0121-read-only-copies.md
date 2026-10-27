@@ -45,4 +45,4 @@ The rows that cannot occur need no test of their own: a `Clone` that returns an 
 
 ## Done when
 
-The proposal adds no scenario. 121 is listed in `conformance.json`, with the cases pinned at `v0.1.0-rc.17`.
+The proposal adds no scenario. 121 is listed in `conformance.json`, with the cases pinned at `v0.1.0-rc.18`.
