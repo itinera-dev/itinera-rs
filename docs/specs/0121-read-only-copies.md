@@ -29,11 +29,11 @@ A clone that panics is an unrecoverable failure, outside the model (chapter 5, 5
 | Where | What happens to the value |
 |---|---|
 | A step's or a rescue step's input, and data from the step or from the workflow that a hook, an input adapter or a service provider requests | cloned by the engine when it resolves the request, for each request, and moved to the receiver, by `Resolved::input` for a step |
-| `Requested::reason` and `optional_reason`, for a failure hook or a rescue step | the reason, its details included, cloned for each hook |
+| `Requested::reason` and `optional_reason`, for a failure hook | the reason, its details included, cloned for each hook |
 | `DataBag::read`, through an input adapter's access to the data bag | cloned for each read, into `Read::Present` |
 | `DataBag::get`, through an input adapter's access to the data bag | not copied: a shared reference, read-only |
 | `Contributor::contribute`, event data, a reason's details, global metadata, initial data and initial global metadata, an adapter's `Supplied::value` and a provider's `Provided::with_data` | taken by ownership and erased with `AnyValue::new`, without a copy |
-| Later, inside the engine | cloned with `Clone` only: when a contribution is committed to the data bag, when a rescue step gets the failed attempt's contributions, and when a reason is carried to a hook, a failure or the result; none of these can fail |
+| Later, inside the engine | cloned with `Clone` only: when a contribution is committed to the data bag, when a rescue step gets the failed attempt's contributions, and when a reason is carried to a hook, a failure or the result; none of these can fail. A rescue step's reason is moved to it, not copied |
 
 Test support clones too, with `Clone` alone: the recording reporter keeps a clone of each event, and a scripted run a clone of what each attempt contributed.
 
