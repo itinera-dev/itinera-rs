@@ -1,6 +1,6 @@
 # 0091: Input adapters may read the data bag
 
-Tech spec for [proposal 0091](https://github.com/itinera-dev/spec/blob/main/proposals/0091-adapters-read-the-data-bag.md), implemented in [#85](https://github.com/itinera-dev/itinera-rs/issues/85). It amends [0060](0060-input-adapters-attached-to-steps.md), [0010](0010-hooks-lifecycles-and-roles.md) and [0054](0054-how-custom-code-fails.md). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
+Tech spec for [proposal 0091](https://github.com/itinera-dev/spec/blob/main/proposals/0091-adapters-read-the-data-bag.md), implemented in [#85](https://github.com/itinera-dev/itinera-rs/issues/85). It amends [0060](0060-input-adapters-attached-to-steps.md), [0010](0010-hooks-lifecycles-and-roles.md) and [0054](0054-how-custom-code-fails.md), and proposal [0121](0121-read-only-copies.md) amends it: a read through the access clones the value, a copy that cannot fail. The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
 Status: done.
 
