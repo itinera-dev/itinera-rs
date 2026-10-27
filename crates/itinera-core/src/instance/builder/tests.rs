@@ -3,7 +3,7 @@ use crate::error::Error;
 use crate::event::Event;
 use crate::instance::WorkflowInstance;
 use crate::instance::fixtures::{Audit, Made, Orders, entries, log, orders};
-use crate::journey::InitialData;
+use crate::journey::{EmptyJourneyId, InitialData};
 use crate::workflow::WorkflowBuilder;
 
 struct Announced;
@@ -77,6 +77,24 @@ fn a_generator_that_fails_makes_creating_the_instance_fail() {
     assert_eq!(
         error.to_string(),
         "the journey ID could not be produced: no number"
+    );
+}
+
+#[test]
+fn a_generator_that_produces_an_empty_journey_id_makes_creating_the_instance_fail() {
+    let orders = orders()
+        .id_generator(|_, _| Ok(String::new()))
+        .build()
+        .unwrap();
+    let error = orders.instance(Orders::new()).create().unwrap_err();
+
+    assert!(matches!(
+        error,
+        InstanceError::EmptyJourneyId(EmptyJourneyId)
+    ));
+    assert_eq!(
+        error.to_string(),
+        "the journey ID could not be produced: a journey ID cannot be empty"
     );
 }
 
