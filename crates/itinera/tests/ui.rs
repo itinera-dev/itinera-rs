@@ -588,6 +588,12 @@ mod workflow {
     }
 
     #[test]
+    fn an_input_adapter_is_synchronous() -> Result<(), Box<dyn Error>> {
+        fails_to_compile("tests/ui/workflow/an_asynchronous_input_adapter.rs");
+        described::main()
+    }
+
+    #[test]
     fn an_input_adapter_takes_no_contributor() -> Result<(), Box<dyn Error>> {
         fails_to_compile("tests/ui/workflow/a_contributor_in_an_input_adapter.rs");
         described::main()

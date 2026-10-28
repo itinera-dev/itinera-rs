@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0054](https://github.com/itinera-dev/spec/blob/main/proposals/0054-how-custom-code-fails.md), implemented in [#22](https://github.com/itinera-dev/itinera-rs/issues/22). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals. Proposal [0102](0102-global-metadata.md) amends it, and its tech spec covers the abort `reserved metadata key` and a reporter that fails on global metadata. Proposal [0122](0122-unexpected-results.md) amends it too, and its tech spec gives the shape of every call into custom code, and why none can return an unexpected result.
 
-Status: done in stage 7. Stage 1 added the error type, and stages 3 to 7 the executors, steps, hooks and roles that return it. The proofs of the rules made impossible to express landed with their features: those of values and late handles in stage 5, of modes in stage 6, and of lifecycles and roles in stage 7.
+Status: done in stage 7. Stage 1 added the error type, and stages 3 to 7 the executors, steps, hooks and roles that return it. The proofs of the rules made impossible to express landed with their features: those of values and late handles in stage 5, of modes in stage 6, and of lifecycles and roles in stage 7. The proof that an input adapter cannot be asynchronous came with the cases' `v0.1.0-rc.19`.
 
 ## API
 
@@ -31,6 +31,7 @@ Rust makes all six rules of point 4, the sixth added by proposal 0091, impossibl
 | `@invalid-lifecycle` | A lifecycle a hook may not return aborts the journey | `a_failure_hook_cannot_finish_the_workflow` |
 | `@role-not-provided` | A policy needing a role the workflow does not provide is refused at admission | `a_policy_cannot_be_attached_to_a_workflow_that_does_not_provide_its_role` |
 | `@mode-not-accepted` | A synchronous-only executor refuses an asynchronous step before the journey starts | `a_synchronous_executor_cannot_run_an_asynchronous_step` |
+| `@mode-not-accepted` | A synchronous-only executor refuses an asynchronous input adapter before the journey starts | `an_input_adapter_cannot_be_asynchronous` |
 | `@non-value` | A step that contributes a non-value aborts the journey | `a_step_cannot_contribute_a_non_value` |
 | `@non-value` | Initial data holding a non-value is refused before any journey | `initial_data_cannot_hold_a_non_value` |
 | `@non-value` | An input adapter that supplies a non-value aborts with "step could not be built" | `an_input_adapter_cannot_supply_a_non_value` |
@@ -40,7 +41,7 @@ Rust makes all six rules of point 4, the sixth added by proposal 0091, impossibl
 | `@late-handle` | An adapter's access kept from an earlier call shows nothing later | `an_adapters_access_to_the_data_bag_cannot_outlive_its_call` |
 | `@bag-write` | An adapter that writes through its access leaves the data bag unchanged | `an_adapter_cannot_write_through_its_access_to_the_data_bag` |
 
-The tech specs of the proposals whose scenarios they are say how each proof works: [0010](0010-hooks-lifecycles-and-roles.md), [0012](0012-local-executor.md), [0056](0056-data-bag-values.md), [0064](0064-event-data-values.md), [0011](0011-events.md), [0057](0057-handles-valid-during-their-attempt.md) and [0091](0091-adapters-read-the-data-bag.md).
+The tech specs of the proposals whose scenarios they are say how each proof works: [0010](0010-hooks-lifecycles-and-roles.md), [0012](0012-local-executor.md), [0060](0060-input-adapters-attached-to-steps.md), [0056](0056-data-bag-values.md), [0064](0064-event-data-values.md), [0011](0011-events.md), [0057](0057-handles-valid-during-their-attempt.md) and [0091](0091-adapters-read-the-data-bag.md).
 
 ## Tests
 
@@ -48,7 +49,7 @@ The tech specs of the proposals whose scenarios they are say how each proof work
 - Unit tests in `itinera-core/src/engine/hooks.rs`: `a_hook_that_fails_aborts_the_journey_with_its_error`.
 - Unit tests in `itinera-core/src/engine/guard/tests.rs`: `a_reporter_that_fails_aborts_the_journey_and_only_journey_aborted_reaches_the_others`.
 - Unit tests in `itinera-core/src/journey.rs` and `journey/result/status_kind.rs`: `causes_and_abort_reasons_display_as_the_specification_writes_them` and `statuses_display_as_the_specification_writes_them`.
-- The eleven proofs above, in `itinera/tests/proofs.rs`.
+- The twelve proofs above, in `itinera/tests/proofs.rs`.
 
 ## Done when
 

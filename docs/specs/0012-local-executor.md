@@ -30,12 +30,14 @@ Status: done in stage 6. Stage 3 added both executors and the engine they share,
 - Unit tests in `itinera-core/src/executor/asynchronous/tests.rs`: an asynchronous workflow emits its events in order to both kinds of reporter, and its future is `Send`; an asynchronous workflow may list only synchronous reporters.
 - Unit tests in `itinera-core/src/engine.rs`: events are numbered from 1, and carry the journey ID, the workflow name and the time of the engine's clock.
 - Compile-fail tests in `itinera/tests/ui.rs`, each with a twin that compiles and runs: `an_instance_runs_at_most_one_journey`, where the twin runs a new instance instead, and `an_executor_runs_one_journey_at_a_time`, where two scoped threads call `run` on one executor, and the twin's second journey runs after the first thread.
-- A proof in `itinera/tests/proofs.rs`, `a_synchronous_executor_cannot_run_an_asynchronous_step`: handing `LocalExecutor` an instance of an asynchronous workflow fails to compile, and its twin, which hands it to `AsyncLocalExecutor`, compiles and runs. It covers the scenario tagged `@mode-not-accepted`, as the tech spec of 0042 says.
+- A proof in `itinera/tests/proofs.rs`, `a_synchronous_executor_cannot_run_an_asynchronous_step`: handing `LocalExecutor` an instance of an asynchronous workflow fails to compile, and its twin, which hands it to `AsyncLocalExecutor`, compiles and runs. It covers the scenario of an asynchronous step tagged `@mode-not-accepted`, as the tech spec of 0042 says.
 - The conformance runner runs the scenarios of 0012 under both executors, running two journeys with one executor where a scenario says so.
 
 ## Excluded scenarios
 
 The scenario "A synchronous-only executor refuses an asynchronous step before the journey starts" is tagged `@mode-not-accepted`, and proven impossible to express by `a_synchronous_executor_cannot_run_an_asynchronous_step` in `crates/itinera/tests/proofs.rs`. It hands `LocalExecutor` an instance of an asynchronous workflow, which does not compile, and its twin hands the instance to `AsyncLocalExecutor`, which compiles and runs the journey.
+
+The scenario "A synchronous-only executor refuses an asynchronous input adapter before the journey starts", also tagged `@mode-not-accepted`, is tagged `@proposal-0060` as well, and its proof, `an_input_adapter_cannot_be_asynchronous`, belongs to the tech spec of [0060](0060-input-adapters-attached-to-steps.md).
 
 ## Done when
 

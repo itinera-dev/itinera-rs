@@ -1,5 +1,5 @@
 {
-  "cases": "v0.1.0-rc.18",
+  "cases": "v0.1.0-rc.19",
   "proposals": [2, 3, 8, 9, 10, 11, 12, 24, 27, 32, 40, 41, 42, 49, 54, 55, 56, 57, 58, 60, 61, 62, 63, 64, 65, 81, 83, 85, 91, 95, 98, 102, 104, 106, 108, 116, 119, 121, 122],
   "capabilities": ["sync", "async", "testing"],
   "impossible": {
@@ -104,6 +104,11 @@
         "feature": "cases/tier-1/0012-local-executor/local-executor.feature",
         "scenario": "A synchronous-only executor refuses an asynchronous step before the journey starts",
         "proof": { "test": "a_synchronous_executor_cannot_run_an_asynchronous_step", "file": "crates/itinera/tests/proofs.rs" }
+      },
+      {
+        "feature": "cases/tier-1/0012-local-executor/local-executor.feature",
+        "scenario": "A synchronous-only executor refuses an asynchronous input adapter before the journey starts",
+        "proof": { "test": "an_input_adapter_cannot_be_asynchronous", "file": "crates/itinera/tests/proofs.rs" }
       },
       {
         "feature": "cases/tier-1/0095-services-provided-to-steps/admission.feature",
