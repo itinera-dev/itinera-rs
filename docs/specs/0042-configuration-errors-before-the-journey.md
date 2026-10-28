@@ -16,6 +16,7 @@ Status: done in stage 6. Stage 4 added admission, which refuses a workflow put t
 | Declaration violations are reported when the workflow is built, every one of them | `WorkflowBuilder::build` |
 | No journey starts, the ID generator is not called and no event is emitted | types: a refused workflow has no descriptor, so no instance can be created and nothing can run |
 | `mode not accepted` is caught before the journey starts | types: an instance of a workflow whose mode the executor does not accept does not compile as an argument to its `run` |
+| `mode not accepted` covers an input adapter in a mode the executor does not accept | types: an input adapter is a plain function in both modes, so an asynchronous one cannot be written, as the tech spec of [0060](0060-input-adapters-attached-to-steps.md) says |
 
 The violation `mode not accepted` can never occur at run time, so `ViolationKind` has no variant for it. Nor has `role not provided`: types make that violation impossible to express too, and its proof belongs to the tech spec of [0010](0010-hooks-lifecycles-and-roles.md).
 

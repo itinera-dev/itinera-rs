@@ -183,6 +183,12 @@ fn a_synchronous_workflow_cannot_have_an_asynchronous_provider() {
 }
 
 #[test]
+fn an_input_adapter_cannot_be_asynchronous() {
+    fails_to_compile("tests/proofs/mode-not-accepted/asynchronous_input_adapter.rs");
+    input_adapter_value::main();
+}
+
+#[test]
 fn a_script_cannot_describe_a_negative_attempt() -> Result<(), Box<dyn Error>> {
     fails_to_compile("tests/proofs/attempt-negative/negative_attempt.rs");
     attempt_counted_from_one::main()

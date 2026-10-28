@@ -1,0 +1,5 @@
+error: an input adapter or ID generator is synchronous
+   --> tests/ui/workflow/an_asynchronous_input_adapter.rs:104:5
+    |
+104 |     async fn pricing(
+    |     ^^^^^

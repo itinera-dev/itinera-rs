@@ -2,7 +2,7 @@
 
 Tech spec for [proposal 0060](https://github.com/itinera-dev/spec/blob/main/proposals/0060-input-adapters-attached-to-steps.md), implemented in [#27](https://github.com/itinera-dev/itinera-rs/issues/27). The [tier 1 plan](../tier-1-plan.md) holds what crosses proposals.
 
-Status: done in stage 7. Stage 4 declared input adapters attached to steps, with their names, their violations and their place in the listing. Stage 5 made them supply values, leaving to the data bag the inputs they do not supply. Stage 7 made them hooks of the workflow, of the kind `InputAdapter`, with their own requests.
+Status: done in stage 7. Stage 4 declared input adapters attached to steps, with their names, their violations and their place in the listing. Stage 5 made them supply values, leaving to the data bag the inputs they do not supply. Stage 7 made them hooks of the workflow, of the kind `InputAdapter`, with their own requests. The proof that an input adapter cannot be asynchronous came with the cases' `v0.1.0-rc.19`.
 
 ## API
 
@@ -33,6 +33,7 @@ Status: done in stage 7. Stage 4 declared input adapters attached to steps, with
 | The adapter's own `optional_input_absent` events come before `input_adapter_supplied` or `input_adapter_failed`, or before the events of the default resolution | the engine resolves the adapter's requests before calling it |
 | The listing shows each step's adapter by name | `listing()`, through `ListedStep::adapter` |
 | Adapters serve steps only, never hooks | the engine asks an adapter only while it resolves a step's inputs |
+| An adapter in an execution mode the executor does not accept is refused with `mode not accepted` | types: `InputAdapterDescriptor::new` takes only a plain function, so an asynchronous adapter cannot be written, and every adapter runs under both executors; `#[workflow]` refuses an `async fn` marked `#[input_adapter]` |
 
 ## Tests
 
@@ -40,7 +41,13 @@ Status: done in stage 7. Stage 4 declared input adapters attached to steps, with
 - Unit tests in `itinera-core/src/workflow/violation/admission/adapters.rs`: the cases `two_adapters_on_one_step` and `an_adapter_on_a_step_the_workflow_does_not_have` of `a_workflow_whose_input_adapters_are_declared_wrongly_is_refused_with_its_violation`. Its case of two adapters with one name belongs to the tech spec of [0116](0116-duplicate-adapter-names.md).
 - Unit tests in `itinera-core/src/workflow/listing.rs`: `a_workflow_is_listed_in_order_without_running_anything`.
 - A proof in `itinera/tests/proofs.rs`, `an_input_adapter_cannot_supply_a_non_value`, belongs to the tech spec of [0056](0056-data-bag-values.md).
+- A proof in `itinera/tests/proofs.rs`, `an_input_adapter_cannot_be_asynchronous`: an `async fn` given to `InputAdapterDescriptor::new` fails to compile, and its twin, a synchronous adapter, compiles and runs. It covers the scenario tagged `@mode-not-accepted` below.
+- A compile-fail test in `itinera/tests/ui.rs`, `an_input_adapter_is_synchronous`: `#[workflow]` refuses an `async fn` marked `#[input_adapter]`, and its twin, the workflow the macro tests share, compiles and runs.
+
+## Excluded scenarios
+
+The scenario "A synchronous-only executor refuses an asynchronous input adapter before the journey starts", of `cases/tier-1/0012-local-executor/`, is tagged `@proposal-0060` and `@mode-not-accepted`, besides `@proposal-0012`, which its feature carries, and proven impossible to express by `an_input_adapter_cannot_be_asynchronous` in `crates/itinera/tests/proofs.rs`. Since itinera-rs makes an input adapter a plain function in both execution modes, as the API section says, an asynchronous one cannot be written, and no executor meets one.
 
 ## Done when
 
-Every scenario tagged `@proposal-0060` passes, and 60 is listed in `conformance.json`. Done in stage 7.
+Every scenario tagged `@proposal-0060` passes or is proven impossible to express, and 60 is listed in `conformance.json`. Done in stage 7.
