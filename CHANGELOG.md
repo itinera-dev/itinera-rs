@@ -2,6 +2,14 @@
 
 Every release of the crates `itinera`, `itinera-core` and `itinera-macros`, which share one version. Each release says the version of the [Itinera specification](https://github.com/itinera-dev/spec) it implements, the tier, the capabilities claimed and the [conformance cases](https://github.com/itinera-dev/conformance) it passes; its conformance report is attached to its GitHub release. Before 1.0, a breaking change raises the minor version and a fix the patch version.
 
+## [0.1.0-beta.7]
+
+The seventh beta, which breaks no code written for `0.1.0-beta.6`: specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.20`. What a journey does is unchanged. It follows two corrections the cases carry: an input adapter in an execution mode the executor does not accept is refused as `mode not accepted`, which Rust rules out since an input adapter cannot be asynchronous, and a scripted run no longer needs an attempt that cannot happen after a rescue step scripted to fail or to end in an abnormal termination. The minimum supported Rust version is 1.85.
+
+### Fixed
+
+- With the `testing` feature, `instance::StepScripting::run` no longer panics when the script leaves out the attempt after a rescued step's attempt 1 and its rescue step is scripted to fail or end in an abnormal termination, an attempt that never runs.
+
 ## [0.1.0-beta.6]
 
 The sixth beta, which breaks code written for `0.1.0-beta.5`: specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.18`. It implements proposal 0121, on copies that keep received data read-only, which itinera makes by cloning, and proposal 0122, on custom code that returns something its call cannot return, which Rust's types rule out, and on journey IDs, which are strings that are not empty. What a journey does is unchanged; only creating an instance whose ID generator produces an empty string now fails. The minimum supported Rust version is 1.85.
@@ -99,6 +107,7 @@ The first beta: specification 0.1.0, tier 1, capabilities `sync`, `async` and `t
 - With the `macros` feature, on by default, attributes and derives that declare steps, rescue steps, policies, workflows with their service providers, roles and journey data as syntax over the builder. A workflow declared with `#[workflow]` takes its mode from its steps and refuses steps of both modes, and `#[service]` takes a service only as a trait object, such as `&dyn PaymentGateway`, refusing a concrete type.
 - Compile errors, instead of checks while a journey runs, for the rules the specification lets an implementation make impossible to express: a lifecycle a hook may not return, a role the workflow does not provide, an asynchronous part on the synchronous executor or an asynchronous service provider in a synchronous workflow, a rescue step that skips, a service provider of journey scope requesting the step being built or the attempt, a service provider returning nothing, a non-value entering the data bag, event data, a reason's details or global metadata, handles used after their attempt or call, and an input adapter writing to the data bag.
 
+[0.1.0-beta.7]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.7
 [0.1.0-beta.6]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.6
 [0.1.0-beta.5]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.5
 [0.1.0-beta.4]: https://github.com/itinera-dev/itinera-rs/releases/tag/v0.1.0-beta.4
