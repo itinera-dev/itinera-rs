@@ -9,7 +9,7 @@ Code samples show the intended shape. Names of attributes and methods may still 
 ## What this plan implements
 
 - **Specification 0.1.0, tier 1**: proposals 0002, 0008, 0009, 0010, 0011, 0012, 0024, 0027, 0032, 0040, 0041, 0042, 0049, 0054, 0055, 0056, 0057, 0058, 0060, 0061, 0062, 0063, 0064, 0065, 0081, 0083, 0085 and 0091, which amends 0010, 0054 and 0060; and 0003, rescue steps, 0095, services provided to steps, 0098, input adapters and service providers for rescue steps, 0102, global metadata passed to every reporter, 0104, the implementation a service provider made, 0106, retries decided by the retry budget alone, 0116, duplicate adapter names, 0121, copies that keep received data read-only, and 0122, custom code that returns an unexpected result, which joined tier 1 later. Not 0113, value conversions, whose every case needs the capability `value-conversions`, which Rust does not claim, since it stores a value as it is and reads it back by its exact type, calling no conversion. Also 0108, test support, and 0119, which amends it, listed because Rust claims `testing`, though they count towards no tier.
-- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0-rc.20`, and later candidates as they are tagged.
+- **The cases** at [itinera-dev/conformance](https://github.com/itinera-dev/conformance) `v0.1.0`, which hold the cases of the last candidate, `v0.1.0-rc.20`, unchanged.
 - **Capabilities claimed**: `sync`, `async` and `testing`.
 - **Rules made impossible to express** (proposal 0054): `invalid-lifecycle`, `role-not-provided`, `mode-not-accepted`, `non-value`, `late-handle`, `bag-write`, `rescue-skip`, `journey-scope-request`, `no-instance`, `attempt-negative`, `attempt-fraction`, `unexpected-result` and `non-string-journey-id`.
 
@@ -470,8 +470,8 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
 - **Versions are independent of the specification's.** The first release is `0.1.0-beta.1`. The README and the crate documentation say what each release implements: "specification 0.1.0, tier 1, capabilities `sync`, `async` and `testing`, cases `v0.1.0-rc.N`".
 - **The path to 0.1.0**:
   1. while the specification is in release candidates, Rust releases betas, `0.1.0-beta.N`, pinning the latest cases candidate, since a beta says it is not yet meant for production and may still gain features;
-  2. once Rust, the first implementation, passes every tier 1 case, the specification and conformance are tagged `v0.1.0`;
-  3. Rust then releases `0.1.0`, pinning cases `v0.1.0`.
+  2. once every tier 1 case passed, the specification and conformance were tagged `v0.1.0`, with the cases of rc.20 unchanged;
+  3. Rust then released `0.1.0`, pinning cases `v0.1.0`, with the code of `0.1.0-beta.7`.
 - **A release is requested by a maintainer pushing a tag `v*` on `main`**; a repository ruleset restricts those tags to maintainers. The release workflow runs four jobs:
   1. **gate**: the `release-gate` action checks that the tag matches the workspace version, that the commit is on `main`, that `CHANGELOG.md` has notes for the version, and that `conformance.json` lists every proposal of the tier claimed, taken from the `@proposal-NNNN` tags of the cases at the pinned version;
   2. **CI**: every check of `ci.yml`, called as a reusable workflow on the tagged commit, since its run on `main` after a merge blocks nothing; its conformance job produces the report;

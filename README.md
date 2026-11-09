@@ -100,7 +100,7 @@ It prints `40 (charged 40)`. The crate's [examples](https://github.com/itinera-d
 
 ## Status
 
-`0.1.0-beta.7` implements tier 1 of specification 0.1.0, with the capabilities `sync`, `async` and `testing`, and passes the conformance cases `v0.1.0-rc.20`. It is a beta, not yet meant for production: until `0.1.0`, features may be added and its API may still change. The [changelog](https://github.com/itinera-dev/itinera-rs/blob/main/CHANGELOG.md) says what each release implements, and each [GitHub release](https://github.com/itinera-dev/itinera-rs/releases) carries the report of the conformance cases it passes. The minimum supported Rust version is 1.85.
+`0.1.0`, the first release that is not a pre-release, implements tier 1 of specification 0.1.0, with the capabilities `sync`, `async` and `testing`, and passes the conformance cases `v0.1.0`. Before 1.0, a change that breaks code written for a release raises the minor version. The [changelog](https://github.com/itinera-dev/itinera-rs/blob/main/CHANGELOG.md) says what each release implements, and each [GitHub release](https://github.com/itinera-dev/itinera-rs/releases) carries the report of the conformance cases it passes. The minimum supported Rust version is 1.85.
 
 ## Features
 
