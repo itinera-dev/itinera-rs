@@ -16,6 +16,9 @@ help: the type constructed contains `Result<Ship, itinera::error::Error>` due to
    |                                                   ^^^^^^^^ this argument influences the type of `Ok`
 note: tuple variant defined here
   --> $RUST/core/src/result.rs
+   |
+   |     Ok(#[stable(feature = "rust1", since = "1.0.0")] T),
+   |     ^^
 help: use the `?` operator to extract the `Result<Ship, itinera::error::Error>` value, propagating a `Result::Err` value to the caller
    |
 16 |     fn new(#[input] gift_note: Option<String>) -> Fallible?<Self> {

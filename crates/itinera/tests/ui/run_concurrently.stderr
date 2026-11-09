@@ -16,3 +16,6 @@ error[E0499]: cannot borrow `executor` as mutable more than once at a time
    |
 note: requirement that the value outlives `'1` introduced here
   --> $RUST/std/src/thread/scoped.rs
+   |
+   |         F: FnOnce() -> T + Send + 'scope,
+   |                                   ^^^^^^

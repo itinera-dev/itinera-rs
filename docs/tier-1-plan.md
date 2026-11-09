@@ -431,7 +431,7 @@ Proposal 0091, which lets an input adapter read the data bag, joined tier 1 afte
 
 ### 18. Toolchain, dependencies, features and documentation
 
-- **`rust-toolchain.toml`** pins Rust 1.98.1 with `rustfmt` and `clippy`. Moving to a newer version is a pull request of its own, which also refreshes the stored compiler messages.
+- **`rust-toolchain.toml`** pins Rust 1.98.1 with `rustfmt`, `clippy` and `rust-src`. With `rust-src`, rustc quotes the line of the standard library a note points to, and without it, it does not, so the stored compiler messages are recorded with it, and rustup installs it for every checkout. Moving to a newer version is a pull request of its own, which also refreshes the stored compiler messages.
 - **The minimum supported Rust version is 1.85**, declared as `rust-version`. Before 1.0, raising it is allowed in a minor release, and the changelog says so. It is a promise to users of the published crates, so the conformance runner, which is not published, follows cucumber-rs instead: it declares 1.88, and the minimum-version check leaves it out.
 - **Dependencies**, each with default features off:
 
