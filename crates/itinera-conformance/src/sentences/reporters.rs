@@ -96,7 +96,7 @@ fn received_by<'a>(world: &World, name: &'a str) -> Result<Received<'a>, Unmet> 
 type Received<'a> = (&'a str, Vec<Event>, Vec<(NonZeroU64, Line)>);
 
 #[then(expr = "the reporter {string} received the event {string}")]
-fn the_reporter_received_the_event(
+pub(crate) fn the_reporter_received_the_event(
     world: &mut World,
     reporter: String,
     event: String,
@@ -105,7 +105,7 @@ fn the_reporter_received_the_event(
 }
 
 #[then(expr = "the reporter {string} received the event {string} {int} times")]
-fn the_reporter_received_the_event_times(
+pub(crate) fn the_reporter_received_the_event_times(
     world: &mut World,
     reporter: String,
     event: String,
@@ -115,7 +115,7 @@ fn the_reporter_received_the_event_times(
 }
 
 #[then(expr = "the reporter {string} did not receive the event {string}")]
-fn the_reporter_did_not_receive_the_event(
+pub(crate) fn the_reporter_did_not_receive_the_event(
     world: &mut World,
     reporter: String,
     event: String,

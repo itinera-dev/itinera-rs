@@ -51,6 +51,7 @@ pub(crate) fn declared<M: Declares>(
     witness: &Witness,
 ) -> Result<WorkflowBuilder<ScriptedWorkflow, M>, ModelError> {
     let workflow = model.workflow()?;
+    model.require_bound()?;
     let steps = workflow
         .steps
         .iter()
@@ -200,13 +201,10 @@ mod tests {
             vec!["audit".to_owned(), "alarm".to_owned()],
         );
         workflow.policies.push("notify".to_owned());
-        workflow.adapters.push(Adapter {
-            name: "pricing".to_owned(),
-            steps: vec!["ship".to_owned()],
-            answers: Vec::new(),
-            requests: Vec::new(),
-            data_bag: false,
-        });
+        workflow.adapters.push(Adapter::named(
+            "pricing".to_owned(),
+            vec!["ship".to_owned()],
+        ));
 
         let descriptor = declared_synchronously(&model).unwrap().build().unwrap();
 

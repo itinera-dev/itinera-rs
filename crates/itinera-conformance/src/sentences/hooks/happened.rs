@@ -14,7 +14,7 @@ use crate::witness::Call;
 use crate::world::World;
 
 #[then(expr = "the hook {string} of policy {string} was called {int} times")]
-fn the_hook_was_called_times(
+pub(crate) fn the_hook_was_called_times(
     world: &mut World,
     hook: String,
     policy: String,
@@ -24,7 +24,11 @@ fn the_hook_was_called_times(
 }
 
 #[then(expr = "the hook {string} of policy {string} was not called")]
-fn the_hook_was_not_called(world: &mut World, hook: String, policy: String) -> Result<(), Unmet> {
+pub(crate) fn the_hook_was_not_called(
+    world: &mut World,
+    hook: String,
+    policy: String,
+) -> Result<(), Unmet> {
     called(world, &policy, &hook, 0)
 }
 

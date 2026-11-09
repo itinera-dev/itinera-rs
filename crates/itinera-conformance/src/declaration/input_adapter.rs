@@ -8,7 +8,7 @@ use itinera::value::Value as Storable;
 use itinera::workflow::{InputAdapter, InputAdapterDescriptor, Supplied};
 
 use super::{ScriptedWorkflow, leaked, step_name};
-use crate::model::{Adapter, Answer, ModelError, ValueType};
+use crate::model::{Adapter, Answer, Answering, ModelError, ValueType, is_for_step};
 use crate::policy::requiring_from_workflow;
 use crate::value::{ForType, Typed, for_type};
 
@@ -27,7 +27,7 @@ pub(super) fn input_adapter(
     let answers = adapter
         .answers
         .iter()
-        .map(Answering::of)
+        .map(TypedAnswer::of)
         .collect::<Result<Vec<_>, _>>()?;
     let needs = adapter
         .requests
@@ -49,8 +49,9 @@ pub(super) fn input_adapter(
 
 /// A scripted adapter's answer for one key, with its value typed.
 #[derive(Debug)]
-struct Answering {
+struct TypedAnswer {
     key: String,
+    step: Option<String>,
     answer: Answered,
 }
 
@@ -63,9 +64,9 @@ enum Answered {
     StepName,
 }
 
-impl Answering {
-    fn of((key, answer): &(String, Answer)) -> Result<Self, ModelError> {
-        let answer = match answer {
+impl TypedAnswer {
+    fn of(answering: &Answering) -> Result<Self, ModelError> {
+        let answer = match &answering.answer {
             Answer::Value(value) => Answered::Value(Typed::of(value)?),
             Answer::Nothing => Answered::Nothing,
             Answer::Fails(message) => Answered::Fails(message.clone()),
@@ -75,20 +76,21 @@ impl Answering {
             Answer::StepName => Answered::StepName,
         };
         Ok(Self {
-            key: key.clone(),
+            key: answering.key.clone(),
+            step: answering.step.clone(),
             answer,
         })
     }
 
-    fn is_for(&self, key: &str) -> bool {
-        self.key == key
+    fn is_for(&self, key: &str, step: StepName) -> bool {
+        self.key == key && is_for_step(self.step.as_deref(), step.as_ref())
     }
 }
 
 /// What the adapter answers for the key it is called for: nothing for a key its script does not
 /// mention.
 fn answer(
-    answers: &[Answering],
+    answers: &[TypedAnswer],
     got: &mut Requested<'_, ScriptedWorkflow, InputAdapter>,
 ) -> Result<Supplied, Error> {
     let key = got.key();
@@ -107,7 +109,7 @@ pub(crate) fn answer_alone(
     let answers = adapter
         .answers
         .iter()
-        .map(Answering::of)
+        .map(TypedAnswer::of)
         .collect::<Result<Vec<_>, _>>()?;
     Ok(answered(&answers, key, step_name(step)?, || Ok(bag)))
 }
@@ -115,14 +117,14 @@ pub(crate) fn answer_alone(
 /// What the adapter answers for the input `key` of the step, reading the data bag `data_bag`
 /// gives, when its answer reads it.
 fn answered<'a>(
-    answers: &[Answering],
+    answers: &[TypedAnswer],
     key: &str,
     step: StepName,
     data_bag: impl FnOnce() -> Result<&'a DataBag, Error>,
 ) -> Result<Supplied, Error> {
     let answered = answers
         .iter()
-        .find(|answering| answering.is_for(key))
+        .find(|answering| answering.is_for(key, step))
         .map(|answering| &answering.answer);
     match answered {
         Some(Answered::Value(value)) => Ok(Supplied::Value(value.clone().erased())),

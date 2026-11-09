@@ -29,6 +29,14 @@ impl Row {
         self.cells.iter().map(|(name, _)| name.as_str())
     }
 
+    /// Fails when the row has a column that is not one of these.
+    pub(crate) fn only(&self, columns: &[&str]) -> Result<(), ModelError> {
+        match self.columns().find(|column| is_outside(column, columns)) {
+            Some(column) => Err(ModelError::UnknownColumn(column.to_owned())),
+            None => Ok(()),
+        }
+    }
+
     pub(crate) fn required(&self, column: &'static str) -> Result<&str, ModelError> {
         self.optional(column).ok_or(ModelError::MissingCell(column))
     }
@@ -61,6 +69,10 @@ fn is_under((name, _): &&(String, String), column: &str) -> bool {
     name == column
 }
 
+fn is_outside(column: &str, columns: &[&str]) -> bool {
+    !columns.contains(&column)
+}
+
 /// The text of a cell, unless it is empty.
 fn filled(cell: &str) -> Option<&str> {
     (!cell.is_empty()).then_some(cell)
@@ -72,17 +84,9 @@ mod tests {
 
     use super::*;
 
-    fn row(cells: &[(&str, &str)]) -> Row {
-        cells.iter().map(owned).collect()
-    }
-
-    fn owned(&(name, cell): &(&str, &str)) -> (String, String) {
-        (name.to_owned(), cell.to_owned())
-    }
-
     #[test]
     fn an_empty_cell_counts_as_no_cell() {
-        let row = row(&[("code", ""), ("message", "late")]);
+        let row = Row::of(&[("code", ""), ("message", "late")]);
         assert_eq!(row.optional("code"), None);
         assert_eq!(
             row.required("code").unwrap_err(),
@@ -98,7 +102,17 @@ mod tests {
         #[case] column: &'static str,
         #[case] parsed: Result<u32, ModelError>,
     ) {
-        let row = row(&[("attempt", "2"), ("count", "two")]);
+        let row = Row::of(&[("attempt", "2"), ("count", "two")]);
         assert_eq!(row.parse::<u32>(column), parsed);
+    }
+
+    #[test]
+    fn a_row_with_a_column_its_table_does_not_define_is_refused() {
+        let row = Row::of(&[("step", "charge"), ("retries", "2")]);
+        assert_eq!(row.only(&["step", "retries"]), Ok(()));
+        assert_eq!(
+            row.only(&["step"]),
+            Err(ModelError::UnknownColumn("retries".to_owned()))
+        );
     }
 }

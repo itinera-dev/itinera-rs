@@ -1,5 +1,7 @@
 //! Policies, and what their hooks request from the step.
 
+mod tables;
+
 use cucumber::given;
 
 use super::Names;
@@ -25,7 +27,7 @@ fn a_workflow_policy_defines_the_hook(
 }
 
 #[given(expr = "step {string} has the policies {names}")]
-fn step_has_the_policies(
+pub(super) fn step_has_the_policies(
     world: &mut World,
     step_name: String,
     policies: Names,
@@ -46,7 +48,10 @@ fn step_has_the_policies(
 }
 
 #[given(expr = "the workflow has the policies {names}")]
-fn the_workflow_has_the_policies(world: &mut World, policies: Names) -> Result<(), ModelError> {
+pub(super) fn the_workflow_has_the_policies(
+    world: &mut World,
+    policies: Names,
+) -> Result<(), ModelError> {
     policies
         .as_ref()
         .iter()

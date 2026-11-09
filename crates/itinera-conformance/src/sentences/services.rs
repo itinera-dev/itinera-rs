@@ -1,5 +1,6 @@
 //! Services: what steps request, and what the workflow's service providers do.
 
+mod binding;
 mod requests;
 
 use cucumber::given;
@@ -12,7 +13,7 @@ use crate::model::{
 use crate::world::World;
 
 #[given(expr = "step {string} requests the service {string} of type {service}")]
-fn step_requests_the_service(
+pub(super) fn step_requests_the_service(
     world: &mut World,
     step_name: String,
     key: String,

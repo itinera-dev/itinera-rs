@@ -58,7 +58,7 @@ fn the_hook_received_data_from_the_workflow_absent(
 }
 
 #[then(expr = "the hook {string} of policy {string} received the step name {string}")]
-fn the_hook_received_the_step_name(
+pub(crate) fn the_hook_received_the_step_name(
     world: &mut World,
     hook: String,
     policy: String,
@@ -68,7 +68,7 @@ fn the_hook_received_the_step_name(
 }
 
 #[then(expr = "the hook {string} of policy {string} received the attempt number {int}")]
-fn the_hook_received_the_attempt_number(
+pub(crate) fn the_hook_received_the_attempt_number(
     world: &mut World,
     hook: String,
     policy: String,
@@ -78,7 +78,7 @@ fn the_hook_received_the_attempt_number(
 }
 
 #[then(expr = "the hook {string} of policy {string} received the journey ID {string}")]
-fn the_hook_received_the_journey_id(
+pub(crate) fn the_hook_received_the_journey_id(
     world: &mut World,
     hook: String,
     policy: String,
@@ -88,7 +88,7 @@ fn the_hook_received_the_journey_id(
 }
 
 #[then(expr = "the hook {string} of policy {string} received the cause {string}")]
-fn the_hook_received_the_cause(
+pub(crate) fn the_hook_received_the_cause(
     world: &mut World,
     hook: String,
     policy: String,
@@ -117,7 +117,7 @@ fn the_hook_received_the_failure_reason(
 }
 
 #[then(expr = "the hook {string} of policy {string} received no failure reason")]
-fn the_hook_received_no_failure_reason(
+pub(crate) fn the_hook_received_no_failure_reason(
     world: &mut World,
     hook: String,
     policy: String,
@@ -135,7 +135,7 @@ fn the_hook_received_an_error(
 }
 
 #[then(expr = "the hook {string} of policy {string} received the error with the message {string}")]
-fn the_hook_received_the_error_with_the_message(
+pub(crate) fn the_hook_received_the_error_with_the_message(
     world: &mut World,
     hook: String,
     policy: String,

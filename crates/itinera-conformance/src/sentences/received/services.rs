@@ -25,7 +25,7 @@ fn the_service_provider_was_called(
 }
 
 #[then(expr = "step {string} was given the service {string} labelled {string} for attempt {int}")]
-fn step_was_given_the_service(
+pub(crate) fn step_was_given_the_service(
     world: &mut World,
     step_name: String,
     key: String,
