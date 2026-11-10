@@ -168,16 +168,9 @@ mod tests {
 
     use super::*;
 
-    fn row(cells: &[(&str, &str)]) -> Row {
-        cells
-            .iter()
-            .map(|(column, cell)| ((*column).to_owned(), (*cell).to_owned()))
-            .collect()
-    }
-
     #[test]
     fn a_row_keeps_what_it_contributes_and_sets_in_the_order_written() {
-        let script = ScriptRow::of(&row(&[
+        let script = ScriptRow::of(&Row::of(&[
             ("step", "charge"),
             ("attempt", "remaining"),
             ("contributes", r#"{"b": 1, "a": 2}"#),
@@ -206,7 +199,7 @@ mod tests {
 
     #[test]
     fn a_row_that_runs_the_real_step_does_nothing_else() {
-        let acting = row(&[
+        let acting = Row::of(&[
             ("step", "charge"),
             ("attempt", "2"),
             ("contributes", r#"{"a": 1}"#),

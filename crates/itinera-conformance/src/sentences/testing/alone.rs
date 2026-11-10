@@ -97,10 +97,7 @@ fn the_input_adapter_is_called_alone(
         .try_fold(DataBag::default(), with_entry)?;
     let declared = world
         .model
-        .workflow()?
-        .adapters
-        .iter()
-        .find(|declared| declared.is_named(&adapter))
+        .adapter(&adapter)
         .ok_or_else(|| ModelError::UnknownAdapter(adapter.clone()))?;
     world.tested.adapter_returned = Some(answer_alone(declared, &input, &step_name, &bag)?);
     Ok(())

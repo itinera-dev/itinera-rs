@@ -3,6 +3,7 @@
 
 mod admission;
 mod building;
+mod checks;
 mod data;
 mod events;
 mod executor;

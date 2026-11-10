@@ -7,6 +7,17 @@ mod steps;
 
 use std::num::NonZeroU32;
 
+pub(super) use hooks::{
+    the_hook_received_no_failure_reason, the_hook_received_the_attempt_number,
+    the_hook_received_the_cause, the_hook_received_the_error_with_the_message,
+    the_hook_received_the_journey_id, the_hook_received_the_step_name,
+};
+pub(super) use services::step_was_given_the_service;
+pub(super) use steps::{
+    step_was_built_for_attempt_with_input, step_was_built_with_input,
+    step_was_built_with_input_absent,
+};
+
 use serde_json::Value;
 
 use crate::model::{Hook, ModelError, Reason};

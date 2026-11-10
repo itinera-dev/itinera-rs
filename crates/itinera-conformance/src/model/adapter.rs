@@ -9,8 +9,8 @@ use super::value::ValueType;
 pub(crate) struct Adapter {
     pub(crate) name: String,
     pub(crate) steps: Vec<String>,
-    /// Its answer for each key a sentence mentions; it returns nothing for any other key.
-    pub(crate) answers: Vec<(String, Answer)>,
+    /// Its answers, in the order written; it returns nothing for any key none of them is for.
+    pub(crate) answers: Vec<Answering>,
     /// Data from the workflow it requests, all required.
     pub(crate) requests: Vec<(String, ValueType)>,
     /// Whether it requests read access to the data bag.
@@ -18,9 +18,28 @@ pub(crate) struct Adapter {
 }
 
 impl Adapter {
+    /// An adapter of this name, attached to these steps, that answers nothing yet.
+    pub(crate) fn named(name: String, steps: Vec<String>) -> Self {
+        Self {
+            name,
+            steps,
+            answers: Vec::new(),
+            requests: Vec::new(),
+            data_bag: false,
+        }
+    }
+
     pub(crate) fn is_named(&self, name: &str) -> bool {
         self.name == name
     }
+}
+
+/// What an adapter answers for a key: for every step, or only when called for one step.
+#[derive(Debug, PartialEq)]
+pub(crate) struct Answering {
+    pub(crate) key: String,
+    pub(crate) step: Option<String>,
+    pub(crate) answer: Answer,
 }
 
 #[derive(Debug, PartialEq)]
@@ -36,9 +55,18 @@ pub(crate) enum Answer {
     StepName,
 }
 
+/// Whether an answer kept to this step, or to none, is for the step.
+pub(crate) fn is_for_step(only: Option<&str>, step: &str) -> bool {
+    only.is_none() || only == Some(step)
+}
+
 /// The value an adapter supplies for this key, when its answer is for it and is a value.
-pub(crate) fn answer_for<'a>((name, answer): &'a (String, Answer), key: &str) -> Option<&'a Value> {
-    if name == key { answer.value() } else { None }
+pub(crate) fn answer_for<'a>(answering: &'a Answering, key: &str) -> Option<&'a Value> {
+    if answering.key == key {
+        answering.answer.value()
+    } else {
+        None
+    }
 }
 
 impl Answer {
@@ -48,5 +76,24 @@ impl Answer {
             Self::Value(value) => Some(value),
             Self::Nothing | Self::Fails(_) | Self::ReadFromDataBag(..) | Self::StepName => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case::for_every_step(None, "ship", true)]
+    #[case::for_this_step(Some("charge"), "charge", true)]
+    #[case::for_another_step(Some("charge"), "ship", false)]
+    fn an_answer_kept_to_a_step_is_the_answer_for_that_step_alone(
+        #[case] only: Option<&str>,
+        #[case] step: &str,
+        #[case] is_for: bool,
+    ) {
+        assert_eq!(is_for_step(only, step), is_for);
     }
 }

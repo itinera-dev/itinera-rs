@@ -13,6 +13,7 @@ use itinera::executor::Refusal;
 use itinera::journey::{JourneyStatus, StatusKind};
 
 pub(super) use failure::fails_at;
+pub(super) use step_status::{Status, step_ended_as_aborted, step_ended_as_after_attempts};
 
 use super::{Unmet, expect, holds, journey, result, stream};
 use crate::model::EventKind;

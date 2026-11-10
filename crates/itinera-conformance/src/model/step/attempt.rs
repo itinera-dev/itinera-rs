@@ -23,6 +23,18 @@ impl Attempt {
             contributes: Vec::new(),
         }
     }
+
+    /// An attempt that ends with a failure of this code, with no message or details.
+    pub(crate) fn failure(code: String) -> Self {
+        Self {
+            outcome: AttemptOutcome::Failure(Reason {
+                code,
+                message: None,
+                details: None,
+            }),
+            contributes: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]

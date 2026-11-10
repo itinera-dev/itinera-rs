@@ -3,6 +3,8 @@
 
 mod adapter;
 mod error;
+#[cfg(test)]
+mod fixtures;
 mod level;
 mod policy;
 mod report;
@@ -17,7 +19,7 @@ use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-pub(crate) use adapter::{Adapter, Answer, answer_for};
+pub(crate) use adapter::{Adapter, Answer, Answering, answer_for, is_for_step};
 pub(crate) use error::ModelError;
 pub(crate) use level::Level;
 pub(crate) use policy::{
@@ -44,6 +46,10 @@ pub(crate) struct Model {
     /// The initial global metadata of the workflow instance, in the order written.
     pub(crate) initial_global_metadata: Vec<(String, Value)>,
     pub(crate) policies: BTreeMap<String, Policy>,
+    /// The input adapters defined and not bound to the workflow yet, in the order defined.
+    defined_adapters: Vec<Adapter>,
+    /// The service providers defined and not bound to the workflow yet, in the order defined.
+    defined_providers: Vec<Provider>,
     /// How the scripted reporters fail, whether the workflow lists them or a dispatcher holds
     /// them; a reporter not here never fails.
     pub(crate) reporter_failures: BTreeMap<String, ReporterFailure>,
@@ -232,22 +238,97 @@ impl Model {
             .ok_or_else(|| ModelError::HookNotDefined(policy.to_owned(), hook))
     }
 
+    /// The input adapter of this name: the first the workflow declares, or else the one defined
+    /// and not bound yet, which the first sentence about it defines.
     pub(crate) fn adapter_mut(&mut self, adapter: &str) -> Result<&mut Adapter, ModelError> {
-        self.workflow_mut()?
-            .adapters
+        if self.adapter(adapter).is_none() {
+            self.defined_adapters
+                .push(Adapter::named(adapter.to_owned(), Vec::new()));
+        }
+        self.workflow
             .iter_mut()
+            .flat_map(|workflow| &mut workflow.adapters)
+            .chain(&mut self.defined_adapters)
             .find(|declared| declared.is_named(adapter))
             .ok_or_else(|| ModelError::UnknownAdapter(adapter.to_owned()))
     }
 
-    /// The service provider of this name; when two have it, the one declared last.
+    /// The input adapter of this name, as `adapter_mut` finds it, if there is one yet.
+    pub(crate) fn adapter(&self, adapter: &str) -> Option<&Adapter> {
+        self.workflow
+            .iter()
+            .flat_map(|workflow| &workflow.adapters)
+            .chain(&self.defined_adapters)
+            .find(|declared| declared.is_named(adapter))
+    }
+
+    /// Declares the input adapter of this name in the workflow, attached to these steps: the one
+    /// defined, or else one that answers nothing, as a second declaration of a name does.
+    pub(crate) fn bind_adapter(
+        &mut self,
+        adapter: &str,
+        steps: Vec<String>,
+    ) -> Result<(), ModelError> {
+        let mut bound = match self
+            .defined_adapters
+            .iter()
+            .position(|defined| defined.is_named(adapter))
+        {
+            Some(position) => self.defined_adapters.remove(position),
+            None => Adapter::named(adapter.to_owned(), Vec::new()),
+        };
+        bound.steps.extend(steps);
+        self.workflow_mut()?.adapters.push(bound);
+        Ok(())
+    }
+
+    /// Defines a service provider, which a later sentence binds to the workflow.
+    pub(crate) fn define_provider(&mut self, provider: Provider) {
+        self.defined_providers.push(provider);
+    }
+
+    /// Declares the service provider of this name defined first and not bound yet in the
+    /// workflow, attached to these steps as well.
+    pub(crate) fn bind_provider(
+        &mut self,
+        provider: &str,
+        steps: Vec<String>,
+    ) -> Result<(), ModelError> {
+        let position = self
+            .defined_providers
+            .iter()
+            .position(|defined| defined.is_named(provider))
+            .ok_or_else(|| ModelError::NotDefined(provider.to_owned()))?;
+        let mut bound = self.defined_providers.remove(position);
+        bound.steps.extend(steps);
+        self.workflow_mut()?.providers.push(bound);
+        Ok(())
+    }
+
+    /// The service provider of this name, declared or defined; when two have it, the one
+    /// declared or defined last.
     pub(crate) fn provider_mut(&mut self, provider: &str) -> Result<&mut Provider, ModelError> {
-        self.workflow_mut()?
-            .providers
+        self.workflow
             .iter_mut()
+            .flat_map(|workflow| &mut workflow.providers)
+            .chain(&mut self.defined_providers)
             .rev()
             .find(|declared| declared.is_named(provider))
             .ok_or_else(|| ModelError::UnknownProvider(provider.to_owned()))
+    }
+
+    /// Fails when an input adapter or a service provider is defined but never bound.
+    pub(crate) fn require_bound(&self) -> Result<(), ModelError> {
+        if let Some(adapter) = self.defined_adapters.first() {
+            return Err(ModelError::NotBound("input adapter", adapter.name.clone()));
+        }
+        match self.defined_providers.first() {
+            Some(provider) => Err(ModelError::NotBound(
+                "service provider",
+                provider.name.clone(),
+            )),
+            None => Ok(()),
+        }
     }
 
     pub(crate) fn role_mut(&mut self, role: &str) -> Result<&mut Role, ModelError> {
@@ -269,91 +350,4 @@ fn value_under<'a>((name, value): &'a (String, Value), key: &str) -> Option<&'a 
 }
 
 #[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::*;
-
-    #[test]
-    fn a_keys_values_are_every_value_the_scenario_gives_it() {
-        let mut model = Model::default();
-        model
-            .declare("orders".to_owned(), vec!["charge".to_owned()])
-            .unwrap();
-        model.initial_data.push(("card".to_owned(), json!("4111")));
-        let charge = model.step_mut("charge").unwrap();
-        charge.actions.push(StepAction::ContributeThenChange {
-            key: "token".to_owned(),
-            value: json!("first"),
-            changed: json!("second"),
-        });
-        charge.attempts = Some(vec![Attempt {
-            outcome: step::AttemptOutcome::Success,
-            contributes: vec![("token".to_owned(), json!("third"))],
-        }]);
-        model
-            .define("record".to_owned(), "on step success", true)
-            .unwrap();
-        model
-            .hook_mut("record", "on step success")
-            .unwrap()
-            .actions
-            .push(HookAction::Contribute {
-                key: "token".to_owned(),
-                value: json!("fourth"),
-            });
-        assert_eq!(model.values_of("card"), [&json!("4111")]);
-        assert_eq!(
-            model.values_of("token"),
-            [
-                &json!("first"),
-                &json!("second"),
-                &json!("third"),
-                &json!("fourth")
-            ]
-        );
-        assert!(model.values_of("note").is_empty());
-    }
-
-    #[test]
-    fn a_step_is_scripted_once_whatever_times_its_name_is_declared() {
-        let mut model = Model::default();
-        model
-            .declare(
-                "orders".to_owned(),
-                vec!["charge".to_owned(), "charge".to_owned()],
-            )
-            .unwrap();
-        model.step_mut("charge").unwrap().retries = 2;
-        let workflow = model.workflow().unwrap();
-        assert_eq!(workflow.steps, ["charge", "charge"]);
-        assert_eq!(workflow.scripts.len(), 1);
-        assert!(model.step_mut("ship").is_err());
-    }
-
-    #[test]
-    fn a_policys_kind_is_set_by_the_sentence_that_defines_its_first_hook() {
-        let mut model = Model::default();
-        model
-            .define("audit".to_owned(), "on step success", true)
-            .unwrap();
-        model
-            .define("audit".to_owned(), "on step retry", true)
-            .unwrap();
-        assert!(
-            model
-                .define("audit".to_owned(), "on workflow success", false)
-                .is_err()
-        );
-        assert!(
-            model
-                .define("notify".to_owned(), "on step success", false)
-                .is_err()
-        );
-        assert!(model.hook_mut("audit", "on step retry").is_ok());
-        assert_eq!(
-            model.hook_mut("audit", "on step failure").unwrap_err(),
-            ModelError::HookNotDefined("audit".to_owned(), Hook::named("on step failure").unwrap())
-        );
-    }
-}
+mod tests;

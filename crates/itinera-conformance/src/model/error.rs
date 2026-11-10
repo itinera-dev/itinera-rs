@@ -21,6 +21,10 @@ pub(crate) enum ModelError {
     UnknownAdapter(String),
     #[error("no service provider \"{0}\" is declared")]
     UnknownProvider(String),
+    #[error("the {0} \"{1}\" is defined, and the workflow never binds it")]
+    NotBound(&'static str, String),
+    #[error("no service provider \"{0}\" is defined and not bound yet")]
+    NotDefined(String),
     #[error("\"{0}\" is not an implementation of a service")]
     UnknownImplementation(String),
     #[error("the service provider \"{0}\" supplies a service of a type with no implementations")]

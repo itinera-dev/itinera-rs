@@ -12,7 +12,7 @@ use crate::witness::{Build, Rescued};
 use crate::world::World;
 
 #[then(regex = r#"^step "([^"]*)" was built with input "([^"]*)" = (.+)$"#)]
-fn step_was_built_with_input(
+pub(crate) fn step_was_built_with_input(
     world: &mut World,
     step_name: String,
     key: String,
@@ -22,7 +22,7 @@ fn step_was_built_with_input(
 }
 
 #[then(expr = "step {string} was built with input {string} absent")]
-fn step_was_built_with_input_absent(
+pub(crate) fn step_was_built_with_input_absent(
     world: &mut World,
     step_name: String,
     key: String,
@@ -31,7 +31,7 @@ fn step_was_built_with_input_absent(
 }
 
 #[then(regex = r#"^step "([^"]*)" was built for attempt (\d+) with input "([^"]*)" = (.+)$"#)]
-fn step_was_built_for_attempt_with_input(
+pub(crate) fn step_was_built_for_attempt_with_input(
     world: &mut World,
     step_name: String,
     attempt: NonZeroU32,

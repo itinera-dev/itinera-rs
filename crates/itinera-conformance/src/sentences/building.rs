@@ -1,8 +1,12 @@
 //! Building a workflow.
 
+mod columns;
+
 use cucumber::gherkin::Step as Sentence;
 use cucumber::given;
 
+use super::Names;
+use super::policies::the_workflow_has_the_policies;
 use crate::model::{Attempt, Input, ModelError, Row, StepAction, ValueType, attempts, json, rows};
 use crate::world::World;
 
@@ -12,11 +16,21 @@ fn a_workflow_with_the_steps(
     #[step] sentence: &Sentence,
     workflow: String,
 ) -> Result<(), ModelError> {
-    let steps = rows(sentence)?
-        .iter()
-        .map(step_name)
-        .collect::<Result<_, _>>()?;
-    world.model.declare(workflow, steps)
+    let rows = rows(sentence)?;
+    let steps = rows.iter().map(step_name).collect::<Result<_, _>>()?;
+    world.model.declare(workflow, steps)?;
+    rows.iter().try_for_each(|row| columns::script(world, row))
+}
+
+#[given(expr = "a workflow {string} with the policies {names} and the steps:")]
+fn a_workflow_with_the_policies_and_the_steps(
+    world: &mut World,
+    #[step] sentence: &Sentence,
+    workflow: String,
+    policies: Names,
+) -> Result<(), ModelError> {
+    a_workflow_with_the_steps(world, sentence, workflow)?;
+    the_workflow_has_the_policies(world, policies)
 }
 
 fn step_name(row: &Row) -> Result<String, ModelError> {
@@ -43,7 +57,7 @@ fn step_requests_optional_input(
     request(world, &step_name, key, value_type, true)
 }
 
-fn request(
+pub(super) fn request(
     world: &mut World,
     step: &str,
     key: String,
@@ -95,7 +109,11 @@ fn step_attempts(
     ends(world, &step_name, attempts(rows(sentence)?)?)
 }
 
-fn ends(world: &mut World, step: &str, attempts: Vec<Attempt>) -> Result<(), ModelError> {
+pub(super) fn ends(
+    world: &mut World,
+    step: &str,
+    attempts: Vec<Attempt>,
+) -> Result<(), ModelError> {
     let script = world.model.step_mut(step)?;
     if script.attempts.is_some() {
         return Err(ModelError::StatedTwice("how the step's attempts end"));

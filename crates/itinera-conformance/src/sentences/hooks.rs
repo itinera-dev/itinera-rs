@@ -6,6 +6,8 @@ mod workflow_hooks;
 
 use cucumber::given;
 
+pub(super) use happened::{the_hook_was_called_times, the_hook_was_not_called};
+
 use super::policies::requests;
 use crate::model::{HookAction, HookRequest, HookReturn, ModelError, ValueType, json};
 use crate::world::World;
@@ -44,7 +46,7 @@ fn the_hook_fails_with(
     returns(world, &policy, &hook, HookReturn::Fails(Some(message)))
 }
 
-fn returns(
+pub(super) fn returns(
     world: &mut World,
     policy: &str,
     hook: &str,

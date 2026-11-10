@@ -11,7 +11,7 @@ use crate::sentences::{Unmet, expect, stream};
 use crate::world::World;
 
 #[then(expr = "step {string} ended as {status} after {int} attempts")]
-fn step_ended_as_after_attempts(
+pub(crate) fn step_ended_as_after_attempts(
     world: &mut World,
     step_name: String,
     status: Status,
@@ -28,7 +28,7 @@ fn step_ended_as_after_attempts(
 }
 
 #[then(expr = "step {string} ended as aborted")]
-fn step_ended_as_aborted(world: &mut World, step_name: String) -> Result<(), Unmet> {
+pub(crate) fn step_ended_as_aborted(world: &mut World, step_name: String) -> Result<(), Unmet> {
     let (events, _) = stream(world)?;
     expect(
         Status::of(&events, &step_name) == Some(Status::Aborted),
@@ -44,7 +44,7 @@ fn step_ended_as_aborted(world: &mut World, step_name: String) -> Result<(), Unm
     regex = "succeeded|failed|skipped|rescuing|not executed|aborted"
 )]
 #[display(rename_all = "lowercase")]
-enum Status {
+pub(crate) enum Status {
     Succeeded,
     Failed,
     Skipped,
